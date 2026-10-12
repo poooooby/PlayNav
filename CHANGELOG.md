@@ -5,6 +5,12 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The ten Wing and stone icons are one atlas, `assets/items.png`, instead of ten files; each
+  item's icon is cut from it once. The credits say the images are © Nintendo / Creatures /
+  GAME FREAK (PokéSprite's own wording), not MIT.
+
 ## [0.2.0] - 2026-10-12 (pre-alpha)
 
 ### Changed
@@ -68,7 +74,7 @@ All notable changes to this mod are documented here. The format follows
 
 - The top screens (Pokémon-Amie, Super Training) are drawn at the window's resolution again;
   they had fallen back to the low-resolution picture enlarged.
-- The item icons' credits and licence are in `assets/credits.txt`.
+- The item icons' credits are in `assets/credits.txt`.
 - With Kanto Gear on, the two mods no longer fight over a second display (AYN Thor). PlayNav
   has it while Amie or Super Training is open: Kanto Gear's picture and taps stay off it until
   they close, then Kanto Gear shows there again at once.

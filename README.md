@@ -186,7 +186,8 @@ Open **OPTIONS → MODS → PlayNav**.
   [CC BY-NC-SA 2.5](https://creativecommons.org/licenses/by-nc-sa/2.5/).
 - **Super Training research:** the Japanese guides at pente.koro-pokemon.com, the ORAS atwiki
   and gamepedia.jp, and the ORAS Wiki.
-- **Wing and stone icons:** [pokesprite](https://github.com/msikma/pokesprite) (MIT). Their names
+- **Wing and stone icons:** [PokéSprite](https://github.com/msikma/pokesprite) (the images are
+  © Nintendo / Creatures Inc. / GAME FREAK Inc.; see `assets/credits.txt`). Their names
   and descriptions come from [PokeAPI](https://pokeapi.co).
 
 ## 💡 Inspirations
@@ -204,6 +205,6 @@ maintainer approves every release. If you find a bug, please open an issue here 
 ---
 
 The mod's code is [MIT](LICENSE). Data drawn from Bulbapedia keeps its CC BY-NC-SA 2.5 licence,
-and the item icons their MIT licence. Pokémon is © Nintendo, Game Freak and The Pokémon Company;
+and the item icons belong to their owners. Pokémon is © Nintendo, Game Freak and The Pokémon Company;
 this is an unofficial fan project. See the [CHANGELOG](CHANGELOG.md) for what each release
 brought. Working on the mod? See [DEVELOPMENT.md](DEVELOPMENT.md).

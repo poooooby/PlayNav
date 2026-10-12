@@ -93,7 +93,7 @@ The in-game decoders are tested against the same data with
 - `shot_types.py` downloads Bulbapedia's "List of Pokemon by Super Training Energy Shot" and
   writes `data/training_shot_types.lua` (386 species, no gaps).
 - `items_pokeapi.py` writes `data/training_items.lua` from PokeAPI (names, effects, flavour text)
-  with the X/Y era "Wing" names and Bulbapedia's prices; the icons come from pokesprite (MIT).
+  with the X/Y era "Wing" names and Bulbapedia's prices; the icons come from PokéSprite (images © Nintendo / Creatures / GAME FREAK; credited in `assets/credits.txt`).
 - `gen6_text.py <romfs> a/0/7/3 [--find text] [--file N] [--vars]` decodes Gen 6 text files.
   Alpha Sapphire's English game text is `a/0/7/3`: file 24 holds the 26 training bag names in
   the game's order, file 27 the bag screen (13-17 Use / Discard / Back / Yes / No, 7 and 8 the

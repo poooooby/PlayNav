@@ -52,12 +52,37 @@ return function(mod, deps)
     return d and d.index or nil
   end
 
+  -- the icons live in one atlas (assets/items.png, 32x32 cells, five to a row; `iconCell`
+  -- in the data); the bag skins want an Image per item, so each is cut out once
+  local CELL, COLS = 32, 5
+  local atlasData
+  local function cellImage(path, cell)
+    local G, LI, LF = love and love.graphics, love and love.image, love and love.filesystem
+    if not (G and LI and LF and mod.read) then return nil end
+    if atlasData == nil then
+      local bytes = mod:read(path)
+      local ok, data = pcall(function() return LI.newImageData(LF.newFileData(bytes, path)) end)
+      atlasData = (bytes and ok and data) or false
+    end
+    if not atlasData then return nil end
+    local ok, img = pcall(function()
+      local d = LI.newImageData(CELL, CELL)
+      d:paste(atlasData, 0, 0, (cell % COLS) * CELL, math.floor(cell / COLS) * CELL, CELL, CELL)
+      local image = G.newImage(d)
+      image:setFilter("nearest", "nearest")
+      return image
+    end)
+    return ok and img or nil
+  end
+
   function I.icon(id)
     local def = I.def(id)
     if not def then return nil end
     if I.images[def.ownIndex] ~= nil then return I.images[def.ownIndex] or nil end
     local img = nil
-    if mod.assets and mod.assets.image then
+    if def.iconCell then
+      img = cellImage(def.icon, def.iconCell)
+    elseif mod.assets and mod.assets.image then
       local ok, result = pcall(mod.assets.image, mod.assets, def.icon)
       if ok and result then img = result end
     end
