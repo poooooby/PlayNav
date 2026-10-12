@@ -1,0 +1,198 @@
+-- Everything Super Training needs from the Gen 3 engine beyond what the Amie host already
+-- offers (party, pics, names, cries, sounds): EVs and stats, friendship, Pokerus, the bag,
+-- species pictures for Balloon Bots, and its own layer id on the UI stack. Built over the
+-- Amie host so a fake can replace both at once in the headless tests.
+
+return function(mod, base)
+  local H = setmetatable({}, { __index = base })
+  H.base = base
+  H.LAYER_ID = "play_nav_training"
+
+  local function req(name)
+    local ok, m = pcall(require, name)
+    if ok and type(m) == "table" then return m end
+    return nil
+  end
+
+  H.Bag = req("src.core.game3.bag")
+  H.ItemsData = req("src.core.game3.items_data")
+  H.Constants = req("src.core.game3.constants")
+
+  function H.available()
+    return base.available() and H.Pokemon ~= nil and H.Pokemon.evsOf ~= nil and H.Pokemon.applyStats ~= nil
+  end
+
+  function H.pushLayer(module)
+    return pcall(H.Stack.push, H.LAYER_ID, module, { hideBelow = true, fullscreen = true })
+  end
+
+  function H.popLayer()
+    return pcall(H.Stack.pop, H.LAYER_ID)
+  end
+
+  function H.layerOpen()
+    local ok, has = pcall(H.Stack.has, H.LAYER_ID)
+    return ok and has == true
+  end
+
+  function H.session()
+    local ok, s = pcall(H.Runtime3.getSession)
+    return ok and s or nil
+  end
+
+  -- ------- EVs and stats
+
+  local KEYS = { "hp", "atk", "def", "spa", "spd", "spe" }
+
+  -- a copy of the six EVs (the engine clamps to 0..255 and creates the table)
+  function H.evsOf(mon)
+    if not mon then return {} end
+    local ok, evs = pcall(H.Pokemon.evsOf, mon)
+    if not (ok and type(evs) == "table") then evs = type(mon.evs) == "table" and mon.evs or {} end
+    local out = {}
+    for _, k in ipairs(KEYS) do out[k] = math.max(0, math.floor(tonumber(evs[k]) or 0)) end
+    return out
+  end
+
+  function H.evTotal(mon)
+    local t = 0
+    for _, v in pairs(H.evsOf(mon)) do t = t + v end
+    return t
+  end
+
+  -- writes the six EVs, recalculates the stats and moves the current HP with the max HP
+  -- (the engine's own vitamin rule), never fainting a living Pokemon
+  function H.setEvs(mon, evs)
+    if not (mon and type(evs) == "table") then return false end
+    local ok, cur = pcall(H.Pokemon.evsOf, mon)
+    if not (ok and type(cur) == "table") then
+      cur = type(mon.evs) == "table" and mon.evs or {}
+      mon.evs = cur
+    end
+    for _, k in ipairs(KEYS) do
+      cur[k] = math.max(0, math.min(255, math.floor(tonumber(evs[k]) or 0)))
+    end
+    local oldMax, oldHp = tonumber(mon.maxHp) or 0, tonumber(mon.hp) or 0
+    local okA, err = pcall(H.Pokemon.applyStats, mon)
+    if not okA then mod.log:warn("applyStats failed: %s", tostring(err)) end
+    local newMax = tonumber(mon.maxHp) or oldMax
+    if oldHp ~= 0 or oldMax ~= 0 then
+      local hp = oldHp + (newMax - oldMax)
+      if oldHp > 0 then hp = math.max(1, hp) end
+      mon.hp = math.max(0, math.min(newMax, hp))
+    end
+    return true
+  end
+
+  -- { hp, atk, def, spe, spa, spd } base stats of a species, or nil
+  function H.baseStats(species)
+    if not (H.Pokemon and H.Pokemon.stats) then return nil end
+    local ok, s = pcall(H.Pokemon.stats, species)
+    if ok and type(s) == "table" then return s end
+    return nil
+  end
+
+  function H.friendshipOf(mon)
+    local ok, f = pcall(H.Pokemon.friendshipOf, mon)
+    if ok and tonumber(f) then return tonumber(f) end
+    return tonumber(mon and mon.friendship) or 0
+  end
+
+  function H.addFriendship(mon, amount)
+    local f = math.max(0, math.min(255, H.friendshipOf(mon) + (amount or 0)))
+    if H.Pokemon.setFriendship then
+      local ok = pcall(H.Pokemon.setFriendship, mon, f)
+      if ok then return f end
+    end
+    if mon then mon.friendship = f end
+    return f
+  end
+
+  -- vitamins raise friendship by the engine's low/mid/high table; Wings do the same
+  function H.vitaminFriendship(mon)
+    if H.Pokemon.itemFriendship and H.Pokemon.VITAMIN_FRIENDSHIP_CHANGE then
+      pcall(H.Pokemon.itemFriendship, mon, H.Pokemon.VITAMIN_FRIENDSHIP_CHANGE, {})
+    end
+  end
+
+  function H.hasPokerus(mon)
+    return mon ~= nil and (tonumber(mon.pokerus) or 0) ~= 0
+  end
+
+  function H.isFainted(mon)
+    return mon ~= nil and (tonumber(mon.hp) or 0) <= 0
+  end
+
+  function H.level(mon) return tonumber(mon and mon.level) or 1 end
+
+  -- ------- items into the player's bag
+
+  function H.itemName(id)
+    if H.ItemsData and H.ItemsData.displayName then
+      local ok, n = pcall(H.ItemsData.displayName, id)
+      if ok and type(n) == "string" then return n end
+    end
+    return tostring(id)
+  end
+
+  -- a numeric item id for "ITEM_FIRE_STONE" or a number
+  function H.itemId(name)
+    if type(name) == "number" then return name end
+    if H.Constants and H.Constants.of then
+      local ok, C = pcall(H.Constants.of, mod.game)
+      if ok and C and C.id then
+        local okI, id = pcall(C.id, C, "items", name)
+        if okI and tonumber(id) then return tonumber(id) end
+      end
+    end
+    return nil
+  end
+
+  function H.canGiveItem(id, qty)
+    local s = H.session()
+    if not (s and s.bag and H.Bag and H.Bag.canAdd) then return false end
+    local ok, can = pcall(H.Bag.canAdd, s.bag, id, qty or 1)
+    return ok and can == true
+  end
+
+  function H.giveItem(id, qty)
+    local s = H.session()
+    if not (s and s.bag and H.Bag and H.Bag.add) then return false end
+    local ok, added = pcall(H.Bag.add, s.bag, id, qty or 1)
+    return ok and added == true
+  end
+
+  function H.removeItem(id, qty)
+    local s = H.session()
+    if not (s and s.bag and H.Bag and H.Bag.remove) then return false end
+    local ok, removed = pcall(H.Bag.remove, s.bag, id, qty or 1)
+    return ok and removed ~= false
+  end
+
+  -- ------- pictures
+
+  -- the front pic of a species (Gen 1-3) for Balloon Bots without ORAS art
+  function H.speciesFrontPic(species)
+    if not (species and H.Pokemon and H.Pokemon.frontPic) then return nil end
+    local ok, entry = pcall(H.Pokemon.frontPic, species)
+    if ok and type(entry) == "table" and entry.image then return entry end
+    return nil
+  end
+
+  function H.backPic(mon)
+    if not (mon and H.Pokemon and H.Pokemon.monBackPic) then return nil end
+    local ok, entry = pcall(H.Pokemon.monBackPic, mon)
+    if ok and type(entry) == "table" and entry.image then return entry end
+    return nil
+  end
+
+  -- a Gen 3 internal species id from a National number, or nil
+  function H.speciesFromNational(national)
+    if not (national and H.Pokemon and H.Pokemon.speciesFromNational) then return nil end
+    local ok, sp = pcall(H.Pokemon.speciesFromNational, national)
+    if ok and tonumber(sp) and tonumber(sp) > 0 then return tonumber(sp) end
+    return nil
+  end
+
+  return H
+end

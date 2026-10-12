@@ -1,0 +1,10 @@
+tests/
+tools/
+CLAUDE.md
+.luarc.json
+.git/
+.gitignore
+baseroms/
+.claude/
+assets/puffs.png
+assets/sprite mapping.txt

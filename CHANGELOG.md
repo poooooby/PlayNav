@@ -1,0 +1,280 @@
+# Changelog
+
+All notable changes to this mod are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [0.1.0] - 2026-10-12 (experimental)
+
+First public release, Gen 3 (Emerald, Ruby, Sapphire, FireRed, LeafGreen) only. Everything
+below shipped together in it: a DS-style touch screen (split screen or a second display) with
+Pokémon-Amie (petting, Poké Puffs, care after battle, the room, Décor and visitors, Berry
+Picker, Head It, Tile Puzzle, affection benefits in battle) and Super Training (Core
+Training, the 26 training bags, the 30 regimens with sprite Balloon Bots, Awards and secret
+prizes), drawn at the display's full resolution. The 3DS art and English text come from the
+player's own Alpha Sapphire card image, extracted on their machine; nothing from the games
+ships with the mod. Many Super Training numbers are provisional (see the README).
+
+## Development history (internal builds before the first release)
+
+### Internal build 0.4.2 (2026-10-12)
+
+#### Changed
+
+- Super Training's Balloon Bots are the Pokémon's own front sprite, blown up in balloon blue
+  with a dark outline, instead of the round course badge. The pixels stay square at any size. A species the game has no sprite for
+  (the Generation 4-6 bots, unless a National Dex mod adds them) keeps its course badge.
+- Goals sit on the sprite itself and travel over it, cell by cell, never across empty space:
+  each starts on its part of the body (head, arms, tail ...), wanders around it, faster and
+  further on moving parts, at higher levels and on the fleeing and roaming courses
+  (`GOALS.WANDER` in `data/training_rules.lua`, inferred from the game's coach tips; the
+  speeds are ours). Goals keep apart from each other.
+- A sprite balloon hovers higher and is sized so that, fully grown, it stays inside the sky
+  the aim pad reaches; the pad covers that larger area (`BOT.SHAPE_CY`, `BOT.AIM_X`,
+  `BOT.AIM_Y`), so every goal on it shows on the pad and can be hit. The reticle starts on
+  the balloon's centre.
+- The player's Pokémon in a regimen hops as it moves: a squash on each landing, a stretch in
+  the air, a lean into the direction, facing it, and a last squash when it stops, instead of
+  gliding. Drawing only: its position and hit area are the sim's as before.
+
+### Internal build 0.4.1 (2026-10-12)
+
+#### Changed
+
+- The session screens on the touch screen (Amie, the minigames, Décor, Super Training, the
+  import panel) no longer carry a title bar; their backgrounds reach the top edge.
+- Text that does not fit its box is wrapped inside it and drawn smaller (down to 60%) instead
+  of running past the edge: the touch screen's message strips, the regimen picker's status
+  window and both top screens' text boxes.
+- The emotion bubbles sit above-left of the Pokémon, where their tails point; in the Amie
+  room they are smaller and closer, clear of the PLAY / DECORATE / SWITCH buttons.
+- Picking a regimen shows its card on the top screen: the level heading, the course badge,
+  its name, the game's description of it, the EVs it gives, the target time, your best time
+  and Award. START (or a second tap) begins it; a locked course says why.
+
+### Internal build 0.4.0 (2026-10-12)
+
+#### Added
+
+- **HD rendering** (option HD RENDERING, on by default). The touch screen renders at the
+  output's pixel density (its scale times the screen's DPI, up to 4x) while the apps keep
+  drawing in 256x192 units, and its text is rasterised at that density. The second display
+  gets a frame rendered at its push scale instead of an upscaled one. Amie's and Super
+  Training's top screens are drawn again over the finished frame at window resolution while
+  they are the top of the game's menu stack (the engine's own canvas then holds only their
+  backdrop). The overworld, battles and the engine's passes are untouched.
+- The Alpha Sapphire textures are mipmapped and linearly filtered; Pokémon sprites and party
+  icons stay nearest at whole multiples and use a small sharp-bilinear shader at fractional
+  sizes. Tile Puzzle's picture is rendered at the surface's density.
+
+#### Fixed
+
+- Super Training's caution strip shows the word CAUTION! (the texture is only its backing).
+
+### Internal build 0.3.2 (2026-10-12)
+
+#### Changed
+
+- Pokémon-Amie reads the game's own text (recipe version 8 adds nine files of `a/0/7/3`):
+  the 26 Poké Puff names ("Supreme Autumn Poké Puff", not Fall), every Décor name, the words
+  Affection / Fullness / Enjoyment, "Switch Pokémon!", "Select the Pokémon you'd like to play
+  with!", "You can't play with an Egg, silly!", "You need three Pokémon in good condition.",
+  "You cannot put out any more Décor!", the gift lines ("You got X from A, B, and C!", "You and
+  TORCHIC are looking close! Found X!", "You'll be friends forever with TORCHIC!"), the picker's
+  "Which game do you want to play?", the minigames' HUD words (Time Left:, Chances:, FEVER,
+  MISS!, N-HIT COMBO, Time Remaining:, Puzzle No. N, NEXT!), their rank titles, their result
+  lines ("Poké Puffs Received!", "You can now access the next rank!") and Head It's score
+  breakdown (Heading Points, Last Combo Record, Big Yarn Bonus, TOTAL:). Our wording stands in
+  without the card.
+- The game's own list of Décor (text file 110, in archive order) corrected three pairs the
+  catalogue had the other way round: entry 82 is the **Blue** Circle Cushion and 83 the Red,
+  entry 132 the **Iron** Cushion and 133 the Cast-Iron, and the Lightbulb Object is one word.
+  Saves that own or placed the old ids are renamed once on load (the art the player saw is
+  unchanged).
+- The Supreme Wish and Supreme Honor Poké Puff icons were swapped (the archive runs in the
+  text's order: Wish is the cake with candles).
+- Art for the room and the games: the PLAY / DECORATE / SWITCH buttons, the Affection /
+  Fullness / Enjoyment icons on the top screen (three named rows of five, as the game shows
+  them) and on the play screen, the HUD digits and white HUD box in all three minigames, the
+  yarn "Chances" markers in Head It, the tier rings behind the Poké Puffs won, the star art and
+  the Pokémon-Amie wreath on the result card.
+- Visitors leave when the Poké Puff set out changes (the game warns of exactly that).
+- `data/amie_rules.lua` carries an `EVIDENCE` row for every number (verified / inferred /
+  placeholder with its source), like Super Training's.
+
+### Internal build 0.3.1 (2026-10-12)
+
+#### Changed
+
+- Super Training reads more of the game's own text (recipe version 7 adds the course and
+  coach files of `a/0/7/3`): the official English course names ("Raise Your HP with
+  Wailmer!", "Break It! Golem's Defensive Line!" ...), each course's blurb, the level
+  headings, the result screen ("Target Time Remaining:", "Award received!", "New best
+  time!", "Base stat increase:", the coach's praise, the stat lines), unlock announcements,
+  the Core Training completion lines ("TORCHIC's base HP stat went up!"), the resting,
+  second-wind, found-a-bag and rack-full lines. The medal is an **Award**, as the game says.
+- The Energy Shot works as the game's tutorial describes: a shot fired with a full energy
+  meter is the species' Energy Shot; before that it is a plain black ball worth less the
+  emptier the meter; a nearly dry meter gives the weak ball. The meter refills faster.
+- Bitbots regenerate after a while, as the tips say. Aegislash's rage also speeds up and
+  strengthens its shots; Roserade calms down the same way. Aerodactyl's balloon rises and
+  falls; Probopass's goals keep moving; point loss grows with the course level.
+- The course order from the text archive fixes the course icons: every secret course now
+  shows its ORAS badge.
+- Art for the screens: the Regimens and Bags buttons, the Effort-o-Meter canvas, the
+  shot-type icon and the mood bubbles on the Core screen; course cards, badges, the status
+  window and Award medals in the picker; timer and score digits, the energy gauge, the
+  charge ring, the caution strip and the Start banner in the regimen; the Success / Try
+  Again banners, stat labels and the RESULTS ribbon on the result screens; the aim ring,
+  cursors and return button on the pad.
+
+### Internal build 0.3.0 (2026-10-11)
+
+#### Added
+
+- Super Training (X/Y, ORAS) as a sibling of Amie: a TRAINING entry on the Gen 3 START menu
+  opens Core Training on both screens. The lead Pokemon stands by its training bag; tap the bag
+  (or press A) to hit it, the Pokemon hits it once a minute by itself, rests now and then and
+  gets a second wind when tapped (half the hits needed). The Effort-o-Meter hexagon shows the
+  species' base stats in green and the EVs in yellow (252 per stat) with the 510 column; the
+  party strip switches Pokemon; a shot-colour badge shows the species' Energy Shot.
+- The 26 training bags with the games' numbers (`data/training_rules.lua`): stat bags S / M / L
+  at 10 / 25 / 50 hits for +1 / +4 / +12 EVs, Big-Shot, Double-Up, Strength, Swiftness,
+  Toughen-Up and Team Flare at 10, Reset at 100, Soothing at 250 (+20 friendship); a rack of
+  twelve; tapping the empty black bag can drop a bag; a cleared regimen always gives one.
+- The 18 Super-Training Regimens and the 12 Secret regimens (`data/training_courses.lua`):
+  the Bulbapedia Balloon Bots and scores (Wailmer 500 ... Wailord 4000, Aegislash 4800, the
+  Aron line and Mega Aggron), +4 / +8 / +12 EVs, Lv2 and Lv3 unlocked by clearing all six of
+  the level below, secret courses one after another for a Fully Trained Pokemon (510 EVs,
+  kept after a Reset Bag), circuits with +30 s per popped bot, a 3:00 clock with the medal at
+  2:30 / 2:00 / 1:30 left, item prizes (evolution stones only on a new best), Hydreigon's
+  sudden death, Aegislash raging and Roserade calming at 2400.
+- The regimen itself on the top screen: goals on the balloon that turn yellow at 8 s and vanish
+  at 12 s, the red Chance Goal, the bot growing with every goal, telegraphed attacks (rapid,
+  big, ring, homing, cross, waves, barrier with its marker, bit balloons), the pad to move,
+  L to block, the guts circle, three charge stages (3x at the top, a stun past it), the five
+  Energy Shot colours per species (`data/training_shot_types.lua`, Bulbapedia, all 386 Gen 3
+  species) with yellow spraying while held and bursting seven at full charge, EVs raising
+  points, shot size, guts, block time and speed. The bottom screen is the aiming pad with a
+  BLOCK button; the Pokemon moves with the d-pad.
+- Ten new items the engine never had, registered through the content registry: Health, Muscle,
+  Resist, Genius, Clever and Swift Wing (+1 EV from the bag, within 252 / 510), Pretty Wing,
+  Dusk, Shiny and Dawn Stone (collectibles to sell), with pokesprite icons in the bag and
+  PokeAPI text. The stones are registered as ST_DUSK_STONE etc.; with national_dex_gen3
+  installed a stone prize is that mod's real Gen 4 stone.
+- Alpha Sapphire art for all of it (recipe version 4, 542 textures): the 27 bag icons, the
+  39 course badges, the aim pad, goal rings, the six balls, the medal.
+
+#### Changed
+
+- Amie and Super Training refuse to open while the other is on screen.
+- The mod is now **PlayNav**, id `play_nav` (was `ds_touch`), and declares Gen 3 only. Save data
+  and options stored under `ds_touch` are carried over once on load (`src/rename.lua`); the old
+  record is left in place. Layer and START menu ids are `play_nav_amie` / `play_nav_training`;
+  `mod.find("play_nav").exports` replaces `mod.find("ds_touch").exports`. The extracted art is
+  cached per id and is extracted once more.
+- Super Training regimens move with the d-pad only; the touch MOVE strip is gone.
+- Tapping a training bag opens its box as in the game: icon, name, description, Use /
+  Discard / Back, each with the game's Yes / No question. Setting a new bag discards the one
+  on the stand, as the game's own prompt says. The names, descriptions and button words are
+  the game's, decoded from the player's card into the cache (recipe version 5 adds two text
+  entries from a/0/7/3; `src/import/gen6text.lua` reads Gen 6 text); our own wording stands
+  in without a card. The game order of the bags also fixes the icons of the five
+  regimen-effect bags.
+
+### Notes
+
+- Points per goal, point loss per hit, guts and charge timings, bag and prize odds and the
+  attack schedules have no public source; `data/training_rules.lua` carries every number with
+  its class (verified / inferred / placeholder) and its source so they can be corrected.
+- The engine gained two small seams for this: the item name index is rebuilt after a content
+  registry write, and both bag skins ask an `item.icon` hook before their own art.
+
+### Internal build 0.2.0 (2026-10-11)
+
+#### Added
+
+- Pokemon-Amie play rules from X/Y and ORAS (numbers in `data/amie_rules.lua`): affection,
+  fullness and enjoyment levels at 0/1/50/100/150/255 points; petting events every 60 px with the
+  Bulbapedia gains per spot and enjoyment band; favored, disfavored and effect spots per species
+  (`data/petting_gen3.lua`, 386 species, derived from Bulbapedia's "Petting" article, CC BY-NC-SA
+  2.5), burning / paralyzing / freezing / cutting spots that interrupt a stroke; a rapid
+  double-tap "hit" (-5 enjoyment); the five-second high-five (+10 enjoyment, needs 5 affection);
+  +10 enjoyment on opening play; Metapod, Kakuna, Pineco, Silcoon, Cascoon and Shedinja refuse
+  puffs; Slugma and Regice cannot be petted.
+- Poke Puffs eaten bite by bite while held on the Pokemon (2, 3 or 5 bites by sprite size, slower
+  when nearly full); a puff pulled away early gives fullness only; the jar is an ordered list of
+  up to 100 puffs, the oldest lost first; puff affection by tier +2 / +3 / +4 / +5 / +6 (+10 for
+  Supreme Wish and Honor); a whole puff is +50 fullness.
+- Stats move outside a session too: entering a battle with the active Pokemon takes 10 fullness
+  and gives 5 enjoyment; every 50 steps take 1 fullness and give 1 enjoyment below 70.
+- Affection benefits in battle, on by default (option AFFECTION BENEFITS): 1.2x experience at
+  2 hearts, enduring a knockout at 1 HP from 3 hearts (10 / 15 / 20 / 25 %), shaking off a status
+  at the end of the turn at 4 hearts (20 %), a 10-point accuracy drop for the foe at 200
+  affection, double critical-hit odds at 5 hearts, with the games' battle messages. Skipped in
+  link, facility and tutorial battles.
+- Milestones: a dance with hearts and cries at every 50 affection (three cries at 255) and a gift
+  left in the room at 25 / 50 / 75 / 100 / 150 / 255 affection.
+- The Amie room (START menu > AMIE): the active Pokemon wanders as its party icon, plays when
+  enjoyment is high, naps with a status, stops and asks for food at 0 fullness, shows the puff /
+  note hints over its head; tap it for DECORATE / PLAY / SWITCH, the hearts / puffs / notes loop
+  while the menu is open, SWITCH picks a party member who is remembered as the active one.
+- The three minigames with their Bulbapedia ladders: Berry Picker, Head It and Tile Puzzle, Easy
+  to Unlimited, three stars unlock the next difficulty, Poke Puff rewards per rating and the
+  seasonal Supremes on Unlimited, three healthy participants (active plus the two least enjoyed),
+  -110 fullness / +80 (or +30) enjoyment per game, titles, decor gifts for unlocks and five-star
+  runs. GAMES sits in the play tray.
+- Decorate: the full X/Y decor catalogue (34 wallpapers, 104 cushions, 68 objects in sets A-F,
+  `data/decor_catalog.lua`), the eleven starting pieces, a drawer over the room (WALL / CUSHION /
+  OBJECT / PUFF), up to 30 placed items, dragging to place, move and put away, a Poke Puff set out
+  for visitors; the Pokemon sits on a placed cushion.
+- Visitors: Pokedex-seen species (plus the party) drop by while the room is open, stay by the
+  puff-out odds, chat for thirty seconds with the set's bubbles and leave a present; gift sets by
+  combined affection raised by the puff's minimum, same-type and same-line groups, up to six
+  presents on the floor, milestone / unlock / five-star gifts delivered the same way; a complete
+  set yields a puff of its tier.
+- 278 more Alpha Sapphire textures (recipe version 3, re-extracted automatically, 421 in all):
+  the 15 game badges, berries, the berry heap and grass, yarn frames, the big finale yarn, clouds,
+  the Fever rainbow, "!" bubbles, the game backdrops, the puzzle frames and the whole decor
+  catalogue with its wallpaper thumbnails.
+
+#### Changed
+
+- Split screen on Gen 3 stacks the picture and the surface instead of overlaying the surface
+  on the engine's centred picture: the largest integer picture scale that leaves the surface
+  at least 1x, the pair centred, the picture area handed to the engine through its playfield
+  cutout, so nothing overlaps at any window size (phones, a resized PC window, landscape).
+  New options SPLIT SIZES (AUTO / 3DS / EQUAL / 3DS FLIPPED / MAX GAME / MAX TOUCH), GAME SCALE and TOUCH SCALE
+  (AUTO or 1X..6X, clamped so the pair fits) decide how the room is shared.
+- The START menu entry is now AMIE; the care tray only shows the cleaning tools and medicine
+  while the Pokemon needs them, and PUFFS otherwise.
+- The mod save moved to schema 2 (`puffs` list, `room`, `decor`, `games`, `visitors`, `meta`);
+  0.1.0 saves migrate on load. `mod.find("ds_touch").exports.amie` replaces `exports.refresh`,
+  which remains as an alias.
+- The old time-based fullness decay is gone; steps and battles do that job as in the games.
+
+### Internal build 0.1.0 (2026-10-10)
+
+#### Added
+
+- Pokémon Refresh on Gen 3: a care prompt after battle on both screens, then a bottom-screen
+  session with towel / brush / dryer / comb for mud, dust, water and ruffled fur, medicine for
+  status conditions, petting with hearts, and Poké Puff feeding (26 varieties with their own
+  fullness values, a scrollable row of the ones you own, the dragged puff is the one you picked). A REFRESH entry in the START
+  menu opens it any time.
+- Per-Pokémon affection, fullness and enjoyment in the mod save; a Poké Puff jar fed by won battles (one
+  random variety per win, weighted toward Basic).
+- The DS-style 256x192 touch surface: second-screen (AYN Thor / desktop companion) and
+  single-screen split placement, a pointer stream with per-pointer records, velocity, path and
+  gesture helpers, and an app registry exported for future minigames. The surface stays dormant
+  until an app asks for it.
+- Option to hide the engine's built-in virtual pad while the surface is active.
+
+- Optional Alpha Sapphire (USA) Rev 2 card image import: validated by the launcher, extracted
+  in-game by pure-Lua decoders (NCSD/NCCH/RomFS, GARC, LZ11, BCLIM with ETC1) in background
+  jobs into `mod.cache`; Refresh then draws the Amie hand cursor, Poké Puffs, emote bubbles and
+  the room wallpaper. The mod ships only the recipe.
+
+### Notes
+
+- Battle commands, the bag and a touch pad are deliberately not part of this mod; Kanto Gear
+  covers them.

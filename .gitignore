@@ -1,0 +1,12 @@
+*.log
+.DS_Store
+Thumbs.db
+baseroms/
+tools/__pycache__/
+# never in the repo: the player's card image, art taken from the games, local tool caches
+.claude/
+assets/puffs.png
+assets/sprite mapping.txt
+tools/_items_cache.json
+tools/_shot_types.wikitext
+CLAUDE.md

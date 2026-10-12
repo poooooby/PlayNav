@@ -1,0 +1,40 @@
+{
+  "id": "play_nav",
+  "name": "PlayNav",
+  "version": "0.1.0",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "content",
+  "game_version": ">=0.0.0-dev <2.0.0",
+  "category": "UI",
+  "priority": 100,
+  "dependencies": [],
+  "optional_dependencies": [
+    "national_dex_gen3"
+  ],
+  "conflicts": [],
+  "incompatible": [],
+  "games": [
+    "gen3"
+  ],
+  "permissions": [
+    "engine_internals",
+    "background"
+  ],
+  "experimental": false,
+  "affects_link": false,
+  "description": "A DS-style touch screen: a smooth stylus/finger surface on the bottom screen (AYN Thor second display or the lower part of a phone) hosting a slide D-pad, a free-touch pad and HGSS-style menus.",
+  "optional_imports": [
+    {
+      "id": "oras_cci",
+      "name": "Pokemon Alpha Sapphire (USA) Rev 2, decrypted .cci",
+      "file": "alpha_sapphire_rev2.cci",
+      "md5": [
+        "0563f9dee1b95de32d579e40c20e2bfc"
+      ],
+      "size": 2147483648,
+      "description": "Supplies the Pokemon-Amie art (hand cursor, Poke Puffs, emotes, backgrounds) for Pokemon Refresh. Optional: drawn shapes are used without it. The copy can be removed from Imported files once the art has been extracted."
+    }
+  ],
+  "github": "poooooby/PlayNav"
+}
