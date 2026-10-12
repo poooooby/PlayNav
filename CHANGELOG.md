@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-12 (pre-alpha)
+
 ### Changed
 
 - Super Training's home screen is laid out from the game's own layout file: the framed teal
@@ -64,6 +66,9 @@ All notable changes to this mod are documented here. The format follows
 
 ### Fixed
 
+- The top screens (Pokémon-Amie, Super Training) are drawn at the window's resolution again;
+  they had fallen back to the low-resolution picture enlarged.
+- The item icons' credits and licence are in `assets/credits.txt`.
 - With Kanto Gear on, the two mods no longer fight over a second display (AYN Thor). PlayNav
   has it while Amie or Super Training is open: Kanto Gear's picture and taps stay off it until
   they close, then Kanto Gear shows there again at once.
