@@ -23,6 +23,12 @@ All notable changes to this mod are documented here. The format follows
   fast and big it is and what it costs, relative to the black shot.
 - The Effort-o-Meter is drawn with the game's own steps: each axis grows in the same pixel steps
   for base stats and EVs as on the 3DS.
+- Super Training's home screen and bag drawer run on the touch screen alone, as in the game:
+  the overworld stays on top and you can walk about while your Pokémon trains. The top screen
+  is used for the regimen picker, a regimen and its result. Messages show in the game's window
+  on the touch screen; the game's blue return button (or TRAINING on the START menu again)
+  closes it, the strip's arrows switch between Super Training and Pokémon-Amie,
+  and a battle takes the touch screen back until it ends.
 - The training bags open as the game's drawer over the home screen: the room dims, the drawer
   slides in with the bags in two tilted columns, the Bags button turns into the return button,
   and tapping a bag opens the game's description window with Use / Discard / Back (Use and
@@ -35,6 +41,17 @@ All notable changes to this mod are documented here. The format follows
   blank bag finds a bag on 5% of punches (10% for a fully trained Pokémon), any of the game's
   bags but Team Flare with equal odds: the game's own roll, read from its code. Lying down, getting up and the second wind use the
   game's own animations.
+- The coach cheers while a training bag hangs, as in the game: a line for the bag's kind comes
+  up as soon as it is set, stays ten seconds, goes, and another follows ten seconds later. The
+  wait stands still while a punch plays, so fast tapping spaces the lines out. Lines, groups and
+  timing are the game's own, read from its code and checked live.
+- A cleared training bag ends with the game's finishing move, from its own animations: one of
+  its three special attacks, each with its own coach's line ("This is it! The muscles that will
+  make the future bright!" and two others), the bag spinning off its hook, a glow around your
+  Pokémon sized to its sprite, then the stat that went up. Back on the home screen, the stat's
+  label pulses with a "+N" over it and an arrow pulses at the top of the total gauge until the
+  next hit or tap, and the next bag drops onto the hook. Taps wait until it has played out. The
+  silver strip along the bottom now meets the Regimens and Bags buttons' lower edge.
 
 ### Fixed
 

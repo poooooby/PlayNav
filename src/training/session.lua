@@ -29,6 +29,12 @@ return function(mod, deps)
   local function say(text, secs)
     local s = T.session
     if not s then return end
+    -- a bag's finishing move holds what was said until its words come up
+    local fin = s.anim and s.anim.finish
+    if fin then
+      fin.queue[#fin.queue + 1] = { text = text, secs = secs }
+      return
+    end
     s.message = text
     s.messageUntil = now() + (secs or 3)
     onChange()
@@ -271,9 +277,25 @@ return function(mod, deps)
 
   -- ------- lifecycle
 
+  -- As in the game, Core Training and the bag drawer live on the bottom screen alone: the
+  -- overworld stays on top and the player walks about. The top-screen layer (which pauses
+  -- the field) comes up for the regimen picker, a regimen and its result only.
+  local LAYER_MODES = { courses = true, regimen = true, result = true }
+  local function syncLayer(s, mode)
+    local want = LAYER_MODES[mode] == true
+    if want and not s.layered then
+      local ok, err = host.pushLayer(Layer)
+      if ok then s.layered = true else mod.log:warn("could not push the training layer: %s", tostring(err)) end
+    elseif not want and s.layered then
+      host.popLayer()
+      s.layered = false
+    end
+  end
+
   local function setMode(mode)
     local s = T.session
     if not s then return end
+    syncLayer(s, mode)
     s.mode = mode
     local app = APP_FOR[mode]
     if app and Apps:get(app) then Apps:setActive(app, mod.game) end
@@ -315,8 +337,6 @@ return function(mod, deps)
     s.message, s.messageUntil = nil, nil
     T.session = s
     T.previousApp = Apps:active() and Apps:active().id or nil
-    local ok, err = host.pushLayer(Layer)
-    if not ok then mod.log:warn("could not push the training layer: %s", tostring(err)) end
     setMode("core")
     Store.meta().activeKey = s.key
     T.touch()
@@ -329,7 +349,7 @@ return function(mod, deps)
     if not s then return false end
     if s.mode == "regimen" and T.quitRegimen then T.quitRegimen() end
     Store.save()
-    host.popLayer()
+    if s.layered then host.popLayer(); s.layered = false end
     T.session = nil
     if T.previousApp and Apps:get(T.previousApp) then Apps:setActive(T.previousApp, mod.game) end
     onChange()
@@ -371,7 +391,14 @@ return function(mod, deps)
     rec.secondWind = nil
     rec.windNext = T.rng() < N.CORE.SECOND_WIND_AFTER_BAG or nil
     if not def then return end
-    if s.anim then s.anim.burst = 0.7 end
+    -- on screen, the cleared bag gets the game's finishing move: one of three clips with its
+    -- line, the glow, then what the bag did; the messages below wait for it (say)
+    if T.FINISH_MOVE and s == T.session and s.anim then
+      local clip = 1 + math.floor(T.rng() * #T.FINISH_CLIPS)
+      s.anim.finish = { t = 0, clip = T.FINISH_CLIPS[clip], bag = def.id, queue = {} }
+      s.message = T.gameLine("training_bags", T.CORE_LINE.finish[clip]) or "This is it!"
+      s.messageUntil = now() + T.FINISH.WORDS_AT / 30
+    end
     -- the routine rest: every 3 to 5 bags cleared
     if not rec.bagsToRest then
       local lo, hi = N.CORE.ROUTINE_REST_BAGS[1], N.CORE.ROUTINE_REST_BAGS[2]
@@ -384,6 +411,7 @@ return function(mod, deps)
       host.setEvs(s.mon, evs)
       s.evs = evs
       if added > 0 then
+        if s.anim and s.anim.finish then s.anim.finish.statUp = { stat = def.stat, added = added } end
         say(T.gameLine("training_bags", T.CORE_LINE.statUp + STAT_INDEX[def.stat])
           or ("%s's %s rose by %d!"):format(s.name, Rules.STAT_LABEL[def.stat], added), 3)
       else
@@ -481,6 +509,17 @@ return function(mod, deps)
   -- the next tap is taken only once it has finished
   T.HIT_LOCK = 13 / 30
 
+  -- the finishing move, in the game's frames (30 a second): the clip (trpk_finish_a / b / c,
+  -- 70 frames), the glow (effect, 100), the bag's words from frame 170, the home screen back
+  -- at 200 with the stat's +N and the gauge arrow, pulsing until the next hit or tap
+  T.FINISH = { CLIP = 70, GLOW = 100, WORDS_AT = 170, DONE = 200, BAG_RETURN = 22 }
+  T.FINISH_CLIPS = { "a", "b", "c" }
+  T.FINISH_MOVE = true   -- the flow test's bulk loops turn it off, as they do HIT_LOCK
+  function T.finishing()
+    local s = T.session
+    return s ~= nil and s.anim ~= nil and s.anim.finish ~= nil
+  end
+
   -- one punch from trainee `t` (the session, or a background trainee): counts on the bag
   -- (a second wind punches with double the strength)
   local function punch(t)
@@ -503,10 +542,11 @@ return function(mod, deps)
       return false, "resting"
     end
     if source == "tap" then
-      if (s.anim.lock or 0) > 0 then return false, "busy" end
+      if (s.anim.lock or 0) > 0 or s.anim.finish then return false, "busy" end
       s.anim.lock = T.HIT_LOCK
       T.touch()
     end
+    s.anim.statUp = nil
     local bag = rec.bag
     if not bag then
       if source == "tap" then return T.tapBlackBag() end
@@ -576,7 +616,7 @@ return function(mod, deps)
     table.remove(bags, index)
     s.rec.bag = { id = id, hits = 0, needed = Rules.bagHits(id) }
     T.touch()
-    say(("%s set.  %d hits to go."):format(def.label, s.rec.bag.needed), 2.5)
+    -- the coach's cheer comes up at once (T.tick), as in the game
     host.playSe("SE_SELECT")
     Store.save()
     onChange()
@@ -652,6 +692,7 @@ return function(mod, deps)
   -- a/0/7/3 file 27 (text/training_bags): Core Training events
   T.CORE_LINE = { found = 6, resting = 11, refreshed = 12, statUp = 68, strength = 75, toughen_up = 76,
     swiftness = 77, big_shot = 78, double_up = 79, refreshed_bag = 80, reset = 81, friendship = 82,
+    finish = { 83, 84, 85 },
     cappedBag = 92, allCapped = 94 }
   -- a/0/7/3 file 45 (text/training_courses): headings, names, blurbs, the result screen
   T.COURSE_LINE = { heading = { [1] = 1, [2] = 2, [3] = 3, secret = 4, secret2 = 5 }, name = 20, blurb = 75,
@@ -765,9 +806,42 @@ return function(mod, deps)
     if s.anim.hit > 0 then s.anim.hit = math.max(0, s.anim.hit - dt) end
     if (s.anim.lock or 0) > 0 then s.anim.lock = math.max(0, s.anim.lock - dt) end
     if (s.anim.burst or 0) > 0 then s.anim.burst = math.max(0, s.anim.burst - dt) end
+    local fin = s.anim.finish
+    if fin then
+      fin.t = fin.t + dt
+      local f = fin.t * 30
+      if f >= T.FINISH.WORDS_AT and not fin.worded then
+        -- the bag's words (the stat that went up) until the home screen comes back
+        fin.worded = true
+        local first = table.remove(fin.queue, 1)
+        s.message = first and first.text or nil
+        s.messageUntil = now() + (T.FINISH.DONE - T.FINISH.WORDS_AT) / 30
+        onChange()
+      end
+      if f >= T.FINISH.DONE then
+        s.anim.finish = nil
+        s.anim.statUp = fin.statUp and { stat = fin.statUp.stat, added = fin.statUp.added, t = 0 } or nil
+        s.anim.bagReturn = 0
+        s.message = nil
+        s.queue = fin.queue
+        onChange()
+      end
+    end
+    -- the stat's +N stays (pulsing) until the next hit or tap
+    if s.anim.statUp then s.anim.statUp.t = s.anim.statUp.t + dt end
+    if s.anim.bagReturn then
+      s.anim.bagReturn = s.anim.bagReturn + dt
+      if s.anim.bagReturn * 30 >= T.FINISH.BAG_RETURN then s.anim.bagReturn = nil end
+    end
     if s.message and s.messageUntil and now() >= s.messageUntil then
       s.message = nil
       onChange()
+    end
+    T.stepCheer(s, dt)
+    -- what was held back for the finishing move, one after another
+    if not s.message and not s.anim.finish and s.queue and #s.queue > 0 then
+      local nxt = table.remove(s.queue, 1)
+      say(nxt.text, nxt.secs)
     end
     if s.mode == "regimen" and T.tickRegimen then
       T.tickRegimen(dt)
@@ -779,6 +853,40 @@ return function(mod, deps)
       return
     end
     T.stepCore(s, wall())
+  end
+
+  -- ------- the coach's cheer (N.CORE.CHEER): while a bag with hits left hangs on the home
+  -- screen, a line from the bag's group shows, then hides, in turn; the countdown stands
+  -- still while a punch plays. It shows in the message window when nothing else is said.
+
+  function T.cheerLine(id)
+    local C = N.CORE.CHEER
+    local g = Rules.cheerGroup(id) or 0
+    local n = C.FIRST + C.PER_GROUP * g + math.floor(T.rng() * C.PER_GROUP)
+    return T.gameLine("training_bags", n) or "Keep at it!", n
+  end
+
+  function T.stepCheer(s, dt)
+    local C = N.CORE.CHEER
+    local rec = s.rec
+    local bag = rec.bag
+    if not (bag and bag.hits < bag.needed and not rec.resting and s.mode == "core" and not s.anim.finish) then
+      s.cheer, s.cheerText = nil, nil
+      return
+    end
+    -- a new bag: the first line at once
+    if not s.cheer or s.cheer.bag ~= bag then s.cheer = { bag = bag, phase = "hide", t = C.HIDE } end
+    local c = s.cheer
+    if (s.anim.hit or 0) <= 0 and (s.anim.lock or 0) <= 0 then c.t = c.t + dt * 30 end
+    if c.phase == "hide" and c.t >= C.HIDE then
+      c.phase, c.t = "show", 0
+      s.cheerText, c.line = T.cheerLine(bag.id)
+      onChange()
+    elseif c.phase == "show" and c.t >= C.SHOW then
+      c.phase, c.t = "hide", 0
+      s.cheerText = nil
+      onChange()
+    end
   end
 
   -- ------- the Core Training clock, for the open session and in the background
@@ -800,7 +908,13 @@ return function(mod, deps)
       guard = guard + 1
       rec.nextAutoAt = rec.nextAutoAt + autoInterval()
       changed = true
+      if t == T.session and t.anim and t.anim.finish then
+        -- the finishing move plays out first; the punch waits
+        rec.nextAutoAt = at + autoInterval()
+        break
+      end
       if t == T.session and t.anim then
+        t.anim.statUp = nil
         t.anim.hit = 0.25
         if rec.bag then host.playSe("SE_BALL_BOUNCE_1") end
       end
@@ -816,6 +930,18 @@ return function(mod, deps)
       if t == T.session then onChange() end
     end
     return changed
+  end
+
+  -- the mod's frame tick: with no top-screen layer up (Core Training, the drawer) the
+  -- session ticks from here; with one, its layer ticks it
+  function T.frame(dt)
+    local s = T.session
+    if s and not s.layered then T.tick(dt) end
+  end
+
+  -- a battle takes the bottom screen back; Super Training waits under it
+  function T.inBattle()
+    return host.battleActive ~= nil and host.battleActive() == true
   end
 
   -- the trainee keeps training while the screen is closed: called every frame from the
@@ -864,6 +990,8 @@ return function(mod, deps)
       evs = s.evs, total = Rules.evTotal(s.evs),
       bag = rec.bag and { id = rec.bag.id, hits = rec.bag.hits, needed = rec.bag.needed } or nil,
       pending = rec.pending, resting = rec.resting, refreshed = refreshedNow(rec),
+      finishing = s.anim ~= nil and s.anim.finish ~= nil, statUp = s.anim and s.anim.statUp or nil,
+      cheer = s.cheerText, cheerLine = s.cheer and s.cheer.phase == "show" and s.cheer.line or nil,
       secondWind = rec.secondWind == true, nextAutoAt = rec.nextAutoAt, lastTouchAt = rec.lastTouchAt,
       awakeAt = rec.awakeAt, restAfter = rec.restAfter, fainted = host.isFainted(s.mon),
       fully = rec.fully == true, supremely = rec.supremely == true,

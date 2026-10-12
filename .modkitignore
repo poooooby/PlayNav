@@ -46,6 +46,7 @@ tools/discover.py
 tools/garc_blob.py
 tools/garc_dump.py
 tools/gdbrsp.py
+tools/gdbtrace.py
 tools/gen6_text.py
 tools/items_pokeapi.py
 tools/make_fixtures.py

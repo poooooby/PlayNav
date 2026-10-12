@@ -67,8 +67,9 @@ on a touch screen below the game or on a device's second display.
 
 ### Super Training 🎈
 
-- 🥊 **Core Training:** **TRAINING** on the START menu shows your Pokémon beside a punching bag,
-  with the Effort-o-Meter for its base stats and EVs. Tap anywhere in the room to punch the
+- 🥊 **Core Training:** **TRAINING** on the START menu puts your Pokémon beside a punching bag on
+  the touch screen while you keep exploring on the top screen (the blue return button, or TRAINING
+  again, closes it; the arrows at the top switch to Pokémon-Amie and back), with the Effort-o-Meter for its base stats and EVs. Tap anywhere in the room to punch the
   bag, one punch at a time. Your Pokémon also punches the bag once a minute on its own, even with the screen
   closed.
 - 😴 **Resting:** After half an hour to an hour, or every 3 to 5 bags it clears, whichever comes

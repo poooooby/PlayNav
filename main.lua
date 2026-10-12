@@ -611,9 +611,20 @@ return function(mod)
     setMode(wantedMode())
     pollMouse()
     local mode = state.mode
-    PadHide:apply(mode ~= "off" and mod.options:get("hide_virtual_pad") ~= false, game)
+    -- an app the player can walk around with (Super Training's home) keeps the engine's pad
+    local active = Apps:active()
+    local walking = active ~= nil and active.fieldPlay == true
+    PadHide:apply(mode ~= "off" and not walking and mod.options:get("hide_virtual_pad") ~= false, game)
     -- apps keep ticking while dormant so a session can wake the surface
     Apps:update(dt, game)
+    -- Super Training's home screen runs with the overworld live: its session ticks here
+    if Training and Training.frame then
+      local ok, err = pcall(Training.frame, dt)
+      if not ok and not state.frameWarned then
+        state.frameWarned = true
+        mod.log:warn("super training: tick failed (%s)", tostring(err))
+      end
+    end
     -- Super Training keeps punching (and resting) while its screen is closed
     if Training and Training.background then
       local ok, err = pcall(Training.background, game ~= nil and game.phase == "field")
@@ -808,6 +819,35 @@ return function(mod)
     mod.log:info("Pokemon-Amie runs on Gen 3 in this version")
   end
 
+  -- the strip's arrows switch between Super Training and Pokemon-Amie, as PlayNav's do
+  if Training and Amie then
+    local makeStrip = loadSibling(mod, "src/strip.lua")
+    local Strip = makeStrip and makeStrip(function() return Assets end)
+    Training.onSwitch = function()
+      if Training.session then Training.finish() end
+      local ok, why = Amie.open()
+      if not ok then mod.log:info("switch to Amie: %s", tostring(why)) end
+    end
+    local home = Apps:get("home")
+    if Strip and home then
+      local draw0, pointer0 = home.draw, home.pointer
+      home.draw = function(self, G, w, h)
+        draw0(self, G, w, h)
+        if Amie.session and Amie.session.mode == "home" then Strip.draw(G, w, self.bleed or 14) end
+      end
+      home.pointer = function(self, ev, rec)
+        if Amie.session and Amie.session.mode == "home" and ev.phase == "released"
+            and Pointer.isTap(rec, 16, 1.0) and Strip.hit(ev.x, ev.y, 256, self.bleed or 14) then
+          Amie.finish()
+          local ok, why = Training.open()
+          if not ok then mod.log:info("switch to Super Training: %s", tostring(why)) end
+          return
+        end
+        return pointer0(self, ev, rec)
+      end
+    end
+  end
+
   -- Super Training from the Gen 3 start menu, right after AMIE
   if Training and mod.generation == 3 and trainHost.available() then
     TStore.migrate()
@@ -825,6 +865,8 @@ return function(mod)
         onSelect = function()
           local ok, StartMenu = pcall(require, "src.ui.game3.start_menu")
           if ok and StartMenu and StartMenu.close then pcall(StartMenu.close, true) end
+          -- the entry toggles: Super Training stays open while the player walks
+          if Training.session then Training.finish(); return end
           local okO, why = Training.open()
           if not okO then mod.log:info("training from the menu: %s", tostring(why)) end
         end,

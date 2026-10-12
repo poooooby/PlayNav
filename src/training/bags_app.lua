@@ -10,7 +10,10 @@ return function(mod, Pointer, T, Rules, Store)
   local app = { id = "training_bags", title = "TRAINING BAGS", live = true, hideTabs = true }
   local N = Rules.N
 
-  function app:wantsSurface() return T.session ~= nil and T.session.mode == "bags" end
+  app.fieldPlay = true
+  function app:wantsSurface()
+    return T.session ~= nil and T.session.mode == "bags" and not (T.inBattle and T.inBattle())
+  end
 
   local L = 256 / 320
   local BLEED = 14
@@ -34,6 +37,7 @@ return function(mod, Pointer, T, Rules, Store)
   -- Yes / No: panes 82 and 88, under the question window on the right
   local ASK_BARS = { { 230, 115, 180, 30 }, { 230, 145, 180, 30 } }
   local RETURN = { 292, 193, 48, 48 }
+  local LEAVE = { 305, 224, 27, 27 }   -- PlayNav's return button (pane ab)
 
   -- nil (the drawer), { index } (the description), { index, ask = "use" | "discard" }
   local view = nil
@@ -86,6 +90,7 @@ return function(mod, Pointer, T, Rules, Store)
     return {
       slotRect = slotRect,
       BACK = rect(RETURN),
+      LEAVE = rect({ LEAVE[1], LEAVE[2], 36, 36 }),
       DRAWER = rect({ 30, DRAWER.y, DRAWER.w, DRAWER.h }),
       button = function(i, n)
         if n == 2 then return rect(ASK_BARS[i]) end
@@ -134,6 +139,7 @@ return function(mod, Pointer, T, Rules, Store)
       return
     end
     if inRect(x, y, g.BACK) then close(); return end
+    if inRect(x, y, g.LEAVE) then T.finish(); return end
     for i = 1, N.LIMITS.BAG_MAX do
       if bags[i] and inRect(x, y, slotRect(i)) then
         open({ index = i })
@@ -291,10 +297,16 @@ return function(mod, Pointer, T, Rules, Store)
     G.scale(L, L)
     -- the room dims (pic 2w: black at half alpha) and so do the bottom icons (black_mask_c)
     G.setColor(0, 0, 0, 0.5)
-    G.rectangle("fill", 0, 20, 320, 200)
+    G.rectangle("fill", 0, 20, 320, 197)
     local mask = art("training/black_mask")
     G.setColor(0, 0, 0, mask and 136 / 255 or 0.5)
-    G.rectangle("fill", 0, 220, 320, 20)
+    G.rectangle("fill", 0, 217, 320, 23)
+    local leave = art("training/home_return")
+    if leave then
+      local iw, ih = leave:getDimensions()
+      G.setColor(1, 1, 1, 1)
+      G.draw(leave, LEAVE[1] - LEAVE[3] / 2, LEAVE[2] - LEAVE[4] / 2, 0, LEAVE[3] / iw, LEAVE[4] / ih)
+    end
     -- the Bags button is the return button while the drawer is out
     local ret = art("training/btn_return")
     if ret then

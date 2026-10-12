@@ -85,6 +85,15 @@ return function(N, ShotTypes)
 
   function R.bag(id) return R.BAGS[id] end
 
+  -- the coach's cheer group for a bag (N.CORE.CHEER.GROUP: stat bags by their stat)
+  function R.cheerGroup(id)
+    local def = R.BAGS[id]
+    if not def then return nil end
+    local G = N.CORE.CHEER.GROUP
+    if def.kind == "stat" then return G[def.stat] end
+    return G[id]
+  end
+
   -- hits a bag needs; a refreshed Pokemon needs fewer (rounded up)
   function R.bagHits(id, refreshed)
     local b = R.BAGS[id]

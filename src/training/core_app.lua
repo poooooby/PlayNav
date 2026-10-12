@@ -18,7 +18,12 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local app = { id = "training_core", title = "SUPER TRAINING", live = true, hideTabs = true }
   local N = Rules.N
 
-  function app:wantsSurface() return T.session ~= nil and T.session.mode == "core" end
+  -- the overworld stays live above this screen (the engine's pad stays for walking); a
+  -- battle takes the bottom screen back
+  app.fieldPlay = true
+  function app:wantsSurface()
+    return T.session ~= nil and T.session.mode == "core" and not (T.inBattle and T.inBattle())
+  end
 
   local L = 256 / 320
   -- vertex colours run top-left, top-right, bottom-left, bottom-right, as in the layout
@@ -83,6 +88,12 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   local function inRect(x, y, r) return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h end
+  -- PlayNav's return button (message layout pane ab, 27x27 at 305,224) leaves Super Training;
+  -- the strip's arrows switch to Pokemon-Amie (T.onSwitch, set by main)
+  local RETURN_PANE = { 305, 224, 27, 27 }
+  local CLOSE = { x = (305 - 18) * L, y = (224 - 18) * L - BLEED, w = 36 * L, h = 36 * L }
+  local ARROWS = { { x = 0, y = -BLEED, w = 34, h = 21 }, { x = 256 - 34, y = -BLEED, w = 34, h = 21 } }
+  app.CLOSE = CLOSE
 
   -- the party: the active Pokemon stands in the room; the others take the layout's icon
   -- slots in party order. partySlot(i) is where party member i can be tapped.
@@ -102,7 +113,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   function app.geometry()
-    return { PIC = PIC, BAG = BAG, RADAR = RADAR, TOTAL = TOTAL, REGIMENS = REGIMENS, BAGS = BAGS, ROOM = ROOM, partySlot = slotOf }
+    return { PIC = PIC, BAG = BAG, RADAR = RADAR, TOTAL = TOTAL, REGIMENS = REGIMENS, BAGS = BAGS, ROOM = ROOM, CLOSE = CLOSE, partySlot = slotOf }
   end
 
   function app:pointer(ev, rec)
@@ -113,6 +124,13 @@ return function(mod, Pointer, T, Rules, Radar, host)
     if T.touch then T.touch() end
     if not Pointer.isTap(rec, 16, 1.0) then return end
     local x, y = ev.x, ev.y
+    if inRect(x, y, CLOSE) then T.finish(); return end
+    -- the finishing move plays out before anything else is taken
+    if T.finishing and T.finishing() then return end
+    if inRect(x, y, ARROWS[1]) or inRect(x, y, ARROWS[2]) then
+      if T.onSwitch then T.onSwitch() end
+      return
+    end
     if inRect(x, y, BAG) then T.hitBag("tap"); return end
     if inRect(x, y, PIC) then
       if s.rec.resting then T.wake() else T.hitBag("tap") end
@@ -195,6 +213,139 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local PTN_SCROLL = { u = -2 / 200, v = -1 / 200 }
   local HIT_FRAMES = 13
 
+  -- a cleared bag's finishing move: trpk_finish_a / b / c (pane groups 6e / 6i / 6j), 70
+  -- frames each. `mon` is the Pokemon's pane (43 / 4m / 4n), `bag` the pane the bag hangs from
+  -- (4u / 4v / 4w: its hook, the bag 100 below; it holds (-110, 64) until it flies off),
+  -- `shake` the background (q), `fx` the marks and slashes: `at` the parent pane's centre,
+  -- `tx` / `ty` offsets from it, `size` the pic, `va` its vertex alpha, `show` its frames.
+  local Q_TX = { { 10, 0, -2.5 }, { 12, -5, 1.5 }, { 14, 6, 0.75 }, { 16, -2, -1.25 }, { 18, 1, 0.5 }, { 20, 0, 0 }, { 40, 0, 0 },
+    { 40, 2, -0.045 }, { 42, -1, 0 }, { 44, 2, 0.25 }, { 46, 0, -0.5 }, { 48, 0, 0 } }
+  local Q_TY = { { 0, 0, 1 }, { 2, 2, -0.25 }, { 4, -1, -0.25 }, { 6, 1, 0.25 }, { 8, 0, -0.25 }, { 10, 0, 0.75 }, { 12, 3, -0.75 },
+    { 14, -3, -0.5 }, { 16, 1, 0.25 }, { 18, -2, -0.25 }, { 20, 0, 0 }, { 40, 0, 0 }, { 40, 2, -0.045 }, { 42, -1, 0 },
+    { 44, 2, 0.25 }, { 46, 0, -0.5 }, { 48, 0, 0 } }
+  local FINISH = {
+    -- two jabs, a somersault leap through the slash; the bag spins about its hook and flies off
+    a = {
+      shake = { tx = Q_TX, ty = Q_TY },
+      mon = {
+        tx = { { 0, -50, -19 }, { 2, -88, 0 }, { 4, -50, 0 }, { 6, -88, 0 }, { 8, -50, 0 }, { 15, -50, 0 }, { 15, -88, 0 }, { 40, 12, 0 },
+          { 44, 12, 0 }, { 44, 12, -4.133 }, { 55, -50, 0 } },
+        ty = { { 0, -18, 4 }, { 2, -10, 0 }, { 4, -18, 0 }, { 6, -10, 0 }, { 8, -18, 0 }, { 15, -18, 0 }, { 15, -18, 6 }, { 28, 60, 0 },
+          { 40, -18, 0 }, { 44, -18, 0 }, { 44, -18, 2.9 }, { 50, 11, 0 }, { 55, -18, 0 } },
+        rz = { { 0, 0, 0 }, { 15, 0, 0 }, { 15, 0, -18 }, { 40, -720, 0 } },
+      },
+      bag = {
+        tx = { { 55, -110, -4.133 }, { 70, -172, -4.133 } },
+        ty = { { 55, 64, 1.267 }, { 70, 83, 1.267 } },
+        rz = { { 0, 0, 0 }, { 3, 0, 0 }, { 3, -15, -0.531 }, { 6, -3.188, -1.25 }, { 7, -20, 0.678 }, { 11, 0.202, 2.5 }, { 15, 0, -0.051 },
+          { 15, 0, -35.714 }, { 57, -1500, -35.714 } },
+      },
+      fx = {
+        { img = "training/burst", at = { 50, 120 }, size = 64, va = 200, show = { 1, 64 },
+          tx = { { 0, 0, 0 }, { 2, 0, 0 }, { 2, -4.667, 0 }, { 6, -4.667, 0 }, { 6, 12, 0 }, { 12, 12, 0 }, { 12, 3.333, 0 } },
+          ty = { { 0, 0, 0 }, { 2, 0, 0 }, { 2, -1.556, 0 }, { 6, -1.556, 0 }, { 6, -20.667, 0 }, { 12, -20.667, 0 }, { 12, -0.667, 0 } },
+          s = { { 0, 1, 0 }, { 2, 1, 0 }, { 2, 1, 0.1 }, { 5, 1.5, 0 }, { 6, 1.5, 0 }, { 6, 1, 0 }, { 9, 1.5, 0 }, { 16, 1.5, 0 },
+            { 16, 1.5, 0.1 }, { 24, 3, 0.188 } },
+          a = { { 0, 0, 0 }, { 2, 0, 0 }, { 2, 255, 20 }, { 5, 100, 0 }, { 6, 100, 0 }, { 6, 255, -25 }, { 9, 0, 0 }, { 16, 0, 0 },
+            { 16, 255, 0 }, { 27, 0, -23.182 } } },
+        { img = "training/finish_slash", at = { 85, 116 }, size = 100, show = { 1, 64 },
+          s = { { 0, 1, 0 }, { 16, 1, 0.032 }, { 31, 2, 0.067 } },
+          rz = { { 0, 0, 0 }, { 16, 0, 0 }, { 16, 90, -16.129 }, { 31, -500, -39.333 } },
+          a = { { 0, 0, 0 }, { 16, 0, 0 }, { 16, 255, 0 }, { 31, 0, -17 } } },
+      },
+    },
+    -- a flurry: the Pokemon bounces off the bag again and again, a mark flickering on each hit
+    b = {
+      shake = { tx = Q_TX, ty = Q_TY },
+      mon = {
+        tx = { { 0, -50, 5 }, { 3, -35, 5 }, { 3, -35, 0.571 }, { 10, -31, 0.571 }, { 10, -31, -42 }, { 13, -157, -42 }, { 13, -157, 38.167 },
+          { 16, -42.5, 38.167 }, { 16, -42.5, -37.333 }, { 19, -154.5, -37.333 }, { 19, -154.5, 27 }, { 22, -73.5, 27 }, { 22, -73.5, -32 },
+          { 25, -169.5, -32 }, { 25, -169.5, 26.567 }, { 28, -89.8, 26.567 }, { 28, -89.8, -23.622 }, { 31, -160.667, -23.622 },
+          { 31, -160.667, 30.963 }, { 34, -67.778, 30.963 }, { 34, -67.778, -25.833 }, { 38, -171.111, 0.532 }, { 41, -64.051, 35.687 },
+          { 41, -64.051, -15.659 }, { 44, -111.027, -15.659 }, { 44, -111.027, 4.559 }, { 53, -69.996, 3.814 }, { 60, -50, 2.857 } },
+        ty = { { 3, -18, 0 }, { 10, -18, 0 }, { 10, -18, 17.167 }, { 13, 33.5, 17.167 }, { 13, 33.5, 4 }, { 16, 45.5, 4 }, { 16, 45.5, -13.333 },
+          { 19, 5.5, -13.333 }, { 19, 5.5, -2.333 }, { 22, -1.5, -2.333 }, { 22, -1.5, 3.833 }, { 25, 10, 3.833 }, { 25, 10, -11.267 },
+          { 28, -23.8, -11.267 }, { 28, -23.8, 14.822 }, { 31, 20.667, 14.822 }, { 31, 20.667, 5.704 }, { 34, 37.778, 5.704 },
+          { 34, 37.778, -10.407 }, { 38, -3.852, -10.407 }, { 38, -3.852, 14.903 }, { 41, 40.858, 14.903 }, { 41, 40.858, -13.357 },
+          { 44, 0.786, -13.357 }, { 44, 0.786, 4.31 }, { 53, 39.572, -1.174 }, { 60, -18, -8.225 } },
+        rz = { { 0, 0, 2.222 }, { 9, 20, 0 }, { 10, 0, 17.895 }, { 28, 360, 0 }, { 44, 0, -11.25 }, { 60, 0, 0 } },
+      },
+      bag = {
+        tx = { { 58, -110, -5.182 }, { 69, -167, -5.182 } },
+        ty = { { 58, 64, 1.636 }, { 69, 82, 1.636 } },
+        rz = { { 0, 0, 0 }, { 12, 0, 0 }, { 12, -15, 1.333 }, { 15, 20, -2.5 }, { 18, -30, 3.333 }, { 21, 40, -3.333 }, { 24, -50, -1.667 },
+          { 27, 30, 1.667 }, { 30, -40, 3.333 }, { 33, 50, 0 }, { 36, -40, -38.387 }, { 64, -1140, -39.286 } },
+      },
+      fx = {
+        { img = "training/burst", at = { 160, 120 }, size = 76, show = { 1, 60 },
+          tx = { { 12, -110, 0 }, { 15, -110, 0 }, { 15, -118, 0 }, { 18, -118, 0 }, { 18, -96, 0 }, { 21, -96, 0 }, { 21, -118, 0 },
+            { 24, -118, 0 }, { 24, -98, 0 }, { 27, -98, 0 }, { 27, -116, 0 }, { 30, -116, 0 }, { 30, -104, 0 }, { 33, -104, 0 },
+            { 33, -122, 0 }, { 36, -122, 0 }, { 36, -102, 0 }, { 39, -102, 0 }, { 39, -122, 0 }, { 45, -122, 0 }, { 45, -110, 0 } },
+          ty = { { 12, 0, 0 }, { 15, 0, 0 }, { 15, 26, 0 }, { 18, 26, 0 }, { 18, 6, 0 }, { 21, 6, 0 }, { 21, -14, 0 }, { 24, -14, 0 },
+            { 24, 9, 0 }, { 27, 9, 0 }, { 27, -23, 0 }, { 30, -23, 0 }, { 30, -20, 0 }, { 33, -20, 0 }, { 33, 10, 0 }, { 36, 10, 0 },
+            { 36, 12, 0 }, { 39, 12, 0 }, { 39, 6, 0 }, { 45, 6, 0 }, { 45, 1, 0 }, { 60, 1, 0 }, { 60, 0, 0 } },
+          s = { { 0, 1, 0 }, { 12, 1, 0 }, { 12, 1, 0.071 }, { 14, 2, 0 }, { 15, 1, 0 }, { 17, 2, 0 }, { 18, 1, 0 }, { 20, 2, 0 }, { 21, 1, 0 },
+            { 23, 2, 0 }, { 24, 1, 0 }, { 26, 2, 0 }, { 27, 1, 0 }, { 29, 2, 0 }, { 30, 1, 0 }, { 32, 2, 0 }, { 33, 1, 0 }, { 35, 2, 0 },
+            { 36, 1, 0 }, { 38, 2, 0 }, { 39, 1, -1 }, { 39, 1, 0.5 }, { 41, 2, 0.5 }, { 41, 2, -0.25 }, { 45, 1, 0 }, { 50, 2, 0.2 } },
+          a = { { 0, 0, 0 }, { 12, 0, 0 }, { 12, 255, -77.5 }, { 14, 100, -77.5 }, { 14, 100, 155 }, { 15, 255, 155 }, { 15, 255, -77.5 },
+            { 17, 100, -77.5 }, { 17, 100, 155 }, { 18, 255, 155 }, { 18, 255, -77.5 }, { 20, 100, -77.5 }, { 20, 100, 155 },
+            { 21, 255, 155 }, { 21, 255, -77.5 }, { 23, 100, -77.5 }, { 23, 100, 155 }, { 24, 255, 155 }, { 24, 255, -77.5 },
+            { 26, 100, -77.5 }, { 26, 100, 155 }, { 27, 255, 155 }, { 27, 255, -77.5 }, { 29, 100, -77.5 }, { 29, 100, 155 },
+            { 30, 255, 155 }, { 30, 255, -77.5 }, { 32, 100, -77.5 }, { 32, 100, 155 }, { 33, 255, 155 }, { 33, 255, -77.5 },
+            { 35, 100, -77.5 }, { 35, 100, 155 }, { 36, 255, 155 }, { 36, 255, -77.5 }, { 38, 100, -77.5 }, { 38, 100, 155 },
+            { 39, 255, 155 }, { 39, 255, -77.5 }, { 41, 100, 0 }, { 42, 100, 0 }, { 42, 0, 0 }, { 45, 0, 0 }, { 45, 255, -51 },
+            { 50, 0, -51 } } },
+      },
+    },
+    -- a spinning dash out past the bag, a slash where it turns, then the blow coming back
+    c = {
+      mon = {
+        tx = { { 0, -50, 11.929 }, { 4, -2.286, 11.429 }, { 7, 30, 10.762 }, { 7, 30, -0.184 }, { 34, 25.021, -0.184 }, { 34, 25.021, -43.34 },
+          { 37, -105, -43.34 }, { 37, -105, -2.5 }, { 39, -110, -0.25 }, { 41, -106, 2.333 }, { 42, -103, -0.5 }, { 43, -107, -2.5 },
+          { 44, -108, -0.143 }, { 50, -108, 0 }, { 50, -108, 5.143 }, { 57, -72, 4.143 }, { 64, -50, 3.143 } },
+        ty = { { 0, -18, 7.815 }, { 4, 13.262, 2.19 }, { 7, -2.667, -5.31 }, { 7, -2.667, -0.035 }, { 34, -3.621, -0.035 },
+          { 34, -3.621, 0.874 }, { 37, -1, 0.874 }, { 37, -1, -2.5 }, { 39, -6, -0.25 }, { 41, -2, 0.667 }, { 42, -4, -0.5 }, { 43, -3, 0 },
+          { 44, -4, -0.143 }, { 50, -4, 0 }, { 50, -4, 5 }, { 57, 31, -1 }, { 64, -18, -7 } },
+        rz = { { 0, 0, -25.714 }, { 7, -180, -25.714 }, { 7, -180, -45.185 }, { 34, -1400, 0 }, { 35, -1400, 0 }, { 35, 90, 0 },
+          { 50, 90, 0 }, { 50, 90, -6.429 }, { 64, 0, -6.429 } },
+      },
+      bag = {
+        tx = { { 55, -110, -3.9 }, { 70, -168.5, -3.9 } },
+        ty = { { 55, 64, 1.133 }, { 70, 81, 1.133 } },
+        rz = { { 0, 0, 0 }, { 38, 0, 0 }, { 38, 0, -17.812 }, { 64, -1140, -43.846 } },
+      },
+      fx = {
+        { img = "training/burst", at = { 50, 120 }, size = 76, show = { 38, 64 },
+          s = { { 0, 1, 0 }, { 37, 1, 0 }, { 37, 1.5, 0.023 }, { 44, 2, 0.071 } },
+          a = { { 0, 0, 0 }, { 38, 0, 0 }, { 38, 255, 0 }, { 44, 0, -42.5 } } },
+        { img = "training/finish_slash", at = { 185, 120 }, size = 64, show = { 1, 64 },
+          s = { { 7, 1, 0.036 }, { 35, 2, 0.036 } },
+          rz = { { 7, 0, -50 }, { 35, -1400, -50 } },
+          a = { { 0, 0, 0 }, { 7, 0, 0 }, { 7, 255, 0 }, { 35, 0, -9.107 } } },
+      },
+    },
+  }
+  -- the glow about the Pokemon (effect, pane 49 at 109,144): two efect_light quarters mirrored
+  -- into a sun each, orange 45 and yellow 47, turning opposite ways (100 frames)
+  -- the glow follows the sprite: `perSprite` times the sprite's larger visible side (a
+  -- capture shows about 95 across for a sprite about 50 across); `size` when that is unknown
+  local GLOW = {
+    at = { 109, 144 }, size = 96, perSprite = 1.9,
+    { rgb = { 255, 151, 6 }, s = { { 0, 0.5, 0.017 }, { 30, 1, 0 }, { 70, 1, 0 }, { 70, 1, -0.007 }, { 100, 0.5, -0.017 } },
+      rz = { { 0, 0, 3.6 }, { 100, 360, 3.6 } }, a = { { 0, 0, 8.5 }, { 30, 255, 3.643 }, { 70, 255, -3.643 }, { 100, 0, -8.5 } } },
+    { rgb = { 255, 252, 89 }, s = { { 0, 0.5, 0.013 }, { 30, 0.9, 0 }, { 70, 0.9, 0 }, { 70, 0.9, -0.006 }, { 100, 0.5, -0.013 } },
+      rz = { { 0, 0, -3.6 }, { 100, -360, -3.6 } }, a = { { 0, 0, 6 }, { 30, 180, 2.571 }, { 70, 180, -2.571 }, { 100, 0, -6 } } },
+  }
+  -- sand_bag_return (pane 56): the next bag drops onto its hook with a bounce (22 frames)
+  local BAG_RETURN = { { 0, 160, -5.333 }, { 18, 64, -5.333 }, { 18, 64, 2 }, { 20, 68, 2 }, { 20, 68, -2 }, { 22, 64, -2 } }
+  -- the stat's label and its +N (hp_up / kougeki_up / bougyo_up / tokukou_up / tokubou_up /
+  -- subayasa_up) and the gauge's arrow (arrow_scale) pulse 1 -> 1.2 every 7 frames
+  local function pulse(f)
+    f = f % 120
+    return (f >= 1 and math.floor((f - 1) / 7) % 2 == 0) and 1.2 or 1
+  end
+  app.FINISH = FINISH
+
   -- value of a key track at frame f (holds the ends)
   local function eval(keys, f)
     if not keys or #keys == 0 then return nil end
@@ -218,16 +369,72 @@ return function(mod, Pointer, T, Rules, Radar, host)
   -- the clock: frames since the screen opened, and since the last hit on the bag
   app.clock, app.hitAt = 0, nil
   local lastHit, lastResting = 0, false
+  -- the active sprite's larger visible side in layout units (as drawn: the icon at 2x its
+  -- 40x30 slot), read once per icon from a small canvas
+  local function measureSprite(icon)
+    local G = love and love.graphics
+    if not (G and G.newCanvas and icon and icon.image) then return nil end
+    local fw, fh = icon.w or 32, icon.h or 32
+    local ok, data = pcall(function()
+      local c = G.newCanvas(fw, fh)
+      local prev = G.getCanvas()
+      G.push("all")
+      G.setCanvas(c)
+      G.clear(0, 0, 0, 0)
+      G.origin()
+      G.setColor(1, 1, 1, 1)
+      local q = icon.quads and (icon.quads[0] or icon.quads[1])
+      if q then G.draw(icon.image, q, 0, 0) else G.draw(icon.image, 0, 0) end
+      G.pop()
+      G.setCanvas(prev)
+      return c:newImageData()
+    end)
+    if not ok or not data then return nil end
+    local x0, y0, x1, y1 = fw, fh, -1, -1
+    for y = 0, fh - 1 do
+      for x = 0, fw - 1 do
+        local _, _, _, a = data:getPixel(x, y)
+        if a > 0.1 then
+          if x < x0 then x0 = x end
+          if x > x1 then x1 = x end
+          if y < y0 then y0 = y end
+          if y > y1 then y1 = y end
+        end
+      end
+    end
+    if x1 < 0 then return nil end
+    local k = 2 * 40 / fw
+    return math.max(x1 - x0 + 1, y1 - y0 + 1) * k
+  end
+
   function app:update(dt)
     app.clock = app.clock + (dt or 0) * FPS
     local s = T.session
     local hit = s and s.anim and s.anim.hit or 0
     if hit > lastHit + 1e-6 then app.hitAt = app.clock end
     lastHit = hit
+    if s and s.anim and s.anim.finish then
+      local icon
+      for _, p in ipairs(T.party and T.party() or {}) do
+        if p.active then icon = p.icon end
+      end
+      local img = icon and icon.image
+      if img and not (app.spriteExtent and app.spriteExtent.image == img) then
+        app.spriteExtent = { image = img, size = measureSprite(icon) }
+      end
+    end
     -- the moment it gets up, the wake-up clip plays
     local resting = s ~= nil and s.rec.resting and true or false
     if lastResting and not resting then app.wakeAt = app.clock end
     lastResting = resting
+  end
+  local drawFinishFx
+  -- the finishing move under way: the session's record and its frame
+  local function finishing()
+    local s = T.session
+    local fin = s and s.anim and s.anim.finish
+    if not fin then return nil end
+    return fin, fin.t * 30
   end
   local function sinceHit()
     if not app.hitAt then return nil end
@@ -285,9 +492,15 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local bg01, ptn = art("training/home_bg01"), art("training/home_bg_ptn")
     local f = sinceHit()
     local shake = f and eval(TRACK.shake.ty, f) or 0
+    local shakeX = 0
+    local fin, ff = finishing()
+    if fin and ff < 70 and FINISH[fin.clip].shake then
+      shake = eval(FINISH[fin.clip].shake.ty, ff) or 0
+      shakeX = eval(FINISH[fin.clip].shake.tx, ff) or 0
+    end
     G.setColor(1, 1, 1, 1)
     G.push()
-    G.translate(0, -shake)
+    G.translate(shakeX, -shake)
     pane(G, "bg", nil, PANE.bg)
     if bg01 then
       pane(G, "glowLow", bg01, PANE.glowLow)
@@ -306,14 +519,38 @@ return function(mod, Pointer, T, Rules, Radar, host)
     end
   end
 
+  local function bagArt(def)
+    return def and art(("training/sand_bag_%02d"):format(Rules.BAG_ART[def.id] or 0)) or art("training/home_sand_bag")
+  end
+
   local function drawBag(G, s, small)
+    local fin, ff = finishing()
+    if fin then
+      -- the cleared bag spins on its hook and flies off; then the room is empty
+      if ff >= 70 then return end
+      local tr = FINISH[fin.clip].bag
+      local img = bagArt(Rules.bag(fin.bag))
+      if not img then return end
+      local iw, ih = img:getDimensions()
+      local p = PANE.bag
+      G.setColor(1, 1, 1, (p.alpha or 255) / 255)
+      G.draw(img, 160 + eval(tr.tx, ff), 120 - eval(tr.ty, ff), math.rad(-(eval(tr.rz, ff) or 0)),
+        p[3] / iw, p[4] / ih, iw / 2, 0)
+      return
+    end
     local bag = s.rec.bag
     local def = bag and Rules.bag(bag.id)
     local p = PANE.bag
     local f = sinceHit()
     local swing = f and math.rad(-(eval(TRACK.bag.rz, f) or 0)) or 0
+    -- the next bag drops back onto its hook (its top at 120 - ty, 64 when hung)
+    local drop = s.anim.bagReturn and (eval(BAG_RETURN, s.anim.bagReturn * 30) - 64) or 0
+    if drop ~= 0 then
+      G.push()
+      G.translate(0, -drop)
+    end
     -- an attached bag shows its own art; otherwise the game's grey punching bag
-    local img = def and art(("training/sand_bag_%02d"):format(Rules.BAG_ART[def.id] or 0)) or art("training/home_sand_bag")
+    local img = bagArt(def)
     if img then
       local iw, ih = img:getDimensions()
       G.setColor(1, 1, 1, (p.alpha or 255) / 255)
@@ -327,10 +564,52 @@ return function(mod, Pointer, T, Rules, Radar, host)
       G.rectangle("fill", -14, -42, 28, 84, 10, 10)
       G.pop()
     end
+    if drop ~= 0 then G.pop() end
     if bag then
       G.setFont(small)
       G.setColor(1, 1, 1, 0.95)
       G.printf(("%d/%d"):format(bag.hits, bag.needed), p[1] - 30, p[2] + p[4] / 2 + 2, 60 * L, "center", 0, 1 / L, 1 / L)
+    end
+  end
+
+  -- the clip's marks and slashes, then the glow (frames 70..170)
+  function drawFinishFx(G, fin, ff)
+    if ff < 70 then
+      for _, fx in ipairs(FINISH[fin.clip].fx) do
+        local img = art(fx.img)
+        if img and ff >= fx.show[1] and ff < fx.show[2] then
+          local a = math.max(0, math.min(255, eval(fx.a, ff) or 0)) / 255 * (fx.va or 255) / 255
+          if a > 0 then
+            local iw, ih = img:getDimensions()
+            local sc = (eval(fx.s, ff) or 1) * fx.size / iw
+            local x = fx.at[1] + (fx.tx and eval(fx.tx, ff) or 0)
+            local y = fx.at[2] - (fx.ty and eval(fx.ty, ff) or 0)
+            G.setColor(1, 1, 1, a)
+            G.draw(img, x, y, math.rad(-(fx.rz and eval(fx.rz, ff) or 0)), sc, sc, iw / 2, ih / 2)
+          end
+        end
+      end
+      return
+    end
+    local gf = ff - 70
+    local light = art("training/finish_light")
+    if not light or gf >= 100 then return end
+    local iw, ih = light:getDimensions()
+    local ext = app.spriteExtent and app.spriteExtent.size
+    local size = ext and ext * GLOW.perSprite or GLOW.size
+    for _, g in ipairs(GLOW) do
+      local a = math.max(0, math.min(255, eval(g.a, gf) or 0)) / 255
+      local sc = (eval(g.s, gf) or 1) * size / 2 / iw   -- a quarter each way from the centre
+      G.setColor(g.rgb[1] / 255, g.rgb[2] / 255, g.rgb[3] / 255, a)
+      G.push()
+      G.translate(GLOW.at[1], GLOW.at[2])
+      G.rotate(math.rad(-(eval(g.rz, gf) or 0)))
+      -- the quarter's bright corner (its lower left) at the centre, mirrored four ways
+      G.draw(light, 0, 0, 0, sc, sc, 0, ih)
+      G.draw(light, 0, 0, 0, -sc, sc, 0, ih)
+      G.draw(light, 0, 0, 0, sc, -sc, 0, ih)
+      G.draw(light, 0, 0, 0, -sc, -sc, 0, ih)
+      G.pop()
     end
   end
 
@@ -345,7 +624,14 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local tr, at
     local woke = app.wakeAt and (app.clock - app.wakeAt) or nil
     local fainted = T.state and T.state().fainted
-    if s.rec.resting or fainted then
+    local fin, ff = finishing()
+    if fin then
+      if ff < 70 then
+        tr, at = FINISH[fin.clip].mon, ff
+      else
+        tr, at = TRACK.punch, 6   -- back at its spot (-50, -18), still under the glow
+      end
+    elseif s.rec.resting or fainted then
       tr, at = TRACK.rest, app.clock % TRACK.rest.loop
     elseif not f and T.refreshed() then
       -- a second wind: the motivated clip on loop, for as long as it lasts
@@ -391,6 +677,10 @@ return function(mod, Pointer, T, Rules, Radar, host)
         G.setColor(1, 1, 1, math.max(0, eval(m2.a, f) or 0) / 255 * 200 / 255)
         G.draw(burst, PANE.hit[1] + (eval(m2.tx, f) or 0), PANE.hit[2] - (eval(m2.ty, f) or 0), 0, sc, sc, bw / 2, bh / 2)
       end
+    end
+    if fin then
+      drawFinishFx(G, fin, ff)
+      return
     end
     local mood = (fainted and "sad") or (s.rec.resting and "silence") or (T.refreshed() and "smile")
       or ((s.anim.burst or 0) > 0 and "surprise") or nil
@@ -455,9 +745,12 @@ return function(mod, Pointer, T, Rules, Radar, host)
     G.setColor(0.85, 1, 0.3, 1)
     G.polygon("line", outer)
     G.setLineWidth(1)
+    local up = s.anim and s.anim.statUp
+    local uf = up and up.t * 30
     for k, at in pairs(PANE.label) do
       local img = art("training/label_" .. k)
-      if img then fit(G, img, { at[1], at[2], 64, 20 }) end
+      local sc = (up and up.stat == k) and pulse(uf) or 1
+      if img then fit(G, img, { at[1], at[2], 64 * sc, 20 * sc }) end
     end
     -- the total: a green quad rising from the gauge's foot
     local g = PANE.gauge
@@ -466,6 +759,37 @@ return function(mod, Pointer, T, Rules, Radar, host)
       local hh = g[4] * frac
       G.setColor(1, 1, 1, 1)
       pane(G, "gauge" .. math.floor(hh * 4), nil, { g[1], g[2] - hh / 2, g[3], hh }, g)
+    end
+  end
+
+  -- after a stat bag: the +N over the stat's label and the arrow at the gauge's top. In the
+  -- layout these panes come after the name frame (57, 3h..3r, 5k), so they draw over it.
+  local function drawStatUp(G, s, small)
+    local up = s.anim and s.anim.statUp
+    if not up then return end
+    local uf, sc = up.t * 30, pulse(up.t * 30)
+    local at = PANE.label[up.stat]
+    if at then
+      -- the +N (point_up_win 3p 40x20, 17 above the label, alpha 180; text 3d)
+      local cx, cy = at[1], at[2] - 17 * sc
+      local win = art("training/point_up_win")
+      if win then fit(G, win, { cx, cy, 40 * sc, 20 * sc }, false, nil, 180) end
+      G.setFont(small)
+      local txt = ("+%d"):format(up.added)
+      local k = 13 * sc / math.max(1, small:getHeight())
+      G.setColor(1, 0.62, 0.2, 1)
+      G.print(txt, cx - small:getWidth(txt) * k / 2, cy - small:getHeight() * k / 2 - 1, 0, k, k)
+    end
+    -- the arrow (arrow_up_anime: pane 5k climbs 128 over the gauge; the arrow pic 5i sits 6
+    -- right and 12 up of it, light green at alpha 200), pulsing (arrow_scale)
+    local frac = math.max(0, math.min(1, Rules.evTotal(s.evs) / N.LIMITS.EV_TOTAL))
+    local ax, ay = 314, 174 - 128 * frac
+    local arrow = art("training/arrow")
+    if arrow then
+      fit(G, arrow, { ax, ay, 16 * sc, 16 * sc }, false, { 222, 255, 151 }, 200)
+    else
+      G.setColor(222 / 255, 1, 151 / 255, 200 / 255)
+      G.polygon("fill", ax, ay - 7 * sc, ax - 6 * sc, ay, ax + 6 * sc, ay)
     end
   end
 
@@ -538,6 +862,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
 
   -- the PlayNav strip over the top of the bottom screen, its stepped edge at both ends, and
   -- the same strip upside down along the bottom where PlayNav's icon row sits
+  local BOTTOM_STRIP_H = 23
   local function drawStrip(G, w)
     local strip = art("training/home_strip")
     if not strip then return end
@@ -546,8 +871,9 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local hgt = 21 / L
     G.draw(strip, 0, 0, 0, (w / 2) / sw, hgt / sh)
     G.draw(strip, w, 0, 0, -(w / 2) / sw, hgt / sh)
-    G.draw(strip, 0, 240, 0, (w / 2) / sw, -20 / sh)
-    G.draw(strip, w, 240, 0, -(w / 2) / sw, -20 / sh)
+    -- the bottom strip rises to the buttons' flat lower edge (REGIMENS 218, BAGS 217)
+    G.draw(strip, 0, 240, 0, (w / 2) / sw, -BOTTOM_STRIP_H / sh)
+    G.draw(strip, w, 240, 0, -(w / 2) / sw, -BOTTOM_STRIP_H / sh)
     local arrow = art("training/home_arrow")
     if arrow then
       fit(G, arrow, { 14, 11, 18, 18 })
@@ -576,9 +902,48 @@ return function(mod, Pointer, T, Rules, Radar, host)
     drawFrame(G)
     drawMeter(G, s, small)
     drawBanner(G, s, font)
+    drawStatUp(G, s, small)
     drawButtons(G, small)
     drawParty(G)
     drawStrip(G, 320)
+    local ret = art("training/home_return")
+    if ret then fit(G, ret, RETURN_PANE) end
+    if finishing() then
+      -- the strip gives way to the night-blue band and the icon row dims, as in the game
+      G.setColor(0.07, 0.11, 0.27, 1)
+      G.rectangle("fill", 0, 0, 320, 21 / L)
+      G.setColor(0, 0, 0, 136 / 255)
+      G.rectangle("fill", 0, 240 - BOTTOM_STRIP_H, 320, BOTTOM_STRIP_H)
+    end
+    -- the session's words, in the game's two-line message window
+    local words = s.message or s.cheerText
+    if words then
+      local win = art("training/win_bl")
+      local mx, my, mw, mh = 160, 50, 310, 60
+      if win then
+        local tw, th = win:getDimensions()
+        app.winQuads = app.winQuads or {
+          corner = G.newQuad(0, 0, tw, th, tw, th), h = G.newQuad(tw - 1, 0, 1, th, tw, th),
+          v = G.newQuad(0, th - 1, tw, 1, tw, th), fill = G.newQuad(tw - 1, th - 1, 1, 1, tw, th) }
+        local q, x0, y0 = app.winQuads, mx - mw / 2, my - mh / 2
+        local iw, ih = mw - 2 * tw, mh - 2 * th
+        G.setColor(1, 1, 1, 1)
+        G.draw(win, q.corner, x0, y0); G.draw(win, q.corner, x0 + mw, y0, 0, -1, 1)
+        G.draw(win, q.corner, x0, y0 + mh, 0, 1, -1); G.draw(win, q.corner, x0 + mw, y0 + mh, 0, -1, -1)
+        G.draw(win, q.h, x0 + tw, y0, 0, iw, 1); G.draw(win, q.h, x0 + tw, y0 + mh, 0, iw, -1)
+        G.draw(win, q.v, x0, y0 + th, 0, 1, ih); G.draw(win, q.v, x0 + mw, y0 + th, 0, -1, ih)
+        G.draw(win, q.fill, x0 + tw, y0 + th, 0, iw, ih)
+      else
+        G.setColor(0.07, 0.85, 0.73, 0.85)
+        G.rectangle("fill", mx - mw / 2, my - mh / 2, mw, mh, 8, 8)
+      end
+      G.setFont(small)
+      local k = math.min(18 / math.max(1, small:getHeight()), 200 / math.max(1, small:getWidth("Trains Speed stat a fair amount.")))
+      G.setColor(0.03, 0.25, 0.22, 0.7)
+      G.printf(words, mx - mw / 2 + 13, my - mh / 2 + 9, (mw - 24) / k, "left", 0, k, k)
+      G.setColor(1, 1, 1, 1)
+      G.printf(words, mx - mw / 2 + 12, my - mh / 2 + 8, (mw - 24) / k, "left", 0, k, k)
+    end
     if s.rec.pending then
       G.setFont(small)
       G.setColor(1, 0.95, 0.55, 1)

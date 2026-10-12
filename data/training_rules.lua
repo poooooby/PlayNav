@@ -56,6 +56,14 @@ N.CORE = {
   -- bag then one of the game's 26 with equal odds (Team Flare's slot finds nothing)
   BLANK_BAG_DROP = 5,
   BLANK_BAG_DROP_FULLY = 10,    -- with all 510 EVs
+  -- the coach's cheer while a training bag hangs: line FIRST + PER_GROUP * group + rand(3) of
+  -- file 27, the group by bag; shown SHOW frames (30 a second), hidden HIDE, then a new line.
+  -- The countdown stands still while a punch plays, so fast tapping spaces the lines out.
+  CHEER = {
+    FIRST = 45, PER_GROUP = 3, SHOW = 300, HIDE = 300,
+    GROUP = { hp = 0, atk = 1, def = 2, spa = 1, spd = 2, spe = 3, big_shot = 0, strength = 1,
+      toughen_up = 2, swiftness = 3, double_up = 4, team_flare = 5, reset = 6, soothing = 7 },
+  },
 }
 
 -- weights for the random bags. `stat_s` means the S bag of a random stat.
@@ -187,6 +195,7 @@ N.EVIDENCE = {
   ["CORE.REST_AFTER_S"] = { class = "measured", source = "Alpha Sapphire in Azahar, 2026-10-12: no rest after 45 minutes left alone; a rolled 30 to 60 minutes stands in", confidence = "low" },
   ["CORE.ROUTINE_REST_BAGS"] = { class = "inferred", source = "player data: a rest roughly every 3 to 5 bags cleared; the game's odds are not documented", confidence = "medium" },
   ["CORE.SECOND_WIND_AFTER_BAG"] = { class = "placeholder", source = "player guides: the happy bubble often follows a cleared bag; how often is not stated", confidence = "low" },
+  ["CORE.CHEER"] = { class = "verified", source = "the game's code: main program 0x007BB504 (the home screen's cheer): with a bag on the stand and hits left, line = 45 + 3 * (first u16 of the bag's 12-byte record at 0x007ED088) + rand(3), shown through 0x761340, a 300-frame countdown at +0x26c shows / hides it in turn (0x007BB628 / 0x007BB6C8); traced live with breakpoints: shown at once on a new bag, hidden 10.2 s later, the next 10.5 s on, 12.8 s while tapping; the finish (0x007BBF4C) stops it", confidence = "high" },
   ["CORE.BLANK_BAG_DROP"] = { class = "verified", source = "the game's code: main program 0x007B9A0C (a tap on the blank bag): rand(100) < 5, or < 10 under a flag read from the Pokemon (0x006F6BF8), then rand(26) + 1 into the bag table at 0x007ED088; entry 24 (kind 5, Team Flare) gives nothing; caught live with a write watchpoint on the bag rack", confidence = "high" },
   ["CORE.BLANK_BAG_DROP_FULLY"] = { class = "inferred", source = "the 10 is the game's (see BLANK_BAG_DROP); that its flag is 'fully trained' is read from player reports", confidence = "medium" },
   ["BAG_ODDS.support"] = { class = "placeholder", source = "atwiki comment: a time out gives a support bag", confidence = "low" },

@@ -71,7 +71,9 @@ def parse(b, base):
         elif magic == b"pae1":
             stack.pop()
         elif magic == b"grp1":
-            groups.append(cstr(b, d, 16))
+            # name[16], member count, then the member pane names (16 bytes each)
+            n = struct.unpack_from("<H", b, d + 16)[0]
+            groups.append({"name": cstr(b, d, 16), "panes": [cstr(b, d + 20 + 16 * i, 16) for i in range(n)]})
         p += size
     return W, H, root, groups
 

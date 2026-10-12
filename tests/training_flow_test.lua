@@ -108,7 +108,18 @@ end
 
 T.eq(S.session, nil, "no session at the start")
 T.check(TR.open(), "opens on the first healthy party member")
-T.eq(#stack, 1, "the layer is pushed")
+T.eq(#stack, 0, "no top-screen layer: the overworld stays live, as in the game")
+T.check(Apps:get("training_core").fieldPlay, "...and the engine's pad stays for walking")
+T.check(S.enterCourses(), "the regimen picker")
+T.eq(#stack, 1, "...brings up the top-screen layer (its course card)")
+T.check(S.enterCore(), "back to the room")
+T.eq(#stack, 0, "...takes it down again")
+do
+  -- with no layer up, the mod's frame tick drives the session
+  local t0 = S.session.anim.t
+  S.frame(0.5)
+  T.eq(S.session.anim.t, t0 + 0.5, "the frame tick runs the session")
+end
 T.eq(Apps:active().id, "training_core", "the core app owns the surface")
 T.check(X._test.surfaceWanted(), "the surface is wanted")
 T.eq(S.state().mode, "core", "mode core")
@@ -138,8 +149,10 @@ do
   S.tick(S.HIT_LOCK + 0.01)
 end
 
--- the rest of the suite punches in tight loops: no wait between punches
+-- the rest of the suite punches in tight loops: no wait between punches, and no finishing
+-- move after a cleared bag (its own test below turns it back on)
 S.HIT_LOCK = 0
+S.FINISH_MOVE = false
 
 -- ------- the black bag
 
@@ -186,6 +199,82 @@ do
   T.eq(party[1].evs.hp, 13, "+12 more")
   T.eq(party[1].maxHp, 38, "max HP rose by 3")
   T.eq(party[1].hp, 23, "...and current HP with it")
+end
+
+-- ------- a cleared bag's finishing move: the clip with its line, the glow, the bag's words
+-- at frame 170, the home screen at 200 with the stat's +N for 120 more
+
+do
+  S.FINISH_MOVE = true
+  local rec = S.session.rec
+  local toRest = rec.bagsToRest
+  rec.bagsToRest = 99
+  local bags = Store.bags()
+  bags[1] = "def_s"
+  T.check(S.attachBag(1), "Defense Bag S on the stand")
+  S.session.rec.bag.hits = S.session.rec.bag.needed - 1
+  local def0 = party[1].evs.def
+  T.check(S.hitBag("tap"), "the last punch lands")
+  local st = S.state()
+  T.check(st.finishing, "the finishing move starts")
+  T.eq(party[1].evs.def, def0 + 1, "the EV is in at once")
+  T.check(S.session.anim.finish.clip == "a" or S.session.anim.finish.clip == "b" or S.session.anim.finish.clip == "c",
+    "one of the game's three clips")
+  T.check(st.message ~= nil, "its line is up (" .. tostring(st.message) .. ")")
+  local first = st.message
+  local ok, why = S.hitBag("tap")
+  T.check(not ok and why == "busy", "taps wait for it (" .. tostring(why) .. ")")
+  local function frames(n) for _ = 1, n do S.tick(1 / 30) end end
+  frames(100)
+  T.eq(S.state().message, first, "...still its line during the glow")
+  frames(72)
+  T.check(S.state().message ~= first and S.state().message ~= nil, "the bag's words at frame 170 (" .. tostring(S.state().message) .. ")")
+  T.check(S.state().finishing, "...still finishing")
+  frames(30)
+  st = S.state()
+  T.check(not st.finishing, "home again at frame 200")
+  T.eq(st.message, nil, "...the words cleared")
+  T.check(st.statUp and st.statUp.stat == "def" and st.statUp.added == 1, "Defense's +1 on the meter")
+  frames(121)
+  T.check(S.state().statUp ~= nil, "the +1 stays until the next hit")
+  T.check(S.hitBag("tap"), "taps are taken again")
+  T.eq(S.state().statUp, nil, "...and the next tap clears the +1")
+  rec.bagsToRest = toRest
+  S.FINISH_MOVE = false
+end
+
+-- ------- the coach's cheer: a line from the bag's group at once, 300 frames shown, 300
+-- hidden, a new one; the countdown stands still while a punch plays
+
+do
+  local rec = S.session.rec
+  local bags = Store.bags()
+  local function frames(n) for _ = 1, n do S.tick(1 / 30) end end
+  frames(15)   -- the last test's punch has played out
+  bags[1] = "def_m"
+  T.check(S.attachBag(1), "Defense Bag M on the stand")
+  frames(1)
+  local line = S.state().cheerLine
+  T.check(line ~= nil and line >= 51 and line <= 53, "a Defense cheer at once (line " .. tostring(line) .. ", 51-53)")
+  T.check(S.state().cheer ~= nil, "...in the message window")
+  frames(298)
+  T.check(S.state().cheer ~= nil, "still up at frame 299")
+  frames(2)
+  T.eq(S.state().cheer, nil, "hidden after 300 frames")
+  frames(150)
+  -- a punch: the countdown waits while it plays (0.25 s = 7.5 frames)
+  S.hitBag("tap")
+  frames(150)
+  T.eq(S.state().cheer, nil, "...the punch held the countdown back")
+  frames(10)
+  local nxt = S.state().cheerLine
+  T.check(nxt ~= nil and nxt >= 51 and nxt <= 53, "the next Defense cheer (line " .. tostring(nxt) .. ")")
+  -- the bag comes off: no cheer
+  rec.bag = nil
+  frames(1)
+  T.eq(S.state().cheer, nil, "no bag, no cheer")
+  T.eq(N.CORE.CHEER.GROUP.spa, 1, "Sp. Atk bags cheer with Attack's lines (the game's table)")
+  T.eq(Rules.cheerGroup("soothing"), 7, "Soothing: lines 66-68")
 end
 
 -- ------- the wall clock: a punch a minute, the rest after a rolled 30 to 60 minutes awake
@@ -555,6 +644,17 @@ T.eq(#stack, 0, "the layer is popped")
 T.check(not X._test.surfaceWanted(), "the surface goes dormant")
 T.check(X.amie.open(), "Amie opens again")
 X.amie.session.finish()
+
+-- ------- the strip's arrows switch to Pokemon-Amie
+
+do
+  T.check(TR.open(party[1]), "open again")
+  T.check(type(S.onSwitch) == "function", "the arrows have somewhere to go")
+  S.onSwitch()
+  T.eq(S.session, nil, "an arrow leaves Super Training")
+  T.check(X.amie.session.session ~= nil, "...and opens Pokemon-Amie")
+  X.amie.session.finish()
+end
 
 -- ------- the save
 

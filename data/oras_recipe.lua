@@ -584,6 +584,7 @@ add("a/1/1/4", 1, 0, 11, "training/cursor_right", 32, 24, "ETC1A4", "pad cursor"
 -- the PlayNav strip that sits over every bottom screen.
 add("a/0/2/4", 0, 0, 33, "training/home_strip", 160, 30, "ETC1A4", "PlayNav strip, stepped white edge")
 add("a/0/2/4", 0, 0, 1, "training/home_arrow", 20, 20, "RGBA8", "PlayNav grey left arrow (mirrored for right)")
+add("a/0/2/4", 0, 0, 31, "training/home_return", 30, 30, "RGBA8", "PlayNav blue return button (pane ab: 27x27 at 305,224)")
 add("a/0/2/7", 0, 0, 2, "training/home_bg03", 160, 60, "RGBA4", "bg03: top frame, left half (right half mirrored), teal name band")
 add("a/0/2/7", 0, 0, 1, "training/home_bg02", 160, 60, "RGBA4", "bg02: bottom tray, left half (right half mirrored)")
 add("a/0/2/7", 0, 0, 15, "training/home_perfect_win00", 50, 40, "RGBA4", "perfect_win00: grey plate (not fully trained)")
@@ -603,6 +604,11 @@ add("a/0/2/7", 0, 0, 3, "training/black_mask", 8, 8, "ETC1A4", "black_mask_c: di
 add(ST, 2, 0, 2, "training/home_bg01", 320, 120, "ETC1A4", "bg01: white perspective grid lines")
 add(ST, 2, 0, 3, "training/home_bg_ptn", 32, 32, "ETC1A4", "bg_ptn: the + mark, tiled")
 add(ST, 2, 0, 4, "training/home_meter", 150, 150, "ETC1A4", "meter: the hexagon and the gauge track")
+-- a cleared bag: the finishing move's slash, the glow, the stat's "+N" plate, the gauge arrow
+add("a/0/2/7", 0, 0, 9, "training/finish_slash", 64, 64, "ETC1A4", "finish_efect01: the finishing move's slash")
+add("a/0/2/7", 0, 0, 7, "training/finish_light", 32, 32, "ETC1A4", "efect_light: a quarter of the glow, mirrored four ways")
+add(ST, 2, 0, 5, "training/point_up_win", 40, 20, "ETC1A4", "point_up_win: the plate under a stat's +N")
+add(ST, 2, 0, 0, "training/arrow", 16, 16, "ETC1A4", "arrow: the gauge's up arrow")
 
 -- ------- Pokemon-Amie UI from the game: the room's buttons (a/0/2/6 entry 1, sub 2 is
 -- English), the status panel and its icons, the minigames' HUD and result pieces (the three
@@ -636,7 +642,7 @@ add(HI, 3, 0, 25, "game/result_box", 258, 116, "ETC1A4", "result box: two rows a
 add(TP, 1, 0, 0, "game/pill_button", 110, 32, "RGBA8", "orange pill button")
 
 return {
-  version = 11,
+  version = 13,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

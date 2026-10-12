@@ -125,6 +125,30 @@ local function body(game, log)
     tostring(st.bag and st.bag.id), tostring(st.bag and st.bag.hits), evs1.hp, evs0.hp, lead.hp, lead.maxHp, st.total,
     tostring(st.message)))
   shot("t02_bag_done")
+  -- the finishing move: each clip at a few frames, the glow, the bag's words, then the home
+  -- screen with the stat's +N and the gauge arrow
+  local fin = TR.session.session.anim.finish
+  log("finish:", tostring(fin and fin.clip), "msg", tostring(TR.state().message))
+  if fin then
+    local function at(clip, f, name)
+      fin.clip, fin.t = clip, f / 30
+      U.wait(1)
+      shot(name)
+    end
+    for _, c in ipairs({ "a", "b", "c" }) do
+      for _, f in ipairs({ 4, 16, 24, 36, 56 }) do at(c, f, ("t02f_%s_%02d"):format(c, f)) end
+    end
+    at("a", 110, "t02g_glow")
+    at("a", 175, "t02h_words")
+    log("words:", tostring(TR.state().message))
+    fin.t = 200 / 30
+    U.wait(3)
+    log("after the finish:", tostring(TR.state().finishing), "statUp", tostring(TR.state().statUp and TR.state().statUp.stat))
+    shot("t02i_statup")
+    TR.session.session.anim.statUp = nil   -- the next hit would clear it
+  end
+  -- the rest of the probe punches in bulk: no finishing moves in between
+  TR.session.FINISH_MOVE = false
   -- an L bag through the session for the radar
   TR.store.bags()[1] = "atk_l"
   TR.session.attachBag(1)

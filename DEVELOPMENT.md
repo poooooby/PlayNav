@@ -134,12 +134,34 @@ with its receipt. `baseroms/` is git-ignored.
   tree (centres in 320x240, sizes, vertex colours, textures) and `tools/clan.py` the animation
   keys (hermite frame / value / slope, 30 fps). Super Training's home screen is drawn from
   these; use them instead of measuring screenshots.
+- **Which clip plays what.** Every `.bclan` in a pack can carry the whole screen's tracks, so
+  read its `pat1` header: the clip's frame window (start, end) and the layout group it drives.
+  The `.bclyt`'s `grp1` sections list each group's member panes (`tools/clyt.py --json` writes
+  them as `groups`); a clip animates those panes and their children. Example (Super Training,
+  `a/0/2/7` entry 0): `trpk_finish_a` drives group 6e = panes 43, q, 4y, 4u, 18, 52;
+  `bougyo_up` drives 66 = pane 2d (the Defense label) with its +N plate 3p; `effect` drives 6f =
+  the glow 49. The clip names say what they are for (`*_up` a stat rising, `trpk_*` the
+  Pokemon's moves, `sand_bag_*` the bag, `win*` / `*_yn` the message windows).
+- **The game's words.** The UI and coach lines are in the text archive `a/0/7/3` (English),
+  one file per screen; the extract job decodes the files the recipe lists (`kind = "text"`)
+  into the mod cache as `oras/text/<id>.lua` (in a dev install
+  `gen1recomp/mod_cache/play_nav/oras/text/`), a table of line number -> string with
+  `{MON}`-style variables. To find a line seen in a capture, search the whole archive (files
+  not in the recipe too): `python tools/gen6_text.py <romfs> a/0/7/3 --find "This is it"`
+  (`--file N` prints one file). Add the file to `data/oras_recipe.lua` with `text(...)` if it is
+  not there, then use the line through `T.gameLine(id, n)` / `AT.get` with our own wording as
+  the fallback.
+  Super Training: file 27 (`training_bags`: Core Training events, the bag lines, the coach's
+  shouts, the finishing lines 83-85, the stat-up lines 69-74), 24, 44 and 45 (courses,
+  results). Amie: files 81, 105-107, 109-111, 123, 124.
 - **Live memory (Azahar's GDB stub).** With the game running in Azahar and its GDB stub on
   (Emulation > Configure > Debug, port 24689), `tools/gdbrsp.py` reads the running game:
   `python tools/gdbrsp.py ping | regs | read <addr> <len> | dump <addr> <len> <out>`. Send `?`
   first on a connection (the CLI does); code is at `0x00100000`, the heap at `0x08000000`, the
   linear heap at `0x14000000`. Breakpoints and watchpoints work (`Z0`-`Z4`), so the code
-  that writes a value can be caught by watching its address. Use it to measure what the files do not hold (timers, odds, the
+  that writes a value can be caught by watching its address. `tools/gdbtrace.py <secs> <out>
+  <addr>:<name> ...` logs every call to the given addresses with a timestamp and r0-r3 while
+  you play (Super Training's messages: `761340:show`, r2 the line of file 27). Use it to measure what the files do not hold (timers, odds, the
   regimen table built by `DllSparring.cro`): snapshot, act in the game, snapshot again, diff.
   Only the numbers go into `data/`, never game bytes.
 
