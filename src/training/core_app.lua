@@ -565,11 +565,6 @@ return function(mod, Pointer, T, Rules, Radar, host)
       G.pop()
     end
     if drop ~= 0 then G.pop() end
-    if bag then
-      G.setFont(small)
-      G.setColor(1, 1, 1, 0.95)
-      G.printf(("%d/%d"):format(bag.hits, bag.needed), p[1] - 30, p[2] + p[4] / 2 + 2, 60 * L, "center", 0, 1 / L, 1 / L)
-    end
   end
 
   -- the clip's marks and slashes, then the glow (frames 70..170)
@@ -943,11 +938,6 @@ return function(mod, Pointer, T, Rules, Radar, host)
       G.printf(words, mx - mw / 2 + 13, my - mh / 2 + 9, (mw - 24) / k, "left", 0, k, k)
       G.setColor(1, 1, 1, 1)
       G.printf(words, mx - mw / 2 + 12, my - mh / 2 + 8, (mw - 24) / k, "left", 0, k, k)
-    end
-    if s.rec.pending then
-      G.setFont(small)
-      G.setColor(1, 0.95, 0.55, 1)
-      G.printf("NEXT REGIMEN: " .. (Rules.EFFECT_LABEL[s.rec.pending] or s.rec.pending), 0, 152, 320 * L, "center", 0, 1 / L, 1 / L)
     end
     G.pop()
     G.setColor(1, 1, 1, 1)

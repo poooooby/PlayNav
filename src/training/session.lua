@@ -484,17 +484,17 @@ return function(mod, deps)
   end
 
   -- a punch on the blank bag (the player's or the Pokemon's own) may dig up a bag, as the
-  -- game rolls it (Rules.rollBlankBag). A rare find gives a second wind.
+  -- game rolls it (Rules.rollBlankBag). A rare find gives a second wind. With all 12 rack
+  -- slots taken the game makes no roll at all (main program 0x007B99FC: its rack-full check,
+  -- 0x0045EBF0, comes first), silently: finds resume once a bag is used or discarded.
   local function blankBagPunch(t, source)
     local meta = Store.meta()
     if source == "tap" then meta.blackTaps = (meta.blackTaps or 0) + 1 end
+    if #Store.bags() >= N.LIMITS.BAG_MAX then return nil, "full" end
     local evs = t.evs or host.evsOf(t.mon)
     local id = Rules.rollBlankBag(T.rng, { fully = Rules.evTotal(evs) >= N.LIMITS.EV_TOTAL })
     if not id then return nil end
-    if not Rules.inventoryAdd(Store.bags(), id) then
-      if t == T.session then say(T.resultText("rackFull"), 3) end
-      return nil, "full"
-    end
+    if not Rules.inventoryAdd(Store.bags(), id) then return nil, "full" end
     meta.blackTaps = 0
     if Rules.isRareBag(id) then t.rec.secondWind = true end
     if t == T.session then

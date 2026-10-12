@@ -185,7 +185,7 @@ N.ITEMS = { WING_EV = 1 }
 N.EVIDENCE = {
   ["LIMITS.EV_CAP"] = { class = "verified", source = "atwiki pkmnomegaralphas Super Training page; Bulbapedia Effort values", confidence = "high" },
   ["LIMITS.EV_TOTAL"] = { class = "verified", source = "Bulbapedia Effort values", confidence = "high" },
-  ["LIMITS.BAG_MAX"] = { class = "verified", source = "Serebii X/Y Super Training; gamepedia.jp; game-de", confidence = "high" },
+  ["LIMITS.BAG_MAX"] = { class = "verified", source = "the game's code: the rack is 12 one-byte slots (0x30C.. in the training save block, 0x0045EBF0 walks them); the blank bag's drop roll is skipped when it is full (main program 0x007B99FC); Serebii X/Y Super Training", confidence = "high" },
   ["LIMITS.EV_BY_LEVEL"] = { class = "verified", source = "Bulbapedia Super Training", confidence = "high" },
   ["LIMITS.DOUBLE_UP_MULT"] = { class = "verified", source = "Bulbapedia Double-Up Bag; the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: 2.0" , confidence = "high" },
   ["BAGS"] = { class = "verified", source = "the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: stat S/M/L +1/+4/+12 in 10/25/50 hits, support bags 10, Team Flare 10, Reset 100, Soothing +20 in 250 (settles gamepedia.jp's 5 for Team Flare); Bulbapedia agrees", confidence = "high" },

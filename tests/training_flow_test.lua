@@ -491,8 +491,13 @@ do
   T.eq(S.state().bags, 12, "twelve bags")
   S.rng = rngOf(0)
   Store.meta().blackTaps = 100
+  local msgBefore = S.state().message
+  local rolls = 0
+  S.rng = function() rolls = rolls + 1; return 0 end
   S.tapBlackBag()
-  T.eq(S.state().bags, 12, "a drop with a full rack is lost")
+  T.eq(S.state().bags, 12, "a full rack finds nothing")
+  T.eq(rolls, 0, "...the game makes no roll at all")
+  T.eq(S.state().message, msgBefore, "...and says nothing")
   S.rng = rngOf(0.99)
   T.eq(S.discardBag(1), "spe_s", "discard returns the id")
   T.eq(S.state().bags, 11, "eleven left")
