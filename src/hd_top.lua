@@ -17,8 +17,15 @@ return function(mod, deps)
   local HD, ids = deps.HD, deps.ids or {}
   local M = { W = 240, H = 160, last = nil, failures = 0 }
 
+  -- the engine's UI stack: M.Stack (main sets it from the game host, which required it);
+  -- package.loaded is not the engine's inside the mod's sandbox
   local function stackTop()
-    local Stack = package.loaded["src.ui.game3.stack"]
+    local Stack = M.Stack
+    if not Stack then
+      local ok, m = pcall(require, "src.ui.game3.stack")
+      Stack = ok and type(m) == "table" and m or nil
+      M.Stack = Stack
+    end
     if not (Stack and Stack.top) then return nil end
     local ok, top = pcall(Stack.top)
     return ok and top or nil
@@ -40,12 +47,17 @@ return function(mod, deps)
   -- render.hud: viewport = { gameX, gameY, gameWidth, gameHeight, scale }
   function M.draw(viewport)
     local G = love and love.graphics
-    if not (G and HD and HD.enabled and viewport and M.failures < 3) then standDown(); return false end
+    -- M.why: why the last frame was not drawn this way (for drivers and bug reports)
+    if not (G and HD and HD.enabled and viewport and M.failures < 3) then
+      M.why = not (HD and HD.enabled) and "hd off" or (not viewport and "no viewport" or "failures")
+      standDown(); return false
+    end
     local layer = M.topLayer()
-    if not layer then standDown(); return false end
+    if not layer then M.why = "not our layer"; standDown(); return false end
     local gx, gy = viewport.gameX or 0, viewport.gameY or 0
     local gw, gh = viewport.gameWidth or 0, viewport.gameHeight or 0
-    if gw < 1 or gh < 1 then standDown(); return false end
+    if gw < 1 or gh < 1 then M.why = "no game rect"; standDown(); return false end
+    M.why = nil
     if M.last and M.last ~= layer then M.last.hdLive = false end
     G.push("all")
     G.origin()

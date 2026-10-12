@@ -121,6 +121,7 @@ return function(mod)
   local Surface = makeSurface(mod, Layout, HD)
   local HdTop = (HD and makeHdTop) and makeHdTop(mod, { HD = HD,
     ids = { play_nav_amie = true, play_nav_training = true } }) or nil
+  mod.hdTop = HdTop
   local Apps = makeApps(mod, Pointer, Layout)
   local PadHide = makePadHide(mod)
   local Cutout = makeCutout and makeCutout(mod) or nil
@@ -158,6 +159,8 @@ return function(mod)
     Petting = makePetting(PettingData or {})
     Store = makeStore(mod, Rules)
     amieHost = makeHost(mod)
+    -- the top-screen overlay finds our layers on the engine's stack through the host
+    if HdTop and amieHost.Stack then HdTop.Stack = amieHost.Stack end
     Amie = makeSession(mod, { host = amieHost, Rules = Rules, Petting = Petting, Care = Care,
       Store = Store, Apps = Apps, onChange = dirty })
     if makeAmieText then
@@ -889,6 +892,7 @@ return function(mod)
 
   mod.exports.pointer = Pointer
   mod.exports.apps = Apps
+  mod.exports.hdTop = HdTop   -- the top-screen overlay (drivers read .why)
   mod.exports.layout = Layout
   mod.exports.W, mod.exports.H = Layout.W, Layout.H
   mod.exports.state = function()

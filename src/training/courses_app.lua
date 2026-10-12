@@ -409,8 +409,29 @@ return function(mod, Pointer, T, Rules)
   end
   app.clockText = clock
 
+  -- the card's type, rasterised at the size it lands on screen: the top screen is drawn at
+  -- window resolution (src/hd_top.lua) under a scale, so a font made at its nominal size
+  -- would be magnified and blur. Fonts are kept per density (half steps).
+  app.cardFonts = {}
+  local function cardFont(G2)
+    local x0, y0 = G2.transformPoint(0, 0)
+    local x1, y1 = G2.transformPoint(1, 0)
+    local px = math.sqrt((x1 - x0) ^ 2 + (y1 - y0) ^ 2)   -- screen pixels per layout unit
+    -- a 20-unit text pane holds the 9-point font at about 1.8x
+    local d = math.max(1, math.min(16, math.floor(px * 1.8 * 2 + 0.5) / 2))
+    if not app.cardFonts[d] then
+      local ok, f = pcall(G2.newFont, 9, "normal", d)
+      if not ok then ok, f = pcall(G2.newFont, 9) end
+      app.cardFonts[d] = ok and f or false
+    end
+    return app.cardFonts[d] or select(2, fonts())
+  end
+  -- stageselect_upper_bg_anime: the brackets' shadow round the course turns once
+  -- counter-clockwise every 200 frames
+  local CUR_TURN = 200
+
   function app.drawCard(G2, s)
-    local font, small = fonts()
+    local font = fonts()
     -- the background fills the whole top screen; the card's 400x240 fits its width
     G2.push()
     G2.scale(240 / 400, 160 / 240)
@@ -418,9 +439,10 @@ return function(mod, Pointer, T, Rules)
     G2.pop()
     local c = s.picked and T.course(s.picked)
     if not c or not L then return end
+    -- the card's width fits the top screen; its title sits at the top edge
     G2.push()
-    G2.translate(0, (160 - 240 * 0.6) / 2)
     G2.scale(0.6, 0.6)
+    local small = cardFont(G2)
     -- the dark band and the title bar
     local clear = { 0, 0, 0, 0 }
     local black = { 0, 0, 0, 255 }
@@ -454,7 +476,13 @@ return function(mod, Pointer, T, Rules)
     local frame = art("training/ss_stage_icon01")
     if pic then fit(G2, pic, 348, 66, 64, 64) elseif frame then fit(G2, frame, 348, 66, 64, 64) end
     local cur = art("training/ss_cur")
-    if cur then L.quad(G2, cur, 348, 66, 90, 64, { colors = { black, black, black, black }, alpha = 100 }) end
+    if cur then
+      G2.push()
+      G2.translate(348, 66)
+      G2.rotate(-2 * math.pi * (app.clock % CUR_TURN) / CUR_TURN)
+      L.quad(G2, cur, 0, 0, 90, 64, { colors = { black, black, black, black }, alpha = 100 })
+      G2.pop()
+    end
     -- the target time
     local lt, rt = art("training/ss_stage_win_lt"), art("training/ss_stage_win_rt")
     L.window(G2, lt, rt, 295, 130, 210, 62)

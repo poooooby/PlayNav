@@ -220,6 +220,13 @@ local function body(game, log)
   tapAt("tile", tile.x + tile.w / 2, tile.y + tile.h / 2)
   U.wait(5)
   shot("t05b_course_card")
+  do
+    local Stack = package.loaded["src.ui.game3.stack"]
+    local top = Stack and Stack.top and Stack.top()
+    log("top layer:", tostring(top and top.id), "drawScene", tostring(top and type(top.mod) == "table" and top.mod.drawScene ~= nil),
+      "hdLive", tostring(top and type(top.mod) == "table" and top.mod.hdLive), "stackTop", tostring(Stack3.top and Stack3.top() and Stack3.top().id))
+    log("hdTop why:", tostring(X.hdTop and X.hdTop.why), "last", tostring(X.hdTop and X.hdTop.last ~= nil))
+  end
   U.wait(5)
   log("selected:", tostring(coursesApp.selected()))
   tapAt("tile2", tile.x + tile.w / 2, tile.y + tile.h / 2)
