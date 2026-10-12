@@ -25,7 +25,8 @@ return function(mod, Pointer, T, Rules, Store)
   local SLIDE_OUT = { { 0, -130, -17 }, { 4, -210, -20 } }
   -- the + pattern inside it (pic 23, tinted), and the bags: 18x30, tilted 25 degrees, two
   -- columns 30 apart, rows 30 apart from y 44 (pics 1d..1n then 1p..1z)
-  local PTN = { dx = 4, dy = -1, w = 80, h = 170, tint = { 127, 255, 252 } }
+  -- (material 23 scales the texture 3 x 5.7 about its centre: three columns of + across)
+  local PTN = { dx = 4, dy = -1, w = 80, h = 170, tint = { 127, 255, 252 }, repU = 3, repV = 5.7 }
   local BAG = { w = 18, h = 30, rz = 25, dx = { -10, 20 }, y0 = 44, dy = 30 }
   -- the selected bag's pulse (sand_bag_select, a 16-frame loop)
   local PULSE = { { 0, 1, 0 }, { 4, 1.5, 0 }, { 8, 1, -0.09 }, { 12, 0.75, 0 }, { 16, 1, 0.06 } }
@@ -322,9 +323,10 @@ return function(mod, Pointer, T, Rules, Store)
     if ptn then
       local tw, th = ptn:getDimensions()
       ptn:setWrap("repeat", "repeat")
-      app.ptnQuad = app.ptnQuad or G.newQuad(0, 0, PTN.w, PTN.h, tw, th)
+      local qw, qh = tw * PTN.repU, th * PTN.repV
+      app.ptnQuad = app.ptnQuad or G.newQuad((1 - PTN.repU) / 2 * tw, (1 - PTN.repV) / 2 * th, qw, qh, tw, th)
       G.setColor(PTN.tint[1] / 255, PTN.tint[2] / 255, PTN.tint[3] / 255, 0.6)
-      G.draw(ptn, app.ptnQuad, cx + PTN.dx - PTN.w / 2, DRAWER.y + PTN.dy - PTN.h / 2)
+      G.draw(ptn, app.ptnQuad, cx + PTN.dx - PTN.w / 2, DRAWER.y + PTN.dy - PTN.h / 2, 0, PTN.w / qw, PTN.h / qh)
     end
     local bags = Store.bags()
     for i = 1, N.LIMITS.BAG_MAX do
