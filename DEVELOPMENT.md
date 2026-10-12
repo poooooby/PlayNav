@@ -126,6 +126,36 @@ POKEPORT_DRIVER=mods/play_nav/tests/drivers/emerald_shot.lua love .
 For in-game testing with the art, hard-link the dump to `baseroms/alpha_sapphire_rev2.cci`
 with its receipt. `baseroms/` is git-ignored.
 
+### Reading the game's own layouts, animations and live numbers
+
+- **Layouts and animations.** Each 3DS screen's textures come in a darc pack with the game's
+  layout (`.bclyt`) and animation (`.bclan`) files. `tools/garc_blob.py` writes an archive
+  entry's decompressed blob, `tools/darc.py` lists the pack, `tools/clyt.py` prints the pane
+  tree (centres in 320x240, sizes, vertex colours, textures) and `tools/clan.py` the animation
+  keys (hermite frame / value / slope, 30 fps). Super Training's home screen is drawn from
+  these; use them instead of measuring screenshots.
+- **Live memory (Azahar's GDB stub).** With the game running in Azahar and its GDB stub on
+  (Emulation > Configure > Debug, port 24689), `tools/gdbrsp.py` reads the running game:
+  `python tools/gdbrsp.py ping | regs | read <addr> <len> | dump <addr> <len> <out>`. Send `?`
+  first on a connection (the CLI does); code is at `0x00100000`, the heap at `0x08000000`, the
+  linear heap at `0x14000000`. Breakpoints and watchpoints work (`Z0`-`Z4`), so the code
+  that writes a value can be caught by watching its address. Use it to measure what the files do not hold (timers, odds, the
+  regimen table built by `DllSparring.cro`): snapshot, act in the game, snapshot again, diff.
+  Only the numbers go into `data/`, never game bytes.
+
+- **The game's code (rules without guessing).** The 3DS code modules (`romfs/Dll*.cro`) and the
+  main program hold the real numbers in their data tables and literal pools. `tools/cro.py`
+  (needs `pip install capstone`; run it without `python -I`, which hides per-user packages):
+  `segs <cro>`, `data <cro>` (read-only data as ints and floats), `asm <cro> <out>`,
+  `refs <cro> <offset>` (the code that loads a constant), `find <file> float|int <values...>`,
+  `words <file> <addr> <len> --base 0x100000`. Super Training: `DllSparring.cro` (regimens:
+  the bag table at .rodata 0x18030, charge stages, per-difficulty records, the 180 s clock as
+  5400 frames), `DllSparringMenu.cro` (the course picker: Effort-o-Meter EV-to-radius steps,
+  course rows), and the main program (dump it from Azahar: `gdbrsp.py dump 0x00100000
+  0x715000 code.bin`; the home screen's tables are around 0x007EC5A0-0x007ED1D0). The training
+  bag table is { kind, value (float), hits / 5 } per bag. Cite the address in the data file's
+  `EVIDENCE` row.
+
 Tools (development only, not shipped): `tools/README.md` describes the extraction pipeline
 that produced the recipe and the data generators (`petting_table.py`, `decor_catalog.py`,
 `shot_types.py`, `items_pokeapi.py`, `gen6_text.py`, `st_evidence.py`).

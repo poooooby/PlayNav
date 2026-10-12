@@ -98,7 +98,7 @@ do
   local half = R.modifiers({ atk = 252 }, nil)
   T.check(half.pointMult > zero.pointMult and half.pointMult < maxed.pointMult, "Atk alone is half the bonus")
   T.eq(R.modifiers({}, "big_shot").shotSize, N.SHOT.BIG_SHOT_SIZE, "Big-Shot grows the shot")
-  T.eq(R.modifiers({}, "strength").pointMult, 2, "Strength doubles points")
+  T.eq(R.modifiers({}, "strength").pointMult, 1.5, "Strength: 1.5x points (the game's bag table)")
   T.eq(R.modifiers({}, "swiftness").moveMult, N.PLAYER.SWIFT_MULT, "Swiftness speeds movement")
   T.eq(R.modifiers({}, "toughen_up").lossMult, N.DAMAGE.TOUGHEN_MULT, "Toughen-Up halves the loss")
   T.eq(R.modifiers({}, "double_up").evMult, 2, "Double-Up doubles EVs")
@@ -174,10 +174,30 @@ do
   end
   T.eq(plain, 15, "Double-Up 15% of clears")
   T.eq(rus, 30, "...30% with Pokerus")
-  T.eq(R.rollBlackBag(3, rngOf(0)), nil, "too few taps: nothing")
-  T.eq(R.rollBlackBag(8, rngOf(0.5)), nil, "no luck: nothing")
-  T.eq(R.rollBlackBag(8, rngOf(0)), "big_shot", "rng 0 picks the first key after stat_s... ")
-  T.check(R.BAGS[R.rollBlackBag(50, rngOf(0.02))] ~= nil, "a drop is always a real bag")
+  T.eq(R.meterStep(N.METER.BASE_STEPS, 140), 20, "meter: base 140 reaches the top step")
+  T.eq(R.meterStep(N.METER.BASE_STEPS, 139), 16, "...139 the next")
+  T.eq(R.meterStep(N.METER.EV_STEPS, 252), 32, "...252 EVs: 32 px")
+  T.eq(R.meterStep(N.METER.EV_STEPS, 0), 1, "...no EVs: 1 px")
+  local mi, mo = R.meterAxes({ hp = 140 }, { hp = 252 }, { "hp", "atk" })
+  T.eq(mo[1], 52, "a maxed axis: 20 + 32 = 52 px")
+  T.eq(mi[2], 1, "...an empty one: 1 px")
+  T.eq(R.rollCount({ 3, 5 }, rngOf(0)), 3, "a rolled count: the low end")
+  T.eq(R.rollCount({ 3, 5 }, rngOf(0.999)), 5, "...the high end")
+  -- the blank bag, as the game rolls it: 5% a punch (10% fully trained), then one of 26
+  T.check(R.rollBlankBag(rngOf(0.049)) ~= nil, "under 5%: a find")
+  T.eq(R.rollBlankBag(rngOf(0.05)), nil, "5% or more: nothing")
+  T.check(R.rollBlankBag(rngOf(0.09), { fully = true }) ~= nil, "fully trained: 10%")
+  local seen, nothing = {}, 0
+  for i = 0, 25 do
+    local id = R.pickBlackBag(rngOf((i + 0.5) / 26))
+    if id then seen[id] = true else nothing = nothing + 1 end
+  end
+  local kinds = 0
+  for _ in pairs(seen) do kinds = kinds + 1 end
+  T.eq(kinds, 25, "each of 25 bags once in 26 equal slots")
+  T.eq(nothing, 1, "...and Team Flare's slot finds nothing")
+  T.check(not seen.team_flare and seen.reset and seen.soothing and seen.atk_l, "M / L, Reset, Soothing drop; Team Flare never")
+  T.check(not R.isRareBag("hp_s") and R.isRareBag("hp_m") and R.isRareBag("reset"), "an S stat bag is the common find")
   local items = { { "ITEM_LEAF_STONE", w = 1, bestOnly = true }, { "ITEM_HARD_STONE", w = 3 },
     { "ITEM_PP_UP", w = 2, minRemaining = 60 } }
   T.eq(R.rollSecretPrize({ items = items }, 10, rngOf(0))[1], "ITEM_HARD_STONE", "slow, not a best: only the common item")

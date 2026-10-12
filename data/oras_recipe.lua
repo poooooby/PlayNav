@@ -578,6 +578,27 @@ add("a/2/1/6", 0, 2, 1, "training/ribbon_results", 230, 44, "RGBA4", "RESULTS ri
 add("a/1/1/4", 1, 0, 7, "training/cursor_left", 32, 24, "ETC1A4", "pad cursor")
 add("a/1/1/4", 1, 0, 11, "training/cursor_right", 32, 24, "ETC1A4", "pad cursor")
 
+-- ------- the Super Training home screen. Placed by the game's own layout,
+-- training_lower.bclyt in the a/0/2/7 entry 0 darc (tools/clyt.py); the names are the darc's
+-- texture names. a/0/2/8 entry 2 is the shared pack (training_common_res); a/0/2/4 holds
+-- the PlayNav strip that sits over every bottom screen.
+add("a/0/2/4", 0, 0, 33, "training/home_strip", 160, 30, "ETC1A4", "PlayNav strip, stepped white edge")
+add("a/0/2/4", 0, 0, 1, "training/home_arrow", 20, 20, "RGBA8", "PlayNav grey left arrow (mirrored for right)")
+add("a/0/2/7", 0, 0, 2, "training/home_bg03", 160, 60, "RGBA4", "bg03: top frame, left half (right half mirrored), teal name band")
+add("a/0/2/7", 0, 0, 1, "training/home_bg02", 160, 60, "RGBA4", "bg02: bottom tray, left half (right half mirrored)")
+add("a/0/2/7", 0, 0, 15, "training/home_perfect_win00", 50, 40, "RGBA4", "perfect_win00: grey plate (not fully trained)")
+add("a/0/2/7", 0, 0, 16, "training/home_perfect_win01", 50, 40, "RGBA4", "perfect_win01: grey plate, teal muscle")
+add("a/0/2/7", 0, 0, 17, "training/home_perfect_win02", 50, 40, "RGBA4", "perfect_win02: teal plate, muscle (fully trained)")
+add("a/0/2/7", 0, 0, 32, "training/home_s_perfect_win", 50, 40, "RGBA4", "s_perfect_win: muscle and stars (supremely trained)")
+add("a/0/2/7", 0, 0, 27, "training/home_shot_win", 50, 40, "RGBA4", "shot_icon_win: the plate under the shot ball")
+add("a/0/2/7", 0, 0, 18, "training/home_pointmax_win", 128, 64, "ETC1A4", "pointmax_win: the EVs-maxed window")
+add("a/0/2/7", 0, 0, 20, "training/home_sand_bag", 20, 50, "RGBA5551", "sand_bag00: the grey punching bag")
+add("a/0/2/7", 0, 0, 21, "training/home_shadow", 32, 16, "ETC1A4", "shadow")
+add("a/0/2/7", 0, 0, 14, "training/mood_perfect", 32, 32, "ETC1A4", "perfect_icon: mood bubble, flexing")
+add(ST, 2, 0, 2, "training/home_bg01", 320, 120, "ETC1A4", "bg01: white perspective grid lines")
+add(ST, 2, 0, 3, "training/home_bg_ptn", 32, 32, "ETC1A4", "bg_ptn: the + mark, tiled")
+add(ST, 2, 0, 4, "training/home_meter", 150, 150, "ETC1A4", "meter: the hexagon and the gauge track")
+
 -- ------- Pokemon-Amie UI from the game: the room's buttons (a/0/2/6 entry 1, sub 2 is
 -- English), the status panel and its icons, the minigames' HUD and result pieces (the three
 -- games carry the same set; Berry Picker's copies are taken)
@@ -610,7 +631,7 @@ add(HI, 3, 0, 25, "game/result_box", 258, 116, "ETC1A4", "result box: two rows a
 add(TP, 1, 0, 0, "game/pill_button", 110, 32, "RGBA8", "orange pill button")
 
 return {
-  version = 8,
+  version = 10,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

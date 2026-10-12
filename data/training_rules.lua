@@ -35,19 +35,31 @@ N.BAGS = {
   soothing = { hits = 250, effect = "friendship", amount = 20 },
 }
 
+-- the Effort-o-Meter: each axis's length in pixels is the base stat's step plus the EV's step
+-- (the game's own tables: { at least, pixels }, first match wins; 20 + 32 reaches the hexagon)
+N.METER = {
+  BASE_STEPS = { { 140, 20 }, { 120, 16 }, { 100, 14 }, { 80, 12 }, { 60, 10 }, { 40, 8 }, { 20, 6 }, { 1, 4 }, { 0, 1 } },
+  EV_STEPS = { { 252, 32 }, { 216, 28 }, { 180, 24 }, { 144, 20 }, { 108, 16 }, { 72, 12 }, { 36, 8 }, { 1, 4 }, { 0, 1 } },
+}
+
 N.CORE = {
-  AUTO_HIT_S = 60,          -- the Pokemon hits its bag once a minute while the screen is open
-  REFRESHED_HITS_DIV = 2,   -- a refreshed Pokemon needs half the hits
-  REFRESHED_S = 600,        -- how long the refreshed state lasts (wall clock seconds)
-  REST_ODDS = 0.12,         -- chance to lie down at each automatic hit
-  BLACK_BAG_DROP = 0.03,    -- chance per tap of the empty bag to drop a bag
-  BLACK_BAG_MIN_TAPS = 8,   -- taps before a drop can happen
+  AUTO_HIT_S = 60,          -- the Pokemon hits its bag once a minute on its own (screen open or not)
+  -- it lies down after a rolled 30 to 60 minutes awake, or after a rolled 3 to 5 bags cleared,
+  -- whichever comes first
+  REST_AFTER_S = { 1800, 3600 },
+  ROUTINE_REST_BAGS = { 3, 5 },
+  -- the second wind: punches count double (a bag in half the hits; a regimen scores double).
+  -- It lasts one bag or one regimen, never a time.
+  REFRESHED_HITS_DIV = 2,
+  SECOND_WIND_AFTER_BAG = 0.5,  -- chance of a second wind right after clearing a bag
+  -- the blank bag (no training bag set): each punch finds a bag at this chance (percent), the
+  -- bag then one of the game's 26 with equal odds (Team Flare's slot finds nothing)
+  BLANK_BAG_DROP = 5,
+  BLANK_BAG_DROP_FULLY = 10,    -- with all 510 EVs
 }
 
 -- weights for the random bags. `stat_s` means the S bag of a random stat.
 N.BAG_ODDS = {
-  black = { stat_s = 24, big_shot = 5, double_up = 4, strength = 5, swiftness = 5, toughen_up = 5,
-            team_flare = 3, reset = 2, soothing = 2 },
   support = { big_shot = 3, double_up = 2, strength = 3, swiftness = 3, toughen_up = 3 },
   DOUBLE_UP_POKERUS_MULT = 2,
   -- clearing a course: the stat bag's size by the fraction of the clock left, else Double-Up
@@ -100,12 +112,15 @@ N.GUTS = {
 
 -- per Energy Shot colour: relative size, speed, points and guts cost
 N.SHOT = {
+  -- the game's shot table (DllSparring.cro .rodata 0x18234, one 20-byte record per colour in
+  -- this order: points, speed, size, cost, ?): its ratios on our scale, black anchoring it
+  -- (black: speed 3.6, size 1.0, cost 180 in the game's units)
   black  = { speed = 2.2, r = 0.07, mult = 1.0, cost = 0.25 },
-  yellow = { speed = 2.6, r = 0.05, mult = 0.4, cost = 0.08, rapid = 0.12 },
-  orange = { speed = 2.0, r = 0.10, mult = 0.8, cost = 0.25 },
-  green  = { speed = 1.4, r = 0.09, mult = 1.6, cost = 0.4 },
-  blue   = { speed = 3.2, r = 0.05, mult = 1.3, cost = 0.4 },
-  weak   = { speed = 1.8, r = 0.05, mult = 0.3, cost = 0 },
+  yellow = { speed = 2.2, r = 0.049, mult = 0.3, cost = 0.0139, rapid = 0.12 },
+  orange = { speed = 2.2, r = 0.14, mult = 0.8, cost = 0.25 },
+  green  = { speed = 1.589, r = 0.105, mult = 2.0, cost = 0.4167 },
+  blue   = { speed = 3.178, r = 0.0595, mult = 1.0, cost = 0.4167 },
+  weak   = { speed = 2.2, r = 0.049, mult = 0.15, cost = 0.0 },
   RAPID = "yellow",      -- the colour that sprays while held
   BIG_SHOT_SIZE = 1.5,
   HP_SIZE_BONUS = 0.4,   -- +40% radius at 252 HP EVs
@@ -116,13 +131,13 @@ N.POINTS = {
   BASE = { [1] = 20, [2] = 60, [3] = 90, secret = 100 },  -- a plain goal per course level
   CHANCE_MULT = 1.0,     -- a Chance Goal scores like a plain goal, repeatedly
   ATK_BONUS = 0.5,       -- +50% at 252 Atk+SpA EVs
-  STRENGTH_MULT = 2,
+  STRENGTH_MULT = 1.5,   -- the game's bag table: the four support bags carry 1.5
 }
 
 N.DAMAGE = {
   small = 50, big = 150, ring = 100, homing = 100, cross = 120, wave = 200, bit = 40,
   HP_REDUCE = 0.5,       -- -50% at 252 HP EVs
-  TOUGHEN_MULT = 0.5,
+  TOUGHEN_MULT = 1 / 1.5,  -- the bag table's 1.5, as damage taken divided by it
   SUDDEN_DEATH = 9999,   -- the Hydreigon course
   LEVEL_MULT = { 1, 1.25, 1.5, secret = 1.5 },   -- higher levels take more per hit
 }
@@ -142,7 +157,7 @@ N.ATTACK = {
 
 N.BLOCK = { LEN = 0.6, COOLDOWN = 1.5, DEF_BONUS = 0.5 }
 
-N.PLAYER = { X_MAX = 0.8, Z_MAX = 0.3, SPEED = 1.1, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SWIFT_MULT = 1.3,
+N.PLAYER = { X_MAX = 0.8, Z_MAX = 0.3, SPEED = 1.1, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SWIFT_MULT = 1.5,
              HIT_STUN_S = 0.6 }
 
 N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.5, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
@@ -164,15 +179,16 @@ N.EVIDENCE = {
   ["LIMITS.EV_TOTAL"] = { class = "verified", source = "Bulbapedia Effort values", confidence = "high" },
   ["LIMITS.BAG_MAX"] = { class = "verified", source = "Serebii X/Y Super Training; gamepedia.jp; game-de", confidence = "high" },
   ["LIMITS.EV_BY_LEVEL"] = { class = "verified", source = "Bulbapedia Super Training", confidence = "high" },
-  ["LIMITS.DOUBLE_UP_MULT"] = { class = "verified", source = "Bulbapedia Double-Up Bag", confidence = "high" },
-  ["BAGS"] = { class = "verified", source = "Bulbapedia Super Training, Training Bags table (Team Flare 10 hits; gamepedia.jp says 5)", confidence = "high" },
-  ["CORE.AUTO_HIT_S"] = { class = "verified", source = "Bulbapedia; pente.koro-pokemon.com", confidence = "high" },
-  ["CORE.REFRESHED_HITS_DIV"] = { class = "verified", source = "atwiki; game-de (hits halved); Bulbapedia (double speed)", confidence = "high" },
-  ["CORE.REFRESHED_S"] = { class = "placeholder", source = "no source states how long the second wind lasts", confidence = "low" },
-  ["CORE.REST_ODDS"] = { class = "placeholder", source = "Bulbapedia: rests occasionally", confidence = "low" },
-  ["CORE.BLACK_BAG_DROP"] = { class = "placeholder", source = "game-de: the drop rate is low", confidence = "low" },
-  ["CORE.BLACK_BAG_MIN_TAPS"] = { class = "placeholder", source = "", confidence = "low" },
-  ["BAG_ODDS.black"] = { class = "placeholder", source = "which bags drop is verified (JP bag page); the weights are not", confidence = "low" },
+  ["LIMITS.DOUBLE_UP_MULT"] = { class = "verified", source = "Bulbapedia Double-Up Bag; the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: 2.0" , confidence = "high" },
+  ["BAGS"] = { class = "verified", source = "the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: stat S/M/L +1/+4/+12 in 10/25/50 hits, support bags 10, Team Flare 10, Reset 100, Soothing +20 in 250 (settles gamepedia.jp's 5 for Team Flare); Bulbapedia agrees", confidence = "high" },
+  ["METER"] = { class = "verified", source = "the game's Effort-o-Meter step tables, main program 0x007EC5E8 (base) / 0x007EC604 (EVs), read by the code at 0x00761228 (u16 threshold, u16 pixels pairs); also DllSparringMenu.cro .rodata 0x6034", confidence = "high" },
+  ["CORE.AUTO_HIT_S"] = { class = "verified", source = "Bulbapedia; pente.koro-pokemon.com; measured on Alpha Sapphire (Azahar, 2026-10-12): one punch a minute", confidence = "high" },
+  ["CORE.REFRESHED_HITS_DIV"] = { class = "verified", source = "atwiki; game-de (hits halved); Bulbapedia (double speed); lasts one bag or one regimen (player guides)", confidence = "high" },
+  ["CORE.REST_AFTER_S"] = { class = "measured", source = "Alpha Sapphire in Azahar, 2026-10-12: no rest after 45 minutes left alone; a rolled 30 to 60 minutes stands in", confidence = "low" },
+  ["CORE.ROUTINE_REST_BAGS"] = { class = "inferred", source = "player data: a rest roughly every 3 to 5 bags cleared; the game's odds are not documented", confidence = "medium" },
+  ["CORE.SECOND_WIND_AFTER_BAG"] = { class = "placeholder", source = "player guides: the happy bubble often follows a cleared bag; how often is not stated", confidence = "low" },
+  ["CORE.BLANK_BAG_DROP"] = { class = "verified", source = "the game's code: main program 0x007B9A0C (a tap on the blank bag): rand(100) < 5, or < 10 under a flag read from the Pokemon (0x006F6BF8), then rand(26) + 1 into the bag table at 0x007ED088; entry 24 (kind 5, Team Flare) gives nothing; caught live with a write watchpoint on the bag rack", confidence = "high" },
+  ["CORE.BLANK_BAG_DROP_FULLY"] = { class = "inferred", source = "the 10 is the game's (see BLANK_BAG_DROP); that its flag is 'fully trained' is read from player reports", confidence = "medium" },
   ["BAG_ODDS.support"] = { class = "placeholder", source = "atwiki comment: a time out gives a support bag", confidence = "low" },
   ["BAG_ODDS.DOUBLE_UP_POKERUS_MULT"] = { class = "placeholder", source = "Bulbapedia Pokerus: raises the Double-Up rate, amount unknown", confidence = "low" },
   ["BAG_ODDS.clear"] = { class = "inferred", source = "atwiki: size random, maybe tied to clear time; game-de: faster clears give bigger bags", confidence = "low" },
@@ -200,11 +216,14 @@ N.EVIDENCE = {
   ["GUTS.DEF_BONUS"] = { class = "placeholder", source = "direction verified (Def/SpD fill guts faster)", confidence = "low" },
   ["GUTS.WEAK_BELOW"] = { class = "placeholder", source = "atwiki: a small meter gives a weak black ball; AS text 44:60 (Energy Shots need a full meter)", confidence = "low" },
   ["GUTS.START"] = { class = "placeholder", source = "", confidence = "low" },
-  ["SHOT"] = { class = "placeholder", source = "the ordering per colour is verified (Bulbapedia, atwiki, gamepedia); the magnitudes are not", confidence = "low" },
+  ["SHOT"] = { class = "inferred", source = "the game's shot table, DllSparring.cro .rodata 0x18234 (6 x { points, speed, size, cost, ? } in the order black, yellow, orange, green, blue, weak; a slower variant at 0x1833C): the ratios between colours are the game's, the absolute scale is ours (black anchors it); the cost field read as energy (the weak shot costs 0)", confidence = "medium" },
   ["POINTS.BASE"] = { class = "placeholder", source = "", confidence = "low" },
   ["POINTS.CHANCE_MULT"] = { class = "placeholder", source = "JP guides call it a chance to rack up points; no multiplier is stated", confidence = "low" },
   ["POINTS.ATK_BONUS"] = { class = "placeholder", source = "direction verified", confidence = "low" },
-  ["POINTS.STRENGTH_MULT"] = { class = "verified", source = "Bulbapedia Strength Bag: doubles points per shot", confidence = "high" },
+  ["POINTS.STRENGTH_MULT"] = { class = "verified", source = "the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: 1.5 (Bulbapedia's 'doubles' is not what the game holds)", confidence = "high" },
+  ["SHOT.BIG_SHOT_SIZE"] = { class = "verified", source = "the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: 1.5", confidence = "high" },
+  ["PLAYER.SWIFT_MULT"] = { class = "verified", source = "the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: 1.5", confidence = "high" },
+  ["DAMAGE.TOUGHEN_MULT"] = { class = "inferred", source = "the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: 1.5; read here as damage taken divided by 1.5", confidence = "medium" },
   ["DAMAGE"] = { class = "placeholder", source = "Gamer Guides: typically 50-400; AS text 44:61: a hit costs some of the points you earned", confidence = "low" },
   ["DAMAGE.SUDDEN_DEATH"] = { class = "verified", source = "AS text 44:89: hit even once and your score drops back down to zero; atwiki", confidence = "high" },
   ["DAMAGE.LEVEL_MULT"] = { class = "placeholder", source = "atwiki: higher levels take more points per hit and attack more often; amounts unknown", confidence = "low" },

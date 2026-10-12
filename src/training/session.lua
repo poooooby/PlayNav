@@ -55,9 +55,12 @@ return function(mod, deps)
     }
   end
 
+  -- the second wind (the happy bubble): punches count double until one bag is cleared or
+  -- one regimen is started; it never runs out on a clock
   local function refreshedNow(rec)
-    return rec ~= nil and tonumber(rec.refreshedUntil) ~= nil and rec.refreshedUntil > wall()
+    return rec ~= nil and rec.secondWind == true
   end
+
   function T.refreshed()
     local s = T.session
     return s ~= nil and refreshedNow(s.rec)
@@ -308,7 +311,6 @@ return function(mod, deps)
     local s = monFields(mon)
     s.mode = "core"
     s.startedAt = now()
-    s.autoAt = now() + N.CORE.AUTO_HIT_S
     s.anim = { hit = 0, t = 0 }
     s.message, s.messageUntil = nil, nil
     T.session = s
@@ -316,6 +318,8 @@ return function(mod, deps)
     local ok, err = host.pushLayer(Layer)
     if not ok then mod.log:warn("could not push the training layer: %s", tostring(err)) end
     setMode("core")
+    Store.meta().activeKey = s.key
+    T.touch()
     T.retryPendingItems()
     return true
   end
@@ -340,7 +344,8 @@ return function(mod, deps)
     if host.monKey(mon) == s.key then return true end
     local f = monFields(mon)
     for k, v in pairs(f) do s[k] = v end
-    s.autoAt = now() + N.CORE.AUTO_HIT_S
+    Store.meta().activeKey = s.key
+    T.touch()
     onChange()
     return true
   end
@@ -355,13 +360,24 @@ return function(mod, deps)
 
   -- ------- Core Training
 
+  local lieDown
+
   local function finishBag(s)
     local rec = s.rec
     local bag = rec.bag
     local def = bag and Rules.bag(bag.id)
     rec.bag = nil
+    -- the second wind was spent on this bag; a cleared bag often brings the next one
+    rec.secondWind = nil
+    rec.windNext = T.rng() < N.CORE.SECOND_WIND_AFTER_BAG or nil
     if not def then return end
-    s.anim.burst = 0.7
+    if s.anim then s.anim.burst = 0.7 end
+    -- the routine rest: every 3 to 5 bags cleared
+    if not rec.bagsToRest then
+      local lo, hi = N.CORE.ROUTINE_REST_BAGS[1], N.CORE.ROUTINE_REST_BAGS[2]
+      rec.bagsToRest = lo + math.floor(T.rng() * (hi - lo + 1))
+    end
+    rec.bagsToRest = rec.bagsToRest - 1
     if def.kind == "stat" then
       local evs = host.evsOf(s.mon)
       local added = Rules.addEv(evs, def.stat, def.ev)
@@ -384,20 +400,96 @@ return function(mod, deps)
       host.addFriendship(s.mon, def.amount or 20)
       say(T.gameLine("training_bags", T.CORE_LINE.friendship) or ("%s looks happier!"):format(s.name), 3)
     elseif def.effect == "refreshed" then
-      rec.refreshedUntil = wall() + N.CORE.REFRESHED_S
+      rec.windNext = true
       rec.resting = false
       say(T.gameLine("training_bags", T.CORE_LINE.refreshed_bag) or ("%s is raring to go!"):format(s.name), 3)
     else
       say(T.gameLine("training_bags", T.CORE_LINE[def.id] or -1) or ("%s is ready for the next regimen."):format(def.label), 3)
       rec.pending = def.effect
     end
-    host.playSe("SE_SUCCESS")
+    if s == T.session then host.playSe("SE_SUCCESS") end
     if Rules.isFullyTrained(s.evs) and not rec.fully then
       rec.fully = true
       rec.fullyAt = wall()
       say(T.resultText("fullyNow"), 4)
-      host.playCry(s.mon)
+      if s == T.session then host.playCry(s.mon) end
     end
+    if rec.windNext then
+      rec.windNext = nil
+      rec.secondWind = true
+    end
+    if rec.bagsToRest <= 0 then
+      rec.bagsToRest = nil
+      lieDown(s, "routine")
+    end
+  end
+
+  -- ------- resting. A Pokemon lies down after a rolled REST_AFTER_S awake, or after a rolled
+  -- ROUTINE_REST_BAGS bags cleared, whichever comes first, and stays down until tapped.
+  -- Woken, it has a second wind. A fainted Pokemon does not punch and cannot be woken.
+  lieDown = function(t, kind)
+    local rec = t.rec
+    rec.resting = kind
+    rec.restedAt = wall()
+    rec.awakeAt, rec.restAfter = nil, nil
+    rec.nextAutoAt = nil
+    if t == T.session then
+      say(T.gameLine("training_bags", T.CORE_LINE.resting) or ("%s is taking a rest..."):format(t.name), 3)
+    end
+  end
+  T.lieDown = function(kind) if T.session then lieDown(T.session, kind or "routine") end end
+
+  -- the awake stretch: when it started and how long it lasts before the Pokemon lies down
+  local function awake(rec, at)
+    if not rec.awakeAt then rec.awakeAt = at end
+    if not rec.restAfter then rec.restAfter = Rules.rollCount(N.CORE.REST_AFTER_S, T.rng) end
+  end
+
+  local function autoInterval() return N.CORE.AUTO_HIT_S end
+
+  -- a touch of the screen (or A): recorded; the automatic punches start if they had stopped
+  function T.touch()
+    local s = T.session
+    if not s then return end
+    s.rec.lastTouchAt = wall()
+    if not s.rec.resting and not s.rec.nextAutoAt then s.rec.nextAutoAt = wall() + autoInterval() end
+  end
+
+  -- a punch on the blank bag (the player's or the Pokemon's own) may dig up a bag, as the
+  -- game rolls it (Rules.rollBlankBag). A rare find gives a second wind.
+  local function blankBagPunch(t, source)
+    local meta = Store.meta()
+    if source == "tap" then meta.blackTaps = (meta.blackTaps or 0) + 1 end
+    local evs = t.evs or host.evsOf(t.mon)
+    local id = Rules.rollBlankBag(T.rng, { fully = Rules.evTotal(evs) >= N.LIMITS.EV_TOTAL })
+    if not id then return nil end
+    if not Rules.inventoryAdd(Store.bags(), id) then
+      if t == T.session then say(T.resultText("rackFull"), 3) end
+      return nil, "full"
+    end
+    meta.blackTaps = 0
+    if Rules.isRareBag(id) then t.rec.secondWind = true end
+    if t == T.session then
+      local def = Rules.bag(id)
+      say(T.gameLine("training_bags", T.CORE_LINE.found, { BAG = T.bagName(id) }) or ("A %s dropped down!"):format(def and def.label or id), 3)
+      host.playSe("SE_SUCCESS")
+    end
+    return id
+  end
+
+  -- a punch plays the game's hit animation (training_lower_hit_effect, 13 frames at 30 fps);
+  -- the next tap is taken only once it has finished
+  T.HIT_LOCK = 13 / 30
+
+  -- one punch from trainee `t` (the session, or a background trainee): counts on the bag
+  -- (a second wind punches with double the strength)
+  local function punch(t)
+    local rec = t.rec
+    local bag = rec.bag
+    local strength = rec.secondWind and N.CORE.REFRESHED_HITS_DIV or 1
+    bag.hits = math.min(bag.needed, bag.hits + strength)
+    rec.hits = (rec.hits or 0) + 1
+    if bag.hits >= bag.needed then finishBag(t) end
   end
 
   -- source = "tap" | "auto"
@@ -405,20 +497,25 @@ return function(mod, deps)
     local s = T.session
     if not s then return false, "closed" end
     local rec = s.rec
+    if host.isFainted(s.mon) then return false, "fainted" end
     if rec.resting then
       if source == "tap" then T.wake() end
       return false, "resting"
     end
+    if source == "tap" then
+      if (s.anim.lock or 0) > 0 then return false, "busy" end
+      s.anim.lock = T.HIT_LOCK
+      T.touch()
+    end
     local bag = rec.bag
     if not bag then
       if source == "tap" then return T.tapBlackBag() end
+      s.anim.hit = 0.25
       return false, "no_bag"
     end
-    bag.hits = bag.hits + 1
-    rec.hits = (rec.hits or 0) + 1
     s.anim.hit = 0.25
     host.playSe("SE_BALL_BOUNCE_1")
-    if bag.hits >= bag.needed then finishBag(s) end
+    punch(s)
     Store.save()
     onChange()
     return true
@@ -427,22 +524,9 @@ return function(mod, deps)
   function T.tapBlackBag()
     local s = T.session
     if not s then return false end
-    local meta = Store.meta()
-    meta.blackTaps = (meta.blackTaps or 0) + 1
     s.anim.hit = 0.25
     host.playSe("SE_BALL_BOUNCE_1")
-    local id = Rules.rollBlackBag(meta.blackTaps, T.rng)
-    if id then
-      local ok = Rules.inventoryAdd(Store.bags(), id)
-      if ok then
-        meta.blackTaps = 0
-        local def = Rules.bag(id)
-        say(T.gameLine("training_bags", T.CORE_LINE.found, { BAG = T.bagName(id) }) or ("A %s dropped down!"):format(def and def.label or id), 3)
-        host.playSe("SE_SUCCESS")
-      else
-        say(T.resultText("rackFull"), 3)
-      end
-    end
+    local id = blankBagPunch(s, "tap")
     Store.save()
     onChange()
     return true, id
@@ -452,12 +536,21 @@ return function(mod, deps)
     local s = T.session
     if not s then return false end
     local rec = s.rec
+    if host.isFainted(s.mon) then
+      say(("%s has fainted. It needs to be revived first."):format(s.name), 3)
+      return false, "fainted"
+    end
     if not rec.resting then return false end
     rec.resting = false
-    rec.refreshedUntil = wall() + N.CORE.REFRESHED_S
-    if rec.bag then rec.bag.needed = Rules.bagHits(rec.bag.id, true) end
-    say(T.gameLine("training_bags", T.CORE_LINE.refreshed) or ("%s got a second wind!"):format(s.name), 3)
+    rec.restedAt = nil
+    -- up again with a second wind, for one bag or one regimen
+    rec.secondWind = true
+    awake(rec, wall())
+    T.touch()
+    rec.nextAutoAt = wall() + autoInterval()
+    say(T.gameLine("training_bags", T.CORE_LINE.refreshed) or ("%s seems to have rested a bit, and now it's refreshed and ready for action!"):format(s.name), 3)
     host.playCry(s.mon)
+    if s.bump then s.bump() end
     Store.save()
     return true
   end
@@ -481,7 +574,8 @@ return function(mod, deps)
     end
     -- the game discards the bag on the stand when a new one is set (its own prompt says so)
     table.remove(bags, index)
-    s.rec.bag = { id = id, hits = 0, needed = Rules.bagHits(id, refreshedNow(s.rec)) }
+    s.rec.bag = { id = id, hits = 0, needed = Rules.bagHits(id) }
+    T.touch()
     say(("%s set.  %d hits to go."):format(def.label, s.rec.bag.needed), 2.5)
     host.playSe("SE_SELECT")
     Store.save()
@@ -669,6 +763,7 @@ return function(mod, deps)
     if not s then return end
     s.anim.t = s.anim.t + dt
     if s.anim.hit > 0 then s.anim.hit = math.max(0, s.anim.hit - dt) end
+    if (s.anim.lock or 0) > 0 then s.anim.lock = math.max(0, s.anim.lock - dt) end
     if (s.anim.burst or 0) > 0 then s.anim.burst = math.max(0, s.anim.burst - dt) end
     if s.message and s.messageUntil and now() >= s.messageUntil then
       s.message = nil
@@ -678,16 +773,71 @@ return function(mod, deps)
       T.tickRegimen(dt)
       return
     end
-    if s.mode ~= "regimen" and s.mode ~= "result" and now() >= s.autoAt then
-      s.autoAt = now() + N.CORE.AUTO_HIT_S
-      if s.rec.resting then
-        -- it keeps resting until tapped
-      elseif T.rng() < N.CORE.REST_ODDS then
-        s.rec.resting = true
-        say(("%s is taking a rest..."):format(s.name), 3)
-        Store.save()
-      else
-        T.hitBag("auto")
+    if s.mode == "regimen" or s.mode == "result" then
+      -- busy in a regimen: no punches meanwhile
+      if s.rec.nextAutoAt then s.rec.nextAutoAt = wall() + autoInterval() end
+      return
+    end
+    T.stepCore(s, wall())
+  end
+
+  -- ------- the Core Training clock, for the open session and in the background
+
+  -- advances trainee `t` ({ mon, rec, name, evs }) to wall time `at`: the automatic punches
+  -- that fell due, then the idle rest. Returns true when something changed.
+  function T.stepCore(t, at)
+    local rec = t.rec
+    if rec.resting or host.isFainted(t.mon) then
+      rec.nextAutoAt = nil
+      return false
+    end
+    local changed = false
+    awake(rec, at)
+    rec.nextAutoAt = rec.nextAutoAt or (at + autoInterval())
+    local restAt = rec.awakeAt + rec.restAfter
+    local guard = 0
+    while rec.nextAutoAt and rec.nextAutoAt <= at and rec.nextAutoAt < restAt and guard < 256 do
+      guard = guard + 1
+      rec.nextAutoAt = rec.nextAutoAt + autoInterval()
+      changed = true
+      if t == T.session and t.anim then
+        t.anim.hit = 0.25
+        if rec.bag then host.playSe("SE_BALL_BOUNCE_1") end
+      end
+      if rec.bag then punch(t) else blankBagPunch(t, "auto") end
+      if rec.resting then break end
+    end
+    if not rec.resting and at >= restAt then
+      lieDown(t, "idle")
+      changed = true
+    end
+    if changed then
+      Store.save()
+      if t == T.session then onChange() end
+    end
+    return changed
+  end
+
+  -- the trainee keeps training while the screen is closed: called every frame from the
+  -- mod's tick, it steps the last Pokemon that trained, in the field only (never during a
+  -- battle, whose party writeback would undo the EVs), once a second at most
+  local nextBackground = 0
+  function T.background(inField)
+    if T.session or not inField then return end
+    local at = wall()
+    if at < nextBackground then return end
+    nextBackground = at + 1
+    if host.battleActive and host.battleActive() then return end
+    local key = Store.meta().activeKey
+    if not key then return end
+    local ok, party = pcall(host.party)
+    if not ok or type(party) ~= "table" then return end
+    for _, mon in ipairs(party) do
+      if host.monKey(mon) == key then
+        local rec = Store.mon(key)
+        if not rec.lastTouchAt then return end
+        local t = { mon = mon, rec = rec, name = host.displayName(mon), evs = host.evsOf(mon) }
+        return T.stepCore(t, at)
       end
     end
   end
@@ -714,6 +864,8 @@ return function(mod, deps)
       evs = s.evs, total = Rules.evTotal(s.evs),
       bag = rec.bag and { id = rec.bag.id, hits = rec.bag.hits, needed = rec.bag.needed } or nil,
       pending = rec.pending, resting = rec.resting, refreshed = refreshedNow(rec),
+      secondWind = rec.secondWind == true, nextAutoAt = rec.nextAutoAt, lastTouchAt = rec.lastTouchAt,
+      awakeAt = rec.awakeAt, restAfter = rec.restAfter, fainted = host.isFainted(s.mon),
       fully = rec.fully == true, supremely = rec.supremely == true,
       bags = #Store.bags(), message = s.message, blackTaps = Store.meta().blackTaps,
       regimen = T.sim and T.sim.state and T.sim:state() or nil,

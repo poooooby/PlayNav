@@ -1,6 +1,7 @@
 -- Super Training end to end against a fake Gen 3 host: open from the menu, the layer and
--- the core app, bag hits raising EVs with the HP delta, the black bag, resting and the
--- second wind, Reset and Soothing bags, the inventory cap, the Fully Trained flag, the
+-- the core app, bag hits raising EVs with the HP delta, the black bag, the wall clock's
+-- automatic punches (open and in the background), the idle and routine rests and what
+-- waking gives, Reset and Soothing bags, the inventory cap, the Fully Trained flag, the
 -- Wing items through the item.use hook, the mutual lock with Amie, and the save record.
 -- Run from the engine root: luajit mods/play_nav/tests/training_flow_test.lua
 package.path = "./?.lua;./?/init.lua;" .. package.path
@@ -28,9 +29,11 @@ local party = {
 }
 local stack, sounds, cries, bag = {}, {}, {}, {}
 local setEvsCalls = {}
+-- the wall clock is the test's to move
+local clock = { wall = 1000000 }
 local fake = {
   name = "fake", available = function() return true end,
-  now = function() return os.clock() end, wallClock = function() return os.time() end,
+  now = function() return os.clock() end, wallClock = function() return clock.wall end,
   party = function() return party end,
   monKey = function(m) return m.personality .. ":" .. m.otId end,
   resolve = function(m) for _, p in ipairs(party) do if p.personality == m.personality then return p end end return m end,
@@ -76,7 +79,11 @@ X._test.setRefreshHost({ party = fake.party, monKey = fake.monKey, resolve = fak
   leadMon = function() return party[1] end, national = fake.national, typesOf = fake.typesOf })
 
 local function rngOf(v) return function() return v end end
-S.rng = rngOf(0.99)   -- no rests, no black-bag luck unless asked
+S.rng = rngOf(0.99)   -- no black-bag luck unless asked
+-- routine rests only where a section asks for one (it sets bagsToRest itself)
+local N = Rules.N
+local restBags = N.CORE.ROUTINE_REST_BAGS
+N.CORE.ROUTINE_REST_BAGS = { 100000, 100000 }
 
 -- ------- the items registered with the engine
 
@@ -116,17 +123,43 @@ do
   T.check(not ok and why == "open", "a second open is refused")
 end
 
--- ------- the black bag
+-- ------- one punch at a time: the hit animation finishes before the next is taken
 
 do
   local tapsBefore = S.state().blackTaps
+  T.check(S.hitBag("tap"), "a punch lands")
+  local ok, why = S.hitBag("tap")
+  T.check(not ok and why == "busy", "a second tap during the animation is refused (" .. tostring(why) .. ")")
+  T.eq(S.state().blackTaps, tapsBefore + 1, "...and not counted")
+  S.tick(S.HIT_LOCK * 0.5)
+  T.check(not S.hitBag("tap"), "still refused halfway through")
+  S.tick(S.HIT_LOCK * 0.5 + 0.01)
+  T.check(S.hitBag("tap"), "taken once the animation has finished")
+  S.tick(S.HIT_LOCK + 0.01)
+end
+
+-- the rest of the suite punches in tight loops: no wait between punches
+S.HIT_LOCK = 0
+
+-- ------- the black bag
+
+do
+  local meta = Store.meta()
+  local tapsBefore = S.state().blackTaps
   T.check(S.hitBag("tap"), "a tap with no bag hits the black bag")
   T.eq(S.state().blackTaps, tapsBefore + 1, "...counted")
-  S.rng = rngOf(0)
-  for _ = 1, 10 do S.hitBag("tap") end
-  T.eq(S.state().bags, 1, "a lucky run of taps dropped a bag")
-  T.check(S.state().blackTaps < 8, "...and reset the count (" .. S.state().blackTaps .. " taps since)")
+  -- the game's roll: a find at 5% a tap, then one of its 26 bags
+  S.rng = rngOf(0.5)
+  for _ = 1, 20 do S.hitBag("tap") end
+  T.eq(S.state().bags, 0, "unlucky taps: nothing")
+  T.eq(S.state().blackTaps, tapsBefore + 21, "...each counted")
+  S.rng = rngOf(0.01)
+  S.hitBag("tap")
+  T.eq(S.state().bags, 1, "a tap under 5% digs up a bag")
+  T.eq(Store.bags()[1], "hp_s", "...the first of the 26 at that roll")
+  T.eq(S.state().blackTaps, 0, "...and the count starts over")
   S.rng = rngOf(0.99)
+  S.session.rec.secondWind = nil
 end
 
 -- ------- a stat bag: ten hits, +1 HP EV, HP moved with max HP
@@ -155,27 +188,135 @@ do
   T.eq(party[1].hp, 23, "...and current HP with it")
 end
 
--- ------- auto hits, rest, second wind
+-- ------- the wall clock: a punch a minute, the rest after a rolled 30 to 60 minutes awake
+
+local function hits() return S.state().bag and S.state().bag.hits end
 
 do
   local bags = Store.bags()
   bags[1] = "atk_m"
   S.attachBag(1)
   S.hitBag("auto")
-  T.eq(S.state().bag.hits, 1, "an automatic hit counts")
-  -- force a rest at the next automatic hit
-  S.session.autoAt = 0
+  T.eq(hits(), 1, "an automatic hit counts")
+  local t0 = clock.wall
+  local rec = S.session.rec
+  rec.awakeAt, rec.restAfter = t0, nil
+  rec.nextAutoAt = t0 + N.CORE.AUTO_HIT_S
   S.rng = rngOf(0)
-  S.tick(0.016)
+  clock.wall = t0 + 59; S.tick(0.016)
+  T.eq(hits(), 1, "no punch before a minute")
+  T.eq(rec.restAfter, N.CORE.REST_AFTER_S[1], "the awake stretch was rolled: 30 minutes here")
   S.rng = rngOf(0.99)
-  T.check(S.state().resting, "the Pokemon lies down")
+  clock.wall = t0 + 60; S.tick(0.016)
+  T.eq(hits(), 2, "a punch once a minute on its own")
+  clock.wall = t0 + 150; S.tick(0.016)
+  T.eq(hits(), 3, "one more at two minutes")
+  S.touch()
+  clock.wall = t0 + 20 * 60 + 5; S.tick(0.016)
+  T.check(not S.state().resting, "twenty minutes in: still up")
+  T.eq(hits(), 21, "...a punch every minute (twenty by now, after the first by hand)")
+  clock.wall = t0 + 30 * 60 + 1; S.tick(0.016)
+  T.eq(S.state().resting, "idle", "thirty minutes awake: it lies down, touched or not")
+  local before = hits()
   local ok, why = S.hitBag("auto")
   T.check(not ok and why == "resting", "no automatic hits while resting")
+  clock.wall = clock.wall + 3600; S.tick(0.016)
+  T.eq(hits(), before, "it stays down, however long")
   T.check(S.wake(), "a tap wakes it")
-  T.check(S.state().refreshed, "...refreshed")
-  T.eq(S.state().bag.needed, 13, "the M bag now needs 13 hits (25 halved, rounded up)")
-  for i = 1, 12 do S.hitBag("tap") end
-  T.eq(party[1].evs.atk, 4, "+4 Attack")
+  T.check(S.state().secondWind and S.state().refreshed, "waking gives a second wind (the smile)")
+  T.check(S.state().restAfter ~= nil and S.state().awakeAt == clock.wall, "...and a new awake stretch")
+  -- double strength: each punch counts two until this bag is done (the M bag on the stand
+  -- was cleared by the automatic punches before the rest)
+  T.eq(S.state().bag, nil, "the automatic punches cleared the M bag along the way")
+  bags[1] = "atk_m"
+  S.attachBag(1)
+  for _ = 1, 12 do S.hitBag("tap") end
+  T.eq(hits(), 24, "twelve double-strength taps: 24 of 25")
+  S.hitBag("tap")
+  T.eq(S.state().bag, nil, "the 25-hit bag in 13 taps")
+  T.check(not S.state().secondWind, "the second wind is spent with that bag")
+end
+
+-- ------- the second wind lasts one regimen too, and comes from rare finds and Team Flare
+
+do
+  S.session.rec.secondWind = true
+  local course = S.courseList and S.courseList()[1]
+  if course and S.startCourse then
+    local ok = S.startCourse(course.id)
+    T.check(ok, "a regimen starts")
+    T.check(S.sim and S.sim.mods and S.sim.mods.secondWind, "...with the second wind's double points")
+    T.check(not S.session.rec.secondWind, "...which it spends")
+    S.quitRegimen()
+  else
+    T.check(true, "no regimen in this build")
+  end
+  -- a rare find from the blank bag
+  local meta = Store.meta()
+  local saved = S.session.rec.bag
+  S.session.rec.bag = nil
+  S.rng = rngOf(0.045)   -- under 5%, and slot 2 of 26: HP Bag M, a rare find
+  S.hitBag("tap")
+  S.rng = rngOf(0.99)
+  local found = Store.bags()[#Store.bags()]
+  T.check(Rules.isRareBag(found), "a rare bag turned up (" .. tostring(found) .. ")")
+  T.check(S.state().secondWind, "...and a rare find brings a second wind")
+  S.session.rec.secondWind = nil
+  S.session.rec.bag = saved
+end
+
+-- ------- the routine rest: after a rolled 3 to 5 bags, whichever comes first
+
+do
+  S.session.rec.bag = nil
+  S.session.rec.bagsToRest = 1
+  local bags = Store.bags()
+  bags[1] = "hp_s"
+  S.attachBag(1)
+  T.eq(S.state().bag.needed, 10, "a bag needs its full hits; the second wind is in the punch")
+  for _ = 1, 10 do S.hitBag("tap") end
+  T.eq(S.state().resting, "routine", "a cleared bag on the count: a routine rest")
+  bags[1] = "atk_m"
+  local ok, why = S.attachBag(1)
+  T.check(not ok and why == "resting", "no bag can be set while it rests")
+  T.check(S.wake(), "a tap wakes it")
+  T.check(S.state().secondWind, "a second wind after this rest too")
+  local atk = party[1].evs.atk
+  S.attachBag(1)
+  for _ = 1, 13 do S.hitBag("tap") end
+  T.eq(party[1].evs.atk, atk + 4, "the M bag in 13 double-strength taps: +4 Attack")
+  T.check(not S.state().secondWind, "spent")
+  -- a cleared bag can bring the next second wind
+  S.rng = rngOf(0)
+  bags[1] = "hp_s"
+  S.attachBag(1)
+  for _ = 1, 10 do S.hitBag("tap") end
+  T.check(S.state().secondWind, "a cleared bag brought a second wind (the odds rolled low)")
+  S.session.rec.secondWind = nil
+  -- the count is rolled from the rule: 3 to 5 bags
+  N.CORE.ROUTINE_REST_BAGS = restBags
+  S.session.rec.bagsToRest = nil
+  bags[1] = "hp_s"
+  S.attachBag(1)
+  for _ = 1, 10 do S.hitBag("tap") end
+  T.eq(S.session.rec.bagsToRest, 2, "the next rest rolled 3 bags out (one cleared)")
+  S.rng = rngOf(0.99)
+  S.session.rec.secondWind = nil
+  N.CORE.ROUTINE_REST_BAGS = { 100000, 100000 }
+  S.session.rec.bagsToRest = nil
+end
+
+-- ------- a fainted Pokemon stays down
+
+do
+  local hp = party[1].hp
+  S.lieDown("routine")
+  party[1].hp = 0
+  local ok, why = S.wake()
+  T.check(not ok and why == "fainted", "a fainted Pokemon cannot be woken (" .. tostring(why) .. ")")
+  T.check(S.state().fainted, "...and shows as fainted")
+  party[1].hp = hp
+  T.check(S.wake(), "revived, it wakes")
 end
 
 -- ------- the bag box: names, descriptions, the questions (fallback text headless)
@@ -222,10 +363,10 @@ do
   for i = 1, 10 do S.hitBag("tap") end
   T.eq(S.state().pending, "strength", "Strength replaces it (no stacking)")
   bags[1] = "team_flare"
-  S.session.rec.refreshedUntil = nil
+  S.session.rec.secondWind = nil
   S.attachBag(1)
   for i = 1, 10 do S.hitBag("tap") end
-  T.check(S.state().refreshed, "Team Flare: raring to go")
+  T.check(S.state().secondWind, "Team Flare: raring to go (a second wind)")
 end
 
 -- ------- Soothing and Reset
@@ -234,12 +375,13 @@ do
   local bags = Store.bags()
   bags[1] = "soothing"
   S.attachBag(1)
-  T.eq(S.state().bag.needed, 125, "Soothing while refreshed: 125 hits")
+  T.eq(S.state().bag.needed, 250, "Soothing: 250 hits")
   for i = 1, 125 do S.hitBag("tap") end
-  T.eq(party[1].friendship, 90, "+20 friendship")
+  T.eq(party[1].friendship, 90, "...in 125 taps with Team Flare's second wind: +20 friendship")
+  T.check(not S.state().secondWind, "the wind went with that bag")
   bags[1] = "reset"
   S.attachBag(1)
-  for i = 1, 50 do S.hitBag("tap") end
+  for i = 1, 100 do S.hitBag("tap") end
   T.eq(party[1].evs.hp, 0, "Reset: HP EVs gone")
   T.eq(party[1].evs.atk, 0, "...Attack too")
   T.eq(S.state().total, 0, "total 0")
@@ -275,14 +417,14 @@ do
   local bags = Store.bags()
   bags[1] = "def_s"
   S.attachBag(1)
-  for i = 1, 5 do S.hitBag("tap") end
+  for i = 1, 10 do S.hitBag("tap") end
   T.eq(party[1].evs.def, 1, "+1 Def")
   T.eq(S.state().total, 510, "510 total")
   T.check(S.state().fully, "Fully Trained")
   T.check(S.session.rec.fully, "...recorded")
   bags[1] = "reset"
   S.attachBag(1)
-  for i = 1, 50 do S.hitBag("tap") end
+  for i = 1, 100 do S.hitBag("tap") end
   T.eq(S.state().total, 0, "reset again")
   T.check(S.state().fully, "...and still Fully Trained")
 end
@@ -422,6 +564,51 @@ do
   T.check(saved.mons["1234:77"] and saved.mons["1234:77"].fully == true, "the Fully Trained flag persists")
   T.eq(#saved.bags, 12, "twelve bags in the rack (three from the regimens)")
   T.check(type(saved.cleared) == "table", "the cleared table exists")
+end
+
+-- ------- training goes on with the screen closed (counts and rests only, nothing drawn)
+
+do
+  T.check(TR.open(party[1]), "open on the lead again")
+  local key = S.session.key
+  local bags = Store.bags()
+  bags[#bags + 1] = "big_shot"
+  S.attachBag(#bags)
+  local rec = Store.mon(key)
+  local h0 = rec.bag.hits
+  rec.awakeAt, rec.restAfter = clock.wall, 1800
+  rec.nextAutoAt = clock.wall + N.CORE.AUTO_HIT_S
+  S.finish()
+  T.eq(Store.meta().activeKey, key, "the last Pokemon to train keeps training")
+  local t0 = rec.awakeAt
+  clock.wall = t0 + N.CORE.AUTO_HIT_S
+  S.background(true)
+  T.eq(rec.bag.hits, h0 + 1, "a punch a minute with the screen closed")
+  clock.wall = t0 + 150
+  S.background(false)
+  T.eq(rec.bag.hits, h0 + 1, "...not outside the field (a battle, a menu)")
+  S.background(true)
+  T.eq(rec.bag.hits, h0 + 2, "...caught up once back in the field")
+  -- the blank bag: idle punches dig up a bag after a rolled 10 to 15 of them
+  rec.bag = nil
+  local meta = Store.meta()
+  while #Store.bags() >= N.LIMITS.BAG_MAX do table.remove(Store.bags()) end
+  local n0 = #Store.bags()
+  S.rng = rngOf(0.5)
+  clock.wall = t0 + 150 + 9 * 60
+  S.background(true)
+  T.eq(#Store.bags(), n0, "nine unlucky idle punches on the blank bag: nothing")
+  S.rng = rngOf(0.01)
+  clock.wall = t0 + 150 + 10 * 60
+  S.background(true)
+  T.eq(#Store.bags(), n0 + 1, "a lucky one digs up a bag, screen closed")
+  S.rng = rngOf(0.99)
+  clock.wall = t0 + 3600
+  S.background(true)
+  T.eq(rec.resting, "idle", "left alone, it lies down when its awake stretch ends")
+  T.check(TR.open(party[1]), "reopened")
+  T.eq(S.state().resting, "idle", "...still resting when the screen comes back")
+  S.finish()
 end
 
 T.finish()

@@ -44,6 +44,12 @@ return function(mod, T, deps)
       return false, "resting"
     end
     local mods = Rules.modifiers(s.evs, s.rec.pending, { pokerus = host.hasPokerus(s.mon) })
+    -- a second wind lasts one regimen: double the points, then it is spent
+    if s.rec.secondWind then
+      mods.pointMult = mods.pointMult * Rules.N.CORE.REFRESHED_HITS_DIV
+      mods.secondWind = true
+      s.rec.secondWind = nil
+    end
     -- each bot's balloon is its Pokemon's sprite; the goals live on that shape
     local shapes = {}
     if Draw and Draw.shapeFor then

@@ -5,6 +5,33 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Super Training's home screen is laid out from the game's own layout file: the framed teal
+  name band with the training-state plate and the shot-ball tag, the blue room with its grid,
+  the grey punching bag hanging behind the frame, the teal Effort-o-Meter with its coloured stat
+  labels and the total gauge, and the rest of the party on the tray between the Regimens and
+  Bags buttons. The art is unpacked from your card image like the rest (it is extracted once
+  more on the next start). It moves like the game's too, from the game's own animations: the
+  Pokémon sways and bobs, lunges into the bag on a hit, the bag swings, the hit marks burst and
+  the room shakes; the pattern in the background drifts. A tap anywhere in the room punches the
+  bag, as in the game, and a punch lands only once the last one's animation has finished, so tapping faster does not train faster.
+- The support bags use the game's own numbers, read from its training-bag table: Strength,
+  Swiftness and Big-Shot multiply by 1.5 and Toughen-Up divides damage by 1.5 (Strength was
+  doubled and Swiftness 1.3 before).
+- The regimen shots use the game's own shot table: how many points each colour scores, how
+  fast and big it is and what it costs, relative to the black shot.
+- The Effort-o-Meter is drawn with the game's own steps: each axis grows in the same pixel steps
+  for base stats and EVs as on the 3DS.
+- Resting and the second wind work like the game's. Your Pokémon punches its bag once a minute
+  on its own, also while the screen is closed. It lies down after 30 to 60 minutes, or after 3
+  to 5 bags cleared, whichever comes first, and stays down until tapped (a fainted Pokémon
+  cannot be woken). Waking, a rare find, the Team Flare Bag and some cleared bags give it a
+  second wind: double-strength punches for one bag, or double points in one regimen. The
+  blank bag finds a bag on 5% of punches (10% for a fully trained Pokémon), any of the game's
+  bags but Team Flare with equal odds: the game's own roll, read from its code. Lying down, getting up and the second wind use the
+  game's own animations.
+
 ### Fixed
 
 - With Kanto Gear on, the two mods no longer fight over a second display (AYN Thor). PlayNav

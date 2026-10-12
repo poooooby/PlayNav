@@ -68,8 +68,17 @@ on a touch screen below the game or on a device's second display.
 ### Super Training 🎈
 
 - 🥊 **Core Training:** **TRAINING** on the START menu shows your Pokémon beside a punching bag,
-  with the Effort-o-Meter for its base stats and EVs. Tap the bag to hit it. Your Pokémon
-  also trains on its own, rests now and then, and gets a second wind when you wake it.
+  with the Effort-o-Meter for its base stats and EVs. Tap anywhere in the room to punch the
+  bag, one punch at a time. Your Pokémon also punches the bag once a minute on its own, even with the screen
+  closed.
+- 😴 **Resting:** After half an hour to an hour, or every 3 to 5 bags it clears, whichever comes
+  first, it lies down until you tap it. A fainted Pokémon stays down until it is revived.
+- 😄 **Second wind:** Woken from a rest, after some cleared bags, from a rare find or the Team
+  Flare Bag, it gets a happy bubble and punches with double strength: the next bag takes half
+  the taps, or the next regimen scores double. It lasts one bag or one regimen.
+- 🎁 **The blank bag:** With no training bag set, every punch (yours or your Pokémon's) has a 5%
+  chance of digging up a bag, 10% for a Pokémon with all 510 EVs; any bag but the Team Flare
+  Bag can turn up, each as likely as the next.
 - 👜 **26 training bags:** Stat bags in three sizes (+1, +4 and +12 EVs), the Reset Bag, the
   Soothing Bag, and six bags that power up your next regimen. Tap a bag to read about it, then
   use or discard it.

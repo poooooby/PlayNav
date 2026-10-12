@@ -5,10 +5,14 @@
 --   schema = 1,
 --   bags = { "hp_s", ... },                -- ordered, at most LIMITS.BAG_MAX
 --   mons = { [key] = { bag = { id, hits, needed } | nil, pending = effect | nil,
---                      refreshedUntil = wall clock | nil, resting = bool, fully = bool,
+--                      resting = "idle" | "routine" | false,
+--                      lastTouchAt / nextAutoAt / restedAt / awakeAt = wall clock,
+--                      restAfter = seconds, secondWind = bool (one bag or one regimen),
+--                      bagsToRest = n, fully = bool,
 --                      supremely = bool, courses = { [id] = { best, medal, clears } }, hits = n } },
 --   cleared = { [courseId] = true },       -- any Pokemon; the unlock ladder
---   meta = { blackTaps, lastAutoHitAt, pendingItems = { { index, qty } } },
+--   meta = { blackTaps (taps since the last find), lastAutoHitAt, activeKey (the Pokemon training in the background),
+--            pendingItems = { { index, qty } } },
 -- }
 
 return function(mod, Rules)
@@ -56,6 +60,14 @@ return function(mod, Rules)
     if m.courses == nil then m.courses = {} end
     if m.hits == nil then m.hits = 0 end
     if m.resting == nil then m.resting = false end
+    -- resting is "idle" | "routine" | false since 0.1.2 (true before)
+    if m.resting == true then m.resting = "routine" end
+    -- the timed refresh of earlier builds became the second wind (one bag or one regimen)
+    if m.refreshedUntil or m.quick or (type(m.bag) == "table" and m.bag.secondWind) then
+      m.secondWind = true
+      m.refreshedUntil, m.quick = nil, nil
+      if type(m.bag) == "table" then m.bag.secondWind = nil end
+    end
     return m
   end
 

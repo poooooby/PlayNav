@@ -268,15 +268,6 @@ return function(N, ShotTypes)
     return keys[#keys]
   end
 
-  local function randomStat(rng)
-    return R.STATS[math.floor((rng or math.random)() * #R.STATS) + 1] or "hp"
-  end
-
-  local function resolve(key, rng)
-    if key == "stat_s" then return randomStat(rng) .. "_s" end
-    return key
-  end
-
   -- the bag a cleared course gives: the course's stat bag sized by the clock left, or a
   -- Double-Up (more often with Pokerus); secret courses give a support bag
   -- opts = { pokerus = bool }
@@ -305,11 +296,56 @@ return function(N, ShotTypes)
   end
 
   -- a bag dropping from the empty black bag, or nil
-  function R.rollBlackBag(taps, rng)
+  -- the Effort-o-Meter's pixels for a value: the first step it reaches
+  function R.meterStep(steps, v)
+    v = tonumber(v) or 0
+    for _, st in ipairs(steps) do
+      if v >= st[1] then return st[2] end
+    end
+    return steps[#steps][2]
+  end
+
+  -- the meter's two hexagons in pixels from the centre, per axis in Radar.ORDER: the base
+  -- stats alone, and base + EVs
+  function R.meterAxes(base, evs, order)
+    local inner, outer = {}, {}
+    for i, k in ipairs(order) do
+      local b = R.meterStep(N.METER.BASE_STEPS, base and base[k])
+      inner[i] = b
+      outer[i] = b + R.meterStep(N.METER.EV_STEPS, evs and evs[k])
+    end
+    return inner, outer
+  end
+
+  -- the number of punches on the blank bag before a bag turns up: { lo, hi } inclusive
+  function R.rollCount(range, rng)
     rng = rng or math.random
-    if (taps or 0) < N.CORE.BLACK_BAG_MIN_TAPS then return nil end
-    if rng() >= N.CORE.BLACK_BAG_DROP then return nil end
-    return resolve(pick(N.BAG_ODDS.black, rng), rng)
+    return range[1] + math.floor(rng() * (range[2] - range[1] + 1))
+  end
+
+  -- a punch on the blank bag, as the game rolls it: a find at BLANK_BAG_DROP percent
+  -- (BLANK_BAG_DROP_FULLY with all 510 EVs), then one of the 26 bags in the game's order with
+  -- equal odds; Team Flare's slot finds nothing. Returns the bag id or nil.
+  function R.rollBlankBag(rng, opts)
+    rng = rng or math.random
+    opts = opts or {}
+    local chance = opts.fully and N.CORE.BLANK_BAG_DROP_FULLY or N.CORE.BLANK_BAG_DROP
+    if rng() * 100 >= chance then return nil end
+    return R.pickBlackBag(rng)
+  end
+
+  function R.pickBlackBag(rng)
+    rng = rng or math.random
+    local id = R.GAME_ORDER[1 + math.floor(rng() * #R.GAME_ORDER)]
+    if id == "team_flare" then return nil end
+    return id
+  end
+
+  -- a rare find (anything but a plain S stat bag) gives the Pokemon a second wind
+  function R.isRareBag(id)
+    local b = R.BAGS[id]
+    if not b then return false end
+    return not (b.kind == "stat" and b.size == "s")
   end
 
   -- a secret course's item: rows { item = "ITEM_X" | training = "<slug>" | "NAME", w,

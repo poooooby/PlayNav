@@ -105,7 +105,19 @@ local function body(game, log)
   local geo = core.geometry()
   TR.store.bags()[1] = "hp_s"
   log("attach:", TR.session.attachBag(1))
-  for i = 1, 10 do tapAt("bag" .. i, geo.BAG.x + geo.BAG.w / 2, geo.BAG.y + geo.BAG.h / 2) end
+  -- a punch is taken only after the last one's animation: tap as a player would, and check
+  -- that a tap in between is refused
+  for i = 1, 10 do
+    tapAt("bag" .. i, geo.BAG.x + geo.BAG.w / 2, geo.BAG.y + geo.BAG.h / 2)
+    if i == 1 then
+      local hitsBefore = TR.session.session.rec.bag and TR.session.session.rec.bag.hits
+      tapAt("spam", geo.BAG.x + geo.BAG.w / 2, geo.BAG.y + geo.BAG.h / 2)
+      local hitsAfter = TR.session.session.rec.bag and TR.session.session.rec.bag.hits
+      log("spam tap during the animation: hits", tostring(hitsBefore), "->", tostring(hitsAfter))
+    end
+    local t0 = love.timer.getTime()
+    while love.timer.getTime() - t0 < TR.session.HIT_LOCK + 0.05 do U.wait(1) end
+  end
   U.wait(10)
   st = TR.state()
   local evs1 = Pokemon.evsOf(lead)
@@ -116,7 +128,11 @@ local function body(game, log)
   -- an L bag through the session for the radar
   TR.store.bags()[1] = "atk_l"
   TR.session.attachBag(1)
+  -- one punch per animation in play; the probe punches in bulk
+  local lock = TR.session.HIT_LOCK
+  TR.session.HIT_LOCK = 0
   for _ = 1, 50 do TR.session.hitBag("tap") end
+  TR.session.HIT_LOCK = lock
   U.wait(5)
   local evs2 = Pokemon.evsOf(lead)
   log(("after Attack L: atk %d hp %d/%d"):format(evs2.atk, lead.hp, lead.maxHp))

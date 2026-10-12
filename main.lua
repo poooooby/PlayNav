@@ -612,6 +612,14 @@ return function(mod)
     PadHide:apply(mode ~= "off" and mod.options:get("hide_virtual_pad") ~= false, game)
     -- apps keep ticking while dormant so a session can wake the surface
     Apps:update(dt, game)
+    -- Super Training keeps punching (and resting) while its screen is closed
+    if Training and Training.background then
+      local ok, err = pcall(Training.background, game ~= nil and game.phase == "field")
+      if not ok and not state.bgWarned then
+        state.bgWarned = true
+        mod.log:warn("super training: background tick failed (%s); training resumes when the screen opens", tostring(err))
+      end
+    end
     if mode == "off" then
       state.rect = nil
       return
