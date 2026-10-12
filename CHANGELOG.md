@@ -3,6 +3,18 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.1] - 2026-10-12 (pre-alpha)
+
+### Changed
+
+- The mod's description in the Mod Manager and the description of the Alpha Sapphire card
+  image import describe PlayNav as it is: Pokémon-Amie and Super Training, with the 3DS art
+  and English text unpacked from your own card image.
+- The README is written for players, with a pre-alpha caution, the options table with
+  defaults, and the card image's exact size and MD5 in the installation steps. Developer
+  notes are in DEVELOPMENT.md, which the package leaves out.
+- The code is under the MIT licence (LICENSE).
+
 ## [0.1.0] - 2026-10-12 (experimental)
 
 First public release, Gen 3 (Emerald, Ruby, Sapphire, FireRed, LeafGreen) only. Everything
