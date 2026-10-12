@@ -126,9 +126,16 @@ Open **OPTIONS → MODS → PlayNav**.
 3. Enable **PlayNav**.
 4. **For the 3DS art and text (recommended):** open the mod in the launcher, choose
    **Imported files**, then **Choose file**. Pick your own decrypted **Pokémon Alpha Sapphire
-   (USA) Rev 2** card image (a `.cci` file of exactly 2 GiB). The launcher checks it and keeps a
-   private copy. On the next start PlayNav unpacks the art and text in a few seconds, then tells
-   you the copy can be removed under Imported files.
+   (USA) Rev 2** card image. The launcher accepts only this exact file:
+
+   | | |
+   |---|---|
+   | **Format** | Decrypted `.cci` |
+   | **Size** | 2,147,483,648 bytes (2 GiB) |
+   | **MD5** | `0563f9dee1b95de32d579e40c20e2bfc` |
+
+   The launcher checks it and keeps a private copy. On the next start PlayNav unpacks the art and
+   text in a few seconds, then tells you the copy can be removed under Imported files.
 
 ## 🔗 Works With
 
