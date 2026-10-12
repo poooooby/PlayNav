@@ -23,7 +23,7 @@
   ],
   "experimental": false,
   "affects_link": false,
-  "description": "A DS-style touch screen: a smooth stylus/finger surface on the bottom screen (AYN Thor second display or the lower part of a phone) hosting a slide D-pad, a free-touch pad and HGSS-style menus.",
+  "description": "Pre-alpha. Pokemon-Amie and Super Training from X, Y, Omega Ruby and Alpha Sapphire on a DS-style touch screen (split screen, or a second display such as the AYN Thor). Pet your Pokemon, feed it Poke Puffs, play the Amie minigames, decorate its room and train its EVs. Gen 3 only.",
   "optional_imports": [
     {
       "id": "oras_cci",
@@ -33,7 +33,7 @@
         "0563f9dee1b95de32d579e40c20e2bfc"
       ],
       "size": 2147483648,
-      "description": "Supplies the Pokemon-Amie art (hand cursor, Poke Puffs, emotes, backgrounds) for Pokemon Refresh. Optional: drawn shapes are used without it. The copy can be removed from Imported files once the art has been extracted."
+      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Optional: without it, simple drawn shapes and PlayNav's own wording are used. The copy can be removed from Imported files once the art has been extracted."
     }
   ],
   "github": "poooooby/PlayNav"
