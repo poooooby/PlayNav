@@ -17,4 +17,5 @@ end
 p:close()
 T.eq(#missing, 0, "every test and tool is kept out of the package (" .. table.concat(missing, ", ") .. ")")
 T.check(ignored["CLAUDE.md"], "CLAUDE.md stays out")
+T.check(ignored["DEVELOPMENT.md"], "DEVELOPMENT.md stays out (players read the README)")
 T.finish("play_nav release")

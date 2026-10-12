@@ -3,6 +3,7 @@
 # tests/release_test.lua checks it. baseroms/ and game art are git-ignored, and the
 # release is packed from a clean clone, so neither can reach the package.
 CLAUDE.md
+DEVELOPMENT.md
 .luarc.json
 .gitignore
 tests/amie_rules_test.lua
