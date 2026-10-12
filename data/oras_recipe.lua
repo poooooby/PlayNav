@@ -557,12 +557,8 @@ add("a/0/2/7", 0, 0, 29, "training/mood_smile", 32, 32, "ETC1A4", "mood bubble")
 add("a/0/2/7", 0, 0, 31, "training/mood_surprise", 32, 32, "ETC1A4", "mood bubble")
 add("a/0/2/7", 0, 0, 6, "training/mood_sad", 32, 32, "ETC1A4", "mood bubble")
 add("a/0/2/7", 0, 0, 10, "training/burst", 64, 64, "ETC1A4", "finish burst")
-add("a/1/1/3", 0, 0, 10, "training/stage_win", 128, 64, "ETC1A4", "course card")
-add("a/1/1/3", 0, 0, 14, "training/status_win", 190, 40, "RGBA4", "status window")
-add("a/1/1/3", 0, 0, 7, "training/title_win", 128, 64, "RGBA8", "title window")
 add("a/1/1/3", 0, 0, 22, "training/name_bg", 160, 30, "ETC1A4", "name background")
 add("a/1/1/3", 0, 0, 16, "training/gauge_bg", 64, 64, "RGBA4", "round gauge background")
-add("a/1/1/3", 0, 0, 18, "training/locked", 64, 64, "RGBA4", "locked course badge")
 add("a/2/1/7", 0, 2, 0, "training/banner_success", 256, 64, "ETC1A4", "Success! (English sub)")
 add("a/2/1/7", 0, 2, 1, "training/tag_cleared", 60, 20, "RGBA4", "CLEARED tag")
 add("a/2/1/7", 0, 2, 2, "training/banner_tryagain", 256, 64, "ETC1A4", "Try Again...")
@@ -609,6 +605,26 @@ add("a/0/2/7", 0, 0, 9, "training/finish_slash", 64, 64, "ETC1A4", "finish_efect
 add("a/0/2/7", 0, 0, 7, "training/finish_light", 32, 32, "ETC1A4", "efect_light: a quarter of the glow, mirrored four ways")
 add(ST, 2, 0, 5, "training/point_up_win", 40, 20, "ETC1A4", "point_up_win: the plate under a stat's +N")
 add(ST, 2, 0, 0, "training/arrow", 16, 16, "ETC1A4", "arrow: the gauge's up arrow")
+-- the regimen picker and its card (a/1/1/3 entry 0: stageselect_lower / stageselect_upper),
+-- ids after the darc's texture names; the shutters close every Super Training screen change
+add("a/1/1/3", 0, 0, 1, "training/ss_black_out", 32, 64, "ETC1A4", "black_out: a shutter's stepped edge (repeat 4 down)")
+add("a/1/1/3", 0, 0, 2, "training/ss_black_out2", 32, 64, "ETC1A4", "black_out2: the glowing seam where the shutters meet")
+add("a/1/1/3", 0, 0, 4, "training/ss_cur", 90, 64, "ETC1A4", "cur: the brackets round the picked course")
+add("a/1/1/3", 0, 0, 10, "training/ss_meter_bg", 128, 64, "ETC1A4", "meter_bg: the frame behind the courses (mirrored 2x2)")
+add("a/1/1/3", 0, 0, 12, "training/ss_perfect_icon1", 32, 32, "ETC1A4", "perfect_icon1: supremely trained")
+add("a/1/1/3", 0, 0, 13, "training/ss_perfect_icon2", 32, 32, "ETC1A4", "perfect_icon2: fully trained")
+add("a/1/1/3", 0, 0, 14, "training/ss_pokename_bg", 190, 40, "RGBA4", "pokename_bg: the medal count tab")
+add("a/1/1/3", 0, 0, 16, "training/ss_stage_icon00", 64, 64, "RGBA4", "stage_icon00: a course not open yet")
+add("a/1/1/3", 0, 0, 17, "training/ss_stage_icon00_rock", 64, 64, "RGBA4", "stage_icon00_rock: a level not open yet")
+add("a/1/1/3", 0, 0, 18, "training/ss_stage_icon01", 64, 64, "RGBA4", "stage_icon01: the card's course frame")
+add("a/1/1/3", 0, 0, 19, "training/ss_stage_win", 10, 30, "RGBA4", "stage_win: the level band")
+add("a/1/1/3", 0, 0, 20, "training/ss_stage_win_lt", 16, 24, "RGBA4", "stage_win_lt: a card window's left corner")
+add("a/1/1/3", 0, 0, 21, "training/ss_stage_win_rt", 16, 24, "RGBA4", "stage_win_rt: a card window's right corner")
+add("a/1/1/3", 0, 0, 22, "training/ss_status_win", 160, 30, "ETC1A4", "status_win: a stat row on the card")
+add("a/1/1/3", 0, 0, 23, "training/ss_title_win", 200, 30, "RGBA4", "title_win: the card's title (right half mirrored)")
+add("a/1/1/3", 0, 0, 24, "training/ss_up_arrow", 10, 20, "ETC1A4", "up_arrow: the stat the course raises")
+add("a/0/5/4", 0, 0, 18, "training/ss_return", 30, 30, "RGBA8", "return_pss: the cream return button on the picker's bar")
+add("a/0/5/4", 0, 0, 0, "training/ss_page_arrow", 20, 40, "RGBA8", "arrow_button: a page arrow (left; mirrored for right)")
 
 -- ------- Pokemon-Amie UI from the game: the room's buttons (a/0/2/6 entry 1, sub 2 is
 -- English), the status panel and its icons, the minigames' HUD and result pieces (the three
@@ -642,7 +658,7 @@ add(HI, 3, 0, 25, "game/result_box", 258, 116, "ETC1A4", "result box: two rows a
 add(TP, 1, 0, 0, "game/pill_button", 110, 32, "RGBA8", "orange pill button")
 
 return {
-  version = 13,
+  version = 14,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

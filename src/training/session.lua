@@ -79,15 +79,19 @@ return function(mod, deps)
 
   function Layer.handleInput(input)
     local s = T.session
-    if not s then return end
+    if not s or s.trans then return end
     if s.mode == "core" then
       if input:wasPressed("a") then
         if s.rec.resting then T.wake() else T.hitBag("tap") end
       elseif input:wasPressed("b") or input:wasPressed("start") then
         T.finish()
       end
-    elseif s.mode == "bags" or s.mode == "courses" then
+    elseif s.mode == "bags" then
       if input:wasPressed("b") then T.enterCore() end
+    elseif s.mode == "courses" then
+      if input:wasPressed("b") then T.goTo("core")
+      elseif input:wasPressed("a") and s.picked then T.startCourse(s.picked)
+      elseif T.pickerInput then T.pickerInput(input) end
     elseif s.mode == "regimen" then
       if T.onRegimenInput then T.onRegimenInput(input) end
     elseif s.mode == "result" then
@@ -269,8 +273,19 @@ return function(mod, deps)
     if (s.mode == "regimen" or s.mode == "result") and T.drawTop then
       local ok, err = pcall(T.drawTop, G2, s)
       if not ok then mod.log:warn("training top draw failed: %s", tostring(err)) end
+    elseif s.mode == "courses" and T.drawCard then
+      local ok, err = pcall(T.drawCard, G2, s)
+      if not ok then
+        mod.log:warn("training card draw failed: %s", tostring(err))
+        drawCore(G2, s)
+      end
     else
       drawCore(G2, s)
+    end
+    local v = T.transView("top")
+    if v and v.black and v.black > 0 then
+      G2.setColor(0, 0, 0, v.black)
+      G2.rectangle("fill", 0, 0, 240, 160)
     end
     G2.pop()
   end
@@ -371,6 +386,70 @@ return function(mod, deps)
   end
 
   function T.enterCore() setMode("core"); return true end
+
+  -- ------- the screen changes, as the game plays them (frames at 30 a second, from a capture
+  -- of the Regimens button): the button's bounce (WAIT), the touch screen's shutters close
+  -- (training_message_lower_black_out, 20 frames), at SWITCH both screens go black and the
+  -- picker takes over, they stay black until HOLD and fade in over FADE. Back from the picker:
+  -- its shutters close (stageselect_lower_black_out), the home screen is back with the
+  -- overworld on top and its shutters open (stageselect_lower_black_in, 10 frames).
+  T.TRANS = { WAIT = 7, CLOSE = 20, SWITCH = 29, HOLD = 53, FADE = 6, OPEN = 10 }
+
+  function T.goTo(mode)
+    local s = T.session
+    if not s or s.trans then return false end
+    if mode == s.mode then return true end
+    s.trans = { to = mode, from = s.mode, t = 0 }
+    onChange()
+    return true
+  end
+
+  function T.transitioning()
+    local s = T.session
+    return s ~= nil and s.trans ~= nil
+  end
+
+  local function stepTrans(s, dt)
+    local tr = s.trans
+    if not tr then return end
+    local X = T.TRANS
+    tr.t = tr.t + dt * 30
+    if tr.to == "courses" then
+      if not tr.switched and tr.t >= X.SWITCH then
+        tr.switched = true
+        s.picked = nil
+        setMode("courses")
+      end
+      if tr.t >= X.HOLD + X.FADE then s.trans = nil end
+    else
+      if not tr.switched and tr.t >= X.CLOSE + 2 then
+        tr.switched = true
+        setMode(tr.to)
+      end
+      if tr.t >= X.CLOSE + 2 + X.OPEN then s.trans = nil end
+    end
+    onChange()
+  end
+
+  -- what a screen shows of the transition: { shutter = "close" | "open", f = clip frame,
+  -- black = 0..1 } (where = "bottom" | "top")
+  function T.transView(where)
+    local s = T.session
+    local tr = s and s.trans
+    if not tr then return nil end
+    local X, t = T.TRANS, tr.t
+    if tr.to == "courses" then
+      if not tr.switched then
+        if where == "bottom" and t >= X.WAIT then return { shutter = "close", f = t - X.WAIT } end
+        return nil
+      end
+      local black = t < X.HOLD and 1 or math.max(0, 1 - (t - X.HOLD) / X.FADE)
+      return { black = black }
+    end
+    if where ~= "bottom" then return nil end
+    if not tr.switched then return { shutter = "close", f = t } end
+    return { shutter = "open", f = t - X.CLOSE - 2 }
+  end
   function T.enterBags() setMode("bags"); return true end
   function T.enterCourses()
     if T.session then T.session.picked = nil end
@@ -672,13 +751,14 @@ return function(mod, deps)
   end
 
   -- a line of game text with its variables filled; nil when the text is not extracted
+  -- keepBreaks: keep the game's own line breaks (a window that shows them as the game does)
   -- vars = { MON, BAG, STAT, PLAYER, COURSE, ITEM, N }
-  function T.gameLine(file, line, vars)
+  function T.gameLine(file, line, vars, keepBreaks)
     local s = gameText(file, line)
     if not s then return nil end
     local sess = T.session
     vars = vars or {}
-    s = s:gsub("%s*\n%s*", " ")
+    if not keepBreaks then s = s:gsub("%s*\n%s*", " ") end
     s = s:gsub("{MON}", vars.MON or (sess and sess.name) or "your POKeMON")
     s = s:gsub("{BAG}", vars.BAG or "bag")
     s = s:gsub("{STAT}", vars.STAT or "stat")
@@ -756,7 +836,7 @@ return function(mod, deps)
 
   function T.courseBlurb(id)
     local c = T.course and T.course(id)
-    local s = c and c.order and T.gameLine("training_courses", T.COURSE_LINE.blurb + c.order)
+    local s = c and c.order and T.gameLine("training_courses", T.COURSE_LINE.blurb + c.order, nil, true)
     return s or ""
   end
 
@@ -806,6 +886,7 @@ return function(mod, deps)
     if s.anim.hit > 0 then s.anim.hit = math.max(0, s.anim.hit - dt) end
     if (s.anim.lock or 0) > 0 then s.anim.lock = math.max(0, s.anim.lock - dt) end
     if (s.anim.burst or 0) > 0 then s.anim.burst = math.max(0, s.anim.burst - dt) end
+    stepTrans(s, dt)
     local fin = s.anim.finish
     if fin then
       fin.t = fin.t + dt

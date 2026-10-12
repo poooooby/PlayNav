@@ -206,11 +206,17 @@ local function body(game, log)
   tapAt("party1", geo.partySlot(1).x + 9, geo.partySlot(1).y + 12)
   U.wait(5)
   tapAt("regimens", geo.REGIMENS.x + geo.REGIMENS.w / 2, geo.REGIMENS.y + geo.REGIMENS.h / 2)
+  -- the change on the game's frames: the shutters, the black, the fade
+  waitFor(function() local t = TR.session.session.trans; return t and t.t >= 7 + 12 end, 2000)
+  shot("t05a_shutters")
+  waitFor(function() return TR.state().mode == "courses" end, 2000)
+  shot("t05a_black")
+  waitFor(function() return TR.session.session.trans == nil end, 4000)
   U.wait(5)
   log("courses mode:", TR.state().mode, "app", Apps:active().id)
   shot("t05_courses")
   local coursesApp = Apps:get("training_courses")
-  local tile = coursesApp.geometry().tileRect(1, 1)
+  local tile = coursesApp.geometry().slots[2]
   tapAt("tile", tile.x + tile.w / 2, tile.y + tile.h / 2)
   U.wait(5)
   shot("t05b_course_card")
@@ -293,8 +299,11 @@ local function body(game, log)
   shot("t08b_courses_secret")
   TR.session.session.rec.fully = nil
   for _, c in ipairs(TR.session.courseList()) do if not c.secret and c.id ~= "lv1_hp" then TR.store.cleared()[c.id] = nil end end
-  tapAt("back", coursesApp.geometry().BACK.x + 20, coursesApp.geometry().BACK.y + 8)
-  U.wait(5)
+  local ret = coursesApp.geometry().RETURN
+  tapAt("back", ret.x + ret.w / 2, ret.y + ret.h / 2)
+  waitFor(function() local t = TR.session.session.trans; return t and t.t >= 12 end, 2000)
+  shot("t08c_back_shutters")
+  waitFor(function() return TR.session.session.trans == nil end, 4000)
   log("back to:", TR.state().mode)
 
   -- ------- the Wings through the engine

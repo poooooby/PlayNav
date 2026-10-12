@@ -41,6 +41,15 @@ All notable changes to this mod are documented here. The format follows
   blank bag finds a bag on 5% of punches (10% for a fully trained Pokémon), any of the game's
   bags but Team Flare with equal odds: the game's own roll, read from its code. Lying down, getting up and the second wind use the
   game's own animations.
+- The regimen picker is the game's own screen: one level per page with its six courses in
+  their round frames and stat labels, CLEARED and the award medal on the ones you have done,
+  the medal count with your Pokémon's icon, and the bar with the page and the return button
+  (the secret courses come as more pages once a Pokémon is Fully Trained). Tapping a course
+  puts the game's brackets round it, its description in the message window and its card on
+  the top screen: the stats it can raise, the target time and your best time. Tap it again to
+  start. Going there plays the game's transition: the button bounces, the touch screen's
+  shutters close with the glowing seam, both screens go black and fade into the picker; going
+  back closes the picker's shutters and opens them on the home screen.
 - The coach cheers while a training bag hangs, as in the game: a line for the bag's kind comes
   up as soon as it is set, stays ten seconds, goes, and another follows ten seconds later. The
   wait stands still while a punch plays, so fast tapping spaces the lines out. Lines, groups and

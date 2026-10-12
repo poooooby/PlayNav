@@ -16,6 +16,13 @@ return function(mod, Pointer, T, Rules, Radar, host)
     return love.graphics.draw(...)
   end
   local app = { id = "training_core", title = "SUPER TRAINING", live = true, hideTabs = true }
+  -- src/training/lyt.lua: the shutters of a screen change
+  do
+    local src = mod.read and mod:read("src/training/lyt.lua")
+    local chunk = src and load(src, "@" .. tostring(mod.path) .. "/src/training/lyt.lua")
+    local ok, make = pcall(chunk or error)
+    if ok and type(make) == "function" then app.lyt = make() end
+  end
   local N = Rules.N
 
   -- the overworld stays live above this screen (the engine's pad stays for walking); a
@@ -116,10 +123,25 @@ return function(mod, Pointer, T, Rules, Radar, host)
     return { PIC = PIC, BAG = BAG, RADAR = RADAR, TOTAL = TOTAL, REGIMENS = REGIMENS, BAGS = BAGS, ROOM = ROOM, CLOSE = CLOSE, partySlot = slotOf }
   end
 
+  -- the round buttons give under the finger and bounce back on release (measured from a
+  -- capture: about 0.93 held, then 1.07, 1, 0.96, 0.98, 1 a frame apart)
+  local PRESS = 0.93
+  local BOUNCE = { { 0, 1.07, 0 }, { 1, 1, -0.05 }, { 2, 0.96, 0 }, { 3, 0.98, 0.01 }, { 4, 1, 0 } }
+  app.press = {}
+
   function app:pointer(ev, rec)
     local s = T.session
-    if not (s and s.mode == "core") then return end
+    if not (s and s.mode == "core") or s.trans then return end
+    if ev.phase == "pressed" then
+      for key, r in pairs({ regimens = REGIMENS, bags = BAGS }) do
+        if inRect(ev.x, ev.y, r) then app.press[key] = { held = true } end
+      end
+      return
+    end
     if ev.phase ~= "released" then return end
+    for _, pr in pairs(app.press) do
+      if pr.held then pr.held, pr.at = false, app.clock end
+    end
     -- any touch keeps the Pokemon from dozing off
     if T.touch then T.touch() end
     if not Pointer.isTap(rec, 16, 1.0) then return end
@@ -137,7 +159,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
       return
     end
     if inRect(x, y, REGIMENS) then
-      if T.enterCourses then T.enterCourses() end
+      -- the bounce, then the shutters close and the picker comes up (T.goTo's timing)
+      if T.goTo then T.goTo("courses") elseif T.enterCourses then T.enterCourses() end
       return
     end
     if inRect(x, y, BAGS) then T.enterBags(); return end
@@ -839,11 +862,22 @@ return function(mod, Pointer, T, Rules, Radar, host)
     end
   end
 
+  local function buttonScale(key)
+    local pr = app.press[key]
+    if not pr then return 1 end
+    if pr.held then return PRESS end
+    local f = app.clock - (pr.at or app.clock)
+    if f > 4 then app.press[key] = nil; return 1 end
+    return eval(BOUNCE, f) or 1
+  end
+
   local function drawButtons(G, small)
-    for _, b in ipairs({ { PANE.regimens, "training/btn_regimens", "REGIMENS" }, { PANE.bags, "training/btn_bags", "BAGS" } }) do
+    for _, b in ipairs({ { PANE.regimens, "training/btn_regimens", "REGIMENS", "regimens" }, { PANE.bags, "training/btn_bags", "BAGS", "bags" } }) do
       local img = art(b[2])
       if img then
-        fit(G, img, b[1])
+        local k = buttonScale(b[4])
+        local p = b[1]
+        fit(G, img, { p[1], p[2], p[3] * k, p[4] * k })
       else
         local p = b[1]
         G.setColor(0.25, 0.3, 0.42, 1)
@@ -857,7 +891,10 @@ return function(mod, Pointer, T, Rules, Radar, host)
 
   -- the PlayNav strip over the top of the bottom screen, its stepped edge at both ends, and
   -- the same strip upside down along the bottom where PlayNav's icon row sits
-  local BOTTOM_STRIP_H = 23
+  -- the strip's middle is recessed (its texture's last 6 of 30 rows are clear there): sized so
+  -- that recessed edge meets the buttons' flat lower edge (217.5), the raised ends overlapping
+  -- them
+  local BOTTOM_STRIP_H = (240 - 217.5) * 30 / 24
   local function drawStrip(G, w)
     local strip = art("training/home_strip")
     if not strip then return end
@@ -866,7 +903,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local hgt = 21 / L
     G.draw(strip, 0, 0, 0, (w / 2) / sw, hgt / sh)
     G.draw(strip, w, 0, 0, -(w / 2) / sw, hgt / sh)
-    -- the bottom strip rises to the buttons' flat lower edge (REGIMENS 218, BAGS 217)
+    -- upside down along the bottom, its recessed middle on the buttons' flat edge
     G.draw(strip, 0, 240, 0, (w / 2) / sw, -BOTTOM_STRIP_H / sh)
     G.draw(strip, w, 240, 0, -(w / 2) / sw, -BOTTOM_STRIP_H / sh)
     local arrow = art("training/home_arrow")
@@ -939,6 +976,9 @@ return function(mod, Pointer, T, Rules, Radar, host)
       G.setColor(1, 1, 1, 1)
       G.printf(words, mx - mw / 2 + 12, my - mh / 2 + 8, (mw - 24) / k, "left", 0, k, k)
     end
+    -- a screen change: the shutters close over the home screen, or open on it
+    local tv = T.transView and T.transView("bottom")
+    if tv and tv.shutter and app.lyt then app.lyt.shutters(G, art, 320, 240, tv.shutter, tv.f) end
     G.pop()
     G.setColor(1, 1, 1, 1)
   end

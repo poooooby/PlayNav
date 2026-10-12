@@ -114,6 +114,39 @@ T.check(S.enterCourses(), "the regimen picker")
 T.eq(#stack, 1, "...brings up the top-screen layer (its course card)")
 T.check(S.enterCore(), "back to the room")
 T.eq(#stack, 0, "...takes it down again")
+
+-- ------- the screen change to the picker and back, on the game's frames
+do
+  local X = S.TRANS
+  local function frames(n) for _ = 1, n do S.tick(1 / 30) end end
+  T.check(S.goTo("courses"), "REGIMENS starts the change")
+  T.check(not S.goTo("courses"), "...one at a time")
+  T.eq(S.transView("bottom"), nil, "the button's bounce first")
+  frames(X.WAIT + 5)
+  local v = S.transView("bottom")
+  T.check(v and v.shutter == "close", "then the shutters close over the home screen")
+  T.eq(S.state().mode, "core", "...still the home screen")
+  T.eq(#stack, 0, "...the overworld still on top")
+  frames(X.SWITCH - X.WAIT - 5)
+  T.eq(S.state().mode, "courses", "at SWITCH the picker takes over")
+  T.eq(#stack, 1, "...with its top-screen layer")
+  T.eq(S.transView("top").black, 1, "both screens black")
+  T.eq(S.transView("bottom").black, 1, "...the touch screen too")
+  frames(X.HOLD - X.SWITCH + 3)
+  local b = S.transView("top").black
+  T.check(b > 0 and b < 1, "fading in (" .. tostring(b) .. ")")
+  frames(X.FADE)
+  T.check(not S.transitioning(), "the change is over")
+  T.check(S.goTo("core"), "back from the picker")
+  frames(5)
+  T.eq(S.transView("bottom").shutter, "close", "its shutters close")
+  frames(X.CLOSE)
+  T.eq(S.state().mode, "core", "the home screen is back")
+  T.eq(#stack, 0, "...the overworld on top again")
+  T.eq(S.transView("bottom").shutter, "open", "...and its shutters open")
+  frames(X.OPEN + 1)
+  T.check(not S.transitioning(), "done")
+end
 do
   -- with no layer up, the mod's frame tick drives the session
   local t0 = S.session.anim.t
