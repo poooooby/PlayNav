@@ -1,10 +1,47 @@
-tests/
-tools/
+# Exact relative paths excluded from the distributed package (modkit matches whole
+# paths only, never folders). Regenerate with every new file under tests/ or tools/;
+# tests/release_test.lua checks it. baseroms/ and game art are git-ignored, and the
+# release is packed from a clean clone, so neither can reach the package.
 CLAUDE.md
 .luarc.json
-.git/
 .gitignore
-baseroms/
-.claude/
-assets/puffs.png
-assets/sprite mapping.txt
+tests/amie_rules_test.lua
+tests/amie_text_test.lua
+tests/care_test.lua
+tests/decor_test.lua
+tests/drivers/balloon_probe.lua
+tests/drivers/emerald_shot.lua
+tests/drivers/games_probe.lua
+tests/drivers/split_probe.lua
+tests/drivers/training_probe.lua
+tests/fixtures/expected.lua
+tests/fixtures/mini.cci
+tests/games_test.lua
+tests/hd_test.lua
+tests/import_fixtures_test.lua
+tests/layout_test.lua
+tests/oras_local_test.lua
+tests/petting_test.lua
+tests/play_nav_loads_test.lua
+tests/pointer_stream_test.lua
+tests/refresh_flow_test.lua
+tests/release_test.lua
+tests/rename_test.lua
+tests/training_courses_test.lua
+tests/training_flow_test.lua
+tests/training_rules_test.lua
+tests/training_sim_test.lua
+tools/README.md
+tools/bclim.py
+tools/decor_catalog.py
+tools/discover.py
+tools/garc_dump.py
+tools/gen6_text.py
+tools/items_pokeapi.py
+tools/make_fixtures.py
+tools/montage.py
+tools/petting_table.py
+tools/recipe_check.py
+tools/romfs_extract.py
+tools/shot_types.py
+tools/st_evidence.py
