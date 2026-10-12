@@ -287,6 +287,8 @@ return function(mod)
           if spec[1] then
             local okA, tapp = pcall(spec[1], unpack(spec[3]))
             if okA and type(tapp) == "table" then
+              -- the bag drawer is drawn over the home screen
+              if spec[2] == "bags" and okC and type(capp) == "table" then tapp.core = capp end
               Apps:register(tapp)
               tapp.fontsFn = function() return Surface.font, Surface.smallFont end
             else

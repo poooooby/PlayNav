@@ -160,12 +160,14 @@ local function body(game, log)
   shot("t03d_bag_ask")
   local yes = bg.button(1, 2)
   tapAt("yes", yes.x + yes.w / 2, yes.y + yes.h / 2)
-  U.wait(5)
+  -- the drawer slides out, then the room
+  waitFor(function() return TR.state().mode == "core" end, 600)
   log("after yes: mode", TR.state().mode, "stand", tostring(TR.state().bag and TR.state().bag.id), "bags", TR.state().bags)
   TR.session.enterBags()
   U.wait(3)
-  tapAt("bagsback", bagsApp.geometry().BACK.x + 20, bagsApp.geometry().BACK.y + 8)
-  U.wait(5)
+  local back = bagsApp.geometry().BACK
+  tapAt("bagsback", back.x + back.w / 2, back.y + back.h / 2)
+  waitFor(function() return TR.state().mode == "core" end, 600)
   -- black bag taps and the party strip
   local before = TR.state().bags
   for i = 1, 30 do tapAt("black" .. i, geo.BAG.x + geo.BAG.w / 2, geo.BAG.y + geo.BAG.h / 2) end

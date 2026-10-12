@@ -595,6 +595,11 @@ add("a/0/2/7", 0, 0, 18, "training/home_pointmax_win", 128, 64, "ETC1A4", "point
 add("a/0/2/7", 0, 0, 20, "training/home_sand_bag", 20, 50, "RGBA5551", "sand_bag00: the grey punching bag")
 add("a/0/2/7", 0, 0, 21, "training/home_shadow", 32, 16, "ETC1A4", "shadow")
 add("a/0/2/7", 0, 0, 14, "training/mood_perfect", 32, 32, "ETC1A4", "perfect_icon: mood bubble, flexing")
+-- the bag drawer and the message windows (training_message_lower.bclyt): a window's single
+-- frame texture is its top-left corner, mirrored to the other three
+add("a/0/2/7", 0, 0, 12, "training/list_win", 32, 32, "RGBA4", "list_win: the bag drawer's window corner")
+add("a/0/2/7", 0, 0, 34, "training/win_bl", 16, 24, "RGBA4", "win_bl_L_up: the message windows' corner")
+add("a/0/2/7", 0, 0, 3, "training/black_mask", 8, 8, "ETC1A4", "black_mask_c: dims the bottom icons")
 add(ST, 2, 0, 2, "training/home_bg01", 320, 120, "ETC1A4", "bg01: white perspective grid lines")
 add(ST, 2, 0, 3, "training/home_bg_ptn", 32, 32, "ETC1A4", "bg_ptn: the + mark, tiled")
 add(ST, 2, 0, 4, "training/home_meter", 150, 150, "ETC1A4", "meter: the hexagon and the gauge track")
@@ -631,7 +636,7 @@ add(HI, 3, 0, 25, "game/result_box", 258, 116, "ETC1A4", "result box: two rows a
 add(TP, 1, 0, 0, "game/pill_button", 110, 32, "RGBA8", "orange pill button")
 
 return {
-  version = 10,
+  version = 11,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

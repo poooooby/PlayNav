@@ -23,6 +23,10 @@ All notable changes to this mod are documented here. The format follows
   fast and big it is and what it costs, relative to the black shot.
 - The Effort-o-Meter is drawn with the game's own steps: each axis grows in the same pixel steps
   for base stats and EVs as on the 3DS.
+- The training bags open as the game's drawer over the home screen: the room dims, the drawer
+  slides in with the bags in two tilted columns, the Bags button turns into the return button,
+  and tapping a bag opens the game's description window with Use / Discard / Back (Use and
+  Discard ask first). Positions, tints and the slide come from the game's own layout files.
 - Resting and the second wind work like the game's. Your Pokémon punches its bag once a minute
   on its own, also while the screen is closed. It lies down after 30 to 60 minutes, or after 3
   to 5 bags cleared, whichever comes first, and stays down until tapped (a fainted Pokémon
