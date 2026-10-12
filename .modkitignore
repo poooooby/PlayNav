@@ -13,6 +13,7 @@ tests/decor_test.lua
 tests/drivers/balloon_probe.lua
 tests/drivers/emerald_shot.lua
 tests/drivers/games_probe.lua
+tests/drivers/second_priority_probe.lua
 tests/drivers/split_probe.lua
 tests/drivers/training_probe.lua
 tests/fixtures/expected.lua
@@ -28,6 +29,7 @@ tests/pointer_stream_test.lua
 tests/refresh_flow_test.lua
 tests/release_test.lua
 tests/rename_test.lua
+tests/second_gate_test.lua
 tests/training_courses_test.lua
 tests/training_flow_test.lua
 tests/training_rules_test.lua

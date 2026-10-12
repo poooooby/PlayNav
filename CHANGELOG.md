@@ -3,6 +3,14 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- With Kanto Gear on, the two mods no longer fight over a second display (AYN Thor). PlayNav
+  has it while Amie or Super Training is open: Kanto Gear's picture and taps stay off it until
+  they close, then Kanto Gear shows there again at once.
+
 ## [0.1.1] - 2026-10-12 (pre-alpha)
 
 ### Changed

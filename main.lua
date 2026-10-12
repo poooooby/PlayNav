@@ -111,6 +111,7 @@ return function(mod)
   local makeApps = loadSibling(mod, "src/apps/init.lua")
   local makePadHide = loadSibling(mod, "src/pad_hide.lua")
   local makeCutout = loadSibling(mod, "src/cutout.lua")
+  local Gate = loadSibling(mod, "src/second_gate.lua")
   if not (Layout and makePointer and makeSurface and makeApps and makePadHide) then
     mod.log:error("core modules missing; PlayNav stays off")
     return
@@ -375,6 +376,16 @@ return function(mod)
     return secondScreen or nil
   end
 
+  -- what downstream render.compose mods (Kanto Gear) get as the bridge
+  local gate
+  local function secondGate()
+    if gate == nil then
+      local SS = second()
+      gate = (SS and Gate) and Gate.new(SS) or false
+    end
+    return gate or nil
+  end
+
   local function osName()
     local ok, name = pcall(function() return love.system.getOS() end)
     return ok and name or "?"
@@ -416,8 +427,12 @@ return function(mod)
     Pointer:cancel()
     Apps:releaseAll(state.game)
     if state.mode == "second_screen" then
-      local SS = second()
-      if SS then pcall(SS.setEnabled, false) end
+      local g = secondGate()
+      if g then g:release() end
+    end
+    if mode == "second_screen" then
+      local g = secondGate()
+      if g then g:claim() end
     end
     state.mode = mode
     state.rect = nil
@@ -679,6 +694,19 @@ return function(mod)
       width = layout.game.w, height = layout.game.h, capture = true,
     }
   end)
+
+  -- PlayNav first on the second display: this wrap runs outside every other
+  -- render.compose mod and hands them the gate's proxy, which reports no
+  -- display while PlayNav shows there (Kanto Gear then keeps to the main
+  -- window) and passes everything through once PlayNav is idle
+  mod.hooks:wrap("render.compose", function(next, renderer, ctx)
+    if type(ctx) == "table" and ctx.secondScreen then
+      setMode(wantedMode())
+      local g = secondGate()
+      if g then ctx.secondScreen = g.proxy end
+    end
+    return next()
+  end, 1000)
 
   mod.hooks:wrap("render.window", function(next, game, ctx)
     local result = next(game, ctx)

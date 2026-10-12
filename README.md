@@ -140,7 +140,9 @@ Open **OPTIONS → MODS → PlayNav**.
 ## 🔗 Works With
 
 - [Kanto Gear](https://github.com/AverageConsumer/kanto-gear): touch battle commands, bag and
-  pad. PlayNav doesn't do controls; the two share the second display, taking turns.
+  pad. PlayNav doesn't do controls; the two share the second display. With **SHOW TOUCH
+  SCREEN** on When Needed, PlayNav has the second display while Amie or Super Training is open
+  and Kanto Gear is back on it the moment you close them.
 - [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3): the real Dusk, Shiny and
   Dawn Stones with their evolutions. Super Training's stone prizes become those stones.
 - [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): with sprites

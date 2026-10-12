@@ -12,6 +12,13 @@ ds_touch" below). Gen 3 is the only supported generation (`games: ["gen3"]`).
   the `Playfield.cutout` seam, wrapped by `src/cutout.lua`); in second-screen mode it is read
   back and pushed through the engine's SecondScreen bridge, whose touches come back. It stays
   dormant until the active app's `wantsSurface()` is true.
+- **Second display priority.** `main.lua` wraps `render.compose` at priority 1000, outside
+  every other compose mod (Kanto Gear wraps at -1000), and replaces `ctx.secondScreen` with
+  the proxy from `src/second_gate.lua`. While PlayNav is in second-screen mode the proxy
+  reports `detected() == false`, swallows `push` and returns no touches, so downstream mods
+  treat the display as disconnected; leaving the mode passes everything through again and
+  re-enables the display as the downstream mod last asked. Driver:
+  `tests/drivers/second_priority_probe.lua`.
 - **High resolution.** The surface renders at the output's pixel density (`src/hd.lua`
   `density`, up to 4x) under a `scale(k)` transform, so apps keep 256x192 coordinates. The two
   top-screen layers (Amie and Super Training, Gen 3 UI-stack layers) are redrawn over the
@@ -89,7 +96,7 @@ mklink /J C:\Users\<you>\Documents\GitHub\gen1recomp\mods\play_nav C:\Users\<you
 Headless suites, from the engine root: `luajit mods/play_nav/tests/<name>.lua` for
 `amie_rules_test`, `petting_test`, `games_test`, `decor_test`, `care_test`,
 `refresh_flow_test` (the whole Amie session against a fake host), `layout_test`,
-`amie_text_test`, `hd_test`, `training_rules_test`, `training_courses_test`,
+`amie_text_test`, `hd_test`, `second_gate_test`, `training_rules_test`, `training_courses_test`,
 `training_sim_test` (the regimen, seeded), `training_flow_test`, `play_nav_loads_test`,
 `rename_test`, `pointer_stream_test` (skips: Gen 3 only), `import_fixtures_test` (a synthetic
 card image in `tests/fixtures/`, no ROM bytes), `oras_local_test` (the real dump; skips when
@@ -113,6 +120,8 @@ POKEPORT_DRIVER=mods/play_nav/tests/drivers/emerald_shot.lua love .
 - `balloon_probe.lua` - several regimens' Balloon Bots and goals over time
   (`BALLOON_COURSES`, `BALLOON_MOVE`).
 - `games_probe.lua`, `split_probe.lua` - the minigame loop; the split-screen presets.
+- `second_priority_probe.lua` - PlayNav taking the second display from a compose mod and
+  handing it back.
 
 For in-game testing with the art, hard-link the dump to `baseroms/alpha_sapphire_rev2.cci`
 with its receipt. `baseroms/` is git-ignored.
