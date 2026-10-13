@@ -105,7 +105,9 @@ return function(mod, Layout, HD)
 
   -- Readback for the second display at an integer factor k (the display reports touches in
   -- those pixels; divide by k). The canvas is rendered at k itself, so no upscale pass.
-  function S:imageData(k, drawFn)
+  -- `pushSource` draws the frame and returns the canvas to read; `imageData` reads it at once
+  -- (a blocking GPU readback); `requestPush` / `pollPush` read it without waiting.
+  local function pushSource(self, k, drawFn)
     if not G then return nil end
     k = math.max(1, math.floor(k or 2))
     local want = (HD and HD.enabled) and math.min(k, HD.MAX_K) or 1
@@ -134,9 +136,59 @@ return function(mod, Layout, HD)
       G.pop()
       src = self.pushCanvas
     end
+    return src, pw, ph
+  end
+
+  function S:imageData(k, drawFn)
+    local src, pw, ph = pushSource(self, k, drawFn)
+    if not src then return nil end
     local ok, data = pcall(src.newImageData, src)
     if not ok then return nil end
     return data, pw, ph
+  end
+
+  -- The second display without stalling the GPU: where the engine's LOVE can read a canvas
+  -- back asynchronously (Android: requestImageData / pollImageData, as Kanto Gear does), the
+  -- frame is drawn and its readback started here, and pollPush hands over the pixels a frame
+  -- or two later. No new frame is drawn while one is being read (the canvas must not change
+  -- under it); a readback stuck for STALE_S starts over on fresh canvases. Without the async
+  -- calls it falls back to the blocking read and returns the pixels at once.
+  S.STALE_S = 1.0
+  function S:dropStale(now)
+    if self.pending and now and now - self.pending.at > S.STALE_S then
+      self.pending = nil
+      self.canvas, self.pushCanvas = nil, nil
+    end
+  end
+
+  function S:requestPush(k, drawFn, now)
+    self:dropStale(now)
+    if self.pending then return nil end
+    local src, pw, ph = pushSource(self, k, drawFn)
+    if not src then return nil end
+    if src.requestImageData and src.pollImageData then
+      local ok, started = pcall(src.requestImageData, src)
+      if ok and started ~= false then
+        self.pending = { src = src, w = pw, h = ph, at = now or 0 }
+        return nil
+      end
+    end
+    local ok, data = pcall(src.newImageData, src)
+    if not ok then return nil end
+    return data, pw, ph
+  end
+
+  function S:pollPush()
+    local p = self.pending
+    if not p then return nil end
+    local ok, data = pcall(p.src.pollImageData, p.src)
+    if not ok then
+      self.pending = nil
+      return nil
+    end
+    if not data then return nil end
+    self.pending = nil
+    return data, p.w, p.h
   end
 
   return S

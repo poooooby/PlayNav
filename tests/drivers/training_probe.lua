@@ -61,7 +61,11 @@ local function body(game, log)
   if not TR then log("FAIL training not exported"); return end
   local Apps = X.apps
   loader.modOptions[MOD_ID] = loader.modOptions[MOD_ID] or {}
-  loader.modOptions[MOD_ID].display = "split"
+  -- PLAYNAV_DISPLAY=second_screen runs it on the second display (the desktop companion
+  -- window): touches go in through feedSecond in the pushed frame's pixels
+  local SECOND = os.getenv("PLAYNAV_DISPLAY") == "second_screen"
+  loader.modOptions[MOD_ID].display = SECOND and "second_screen" or "split"
+  log("display:", loader.modOptions[MOD_ID].display)
   loader.modOptions[MOD_ID].prompt_always = false
   if X.import then
     waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120)
@@ -87,10 +91,19 @@ local function body(game, log)
     local tab = X.state().tabHeight or 0
     return r.x + ax * r.scale, r.y + (ay + tab) * r.scale
   end
-  local function tapAt(id, ax, ay)
+  -- a finger down / up at app coordinates (ax, ay), on whichever screen PlayNav is showing
+  local function touch(action, id, ax, ay)
+    if SECOND then
+      local k = X.state().pushK or 3
+      local tab = X.state().tabHeight or 0
+      return X._test.feedSecond(action, ax * k, (ay + tab) * k)
+    end
     local x, y = win(ax, ay)
-    love.touchpressed(id, x, y, 0, 0, 1); U.wait(2)
-    love.touchreleased(id, x, y, 0, 0, 1); U.wait(4)
+    if action == "down" then love.touchpressed(id, x, y, 0, 0, 1) else love.touchreleased(id, x, y, 0, 0, 1) end
+  end
+  local function tapAt(id, ax, ay)
+    touch("down", id, ax, ay); U.wait(2)
+    touch("up", id, ax, ay); U.wait(4)
   end
   local lead = s.party[1]
   local evs0 = Pokemon.evsOf(lead)
@@ -299,10 +312,9 @@ local function body(game, log)
     local g = st.goals[1]
     if g then
       local px, py = aim.padPointFor(g.x, g.y)
-      local x, y = win(px, py)
-      love.touchpressed("aim", x, y, 0, 0, 1)
+      touch("down", "aim", px, py)
       waitSecs(0.15)
-      love.touchreleased("aim", x, y, 0, 0, 1)
+      touch("up", "aim", px, py)
       shotsTaken = shotsTaken + 1
     end
     if shotsTaken % 4 == 0 then U.hold(game, "left", 12) elseif shotsTaken % 4 == 2 then U.hold(game, "right", 12) end
@@ -354,12 +366,23 @@ local function body(game, log)
   local Rs = TR.session.results
   log("result pages:", Rs and Rs.list and #Rs.list or 0)
   waitSecs(1.6)
+  local aimApp = Apps:get("training_aim")
+  local seen = {}
+  local pointer0 = aimApp.pointer
+  aimApp.pointer = function(self, ev, rec)
+    seen[#seen + 1] = ("%s@%.0f,%.0f"):format(tostring(ev.phase), ev.x or -1, ev.y or -1)
+    return pointer0(self, ev, rec)
+  end
   for i = 1, 8 do
     if TR.state().mode ~= "result" or (Rs and Rs.done) then break end
     shot(("t08p%d_result_page"):format(i))
     tapAt("next", 128, 90)
     waitSecs(0.9)
+    log(("  tap %d: page %s/%s active %s events %s"):format(i, tostring(Rs and Rs.page), tostring(Rs and Rs.list and #Rs.list),
+      tostring(Apps:active() and Apps:active().id), table.concat(seen, " ")))
+    seen = {}
   end
+  aimApp.pointer = pointer0
   waitUntil(function() return TR.state().mode == "courses" and TR.session.session.trans == nil end, 6)
   log("after result:", TR.state().mode)
   -- the picker with the secret column: force Fully Trained and all regular courses cleared

@@ -86,7 +86,7 @@ return function(mod)
       min = 0, max = 200, step = 8 },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
     { key = "second_screen_scale", label = "2ND SCREEN SCALE", type = "number", default = 3,
-      min = 1, max = 6, step = 1 },
+      min = 1, max = 4, step = 1 },
     { key = "dev_scratch", label = "DEV: SCRATCH APP", type = "toggle", default = false },
     { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
     { key = "use_rom_art", label = "USE EXTRACTED ART", type = "toggle", default = true },
@@ -440,6 +440,25 @@ return function(mod)
     return false
   end
 
+  local PUSH_K_MAX = (HD and HD.MAX_K) or 4
+
+  -- The bridge's display checks cross into Android (JNI, system settings) and several hooks
+  -- ask every frame: share one answer for BRIDGE_CHECK_S, as Kanto Gear 4.0 does
+  local BRIDGE_CHECK_S = 0.05
+  local bridgeChecks = {}
+  local function bridgeCheck(SS, name)
+    local fn = SS and SS[name]
+    if not fn then return false end
+    local now = Pointer.now()
+    local c = bridgeChecks[name]
+    if not c or c.fn ~= fn or now < c.at or now >= c.at + BRIDGE_CHECK_S then
+      local ok, v = pcall(fn)
+      c = { fn = fn, at = now, value = ok and v == true }
+      bridgeChecks[name] = c
+    end
+    return c.value
+  end
+
   local function wantedMode()
     local choice = mod.options:get("display")
     if choice == "off" or not surfaceWanted() then return "off" end
@@ -451,10 +470,7 @@ return function(mod)
       usable = ok and u == true
     end
     if choice == "second_screen" then return usable and "second_screen" or "split" end
-    if usable and SS.detected then
-      local ok, detected = pcall(SS.detected)
-      if ok and detected then return "second_screen" end
-    end
+    if usable and bridgeCheck(SS, "detected") then return "second_screen" end
     return "split"
   end
 
@@ -467,6 +483,8 @@ return function(mod)
       local g = secondGate()
       if g then g:release() end
     end
+    -- the display is enabled afresh each time the mode is entered
+    state.ssEnabled, state.ssShown = false, false
     if mode == "second_screen" then
       local g = secondGate()
       if g then g:claim() end
@@ -702,7 +720,13 @@ return function(mod)
     state.rect = nil
     local SS = second()
     if not SS then return end
-    pcall(SS.setEnabled, true)
+    -- Android posts UI-thread work for every enable call, even an unchanged one: enable once
+    -- on entering the mode, then retry once a second only while frames are not getting through
+    local now = Pointer.now()
+    if not state.ssEnabled or (not state.ssShown and now >= (state.ssRetryAt or 0)) then
+      pcall(SS.setEnabled, true)
+      state.ssEnabled, state.ssRetryAt = true, now + 1
+    end
     for _ = 1, 128 do
       local ok, event = pcall(SS.pollTouch)
       if not ok or not event then break end
@@ -710,17 +734,31 @@ return function(mod)
       if action and x and y then feedSecond(action, x, y) end
     end
     local t = Pointer.now()
-    local okAvail, available = pcall(SS.available)
-    if okAvail and available then
+    if bridgeCheck(SS, "available") then
+      -- a frame read back since the last tick goes out now
+      local ready, rw, rh = Surface:pollPush()
+      if ready then
+        local okP, shown = pcall(SS.push, ready, rw, rh, 0x000000, "secondary")
+        state.ssShown = okP and shown ~= false
+      end
       local due = t - state.pushAt
-      if (needsDraw and due >= 1 / 30) or due >= 1.0 then
-        local k = math.floor(mod.options:get("second_screen_scale") or 3)
+      if not Surface.pending and ((needsDraw and due >= 1 / 30) or due >= 1.0) then
+        -- never past what is drawn (HD.MAX_K, 4): a larger frame is only the same picture
+        -- stretched, and it costs the readback and the transfer by the square (a saved 5 or 6
+        -- from before the cap counts as 4)
+        local k = math.floor(tonumber(mod.options:get("second_screen_scale")) or 3)
+        k = math.max(1, math.min(k, PUSH_K_MAX))
         state.pushK = k
-        local data, w, h = Surface:imageData(k, drawAll)
+        state.pushAt = t
+        -- drawn now, read back without waiting (the pixels come through pollPush); only a LOVE
+        -- without the async readback hands them back at once
+        local data, w, h = Surface:requestPush(k, drawAll, t)
         if data then
-          pcall(SS.push, data, w, h, 0x000000, "secondary")
-          state.pushAt = t
+          local okP, shown = pcall(SS.push, data, w, h, 0x000000, "secondary")
+          state.ssShown = okP and shown ~= false
         end
+      else
+        Surface:dropStale(t)
       end
     elseif not state.secondWarned then
       state.secondWarned = true
@@ -928,7 +966,7 @@ return function(mod)
   mod.exports.layout = Layout
   mod.exports.W, mod.exports.H = Layout.W, Layout.H
   mod.exports.state = function()
-    return { mode = state.mode, rect = state.rect, tabHeight = Apps.TAB_H }
+    return { mode = state.mode, rect = state.rect, tabHeight = Apps.TAB_H, pushK = state.pushK }
   end
   mod.exports.assets = Assets
   if Extract then
@@ -986,6 +1024,8 @@ return function(mod)
     setMode = function(mode) state.mode = mode end,
     setGame = function(game) state.game = game end,
     setPushK = function(k) state.pushK = k end,
+    surface = Surface,
+    drawAll = drawAll,
     tapButton = function(btn) return mod.input:tap(state.game, btn) end,
     lastViewport = function() return state.lastViewport end,
     surfaceWanted = surfaceWanted,
