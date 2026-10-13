@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="imgs/banner.png" alt="PlayNav" width="780">
+</p>
+
 > [!CAUTION]
 > **PlayNav is in pre-alpha and experimental.** Expect bugs, missing pieces and balance that
 > changes between releases. Back up your save before playing with it, and please report what
@@ -15,6 +19,19 @@ train them, on a DS-style touch screen in Ruby, Sapphire, Emerald, FireRed and L
 A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3 games. It
 brings **Pokémon-Amie** and **Super Training** from X, Y, Omega Ruby and Alpha Sapphire, played
 on a touch screen below the game or on a device's second display.
+
+## 📸 Screenshots
+
+<p align="center">
+  <img src="imgs/st-home.png" alt="Super Training's Core Training: a Pokémon beside its punching bag, with the Effort-o-Meter" width="400">
+  <img src="imgs/st-bags1.png" alt="The training bag drawer, with a bag's description and Use / Discard / Back" width="400">
+</p>
+<p align="center"><em>Core Training and the training bag drawer</em></p>
+
+<p align="center">
+  <img src="imgs/st-balloons1.png" alt="A Super-Training Regimen: the Balloon Bot in the stadium on the top screen, the aim screen below" width="800">
+</p>
+<p align="center"><em>A Super-Training Regimen: the Balloon Bot on top, the aim screen below</em></p>
 
 ## ✨ Features
 

@@ -59,3 +59,8 @@ tools/recipe_check.py
 tools/romfs_extract.py
 tools/shot_types.py
 tools/st_evidence.py
+# the README's images (GitHub only, never in the package)
+imgs/banner.png
+imgs/st-bags1.png
+imgs/st-balloons1.png
+imgs/st-home.png
