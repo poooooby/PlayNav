@@ -5,6 +5,21 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-13 (beta)
+
+### Changed
+
+- PlayNav is now in beta.
+
+### Fixed
+
+- Smoother frame rate on handhelds with a second screen, such as the AYN Thor: the touch
+  screen now reaches the second display without making the game wait for it, which caused
+  stutters while the screen was animating (punching the bag back to back, for one), and PlayNav
+  checks on the second display far less often.
+- **2ND SCREEN SCALE** now goes up to 4, as sharp as PlayNav draws: higher settings only sent
+  the same picture larger and slowed the game down. A saved 5 or 6 counts as 4.
+
 ## [0.2.2] - 2026-10-13 (pre-alpha)
 
 ### Added

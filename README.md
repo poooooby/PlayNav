@@ -10,7 +10,7 @@ train them, on a DS-style touch screen in Ruby, Sapphire, Emerald, FireRed and L
 </div>
 
 > [!CAUTION]
-> **PlayNav is in pre-alpha and experimental.** Expect bugs, missing pieces and balance that
+> **PlayNav is in beta.** Expect bugs, missing pieces and balance that
 > changes between releases. Back up your save before playing with it, and please report what
 > you find.
 
@@ -150,7 +150,7 @@ Open **OPTIONS → MODS → PlayNav**.
 | **GAME SHARE %** | 35-80 | 60 | Split screen, Auto: the most of the window the game may take. |
 | **BOTTOM SAFE PX** | 0-200 | 0 | Space kept free at the bottom for a phone's gesture bar. |
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
-| **2ND SCREEN SCALE** | 1-6 | 3 | How sharp the picture sent to a second display is. |
+| **2ND SCREEN SCALE** | 1-4 | 3 | How sharp the picture sent to a second display is. |
 | **EXTRACT AMIE ART ON BOOT** | On / Off | On | Unpack the art from your card image automatically on the first start after you add it. |
 | **USE EXTRACTED ART** | On / Off | On | Draw with your game's art and text. Off: simple shapes and PlayNav's own wording. |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
@@ -189,7 +189,7 @@ Open **OPTIONS → MODS → PlayNav**.
 
 ## 📌 Good to Know
 
-- 🧪 **Pre-alpha:** Some Super Training numbers have no public source. Points per goal,
+- 🧪 **Beta:** Some Super Training numbers have no public source. Points per goal,
   damage, timings and bag odds are best guesses and may change.
 - 🎮 **Generation 3 only.** Ruby, Sapphire, Emerald, FireRed and LeafGreen.
 - 💾 **Your game is never part of the mod.** The art and text come from the card image you
