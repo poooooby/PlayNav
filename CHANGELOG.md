@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-13 (pre-alpha)
+
 ### Changed
 
 - Split screen has one layout, like a New 3DS XL: the game as large as it fits and the touch
@@ -18,6 +20,13 @@ All notable changes to this mod are documented here. The format follows
 - The options SPLIT SIZES, GAME SCALE, TOUCH SCALE, GAME SHARE %, BOTTOM SAFE PX and 2ND SCREEN
   SCALE (the layouts above replace them), and TOP SCREEN PICTURE (Amie is moving to the touch
   screen; the top screen is kept for its games).
+
+### Fixed
+
+- Smoother frame rate on handhelds with a second screen, such as the AYN Thor: the touch
+  screen now reaches the second display without making the game wait for it, which caused
+  stutters while the screen was animating (punching the bag back to back, for one), and PlayNav
+  checks on the second display far less often.
 
 ## [0.2.3-beta.1] - 2026-10-13 (pre-alpha)
 
