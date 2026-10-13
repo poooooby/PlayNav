@@ -2,19 +2,18 @@
   <img src="imgs/banner.png" alt="PlayNav" width="780">
 </p>
 
-> [!CAUTION]
-> **PlayNav is in pre-alpha and experimental.** Expect bugs, missing pieces and balance that
-> changes between releases. Back up your save before playing with it, and please report what
-> you find.
-
 <div align="center">
-
-# PlayNav 🎮
 
 *A second screen for your Pokémon. Pet them, feed them Poké Puffs, play games with them and
 train them, on a DS-style touch screen in Ruby, Sapphire, Emerald, FireRed and LeafGreen.*
 
 </div>
+
+> [!CAUTION]
+> **PlayNav is in pre-alpha and experimental.** Expect bugs, missing pieces and balance that
+> changes between releases. Back up your save before playing with it, and please report what
+> you find.
+
 
 A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3 games. It
 brings **Pokémon-Amie** and **Super Training** from X, Y, Omega Ruby and Alpha Sapphire, played
