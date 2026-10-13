@@ -31,6 +31,8 @@
 --   src/refresh/host_gen3.lua  the Gen 3 engine adapter
 --   src/pad_hide.lua       hides the built-in pad; Gen 3 touch routing
 --   src/cutout.lua         hands the Gen 3 picture area to the engine in split mode
+--   src/lytfile.lua        the games' BCLYT / BCLAN layouts and clips, parsed
+--   src/lytplayer.lua      plays a layout and its clips with love (mod.lyt opens screens)
 
 -- A mod's own files load as chunks through mod:read; require() cannot see
 -- them. A sibling that fails to read or compile is reported with the file
@@ -260,6 +262,8 @@ return function(mod)
     local makeAimApp = loadSibling(mod, "src/training/aim_app.lua")
     local makeCoursesApp = loadSibling(mod, "src/training/courses_app.lua")
     local makeBagsApp = loadSibling(mod, "src/training/bags_app.lua")
+    local makeHud = loadSibling(mod, "src/training/hud.lua")
+    local makeResults = loadSibling(mod, "src/training/results.lua")
     if amieHost and TrainingNumbers and makeTRules and makeTStore and makeTHost and makeTSession and makeCoreApp and Radar then
       TRules = makeTRules(TrainingNumbers, ShotTypes or {})
       TStore = makeTStore(mod, TRules)
@@ -282,6 +286,14 @@ return function(mod)
         local TSim = makeSim(TrainingNumbers)
         local Draw = makeArenaDraw and makeArenaDraw(mod, { host = trainHost, Rules = TRules, Sim = TSim }) or nil
         Training.arenaDraw = Draw
+        if makeHud then
+          local okH, hud = pcall(makeHud, mod, Training, TRules, TSim)
+          if okH and type(hud) == "table" then Training.hud = hud else mod.log:warn("training HUD failed to build: %s", tostring(hud)) end
+        end
+        if makeResults then
+          local okR, res = pcall(makeResults, mod, Training, TRules, Radar)
+          if okR and type(res) == "table" then Training.results = res else mod.log:warn("training results failed to build: %s", tostring(res)) end
+        end
         makeRegimen(mod, Training, { host = trainHost, Rules = TRules, Store = TStore, Items = TItems,
           Courses = Courses, Sim = TSim, Draw = Draw })
         for _, spec in ipairs({ { makeAimApp, "aim", { mod, Pointer, Training, TRules, TSim } },
@@ -325,6 +337,21 @@ return function(mod)
       if Training and Training.arenaDraw then Training.arenaDraw.assets = Assets end
       if Training then Training.assets = Assets end
       if Amie then Amie.assets = Assets end
+      -- the game's own screens (layouts and clips the extract copies): shared as mod.lyt
+      local LytFiles = loadSibling(mod, "src/lytfile.lua")
+      local LytPlayer = loadSibling(mod, "src/lytplayer.lua")
+      local makeScreens = loadSibling(mod, "src/lytscreen.lua")
+      if LytFiles and LytPlayer and makeScreens then
+        local Screens = makeScreens(mod, LytFiles, LytPlayer)
+        Screens.assets = Assets
+        mod.lyt = Screens
+        if Training then Training.lyt = Screens end
+        local refresh = Assets.refresh
+        Assets.refresh = function(...)
+          Screens.reset()
+          return refresh(...)
+        end
+      end
     end
     if makeExtract and Recipe and Assets then
       Extract = makeExtract(mod, { recipe = Recipe, assets = Assets, onChange = dirty })

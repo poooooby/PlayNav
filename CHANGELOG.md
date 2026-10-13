@@ -5,16 +5,65 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
-### Changed
-
-- The ten Wing and stone icons are one atlas, `assets/items.png`, instead of ten files; each
-  item's icon is cut from it once. The credits say the images are © Nintendo / Creatures /
-  GAME FREAK (PokéSprite's own wording), not MIT.
-
 ## [0.2.0] - 2026-10-12 (pre-alpha)
 
 ### Changed
 
+- A Super-Training Regimen plays like the game's, start to finish, on the game's own screens
+  and animations (copied from your card image with the rest of the art; it is extracted once
+  more on the next start):
+  - Starting one fades both screens to black. The top screen opens on the course's title,
+    which grows in and flies off. The balloon is pumped up on the grass and floats up, and its name and
+    then your Pokémon's name show in a band at the foot. The HUD slides in: the balloon's name,
+    the clock, SCORE with its big digits and your Pokémon's name. Then Start, and only then
+    does the clock run.
+  - The touch screen is the game's aim screen: the drifting + field, the frame, the brackets and
+    the reticle where you touch, your best time, and the return button that lights up once play
+    begins. Blocking is L / R, as in the game; the on-screen BLOCK button is gone.
+  - Every hit shows its points over the balloon; the energy gauge fills at the foot.
+  - When the target is reached the HUD leaves, the balloon wobbles, deflates and zips away in
+    puffs, and Success! comes up before the screens fade.
+  - The results are the game's two screens. The top shows the stat rows sliding in, the trained
+    stat's arrow and +N, the meter and the total gauge rising. On the touch screen the coach
+    speaks a line at a time (tap or A for the next): the results, what the stat did, the
+    course's badge with the time left, New best time! and the praise, the bags received, how
+    many bags you hold, and the parting words. Then the picker comes back. The total gauge rises
+    from the foot of the meter to your Pokémon's new total and stops there.
+  - Times show as the game writes them (2:52.7).
+- The bag drawer's + pattern is the game's: three columns at the game's scale.
+- A regimen's top screen is the stadium (a backdrop of our own), with the Balloon Bot drawn
+  much larger and your Pokémon a little smaller in front of it:
+  - The balloon lies flat on the grass, is pumped up in a few puffs and floats up to its
+    place; at the end it zigzags off and shrinks away into the sky. Its shadow stays on the
+    grass.
+  - The touch screen's brackets stand for the top screen's: where you touch between them is
+    where you aim between the HUD's brackets.
+  - A white mark on the top screen shows where your last shot was aimed, so you can correct
+    the next one.
+- The goals behave as the game's do, read from the game while it ran:
+  - They stay where they appear and move only with the balloon. The balloon sways more with
+    each level: gently at Lv. 1, more at Lv. 2, in big swings at Lv. 3. It shakes for a few
+    seconds after each goal.
+  - Lv. 1 shows one goal at a time. Sp. Atk Lv. 2 and Lv. 3 show three. A new group comes
+    1.5 s after one is cleared, and the red goal (it takes several hits) after every second
+    group.
+  - Goals are the game's size and use its markers: the white grid, or the red one.
+- Your Pokémon moves up and down with the d-pad as well as across, anywhere on the screen,
+  riding a hover board (art of our own) that bobs and tips with its moves: sideways, back and
+  forth, and both at once on diagonals. It moves a little slower than before, and the
+  balloon's shots aim at where it is.
+- Holding the touch screen (or A) only charges a shot; it fires when you let go. Pokémon with
+  the yellow Energy Shot no longer spray shots while you hold.
+- The balloon grows a little with each goal, up to 1.2 times its size.
+- The balloon's shots are the game's soccer ball. Each one grows as it comes at your Pokémon
+  and on past it. They are bigger at higher levels, up to the ball's own size at Lv. 1 and
+  Lv. 2 and twice it at Lv. 3, with room left to get out of the way.
+- From Lv. 2, the balloon also lobs balls up off the top of the screen. A red shadow on the
+  grass marks where each one will come down: on the spot your Pokémon stood when it was
+  thrown. When the ball is back in view, a real shadow takes the red one's place.
+- The ten Wing and stone icons are one atlas, `assets/items.png`, instead of ten files; each
+  item's icon is cut from it once. The credits say the images are © Nintendo / Creatures /
+  GAME FREAK (PokéSprite's own wording), not MIT.
 - Super Training's home screen is laid out from the game's own layout file: the framed teal
   name band with the training-state plate and the shot-ball tag, the blue room with its grid,
   the grey punching bag hanging behind the frame, the teal Effort-o-Meter with its coloured stat

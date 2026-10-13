@@ -35,6 +35,7 @@ tests/training_courses_test.lua
 tests/training_flow_test.lua
 tests/training_rules_test.lua
 tests/training_sim_test.lua
+tests/lytfile_test.lua
 tools/README.md
 tools/bclim.py
 tools/clan.py
@@ -48,6 +49,7 @@ tools/garc_dump.py
 tools/gdbrsp.py
 tools/gdbtrace.py
 tools/items_atlas.py
+tools/lyt_rows.py
 tools/gen6_text.py
 tools/items_pokeapi.py
 tools/make_fixtures.py

@@ -83,6 +83,15 @@ return function(mod)
     return lines
   end
 
+  -- a file the extract copied from a darc as it is (recipe kind "files"): the bytes of
+  -- oras/lyt/<pack>/<name>, or nil
+  function A.file(pack, name)
+    if not A.ready() then return nil end
+    local m = A.manifest.assets
+    if not (m and m["lyt/" .. pack]) then return nil end
+    return cacheRead("oras/lyt/" .. pack .. "/" .. name)
+  end
+
   -- draw helper: image centred at (x, y) scaled by s, or nothing (returns false)
   function A.draw(G, id, x, y, s, r)
     local img = A.image(id)

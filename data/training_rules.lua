@@ -84,19 +84,24 @@ N.CLOCK = {
 N.GOALS = {
   YELLOW_AT = 8,      -- a white goal turns yellow
   GONE_AT = 12,       -- and vanishes
-  CHANCE_S = 10,      -- a red Chance Goal stays this long without a score
-  CHANCE_ODDS = 0.5,  -- chance it appears once a group is cleared
-  GROUP_GAP_S = 0.6,
-  R = 0.12,           -- goal radius in bot-local units
-  CHANCE_R = 0.16,
-  MARKER_R = 0.12,
+  CHANCE_S = 15,      -- a red Chance Goal stays this long without a score
+  CHANCE_ODDS = 0.5,  -- chance it appears once a group is cleared (when CHANCE_EVERY is off)
+  CHANCE_EVERY = 2,   -- the red goal comes after every second cleared group
+  GROUP_GAP_S = 1.5,
+  -- goal radius in world units at the balloon's depth: the game's goal panes are 32x32 of its
+  -- 400x240 top screen, 16 px of radius = 9.6 px here = 0.08 units (N.VIEW.FAR.hw 120)
+  R = 0.08,
+  CHANCE_R = 0.08,
+  MARKER_R = 0.08,
   -- goals travel over the balloon's own shape (the Pokemon's sprite): bot-local units per
   -- second, by course level; goals on a moving part (an anchor with `motion`) and the
   -- fleeing / roaming courses go faster and further. RADIUS: how far from its spot a goal
   -- wanders (bot-local units); the fleeing and roaming courses use the whole sprite.
   WANDER = {
-    SPEED = { [1] = 0.15, [2] = 0.25, [3] = 0.33, secret = 0.36 },
-    MOTION_SPEED = 0.6, ROAM_SPEED = 0.55, FLEE_SPEED = 1.1,
+    -- the regular goals stay where they appear (they move with the balloon: N.BOT.SWAY);
+    -- only the fleeing and roaming courses' goals travel
+    SPEED = { [1] = 0, [2] = 0, [3] = 0, secret = 0 },
+    MOTION_SPEED = 0, ROAM_SPEED = 0.55, FLEE_SPEED = 1.1,
     RADIUS = 0.45, MOTION_RADIUS = 0.8, PAUSE_S = 0.6,
   },
 }
@@ -129,7 +134,7 @@ N.SHOT = {
   green  = { speed = 1.589, r = 0.105, mult = 2.0, cost = 0.4167 },
   blue   = { speed = 3.178, r = 0.0595, mult = 1.0, cost = 0.4167 },
   weak   = { speed = 2.2, r = 0.049, mult = 0.15, cost = 0.0 },
-  RAPID = "yellow",      -- the colour that sprays while held
+  RAPID = "yellow",      -- the colour whose max charge bursts (YELLOW_BURST balls); holding never fires
   BIG_SHOT_SIZE = 1.5,
   HP_SIZE_BONUS = 0.4,   -- +40% radius at 252 HP EVs
   SPE_SPEED_BONUS = 0.4,
@@ -152,27 +157,55 @@ N.DAMAGE = {
 
 N.ATTACK = {
   TELEGRAPH_S = 1.0,
-  small = { speed = 1.4, r = 0.06, gap = 0.35 },
-  big = { speed = 0.9, r = 0.16 },
-  ring = { speed = 1.1, n = 8, r = 0.06, spin = 1.2, ring_r = 0.45 },
-  homing = { speed = 0.9, r = 0.07, turn = 1.4 },
-  cross = { speed = 1.2, r = 0.06, arms = 4, arm_len = 0.35 },
-  wave_tall = { speed = 1.0, cols = 4, gap_w = 0.3 },
-  wave_wide = { speed = 1.0, w = 1.4 },
+  small = { speed = 1.19, r = 0.06, gap = 0.35 },
+  big = { speed = 0.77, r = 0.16 },
+  ring = { speed = 0.94, n = 8, r = 0.06, spin = 1.2, ring_r = 0.45 },
+  homing = { speed = 0.77, r = 0.07, turn = 1.2 },
+  cross = { speed = 1.02, r = 0.06, arms = 4, arm_len = 0.35 },
+  wave_tall = { speed = 0.85, cols = 4, gap_w = 0.3 },
+  wave_wide = { speed = 0.85, w = 1.4 },
   bit = { z = 0.7, r = 0.1, hp = 3, fire_every = 2.5, y = 0.5, regen_s = 12 },
   barrier = { max_s = 25 },
+  -- a ball lobbed up off the top of the screen that comes down where the trainee stood when it
+  -- was thrown: `flight` seconds, `peak` world units over its straight path at the top
+  lob = { flight = 2.6, peak = 3.2, r = 0.12 },
+  -- the balls are the game's soccer ball (target_ball00, 48 px of its 400 px top screen: 0.122
+  -- world units of radius at the trainee's depth). A ball's radius there is its kind's r times
+  -- SIZE for the level, never more than CAP sprite radii (Lv1 / Lv2 the sprite's own size, Lv3
+  -- twice it, so there is still room to get out of the way); drawn, it grows from FAR of that
+  -- as it leaves the balloon, on past the trainee to the cap
+  BALL = { SPRITE_R = 0.122, SIZE = { [1] = 1, [2] = 1.25, [3] = 1.6, secret = 1.6 },
+           CAP = { [1] = 1, [2] = 1, [3] = 2, secret = 2 }, FAR = 0.35 },
 }
 
 N.BLOCK = { LEN = 0.6, COOLDOWN = 1.5, DEF_BONUS = 0.5 }
 
-N.PLAYER = { X_MAX = 0.8, Z_MAX = 0.3, SPEED = 1.1, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SWIFT_MULT = 1.5,
+-- the trainee stands on a floating stand and moves across and up / down on a plane facing the
+-- balloon (the d-pad); Z is its fixed depth, Y_MAX how high it can rise
+-- (SPEED 25% under the first draft's 1.1 for a steadier stand: Collin, 2026-10-12; the
+-- balls' speeds and the lob's flight were eased with it)
+-- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
+-- below the top: (140 - 51) / 70.5 at the stand's depth)
+N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.82, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SWIFT_MULT = 1.5,
              HIT_STUN_S = 0.6 }
 
-N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.5, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
+-- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
+-- balloon's (FAR, z = 1) a world unit is hw px across and hu px up, and the floor is at y = fy.
+-- The balloon is drawn large (a sprite about 140 px wide hovering over the stadium's grass,
+-- from Collin's concept, 2026-10-12); the trainee's stand floats in front of it.
+N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
+
+N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
           -- a sprite balloon is taller than the round one: it hovers higher, sized so that even
           -- fully grown it stays inside the sky the aim pad reaches (AIM_X across, 0..AIM_Y up)
           SHAPE_CY = 1.04, AIM_X = 1.6, AIM_Y = 2.05,
           RAGE_AT = 2400, CALM_AT = 2400,
+          -- the balloon's sway in the game's top-screen pixels (400x240), by level: a loop ax
+          -- across and ay up and down every period seconds (measured live, see EVIDENCE); a
+          -- goal hit makes it shake for SHAKE_S, SHAKE_PX at the start, fading
+          SWAY = { [1] = { ax = 12, ay = 28, period = 4.6 }, [2] = { ax = 9, ay = 14, period = 9 },
+                   [3] = { ax = 25, ay = 45, period = 9 }, secret = { ax = 25, ay = 45, period = 9 } },
+          SHAKE_S = 3, SHAKE_PX = 12,
           RAGE_CADENCE = 0.6, RAGE_SPEED = 1.3, RAGE_DAMAGE = 1.5,   -- Aegislash past 2400
           CALM_CADENCE = 1.8, CALM_SPEED = 0.8 }                      -- Roserade past 2400
 
@@ -207,12 +240,14 @@ N.EVIDENCE = {
   ["CLOCK.TARGET"] = { class = "verified", source = "pente.koro-pokemon.com/xy/supatore-list (target records); ORAS Wiki", confidence = "high" },
   ["GOALS.YELLOW_AT"] = { class = "verified", source = "ORAS Wiki (oraswiki.com)", confidence = "medium" },
   ["GOALS.GONE_AT"] = { class = "verified", source = "ORAS Wiki", confidence = "medium" },
-  ["GOALS.CHANCE_S"] = { class = "verified", source = "AS text 44:62: red goals disappear after a set amount of time; ORAS Wiki: over 10 seconds", confidence = "medium" },
+  ["GOALS.CHANCE_S"] = { class = "measured", source = "AS text 44:62: red goals disappear after a set amount of time; ORAS Wiki: over 10 seconds; live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: one stood 10.4 s before its first hit and stayed after hits", confidence = "medium" },
   ["GOALS.CHANCE_ODDS"] = { class = "placeholder", source = "AS text 45:84: a red bonus goal needs every white goal blasted first (necessary, not always sufficient); gamepedia.jp", confidence = "low" },
-  ["GOALS.GROUP_GAP_S"] = { class = "placeholder", source = "", confidence = "low" },
-  ["GOALS.R"] = { class = "placeholder", source = "", confidence = "low" },
-  ["GOALS.CHANCE_R"] = { class = "placeholder", source = "", confidence = "low" },
+  ["GOALS.CHANCE_EVERY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: a single goal that takes several hits came after the second group of three each time", confidence = "medium" },
+  ["GOALS.GROUP_GAP_S"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: the next group 1.5 s after the last goal of one bursts (2 s once at Lv3)", confidence = "medium" },
+  ["GOALS.R"] = { class = "measured", source = "upper.bclyt in a/1/1/4: the goal panes 0..e are 32x32 (target01, big_target); scaled to this view", confidence = "medium" },
+  ["GOALS.CHANCE_R"] = { class = "measured", source = "upper.bclyt: the big goal uses the same 32x32 panes", confidence = "medium" },
   ["GOALS.MARKER_R"] = { class = "placeholder", source = "", confidence = "low" },
+  ["GOALS.WANDER.SPEED"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: goals stay where they appear and move only with the balloon", confidence = "medium" },
   ["GOALS.WANDER"] = { class = "inferred", source = "AS text 44:64 (goals on arms, wings and other moving bits make aiming harder), 45:87 / 45:99 / 45:104 (fleeing, constantly moving goals); the speeds and ranges are ours", confidence = "low" },
   ["CHARGE.STAGE_S"] = { class = "placeholder", source = "atwiki: three stages", confidence = "low" },
   ["CHARGE.OVER_S"] = { class = "placeholder", source = "AS text 44:68: if you wait too long, your aura will fizzle out; atwiki / pente", confidence = "low" },
@@ -241,12 +276,20 @@ N.EVIDENCE = {
   ["BLOCK"] = { class = "placeholder", source = "AS text 44:67: L throws up a barrier for a short period, not usable nonstop; longer with Def/SpD (gamepedia); lengths unknown", confidence = "low" },
   ["PLAYER"] = { class = "placeholder", source = "bounded box and faster with Spe verified; sizes are not", confidence = "low" },
   ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal", confidence = "low" },
-  ["BOT.SCALE_MAX"] = { class = "placeholder", source = "", confidence = "low" },
+  ["BOT.SCALE_MAX"] = { class = "placeholder", source = "Collin (2026-10-12): 1.2, so the large balloon of this view stays on the top screen; the game's own cap is not measured", confidence = "low" },
   ["BOT.R"] = { class = "placeholder", source = "", confidence = "low" },
   ["BOT.SHAPE_CY"] = { class = "placeholder", source = "ours: the sprite balloon's centre, so it fits the visible sky (y 0..2.09 at the bot's depth)", confidence = "low" },
   ["BOT.AIM_X"] = { class = "placeholder", source = "ours: the aim reach across with a sprite balloon (the sky at the bot's depth is +-1.71)", confidence = "low" },
   ["BOT.AIM_Y"] = { class = "placeholder", source = "ours: the aim reach up with a sprite balloon", confidence = "low" },
   ["BOT.FLINCH_S"] = { class = "placeholder", source = "atwiki: the balloon flinches on a goal", confidence = "low" },
+  ["VIEW"] = { class = "placeholder", source = "ours: the layout of Collin's concept for the top screen (2026-10-12)", confidence = "low" },
+  ["ATTACK.BALL"] = { class = "inferred", source = "Collin (2026-10-12): the attacks are the game's soccer ball, bigger at higher levels (up to the sprite's size at Lv1 / Lv2, about twice at Lv3), growing as they come at the trainee; the multipliers are ours", confidence = "low" },
+  ["ATTACK.lob"] = { class = "inferred", source = "Collin (2026-10-12): balls lobbed up off screen come down on the trainee, a red shadow marking where; flight and height are ours", confidence = "low" },
+  ["BOT.SWAY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: Lv1 a loop of +-12 x +-28 px every 4.6 s, Lv2 +-9 x +-14 px slowly, Lv3 swings of up to 120 px (the secret courses take Lv3's until measured)", confidence = "medium" },
+  ["BOT.SHAKE_S"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: after a goal the others jitter +-10-20 px for 3-5 s", confidence = "medium" },
+  ["BOT.SHAKE_PX"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st", confidence = "medium" },
+  ["PLAYER.Y_MAX"] = { class = "inferred", source = "the game: the trainee's stand moves up and down as well as across (Collin)", confidence = "medium" },
+  ["PLAYER.Z"] = { class = "placeholder", source = "ours: the stand's depth", confidence = "low" },
   ["BOT.CY"] = { class = "placeholder", source = "", confidence = "low" },
   ["BOT.RAGE_AT"] = { class = "verified", source = "atwiki: Aegislash rages past 2400; AS text 44:84: gets faster as you get more points, shots more powerful", confidence = "medium" },
   ["BOT.CALM_AT"] = { class = "verified", source = "atwiki: Roserade calms past 2400; AS text 44:85: quick ferocious shots at first, sluggish as you score", confidence = "medium" },

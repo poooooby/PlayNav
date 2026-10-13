@@ -28,6 +28,11 @@ return function(mod, T, deps)
 
   -- ------- start
 
+  -- the game's show around a regimen: the fade in, the intro on the top screen (the sim's
+  -- countdown runs as long as it does), the balloon's exit and Success! before the results.
+  -- The flow test and the probe's bulk runs turn it off: straight in, straight to the result.
+  T.REGIMEN_SHOW = true
+
   function T.startCourse(id)
     local s = T.session
     if not s then return false, "closed" end
@@ -43,6 +48,20 @@ return function(mod, T, deps)
       T.say(T.gameLine("training_bags", 95) or ("%s is resting. Tap to wake it."):format(s.name), 3)
       return false, "resting"
     end
+    if T.REGIMEN_SHOW and not s.trans then
+      s.trans = { to = "regimen", from = s.mode, course = id, t = 0 }
+      host.playSe("SE_SELECT")
+      T.onChange()
+      return true
+    end
+    return T.beginCourse(id)
+  end
+
+  -- the regimen itself (after the fade, or at once without the show)
+  function T.beginCourse(id)
+    local s = T.session
+    local course = s and T.course(id)
+    if not course then return false, "unknown" end
     local mods = Rules.modifiers(s.evs, s.rec.pending, { pokerus = host.hasPokerus(s.mon) })
     -- a second wind lasts one regimen: double the points, then it is spent
     if s.rec.secondWind then
@@ -64,10 +83,16 @@ return function(mod, T, deps)
     }, T.rng)
     s.course = course
     s.result = nil
+    s.outro = nil
     s.padHeld = false
     s.anim.events = {}
+    if T.REGIMEN_SHOW and T.hud then
+      -- the clock waits for the intro (when the game's screen is there to play it)
+      T.hud.begin(T.sim, s)
+      if T.hud.P then T.sim.countdown = T.hud.INTRO_S end
+    end
     T.setMode("regimen")
-    host.playSe("SE_SELECT")
+    if not T.REGIMEN_SHOW then host.playSe("SE_SELECT") end
     return true
   end
 
@@ -81,13 +106,34 @@ return function(mod, T, deps)
     local s = T.session
     local sim = T.sim
     if not (s and sim) then return end
+    -- the end's show: the result waits for it
+    if s.outro then
+      s.outro.t = s.outro.t + dt
+      if T.hud then T.hud.update(dt, {}) end
+      if s.outro.t >= (T.hud and T.hud.OUTRO.END or 0) then
+        local outcome = s.outro.outcome
+        s.outro = nil
+        T.endRegimen(outcome)
+      end
+      T.onChange()
+      return
+    end
     local events = sim:update(dt)
+    local ended = nil
     for _, e in ipairs(events) do
       if SE[e.kind] then host.playSe(SE[e.kind]) end
       if e.kind == "clear" then
-        T.endRegimen({ clear = true, remaining = e.remaining, total = e.total })
+        ended = { clear = true, remaining = e.remaining, total = e.total }
       elseif e.kind == "timeout" then
-        T.endRegimen({ timeout = true, total = e.total })
+        ended = { timeout = true, total = e.total }
+      end
+    end
+    if T.hud and T.REGIMEN_SHOW then T.hud.update(dt, events) end
+    if ended then
+      if T.REGIMEN_SHOW and T.hud and T.hud.P then
+        s.outro = { t = 0, outcome = ended }
+      else
+        T.endRegimen(ended)
       end
     end
     if #events > 0 then
@@ -101,7 +147,7 @@ return function(mod, T, deps)
   function T.onRegimenInput(input)
     local s = T.session
     local sim = T.sim
-    if not (s and sim) then return end
+    if not (s and sim) or s.outro then return end
     local dx = (input:isDown("right") and 1 or 0) - (input:isDown("left") and 1 or 0)
     local dz = (input:isDown("up") and 1 or 0) - (input:isDown("down") and 1 or 0)
     sim:setMove(dx, dz)
@@ -209,8 +255,18 @@ return function(mod, T, deps)
     T.lastResult = res
     Store.save()
     T.setMode("result")
+    if T.REGIMEN_SHOW and T.results then T.results.begin(s) end
     if res.clear then host.playCry(s.mon) end
     return res
+  end
+
+  -- the next line of the results (a tap or A); past the last, back to the picker
+  function T.resultNext()
+    local s = T.session
+    if not s or s.trans then return false end
+    local Rs = T.results
+    if Rs and Rs.list and (Rs.top or Rs.bottom) then return Rs.next() end
+    return T.leaveResult()
   end
 
   function T.leaveResult()
@@ -228,6 +284,7 @@ return function(mod, T, deps)
     T.sim = nil
     s.course = nil
     s.result = nil
+    s.outro = nil
     T.setMode("courses")
     return true
   end
@@ -244,7 +301,11 @@ return function(mod, T, deps)
 
   function T.drawTop(G2, s)
     if not Draw then return end
-    if s.mode == "result" then Draw.drawResult(G2, s, T) else Draw.draw(G2, T.sim, s, T) end
+    if s.mode == "result" then
+      if not (T.results and T.results.list and T.results.drawTop(G2, s)) then Draw.drawResult(G2, s, T) end
+    else
+      Draw.draw(G2, T.sim, s, T)
+    end
   end
 
   return T

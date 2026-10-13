@@ -186,6 +186,7 @@ end
 -- move after a cleared bag (its own test below turns it back on)
 S.HIT_LOCK = 0
 S.FINISH_MOVE = false
+S.REGIMEN_SHOW = false
 
 -- ------- the black bag
 

@@ -46,12 +46,15 @@ local function near(a, b, eps) return math.abs(a - b) <= (eps or 1e-6) end
 -- ------- projection and the pad
 
 do
+  local V = N.VIEW
   local x, y, k = Sim.project(0, 0, 0)
-  T.check(near(x, 120) and near(y, 150) and near(k, 1), "the near plane's floor centre is (120, 150)")
+  T.check(near(x, 120) and near(y, V.NEAR.fy) and near(k, 1), "the near plane's floor centre is (120, NEAR.fy)")
   x, y = Sim.project(0, 0, 1)
-  T.check(near(x, 120) and near(y, 92), "the far plane's floor centre is (120, 92)")
+  T.check(near(x, 120) and near(y, V.FAR.fy), "the far plane's floor centre is (120, FAR.fy)")
   x = Sim.project(1, 0, 1)
-  T.check(near(x, 190), "the far plane is 70 px wide each side")
+  T.check(near(x, 120 + V.FAR.hw), "the far plane is FAR.hw px wide each side")
+  local ux, uy = Sim.unproject(Sim.project(0.4, 0.9, 1))
+  T.check(near(ux, 0.4) and near(uy, 0.9), "a screen point goes back onto the balloon's plane")
   local pad = { cx = 128, cy = 88, r = 70 }
   local tx, ty = Sim.aimFromPad(128, 88, pad)
   T.check(near(tx, 0) and near(ty, 0.5), "the pad centre aims at the bot's middle")
@@ -114,7 +117,7 @@ do
   T.eq(sim.goals[1].kind, "fading", "...fading now")
   ev = run(sim, 4.1)
   T.eq(ev.goal_expired, 2, "...and expired at 12 s")
-  ev = run(sim, 1.0)
+  ev = run(sim, N.GOALS.GROUP_GAP_S + 0.1)
   T.eq(ev.goals_spawned, 1, "a new group follows")
   T.eq(#sim.goals, 2, "two goals again")
 end
@@ -125,31 +128,92 @@ do
   local sim = make("lv2_hp", { rng = function() return 0 end })   -- Relicanth: odds 1.0
   run(sim, 3.1)
   T.eq(#sim.goals, 3, "three goals")
+  -- fire at whatever white goal is up until the group is gone (the balloon sways: a shot can miss)
   local function hitAll()
-    for _, g in ipairs(sim:state().goals) do
-      if g.kind == "white" or g.kind == "fading" then
-        sim:aim(g.x, g.y); sim:pressFire(); sim:update(1 / 60); sim:releaseFire()
-        run(sim, 1.2)
+    for _ = 1, 12 do
+      local target
+      for _, g in ipairs(sim:state().goals) do
+        if g.kind == "white" or g.kind == "fading" then target = g; break end
       end
+      if not target then return end
+      sim:aim(target.x, target.y); sim:pressFire(); sim:update(1 / 60); sim:releaseFire()
+      run(sim, 1.2)
     end
   end
+  -- the red goal comes after every second cleared group (measured in the game)
   hitAll()
   local ev = run(sim, 0.2)
   local chance
   for _, g in ipairs(sim.goals) do if g.kind == "chance" then chance = g end end
-  T.check(chance ~= nil, "clearing the group brings the red Chance Goal")
-  local st = sim:state()
-  local cg
-  for _, g in ipairs(st.goals) do if g.kind == "chance" then cg = g end end
-  local before = sim.score
+  T.check(chance == nil, "the first cleared group brings no red goal")
+  run(sim, N.GOALS.GROUP_GAP_S + 0.1)
+  T.eq(#sim.goals, 3, "the next group of three")
+  hitAll()
+  ev = run(sim, 0.2)
+  for _, g in ipairs(sim.goals) do if g.kind == "chance" then chance = g end end
+  T.check(chance ~= nil, "clearing the second group brings the red Chance Goal")
+  -- (the course's attacks may cost points meanwhile: count the red goal's own hits)
+  local scored = 0
   for _ = 1, 3 do
-    sim:aim(cg.x, cg.y); sim:pressFire(); sim:update(1 / 60); sim:releaseFire()
-    run(sim, 1.0)
+    local cg
+    for _, g in ipairs(sim:state().goals) do if g.kind == "chance" then cg = g end end
+    if cg then sim:aim(cg.x, cg.y); sim:pressFire(); sim:update(1 / 60); sim:releaseFire() end
+    run(sim, 1.0, function(e) if e.kind == "goal_hit" and e.goal == "chance" then scored = scored + (e.points or 0) end end)
   end
-  T.check(sim.score > before, "it scores again and again (" .. (sim.score - before) .. ")")
+  T.check(scored > 0, "it scores again and again (" .. scored .. ")")
   T.check(#sim.goals >= 1 and sim.goals[#sim.goals].kind == "chance" or chance.hits >= 3, "it stays while you score")
-  ev = run(sim, 10.5)
-  T.eq(ev.chance_expired, 1, "...and leaves after 10 s without a score")
+  ev = run(sim, N.GOALS.CHANCE_S + 0.5)
+  T.eq(ev.chance_expired, 1, "...and leaves after CHANCE_S without a score")
+end
+
+-- ------- the balls: sized by level and capped; lobbed balls come down where the trainee stood
+
+do
+  local B = N.ATTACK.BALL
+  for _, id in ipairs({ "lv1_hp", "lv2_hp", "lv3_hp" }) do
+    local sim = make(id)
+    run(sim, 3.1)
+    sim:launch({ kind = "big" })
+    run(sim, 0.05)
+    local cap = B.CAP[sim.level] * B.SPRITE_R
+    local ball = sim.balls[1]
+    T.check(ball and ball.r <= cap + 1e-9, ("%s: a big ball's radius %.3f stays within the cap %.3f"):format(id, ball and ball.r or -1, cap))
+  end
+  local s1, s3 = make("lv1_hp"), make("lv3_hp")
+  run(s1, 3.1); run(s3, 3.1)
+  s1:launch({ kind = "big" }); s3:launch({ kind = "big" })
+  run(s1, 0.05); run(s3, 0.05)
+  T.check(s3.balls[1].r > s1.balls[1].r, "Lv3's balls are bigger than Lv1's")
+
+  -- a lob on a trainee that stays put lands on it; one that moves off the spot is missed
+  local function lobAt(move)
+    local sim = make("lv2_spa")
+    run(sim, 3.1)
+    sim.balls, sim.spawnQueue = {}, {}
+    sim.schedule = {}
+    sim.player.x = 0
+    sim:launch({ kind = "lob" })
+    local hit = false
+    local peakY = 0
+    sim:setMove(move, 0)
+    run(sim, N.ATTACK.lob.flight + 0.6, function(e) if e.kind == "player_hit" then hit = true end end)
+    sim:setMove(0, 0)
+    return hit
+  end
+  T.check(lobAt(0), "a lobbed ball comes down on a trainee that stays put")
+  T.check(not lobAt(1), "...and misses one that moves off the spot")
+  local sim = make("lv2_spa")
+  run(sim, 3.1)
+  sim:launch({ kind = "lob" })
+  run(sim, 0.05)
+  local top = math.huge
+  for _ = 1, 60 do
+    run(sim, 1 / 60)
+    for _, b in ipairs(sim.balls) do
+      if b.kind == "lob" then local _, sy = Sim.project(b.x, b.y, b.z); top = math.min(top, sy) end
+    end
+  end
+  T.check(top < 0, ("it goes up off the top of the screen (y %.0f)"):format(top))
 end
 
 -- ------- charge: stage 3 is 3x, overcharging stuns
@@ -162,6 +226,8 @@ do
   sim:pressFire()
   run(sim, N.CHARGE.STAGE_S[3] + 0.05)
   T.eq(sim:chargeStage(), 3, "stage 3 after holding")
+  g = sim:state().goals[1]
+  sim:aim(g.x, g.y)
   sim:releaseFire()
   local hit
   run(sim, 1.5, function(e) if e.kind == "goal_hit" then hit = e end end)
@@ -191,7 +257,7 @@ do
   T.check(sim.guts > g0, "it refills with time")
 end
 
--- ------- yellow: holding sprays, a max charge bursts seven
+-- ------- yellow: holding only charges (no stream), a max charge bursts seven
 
 do
   local sim = make("lv1_hp", { shotType = N.SHOT.RAPID })
@@ -199,7 +265,7 @@ do
   sim:aim(0, 0.45)
   sim:pressFire()
   local ev = run(sim, 1.0)
-  T.check((ev.shot_fired or 0) + (ev.weak_shot or 0) >= 5, "holding fires a stream (" .. tostring((ev.shot_fired or 0) + (ev.weak_shot or 0)) .. ")")
+  T.eq((ev.shot_fired or 0) + (ev.weak_shot or 0), 0, "holding fires nothing until it is let go")
   run(sim, N.CHARGE.STAGE_S[3] - 1.0 + 0.05)
   sim:releaseFire()
   T.eq(sim.player.burst, 7, "a max-charge release bursts seven")
@@ -491,7 +557,12 @@ do
     end
     T.check(samples > 100, id .. ": goals were on the shape (" .. samples .. " samples)")
     T.eq(off, 0, id .. ": no goal ever stood off the sprite")
-    T.check(moved > 0, id .. ": goals travel over it")
+    -- the game's goals stay where they appear (measured); the fleeing / roaming ones travel
+    if course.fleeing or course.roaming then
+      T.check(moved > 0, id .. ": its goals travel over it")
+    else
+      T.eq(moved, 0, id .. ": goals stay where they appear")
+    end
     if course.fleeing or course.roaming then T.check(true, id .. ": a fleeing / roaming course stays on it too") end
   end
 
@@ -501,8 +572,9 @@ do
   local g = sim.goals[1]
   local gx, gy = sim:goalPos(g)
   local R = N.BOT.R * sim.bot.scale
-  T.check(math.abs(gx - g.lx * R) < 1e-9, "x follows the sprite")
-  T.check(math.abs(gy - (N.BOT.SHAPE_CY + g.ly * R * Sim.ASPECT)) < 1e-9, "y is stretched to the screen's aspect")
+  local bx, by = sim:botOffset()
+  T.check(math.abs(gx - (g.lx * R + bx)) < 1e-9, "x follows the sprite (and the balloon's sway)")
+  T.check(math.abs(gy - (N.BOT.SHAPE_CY + g.ly * R * Sim.ASPECT + by)) < 1e-9, "y is stretched to the screen's aspect")
 
   -- every cell of the shape, fully grown, is inside the aim's reach (so on the pad and hittable)
   do

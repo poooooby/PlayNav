@@ -18,6 +18,15 @@ local function body(game, log)
     local t0 = love.timer.getTime()
     while love.timer.getTime() - t0 < secs do U.wait(1) end
   end
+  -- wait on the wall clock (the session runs on it) for pred, at most secs
+  local function waitUntil(pred, secs)
+    local t0 = love.timer.getTime()
+    while love.timer.getTime() - t0 < secs do
+      if pred() then return true end
+      U.wait(1)
+    end
+    return pred() and true or false
+  end
   love.window.setMode(1280, 720, { resizable = true, highdpi = true })
   U.wait(2)
   if not waitFor(function() return game.phase == "boot" and game.boot end, 900) then
@@ -230,12 +239,20 @@ local function body(game, log)
   U.wait(5)
   log("selected:", tostring(coursesApp.selected()))
   tapAt("tile2", tile.x + tile.w / 2, tile.y + tile.h / 2)
-  U.wait(5)
-  log("regimen mode:", TR.state().mode, "app", Apps:active().id, "phase", tostring(TR.session.sim and TR.session.sim.phase))
+  -- the fade to black, then the regimen and its intro on the top screen
+  waitUntil(function() local t = TR.session.session.trans; return t and t.to == "regimen" and t.t >= 12 end, 3)
+  shot("t05c_fade_in")
+  waitUntil(function() return TR.session.sim ~= nil end, 5)
+  log("regimen mode:", TR.state().mode, "app", Apps:active().id, "phase", tostring(TR.session.sim and TR.session.sim.phase),
+    "hud", tostring(TR.session.hud and TR.session.hud.P ~= nil), "countdown", tostring(TR.session.sim and TR.session.sim.countdown))
   local aim = Apps:get("training_aim")
-  local sim = TR.session.sim or TR.session.session and nil
-  sim = TR.session.sim
-  waitFor(function() return sim and sim.phase == "play" end, 60 * 10)
+  local sim = TR.session.sim
+  for _, at in ipairs({ { 0.4, "t06a_intro_title" }, { 3.1, "t06b_intro_pump" }, { 4.2, "t06c_intro_pump2" }, { 5.3, "t06c2_intro_rise" },
+    { 7.6, "t06d_intro_balloon" }, { 9.2, "t06e_intro_trainee" }, { 11.0, "t06f_intro_start" } }) do
+    waitUntil(function() return sim.t >= at[1] or sim.phase ~= "countdown" end, 15)
+    shot(at[2])
+  end
+  waitUntil(function() return sim and sim.phase == "play" end, 15)
   log("play: phase", sim and sim.phase, "goals", sim and #sim.goals, "remaining", sim and sim.remaining)
   log("player sprite:", TR.session.arenaDraw and TR.session.arenaDraw.debugPlayer(TR.session.session),
     "backPic", tostring(TR.host.backPic(lead)), "frontPic", tostring(TR.host.frontPic(lead)),
@@ -283,19 +300,53 @@ local function body(game, log)
     shotsTaken, st.score, st.target, st.stats.hits, st.stats.misses, st.stats.playerHits, st.stats.blocked, st.remaining, st.phase,
     tostring(st.stats.energyShots)))
   shot("t07_regimen_play")
+  -- the attacks: a lobbed ball (up, off screen with its red mark, coming down) and a big ball
+  if sim.phase == "play" then
+    sim.player.x, sim.player.y = 0.3, 0.2
+    sim:launch({ kind = "lob" })
+    local t0 = sim.t
+    for _, at in ipairs({ { 0.5, "t07f_lob_up" }, { 1.2, "t07g_lob_off" }, { 1.95, "t07h_lob_down" } }) do
+      waitUntil(function() return sim.t >= t0 + at[1] end, 5)
+      shot(at[2])
+    end
+    sim:launch({ kind = "big" })
+    local t1 = sim.t
+    waitUntil(function() return sim.t >= t1 + 0.4 end, 5)
+    shot("t07i_big_ball")
+    waitUntil(function() return sim.t >= t1 + 0.75 end, 5)
+    shot("t07j_big_ball_near")
+  end
   if sim.phase == "play" then
     log("forceEnd:", TR.session.forceEnd({ clear = true, remaining = sim.remaining }))
   end
+  -- the end: the balloon goes, Success!, the fade
+  for _, at in ipairs({ { 1.0, "t07b_outro_wobble" }, { 3.0, "t07c_outro_fly" }, { 5.3, "t07c2_outro_away" }, { 6.4, "t07d_outro_twinkle" },
+    { 7.9, "t07e_outro_success" } }) do
+    waitUntil(function() local o = TR.session.session.outro; return not o or o.t >= at[1] end, 12)
+    shot(at[2])
+  end
+  waitUntil(function() return TR.state().mode == "result" end, 12)
   U.wait(5)
   local r = TR.session.session.result
   local evs2b = Pokemon.evsOf(lead)
   log(("result: clear %s ev +%s (%s) medal %s bag %s kept %s; hp ev now %d; cleared lv1_hp %s"):format(
     tostring(r and r.clear), tostring(r and r.ev), tostring(r and r.stat), tostring(r and r.medal), tostring(r and r.bag),
     tostring(r and r.bagKept), evs2b.hp, tostring(TR.store.cleared().lv1_hp)))
+  waitSecs(1.4)
+  log("result page at shot:", TR.session.results and TR.session.results.page, "t", TR.session.results and TR.session.results.t)
   shot("t08_result")
   log("result words:", tostring(r and r.praise), "|", tostring(r and r.statText), "| unlocked", r and #r.unlocked)
-  tapAt("leave", 128, 90)
-  U.wait(5)
+  -- the coach's lines, a tap each (the first goes on its own)
+  local Rs = TR.session.results
+  log("result pages:", Rs and Rs.list and #Rs.list or 0)
+  waitSecs(1.6)
+  for i = 1, 8 do
+    if TR.state().mode ~= "result" or (Rs and Rs.done) then break end
+    shot(("t08p%d_result_page"):format(i))
+    tapAt("next", 128, 90)
+    waitSecs(0.9)
+  end
+  waitUntil(function() return TR.state().mode == "courses" and TR.session.session.trans == nil end, 6)
   log("after result:", TR.state().mode)
   -- the picker with the secret column: force Fully Trained and all regular courses cleared
   TR.session.session.rec.fully = true

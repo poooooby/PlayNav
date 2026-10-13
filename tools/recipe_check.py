@@ -27,7 +27,7 @@ def parse_recipe(path: str):
     import subprocess
     script = (
         "local r = dofile(os.getenv('RECIPE')); for _, a in ipairs(r.assets) do "
-        "if a.kind ~= 'text' then print(a.archive, a.entry, a.sub, a.clim, a.id, a.w, a.h, a.fmt) end end"
+        "if a.kind == nil then print(a.archive, a.entry, a.sub, a.clim, a.id, a.w, a.h, a.fmt) end end"
     )
     env = dict(os.environ, RECIPE=path)
     try:

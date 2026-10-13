@@ -247,7 +247,41 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   D.drawBalloon = drawBalloon
 
+  -- the stadium (assets/st-bg1.png, Collin's own recreation of the scene): read once, drawn to
+  -- cover the screen with the grass line where the trainee's stand floats
+  D.BG = { file = "assets/st-bg1.png", h = 170, y = -8 }
+  local function bgImage()
+    if D.bg == nil then
+      D.bg = false
+      local G, LI, LF = love and love.graphics, love and love.image, love and love.filesystem
+      local bytes = mod.read and mod:read(D.BG.file)
+      if G and LI and LF and bytes then
+        local ok, img = pcall(function()
+          local data = LI.newImageData(LF.newFileData(bytes, D.BG.file))
+          local im = G.newImage(data, { mipmaps = true })
+          im:setFilter("linear", "linear")
+          im:setMipmapFilter("linear")
+          return im
+        end)
+        if ok then D.bg = img end
+      end
+    end
+    return D.bg or nil
+  end
+
   local function drawBackground(G2, sim)
+    local bg = bgImage()
+    if bg then
+      local iw, ih = bg:getDimensions()
+      local s = D.BG.h / ih
+      G2.setColor(1, 1, 1, 1)
+      G2.draw(bg, 120 - iw * s / 2, D.BG.y, 0, s, s)
+      if sim and sim.bot and sim.bot.aura > 0 then
+        G2.setColor(1, 0.2, 0.2, 0.15 + 0.15 * math.sin(sim.t * 20))
+        G2.rectangle("fill", 0, 0, 240, 160)
+      end
+      return
+    end
     G2.setColor(0.36, 0.6, 0.92, 1)
     G2.rectangle("fill", 0, 0, 240, 92)
     G2.setColor(0.55, 0.75, 0.98, 1)
@@ -273,17 +307,26 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
   end
 
-  local function drawBot(G2, sim)
+  -- the balloon's shadow: on the far grass behind the trainee's stand (the stadium's grass
+  -- starts near y 118), so it is never taken for the trainee's own
+  D.BOT_SHADOW_Y = 124
+  -- opts.noShadow: the caller draws the shadow on the grass; opts.noGoals: the goals are gone
+  local function drawBot(G2, sim, opts)
+    opts = opts or {}
     local bot = sim.bot
     if not bot then return end
     local bx, by = sim:botOffset()
     local cyW = sim.botCY and sim:botCY() or N.BOT.CY
     local sx, sy, k = Sim.project(bx, cyW + by, 1)
-    local R = N.BOT.R * 70 * bot.scale
+    local _, _, _, hwFar = Sim.view()
+    local R = N.BOT.R * hwFar * bot.scale
     local fx = bot.flinch > 0 and math.sin(sim.t * 50) * 3 or 0
     -- shadow and aura
-    G2.setColor(0, 0, 0, 0.25)
-    G2.ellipse("fill", sx, 92 + 4, R * 0.9, 5)
+    local floorY = D.BOT_SHADOW_Y
+    if not opts.noShadow then
+      G2.setColor(0, 0, 0, 0.25)
+      G2.ellipse("fill", sx, floorY, R * 0.9, 5)
+    end
     if bot.aura > 0 then
       G2.setColor(1, 0.3, 0.2, 0.45)
       G2.circle("fill", sx + fx, sy, R * 1.25, 32)
@@ -331,21 +374,22 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.circle("line", sx + fx, sy, R, 32)
     end
     -- goals
-    for _, g in ipairs(sim.goals) do
+    for _, g in ipairs(opts.noGoals and {} or sim.goals) do
       local gx, gy = sim:goalPos(g)
       local px, py = Sim.project(gx, gy, 1)
-      local gr = g.r * 70 * bot.scale
+      local gr = g.r * hwFar * bot.scale
       local rgb = GOAL_RGB[g.kind] or GOAL_RGB.white
-      local pulse = (g.kind == "chance") and (1 + 0.1 * math.sin(sim.t * 8)) or 1
-      local frame = math.floor(sim.t * 12) % 9
-      local ring = (g.kind == "marker") and art("training/marker")
-        or (g.kind == "chance" and art(("training/big_target_%02d"):format(frame)))
-        or art(("training/target_%02d"):format(frame))
+      local pulse = (g.kind == "chance") and (1 + 0.06 * math.sin(sim.t * 8)) or 1
+      -- the game's goal panes (upper.bclyt, 32x32): target01 (white) or big_target (red), its
+      -- frames 0..8 from a ring to the grid as it appears; the barrier's marker its own
+      local frame = math.min(8, math.floor((g.age or 1) * 30 / 2))
+      local ring = (g.kind == "marker") and (art("lyt/st_hud/barrier_target") or art("training/marker"))
+        or (g.kind == "chance" and (art("lyt/st_hud/big_target_" .. frame) or art(("training/big_target_%02d"):format(frame))))
+        or art("lyt/st_hud/target01_" .. frame) or art(("training/target_%02d"):format(frame))
       if ring then
         local iw, ih = ring:getDimensions()
-        local sc = (gr * 2.4 * pulse) / iw
-        if g.kind == "fading" then G2.setColor(1, 0.9, 0.3, 1) elseif g.kind == "chance" then G2.setColor(1, 0.5, 0.5, 1)
-        else G2.setColor(1, 1, 1, 1) end
+        local sc = (gr * 2 * pulse) / iw
+        if g.kind == "fading" then G2.setColor(1, 0.9, 0.3, 1) else G2.setColor(1, 1, 1, 1) end
         G2.draw(ring, px + fx, py, 0, sc, sc, iw / 2, ih / 2)
       else
         G2.setLineWidth(2)
@@ -371,13 +415,61 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
   end
 
-  local function drawBalls(G2, sim)
+  -- the balls at the trainee: the game's soccer ball (target_ball00), growing as it comes (from
+  -- N.ATTACK.BALL.FAR of its size at the balloon to its size at the trainee, and on past it up
+  -- to the level's cap). A lobbed ball off the top of the screen shows where it will come down
+  -- as a red shadow on the grass; back on screen it casts its own.
+  local function ballRadius(sim, b)
+    local B = N.ATTACK.BALL
+    local hwNear = Sim.view()
+    local pz = sim.player.z or 0.1
+    local t = (1 - b.z) / math.max(0.05, 1 - pz)
+    local far = B and B.FAR or 1
+    local r = b.r * hwNear * (far + (1 - far) * t)
+    if B then
+      local lv = sim.isSecret and "secret" or sim.level
+      r = math.min(r, (B.CAP[lv] or 1) * B.SPRITE_R * hwNear)
+    end
+    return math.max(1.5, r)
+  end
+
+  -- which = "behind" (still coming) or "front" (past the trainee), drawn either side of it
+  local function drawBalls(G2, sim, which)
+    local soccer = art("lyt/st_hud/target_ball00") or art("training/ball_00")
+    local pz = sim.player.z or 0.1
     for _, b in ipairs(sim.balls) do
+      local past = b.z < pz
+      if which == nil or (which == "front") == past then
       local px, py, k = Sim.project(b.x, b.y, b.z)
       local rgb = BALL_RGB[b.kind] or BALL_RGB.small
-      G2.setColor(0, 0, 0, 0.2)
       local _, fy = Sim.project(b.x, 0, b.z)
-      G2.ellipse("fill", px, fy, b.r * 118 * k, 3)
+      if not (b.w or b.h) then
+        local r = ballRadius(sim, b)
+        if b.lob and py + r < 0 then
+          -- off the top: where it will land, in red on the grass
+          local lx, ly = Sim.project(b.lob.tx, 0, b.lob.tz)
+          local pulse = 0.28 + 0.12 * math.sin(sim.t * 12)
+          G2.setColor(1, 0.1, 0.1, pulse)
+          G2.ellipse("fill", lx, ly, b.r * 118 * 1.2, 5)
+          G2.setColor(1, 0.2, 0.2, pulse + 0.2)
+          G2.ellipse("line", lx, ly, b.r * 118 * 1.2, 5)
+        else
+          G2.setColor(0, 0, 0, b.lob and 0.35 or 0.2)
+          G2.ellipse("fill", px, fy, r * 0.9, math.max(2, r * 0.25))
+          if soccer then
+            local iw = soccer:getWidth()
+            G2.setColor(1, 1, 1, 1)
+            G2.draw(soccer, px, py, sim.t * 5 + (b.x or 0) * 3, (r * 2) / iw, (r * 2) / iw, iw / 2, iw / 2)
+          else
+            G2.setColor(0.95, 0.95, 0.95, 1)
+            G2.circle("fill", px, py, r, 16)
+            G2.setColor(0.1, 0.1, 0.1, 1)
+            G2.circle("line", px, py, r, 16)
+          end
+        end
+      else
+      G2.setColor(0, 0, 0, 0.2)
+      G2.ellipse("fill", px, fy, (b.w or b.r * 2) / 2 * 118 * k, 3)
       G2.setColor(rgb[1], rgb[2], rgb[3], 1)
       if b.w or b.h then
         G2.ellipse("fill", px, py, (b.w or b.r * 2) / 2 * 118 * k, (b.h or b.r * 2) / 2 * 70 * k)
@@ -386,6 +478,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       end
       G2.setColor(1, 1, 1, 0.7)
       if not (b.w or b.h) then G2.circle("line", px, py, b.r * 118 * k, 16) end
+      end
+      end
     end
   end
 
@@ -484,13 +578,64 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   D.hopPose = hopPose
 
+  D.PLAYER_SCALE = 0.8
+  -- the hover board the trainee rides (assets/hoverboard.png, Collin's own, 114x34 pixel art):
+  -- drawn at the sprite's scale, its middle 64 px under the sprite's 64 px frame, the feet
+  -- FEET_Y px below its top; it hovers with a gentle bob
+  -- scale: the whole board as wide as the sprite's 64 px frame (Collin: no bigger than the rider)
+  D.BOARD = { file = "assets/hoverboard.png", cx = 57, feetY = 20, scale = 64 / 114, bob = 1.5, bobHz = 0.9,
+    -- moving up tips the board back (more of its deck shows), down tips it forward; the rider
+    -- leans with it. Eased, and added to the side-to-side lean, so diagonals do both.
+    PITCH = 0.22, RIDER_PITCH = 0.06, EASE = 8 }
+  local pitchState = setmetatable({}, { __mode = "k" })
+  local function boardPitch(sim)
+    local st = pitchState[sim]
+    if not st then st = { t = sim.t, v = 0 }; pitchState[sim] = st end
+    local dt = sim.t - st.t
+    if dt < 0 or dt > 0.5 then dt = 0 end
+    st.t = sim.t
+    local want = (sim.player.mz or 0)
+    st.v = st.v + (want - st.v) * math.min(1, dt * D.BOARD.EASE)
+    return st.v
+  end
+  local function boardImage()
+    if D.board == nil then
+      D.board = false
+      local G, LI, LF = love and love.graphics, love and love.image, love and love.filesystem
+      local bytes = mod.read and mod:read(D.BOARD.file)
+      if G and LI and LF and bytes then
+        local ok, img = pcall(function()
+          local im = G.newImage(LI.newImageData(LF.newFileData(bytes, D.BOARD.file)))
+          im:setFilter("nearest", "nearest")
+          return im
+        end)
+        if ok then D.board = img end
+      end
+    end
+    return D.board or nil
+  end
+
   local function drawPlayer(G2, sim, s)
     local p = sim.player
-    local px, py, k = Sim.project(p.x, 0, p.z)
+    local px, py, k = Sim.project(p.x, p.y or 0, p.z)
+    k = k * D.PLAYER_SCALE
     local lift, hsx, hsy, lean, face = hopPose(sim)
+    local board = boardImage()
+    if board then
+      -- on the board it does not hop: board and rider bob together
+      lift, hsx, hsy = -math.sin(sim.t * 2 * math.pi * D.BOARD.bobHz) * D.BOARD.bob, 1, 1
+    end
+    -- its shadow on the grass below the stand
+    local _, gy = Sim.project(p.x, 0, p.z)
     G2.setColor(0, 0, 0, 0.3)
-    local shrink = 1 - 0.25 * (lift / math.max(1, D.HOP.HEIGHT))
-    G2.ellipse("fill", px, py, 18 * k * shrink, 5 * k * shrink)
+    local high = 1 - 0.4 * math.min(1, (p.y or 0) / (N.PLAYER.Y_MAX or 0.7))
+    if board then
+      local bk = k * D.BOARD.scale
+      G2.ellipse("fill", px, gy, D.BOARD.cx * 0.9 * bk * high, 6 * bk * high)
+    else
+      local shrink = (1 - 0.25 * (lift / math.max(1, D.HOP.HEIGHT))) * high
+      G2.ellipse("fill", px, gy, 18 * k * shrink, 5 * k * shrink)
+    end
     local pic = playerPic(s)
     local stage = sim:chargeStage()
     if p.charging and stage > 0 then
@@ -508,11 +653,20 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0.4, 0.9, 1, 0.5)
       G2.arc("fill", px, py - 18 * k, 26 * k, -math.pi * 0.9, -math.pi * 0.1, 16)
     end
+    local feetY = py + 2 - lift * k
+    if board then
+      -- under the rider, rolling and pitching with it
+      local pitch = boardPitch(sim)
+      hsy = hsy * (1 - D.BOARD.RIDER_PITCH * pitch)
+      G2.setColor(1, 1, 1, 1)
+      local bk = k * D.BOARD.scale
+      drawPixel(board, px, feetY, lean, bk, bk * (1 + D.BOARD.PITCH * pitch), D.BOARD.cx, D.BOARD.feetY)
+    end
     if pic then
       local flash = p.stun > 0 and (math.floor(sim.t * 20) % 2 == 0)
       G2.setColor(1, 1, 1, flash and 0.4 or 1)
       -- scaled about its feet, so a squash flattens it onto the ground
-      local y = py + 2 - lift * k
+      local y = feetY
       if pic.quad then
         drawPixel(pic.image, pic.quad, px, y, lean, k * hsx * face, k * hsy, pic.w / 2, pic.h)
       else
@@ -522,7 +676,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0.95, 0.6, 0.2, 1)
       G2.circle("fill", px, py - 14 * k, 12 * k, 16)
     end
-    -- the reticle
+    -- the reticle (the game's HUD draws its own)
+    if s and s.hudReticle then return end
     local rx, ry = Sim.project(p.aim.x, p.aim.y, 1)
     G2.setColor(1, 1, 1, 0.9)
     G2.circle("line", rx, ry, 5, 12)
@@ -628,18 +783,122 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
   end
 
+  -- the balloon's way out at the end: puffs of air behind it, a twinkle where it vanished
+  -- (edge: the balloon's half width in px; the puffs trail from its lower left edge)
+  local function drawPuffs(G2, x, y, k, t, scale, edge)
+    scale = scale or 1
+    local ex, ey = (edge or 0) * 0.85, (edge or 0) * 0.35
+    for i = 1, 6 do
+      local back = i * 0.09
+      local a = math.max(0, 0.75 - back * 1.4) * (1 - k * 0.4)
+      if a > 0 then
+        local px = x - ex - 14 * i * (0.6 + k) * scale + math.sin(t * 7 + i) * 3 * scale
+        local py = y + ey + 9 * i * (0.4 + k) * scale
+        G2.setColor(1, 1, 1, a)
+        G2.circle("fill", px, py, (6 + i * 1.6) * scale, 16)
+      end
+    end
+  end
+
+  local function drawTwinkle(G2, x, y, k)
+    local a = math.sin(k * math.pi)
+    local r = 4 + 16 * a
+    G2.setColor(1, 1, 1, 0.9 * a)
+    G2.setLineWidth(1.2)
+    G2.line(x - r, y, x + r, y)
+    G2.line(x, y - r, x, y + r)
+    G2.line(x - r * 0.4, y - r * 0.4, x + r * 0.4, y + r * 0.4)
+    G2.line(x - r * 0.4, y + r * 0.4, x + r * 0.4, y - r * 0.4)
+    G2.circle("fill", x, y, 1.5 + 2 * a, 10)
+    G2.setLineWidth(1)
+  end
+
   function D.draw(G2, sim, s, T)
     if not sim then
       G2.setColor(0.1, 0.1, 0.15, 1)
       G2.rectangle("fill", 0, 0, 240, 160)
       return
     end
+    local Hud = T and T.hud
+    local pose = Hud and Hud.pose and Hud.pose(sim, s) or nil
     drawBackground(G2, sim)
-    drawBot(G2, sim)
-    drawBalls(G2, sim)
+    -- the stadium comes up out of the dark under the intro's title
+    if pose and pose.veil and pose.veil > 0 then
+      G2.setColor(0.0, 0.12, 0.14, 0.85 * pose.veil)
+      G2.rectangle("fill", 0, 0, 240, 160)
+      G2.setColor(0.2, 1, 0.8, 0.5 * pose.veil)
+      for i = 0, 6 do
+        local y = 92 + i * i * 2
+        G2.line(0, y, 240, y)
+      end
+    end
+    local b = pose and pose.bot
+    if b then
+      if (b.alpha or 1) > 0 then
+        local bx, by = sim:botOffset()
+        local cyW = sim.botCY and sim:botCY() or N.BOT.CY
+        local cx, cy = Sim.project(bx, cyW + by, 1)
+        local sx, sy = b.sx or b.scale or 1, b.sy or b.scale or 1
+        local dy = b.dy or 0
+        if b.ground then
+          -- lying on the grass: its foot on the floor at its depth, floating up as it rises
+          local _, _, _, hwFar = Sim.view()
+          local halfH = ((sim.shape and sim.shape.halfH) or 1) * N.BOT.R * sim.bot.scale * hwFar
+          local onGround = D.BOT_SHADOW_Y - halfH * sy
+          dy = (onGround - cy) * (1 - (b.rise or 0))
+        end
+        -- its shadow stays on the grass under it: as wide as it is, fading as it leaves
+        local _, _, _, hwFar = Sim.view()
+        local R = N.BOT.R * hwFar * sim.bot.scale
+        local floorY = D.BOT_SHADOW_Y
+        local shadowA = 0.25 * (b.shadow or 1) * (b.alpha or 1)
+        if shadowA > 0.01 then
+          G2.setColor(0, 0, 0, shadowA)
+          G2.ellipse("fill", cx + (b.dx or 0), floorY, R * 0.9 * sx, 5 * math.min(1, sx))
+        end
+        G2.push()
+        G2.translate(cx + (b.dx or 0), cy + dy)
+        G2.scale(sx, sy)
+        G2.translate(-cx, -cy)
+        drawBot(G2, sim, { noShadow = true, noGoals = b.noGoals })
+        G2.pop()
+        if b.puffs then
+          local halfW = ((sim.shape and sim.shape.halfW) or 1) * R * sx
+          drawPuffs(G2, cx + (b.dx or 0), cy + dy, b.puffs, sim.t + (s.outro and s.outro.t or 0), b.puffScale, halfW)
+        end
+      end
+    else
+      drawBot(G2, sim)
+    end
+    if pose and pose.twinkle then
+      local bx, by = sim:botOffset()
+      local cx, cy = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
+      drawTwinkle(G2, cx + (pose.twinkle.dx or 85), math.max(8, cy + (pose.twinkle.dy or -110)), pose.twinkle.k)
+    end
+    local last = sim.player.lastShot
+    if last and sim.phase == "play" then
+      local lx, ly = Sim.project(last.x, last.y, 1)
+      local mark = art("lyt/st_hud/target02_c")
+      if mark then
+        local iw = mark:getWidth()
+        local sc = 26 / iw
+        G2.setColor(1, 1, 1, 0.75)
+        G2.draw(mark, lx, ly, 0, sc, sc, iw / 2, mark:getHeight() / 2)
+      else
+        G2.setColor(1, 1, 1, 0.7)
+        G2.rectangle("line", lx - 10, ly - 10, 20, 20)
+      end
+    end
+    drawBalls(G2, sim, "behind")
     drawShots(G2, sim)
+    if s then s.hudReticle = Hud and Hud.P ~= nil and Hud.sim == sim or nil end
     drawPlayer(G2, sim, s)
-    drawHud(G2, sim, s, T)
+    drawBalls(G2, sim, "front")
+    if not (Hud and Hud.draw and Hud.draw(G2, sim, s)) then drawHud(G2, sim, s, T) end
+    if pose and pose.fade and pose.fade > 0 then
+      G2.setColor(0, 0, 0, pose.fade)
+      G2.rectangle("fill", 0, 0, 240, 160)
+    end
   end
 
   function D.drawResult(G2, s, T)

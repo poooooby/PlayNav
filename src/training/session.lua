@@ -95,7 +95,7 @@ return function(mod, deps)
     elseif s.mode == "regimen" then
       if T.onRegimenInput then T.onRegimenInput(input) end
     elseif s.mode == "result" then
-      if input:wasPressed("a") or input:wasPressed("b") then T.leaveResult() end
+      if input:wasPressed("a") or input:wasPressed("b") then T.resultNext() end
     end
   end
 
@@ -394,6 +394,9 @@ return function(mod, deps)
   -- its shutters close (stageselect_lower_black_out), the home screen is back with the
   -- overworld on top and its shutters open (stageselect_lower_black_in, 10 frames).
   T.TRANS = { WAIT = 7, CLOSE = 20, SWITCH = 29, HOLD = 53, FADE = 6, OPEN = 10 }
+  -- into a regimen (from the capture): both screens fade to black over 15 frames and stay
+  -- black while it loads; the regimen's own screens then come up out of black
+  T.TRANS_REGIMEN = { FADE = 15, SWITCH = 30 }
 
   function T.goTo(mode)
     local s = T.session
@@ -414,7 +417,22 @@ return function(mod, deps)
     if not tr then return end
     local X = T.TRANS
     tr.t = tr.t + dt * 30
-    if tr.to == "courses" then
+    if tr.from == "result" then
+      -- out of the results: both screens fade to black, the picker fades in
+      if not tr.switched and tr.t >= T.TRANS_REGIMEN.SWITCH then
+        tr.switched = true
+        T.sim = nil
+        s.course = nil
+        s.picked = nil
+        setMode("courses")
+      end
+      if tr.t >= T.TRANS_REGIMEN.SWITCH + T.TRANS.FADE * 2 then s.trans = nil end
+    elseif tr.to == "regimen" then
+      if tr.t >= T.TRANS_REGIMEN.SWITCH then
+        s.trans = nil
+        if T.beginCourse then T.beginCourse(tr.course) end
+      end
+    elseif tr.to == "courses" then
       if not tr.switched and tr.t >= X.SWITCH then
         tr.switched = true
         s.picked = nil
@@ -438,6 +456,12 @@ return function(mod, deps)
     local tr = s and s.trans
     if not tr then return nil end
     local X, t = T.TRANS, tr.t
+    if tr.to == "regimen" then return { black = math.min(1, t / T.TRANS_REGIMEN.FADE) } end
+    if tr.from == "result" then
+      local X2 = T.TRANS_REGIMEN
+      if t < X2.SWITCH then return { black = math.min(1, t / X2.FADE) } end
+      return { black = math.max(0, 1 - (t - X2.SWITCH) / (X.FADE * 2)) }
+    end
     if tr.to == "courses" then
       if not tr.switched then
         if where == "bottom" and t >= X.WAIT then return { shutter = "close", f = t - X.WAIT } end
@@ -451,6 +475,7 @@ return function(mod, deps)
     return { shutter = "open", f = t - X.CLOSE - 2 }
   end
   function T.enterBags() setMode("bags"); return true end
+  function T.bagCount() return #Store.bags() end
   function T.enterCourses()
     if T.session then T.session.picked = nil end
     setMode("courses")
@@ -814,18 +839,18 @@ return function(mod, deps)
   end
 
   -- the coach's praise: a new best, well under the target, under it, or a plain clear
-  function T.praise(res)
+  function T.praise(res, keepBreaks)
     local i = 1
     if res.newBest and res.medal then i = 4
     elseif res.medal and res.remaining >= (res.target or 0) + 30 then i = 3
     elseif res.medal then i = 2 end
-    return T.gameLine("training_courses", T.COURSE_LINE.praise[i]) or PRAISE_FALLBACK[i]
+    return T.gameLine("training_courses", T.COURSE_LINE.praise[i], nil, keepBreaks) or PRAISE_FALLBACK[i]
   end
 
   -- "{MON} made its shots more effective by training its Attack stat!"
-  function T.statLine(stat)
+  function T.statLine(stat, keepBreaks)
     local line = T.COURSE_LINE.statLine[stat]
-    return line and T.gameLine("training_courses", line, { STAT = T.statWord(stat) }) or nil
+    return line and T.gameLine("training_courses", line, { STAT = T.statWord(stat) }, keepBreaks) or nil
   end
 
   function T.courseName(id)
@@ -928,6 +953,7 @@ return function(mod, deps)
       T.tickRegimen(dt)
       return
     end
+    if s.mode == "result" and T.results and T.results.list then T.results.update(dt) end
     if s.mode == "regimen" or s.mode == "result" then
       -- busy in a regimen: no punches meanwhile
       if s.rec.nextAutoAt then s.rec.nextAutoAt = wall() + autoInterval() end

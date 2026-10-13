@@ -107,6 +107,15 @@ The in-game decoders are tested against the same data with
   repeats the names (20-57), has the level headings (1-6), the per-course blurbs (75-112), the
   result screen (59-74, 125-168). `data/training_courses.lua` carries each course's `order` so
   text lines and the course icons (a/0/2/8 entry 1 follows the same order) index from it.
+- `lyt_rows.py <romfs> <pack>=<archive>:<entry>:<sub> ... -- <pack>:<layout.bclyt>:<packs> ...`
+  writes the recipe rows for a screen played by `src/lytplayer.lua`: a `files` row per layout
+  pack (its `.bclyt` and `.bclan` are copied into the cache as they are) and an `add` row for
+  every texture the layouts and their clips' texture patterns name, found in the listed packs in
+  order (`lyt/<pack>/<darc texture name>`). Names no pack holds are filled by the game at run
+  time (icons, sprites) and are listed on stderr. The regimen's screens: `upper.bclyt` (top HUD)
+  and `lower.bclyt` (aim) in `a/1/1/4`, `result_upper` / `result_lower` in `a/1/1/3`, the shared
+  pack `a/0/2/8` entry 2, the English words in `a/2/1/7` entry 0 sub 2. File 98 of `a/0/7/3` is
+  the species names by National Dex number (0 Egg).
 
 ## Pokémon-Amie text and UI (added for 0.3.2)
 

@@ -18,16 +18,26 @@ return function(N)
 
   local function lerp(a, b, t) return a + (b - a) * t end
 
+  -- the view (N.VIEW): hw / fy / hu at the trainee's depth, then at the balloon's
+  local V = N.VIEW or { NEAR = { hw = 118, fy = 150, hu = 70 }, FAR = { hw = 70, fy = 92, hu = 44 } }
+  function Sim.view()
+    return V.NEAR.hw, V.NEAR.fy, V.NEAR.hu, V.FAR.hw, V.FAR.hu, V.FAR.fy
+  end
+
   -- (x, y, z) -> screen x, screen y, scale factor at that depth
   function Sim.project(x, y, z)
-    local hw = lerp(118, 70, z)
-    local fy = lerp(150, 92, z)
-    local hu = lerp(70, 44, z)
-    return 120 + x * hw, fy - y * hu, hw / 118
+    local hw = lerp(V.NEAR.hw, V.FAR.hw, z)
+    local fy = lerp(V.NEAR.fy, V.FAR.fy, z)
+    local hu = lerp(V.NEAR.hu, V.FAR.hu, z)
+    return 120 + x * hw, fy - y * hu, hw / V.NEAR.hw
   end
-  -- at the bot's depth (z = 1) a world unit is 70 px across and 44 px up: a goal on the
-  -- balloon's sprite stretches its height by this so it lands where the sprite is drawn
-  Sim.ASPECT = 70 / 44
+  -- a screen point back onto the balloon's plane (z = 1)
+  function Sim.unproject(sx, sy)
+    return (sx - 120) / V.FAR.hw, (V.FAR.fy - sy) / V.FAR.hu
+  end
+  -- at the bot's depth a world unit is hw px across and hu px up: a goal on the balloon's
+  -- sprite stretches its height by this so it lands where the sprite is drawn
+  Sim.ASPECT = V.FAR.hw / V.FAR.hu
 
   -- the aiming pad (a circle in app space) covers the whole bot plane
   -- (ex, ey): the aim reach, x in -ex..ex and y in 0..ey (default 1, 1: the round balloon)
@@ -44,7 +54,7 @@ return function(N)
   end
 
   local KINDS = { small_rapid = true, big = true, ring = true, homing = true, cross = true, wave_tall = true,
-    wave_wide = true, barrier = true, bits = true }
+    wave_wide = true, barrier = true, bits = true, lob = true }
   Sim.KINDS = KINDS
 
   -- ------- validation (the courses test calls it for every row)
@@ -131,7 +141,7 @@ return function(N)
     s.t = 0
     s.score, s.totalScore = 0, 0
     s.botIndex = 0
-    s.player = { x = 0, z = 0.1, mx = 0, mz = 0, stun = 0, shield = 0, shieldCd = 0, charging = false, chargeT = 0,
+    s.player = { x = 0, y = 0, z = N.PLAYER.Z or 0.1, mx = 0, mz = 0, stun = 0, shield = 0, shieldCd = 0, charging = false, chargeT = 0,
       firing = 0, burst = 0, rapidT = 0, aim = { x = 0, y = 0.5 } }
     s.guts = N.GUTS.START
     s.goals, s.shots, s.balls, s.bits, s.spawnQueue = {}, {}, {}, {}, {}
@@ -224,6 +234,8 @@ return function(N)
   function Sim:releaseFire()
     local p = self.player
     if not p.charging then return false end
+    -- where this shot was aimed: the top screen marks it so the next one can be corrected
+    p.lastShot = { x = p.aim.x, y = p.aim.y }
     local stage = math.max(1, self:chargeStage())
     p.charging = false
     if self.phase ~= "play" or p.stun > 0 or p.shield > 0 then return false end
@@ -264,7 +276,7 @@ return function(N)
     local speed = def.speed * (self.mods.ballSpeedMult or 1)
     local ax = p.aim.x + (spread or 0)
     local ay = p.aim.y
-    local x0, y0, z0 = p.x, 0.15, p.z
+    local x0, y0, z0 = p.x, (p.y or 0) + 0.15, p.z
     local dz = math.max(0.05, 1 - z0)
     local shot = { x = x0, y = y0, z = z0, vz = speed, vx = (ax - x0) / dz * speed, vy = (ay - y0) / dz * speed,
       r = r, points = math.floor(points + 0.5), type = kind, stage = stage, weak = weak, energy = kind == self.shotType }
@@ -299,13 +311,29 @@ return function(N)
     return a.x * R + ox + bx, self:botCY() + a.y * R + oy + by
   end
 
-  -- the whole balloon's drift (Aerodactyl bobs up and down)
+  -- the whole balloon's drift: its level's sway (a slow loop, measured in the game's top-screen
+  -- pixels and turned into world units at the bot's depth), the shake after a goal, and the
+  -- course's own bob (Aerodactyl soars up and down)
   function Sim:botOffset()
+    local x, y = 0, 0
+    local _, _, _, hw, hu = Sim.view()
+    local sway = N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]
+    if sway and self.phase ~= "countdown" then
+      local w = 2 * math.pi * (self.t - (self.swayT0 or 0)) / sway.period
+      x = x + math.sin(w) * sway.ax * 0.6 / hw
+      y = y + math.sin(w + math.pi / 2) * sway.ay * (160 / 240) / hu
+    end
+    local bot = self.bot
+    if bot and (bot.shake or 0) > 0 then
+      local k = bot.shake / N.BOT.SHAKE_S
+      x = x + math.sin(self.t * 23) * N.BOT.SHAKE_PX * k * 0.6 / hw
+      y = y + math.sin(self.t * 17 + 1) * N.BOT.SHAKE_PX * k * (160 / 240) / hu
+    end
     local m = self.course.motion
     if m and m.bob then
-      return 0, math.sin(self.t * 2 * math.pi / (m.bob.period or 2)) * (m.bob.ay or 0.2) * N.BOT.R
+      y = y + math.sin(self.t * 2 * math.pi / (m.bob.period or 2)) * (m.bob.ay or 0.2) * N.BOT.R
     end
-    return 0, 0
+    return x, y
   end
   Sim.anchorPos = anchorPos
 
@@ -524,8 +552,13 @@ return function(N)
     if white == 0 then
       if chance == 0 then
         if not self.chanceDone and self.groupSize and self.groupScored >= self.groupSize then
+          -- the red goal: after every second cleared group (measured), else by the course's odds
+          self.groupsCleared = (self.groupsCleared or 0) + 1
+          local every = N.GOALS.CHANCE_EVERY
           local odds = (self.course.goals.chance and self.course.goals.chance.odds) or N.GOALS.CHANCE_ODDS
-          if self.rng() < odds then
+          local due
+          if every and every > 0 then due = self.groupsCleared % every == 0 else due = self.rng() < odds end
+          if due then
             self:spawnChance()
             return
           end
@@ -542,14 +575,23 @@ return function(N)
 
   -- ------- attacks
 
+  -- a round ball's size for the level (N.ATTACK.BALL): its kind's radius times SIZE, capped
+  local function sizeBall(self, ball)
+    local B = N.ATTACK.BALL
+    if not B or ball.w or ball.h or ball.kind == "bit" then return ball end
+    local lv = self.isSecret and "secret" or self.level
+    ball.r = math.min(ball.r * (B.SIZE[lv] or 1), (B.CAP[lv] or 1) * B.SPRITE_R)
+    return ball
+  end
+
   local function queue(self, delay, ball)
-    self.spawnQueue[#self.spawnQueue + 1] = { at = self.t + delay, ball = ball }
+    self.spawnQueue[#self.spawnQueue + 1] = { at = self.t + delay, ball = sizeBall(self, ball) }
   end
 
   local function towardPlayer(self, x0, y0, speed)
     local p = self.player
     local dz = 1 - p.z
-    return (p.x - x0) / dz * speed, (0.15 - y0) / dz * speed
+    return (p.x - x0) / dz * speed, ((p.y or 0) + 0.15 - y0) / dz * speed
   end
 
   function Sim:launch(e)
@@ -565,6 +607,17 @@ return function(N)
       for i = 1, n do
         local vx, vy = towardPlayer(self, cx, cy, speed)
         queue(self, (i - 1) * (e.gap or A.small.gap), { x = cx, y = cy, z = 1, vx = vx, vy = vy, vz = -speed, r = A.small.r, kind = "small" })
+      end
+    elseif kind == "lob" then
+      -- up off the top of the screen and down on where the trainee is now (n of them, spread)
+      local p = self.player
+      local n = e.n or 1
+      for i = 1, n do
+        local off = (i - (n + 1) / 2) * 0.45
+        local tx = math.max(-N.PLAYER.X_MAX, math.min(N.PLAYER.X_MAX, p.x + off))
+        queue(self, (i - 1) * 0.35, { x = cx, y = cy, z = 1, vx = 0, vy = 0, vz = 0, r = A.lob.r, kind = "lob",
+          lob = { t = 0, T = A.lob.flight / spd, x0 = cx, y0 = cy, tx = tx, ty = (p.y or 0) + N.PLAYER.H / 2, tz = p.z,
+            peak = A.lob.peak } })
       end
     elseif kind == "big" then
       local vx, vy = towardPlayer(self, cx, cy, A.big.speed * spd)
@@ -590,9 +643,9 @@ return function(N)
       local speed = A.cross.speed * spd
       for i = 1, 3 do
         local d = (i - 2) * len
-        queue(self, 0, { x = cx + d, y = cy, z = 1, vx = 0, vy = (0.15 - cy) * speed, vz = -speed, r = A.cross.r, kind = "cross" })
+        queue(self, 0, { x = cx + d, y = cy, z = 1, vx = 0, vy = ((self.player.y or 0) + 0.15 - cy) * speed, vz = -speed, r = A.cross.r, kind = "cross" })
         if i ~= 2 then
-          queue(self, 0, { x = cx, y = cy + d, z = 1, vx = 0, vy = (0.15 - cy - d) * speed, vz = -speed, r = A.cross.r, kind = "cross" })
+          queue(self, 0, { x = cx, y = cy + d, z = 1, vx = 0, vy = ((self.player.y or 0) + 0.15 - cy - d) * speed, vz = -speed, r = A.cross.r, kind = "cross" })
         end
       end
     elseif kind == "wave_tall" then
@@ -694,6 +747,7 @@ return function(N)
       self.bot.goalsScored = self.bot.goalsScored + 1
       self.stats.goalsScored = self.stats.goalsScored + 1
       self.bot.flinch = N.BOT.FLINCH_S
+      self.bot.shake = N.BOT.SHAKE_S or 0
     end
     self.stats.hits = self.stats.hits + 1
     emit(self, "goal_hit", { points = pts, goal = goal.kind, anchor = goal.anchor, score = self.score })
@@ -797,7 +851,17 @@ return function(N)
     local keep = {}
     for _, b in ipairs(self.balls) do
       local pz = b.z
-      if b.ring then
+      if b.lob then
+        -- along its arc; past the landing it keeps falling forward
+        local L = b.lob
+        L.t = L.t + step
+        local u = L.t / L.T
+        b.x = L.x0 + (L.tx - L.x0) * math.min(1, u)
+        b.y = L.y0 + (L.ty - L.y0) * u + L.peak * 4 * u * (1 - u)
+        b.z = 1 + (L.tz - 0.001 - 1) * u
+        pz = (L.t - step) / L.T
+        pz = 1 + (L.tz - 0.001 - 1) * pz
+      elseif b.ring then
         b.ring.angle = b.ring.angle + b.ring.spin * step
         b.x = b.ring.cx + math.cos(b.ring.angle) * b.ring.r
         b.y = b.ring.cy + math.sin(b.ring.angle) * b.ring.r
@@ -805,17 +869,20 @@ return function(N)
         if b.homing then
           local want = (p.x - b.x)
           b.vx = b.vx + math.max(-1, math.min(1, want)) * N.ATTACK.homing.turn * step
+          local wantY = ((p.y or 0) + N.PLAYER.H / 2 - b.y)
+          b.vy = (b.vy or 0) + math.max(-1, math.min(1, wantY)) * N.ATTACK.homing.turn * step
         end
         b.x = b.x + b.vx * step
         b.y = b.y + b.vy * step
       end
-      b.z = b.z + b.vz * step
+      if not b.lob then b.z = b.z + b.vz * step end
       local alive = true
       if pz > p.z and b.z <= p.z then
         local hw = (b.w or b.r * 2) / 2
         local hh = (b.h or b.r * 2) / 2
         local overlapX = math.abs(b.x - p.x) <= hw + N.PLAYER.R
-        local overlapY = (b.y - hh) <= N.PLAYER.H and (b.y + hh) >= 0
+        local py = p.y or 0
+        local overlapY = (b.y - hh) <= py + N.PLAYER.H and (b.y + hh) >= py
         if overlapX and overlapY then
           alive = false
           if p.shield > 0 then
@@ -868,9 +935,11 @@ return function(N)
     if canMove then
       local v = N.PLAYER.SPEED * (self.mods.moveMult or 1)
       -- "Those Long Shots Are No Long Shot!": the player is kept at the far end of the box
-      local zMax = self.course.farPlayer and 0.04 or N.PLAYER.Z_MAX
+      -- across and up / down on the stand's plane; "Those Long Shots Are No Long Shot!" keeps
+      -- the stand at the far end
+      p.z = self.course.farPlayer and 0.04 or (N.PLAYER.Z or 0.1)
       p.x = math.max(-N.PLAYER.X_MAX, math.min(N.PLAYER.X_MAX, p.x + p.mx * v * step))
-      p.z = math.max(0.02, math.min(zMax, p.z + p.mz * v * 0.5 * step))
+      p.y = math.max(0, math.min(N.PLAYER.Y_MAX or 0.7, (p.y or 0) + p.mz * v * step))
     end
     if p.charging and p.stun <= 0 then
       p.chargeT = p.chargeT + step
@@ -878,14 +947,8 @@ return function(N)
         p.charging = false
         p.stun = N.CHARGE.STUN_S
         emit(self, "overcharge")
-      elseif self.shotType == N.SHOT.RAPID then
-        p.rapidT = p.rapidT + step
-        local rapid = N.SHOT.yellow.rapid
-        if p.rapidT >= rapid then
-          p.rapidT = p.rapidT - rapid
-          self:fire(1, (self.rng() - 0.5) * 0.1)
-        end
       end
+      -- (holding only charges, for every colour: a shot leaves on release, as in the game)
     end
     if p.burst > 0 then
       p.firing = p.firing - step
@@ -907,6 +970,7 @@ return function(N)
       if self.countdown <= 0 then
         self.phase = "play"
         self.scheduleT0 = self.t
+        self.swayT0 = self.t
         self:spawnGroup()
         emit(self, "play")
       end
@@ -922,6 +986,7 @@ return function(N)
     local bot = self.bot
     bot.scale = math.min(N.BOT.SCALE_MAX, 1 + N.BOT.GROWTH * bot.goalsScored)
     if bot.flinch > 0 then bot.flinch = math.max(0, bot.flinch - step) end
+    if (bot.shake or 0) > 0 then bot.shake = math.max(0, bot.shake - step) end
     if bot.aura > 0 then bot.aura = math.max(0, bot.aura - step) end
     if self.course.rageAt and self.score >= self.course.rageAt then bot.mood = "rage" end
     if self.course.calmAt and self.score >= self.course.calmAt then bot.mood = "calm" end
@@ -980,7 +1045,7 @@ return function(N)
       phase = self.phase, t = self.t, remaining = self.remaining, score = self.score, total = self.totalScore,
       target = self.bot and self.bot.target, botIndex = self.botIndex, bots = #self.course.bots,
       guts = self.guts, charge = self:chargeStage(), charging = self.player.charging,
-      player = { x = self.player.x, z = self.player.z, stun = self.player.stun, shield = self.player.shield, shieldCd = self.player.shieldCd },
+      player = { x = self.player.x, y = self.player.y, z = self.player.z, stun = self.player.stun, shield = self.player.shield, shieldCd = self.player.shieldCd },
       goals = goals, shots = #self.shots, balls = #self.balls, bits = #self.bits, barrier = self.barrier ~= nil,
       liveBits = (function() local n = 0; for _, b in ipairs(self.bits) do if not b.dead then n = n + 1 end end; return n end)(),
       energy = self.guts >= N.GUTS.FULL_AT,

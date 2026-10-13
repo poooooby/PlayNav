@@ -52,25 +52,28 @@ local attacks = {
   lv1_calm = { { every = 14, from = 10, kind = "big" } },
   lv1_homing = { { every = 12, from = 8, kind = "homing", n = 1 } },
   lv1_scatter = { { every = 12, from = 8, kind = "small_rapid", n = 3 } },
-  lv2_homing = { { every = 9, from = 6, kind = "homing", n = 2 }, { every = 20, from = 16, kind = "big" } },
-  lv2_scatter = { { every = 8, from = 6, kind = "small_rapid", n = 5 }, { every = 18, from = 14, kind = "cross" } },
+  lv2_homing = { { every = 9, from = 6, kind = "homing", n = 2 }, { every = 20, from = 16, kind = "big" },
+    { every = 16, from = 13, kind = "lob" } },
+  lv2_scatter = { { every = 8, from = 6, kind = "small_rapid", n = 5 }, { every = 18, from = 14, kind = "cross" },
+    { every = 16, from = 11, kind = "lob" } },
   lv2_block = { { at = 5, kind = "barrier", marker = "center" }, { every = 10, from = 12, kind = "big" },
-    { every = 22, from = 30, kind = "small_rapid", n = 4 } },
+    { every = 22, from = 30, kind = "small_rapid", n = 4 }, { every = 16, from = 14, kind = "lob" } },
   lv2_bits = { { at = 4, kind = "bits", n = 2 }, { every = 10, from = 10, kind = "homing", n = 1 },
-    { every = 15, from = 20, kind = "ring" } },
-  lv2_fast = { { every = 11, from = 10, kind = "small_rapid", n = 3, fast = true }, { every = 16, from = 18, kind = "big" } },
-  lv2_chance = { { every = 12, from = 10, kind = "big" }, { every = 20, from = 20, kind = "small_rapid", n = 3 } },
+    { every = 15, from = 20, kind = "ring" }, { every = 16, from = 12, kind = "lob" } },
+  lv2_fast = { { every = 11, from = 10, kind = "small_rapid", n = 3, fast = true }, { every = 16, from = 18, kind = "big" }, { every = 15, from = 12, kind = "lob" } },
+  lv2_chance = { { every = 12, from = 10, kind = "big" }, { every = 20, from = 20, kind = "small_rapid", n = 3 }, { every = 16, from = 14, kind = "lob" } },
   lv3_waves = { { every = 8, from = 6, kind = "homing", n = 2 }, { every = 14, from = 12, kind = "wave_tall" },
-    { every = 14, from = 19, kind = "wave_wide" } },
-  lv3_giant = { { at = 3, kind = "bits", n = 3 }, { every = 9, from = 8, kind = "big" }, { every = 13, from = 14, kind = "small_rapid", n = 4 } },
+    { every = 14, from = 19, kind = "wave_wide" }, { every = 12, from = 9, kind = "lob", n = 2 } },
+  lv3_giant = { { at = 3, kind = "bits", n = 3 }, { every = 9, from = 8, kind = "big" }, { every = 13, from = 14, kind = "small_rapid", n = 4 }, { every = 12, from = 10, kind = "lob", n = 2 } },
   lv3_haxorus = { { every = 15, from = 6, kind = "small_rapid", n = 6 }, { every = 15, from = 11, kind = "ring" },
-    { every = 15, from = 16, kind = "cross" } },
-  lv3_army = { { at = 3, kind = "bits", n = 3 }, { every = 10, from = 8, kind = "homing", n = 2 }, { every = 12, from = 14, kind = "cross" } },
-  lv3_swift = { { every = 7, from = 5, kind = "small_rapid", n = 4, fast = true }, { every = 15, from = 12, kind = "big" } },
+    { every = 15, from = 16, kind = "cross" }, { every = 12, from = 9, kind = "lob", n = 2 } },
+  lv3_army = { { at = 3, kind = "bits", n = 3 }, { every = 10, from = 8, kind = "homing", n = 2 }, { every = 12, from = 14, kind = "cross" }, { every = 12, from = 10, kind = "lob", n = 2 } },
+  lv3_swift = { { every = 7, from = 5, kind = "small_rapid", n = 4, fast = true }, { every = 15, from = 12, kind = "big" },
+    { every = 12, from = 10, kind = "lob", n = 2 } },
   lv3_defense = { { at = 4, kind = "barrier", marker = "center" }, { every = 9, from = 10, kind = "big" },
-    { every = 13, from = 16, kind = "wave_wide" } },
+    { every = 13, from = 16, kind = "wave_wide" }, { every = 12, from = 11, kind = "lob", n = 2 } },
   secret_mixed = { { every = 7, from = 4, kind = "small_rapid", n = 5 }, { every = 11, from = 8, kind = "homing", n = 2 },
-    { every = 13, from = 12, kind = "ring" }, { every = 17, from = 15, kind = "cross" } },
+    { every = 13, from = 12, kind = "ring" }, { every = 17, from = 15, kind = "cross" }, { every = 12, from = 10, kind = "lob", n = 2 } },
   secret_bits = { { at = 2, kind = "bits", n = 3 }, { every = 6, from = 5, kind = "small_rapid", n = 6 },
     { every = 10, from = 9, kind = "homing", n = 3 }, { every = 25, from = 20, kind = "bits", n = 2 } },
   secret_fleeing = { { every = 8, from = 5, kind = "homing", n = 2 }, { every = 12, from = 10, kind = "wave_tall" } },
@@ -117,7 +120,7 @@ end
 
 local function g(family, max, groups, chanceOdds, chanceAnchor)
   return { anchors = family, max = max, groups = groups,
-    chance = { odds = chanceOdds or 0.5, anchor = chanceAnchor or groups[1][1], secs = 10 } }
+    chance = { odds = chanceOdds or 0.5, anchor = chanceAnchor or groups[1][1] } }
 end
 
 -- prize rows: { item = "ITEM_X" } (an engine item name) or { training = "<slug>" } (one of
@@ -151,8 +154,10 @@ local courses = {
     g("biped", 3, { { "head", "left", "right" }, { "body", "legs", "back" } }, 0.4), "lv2_scatter"),
   regular(2, "def", "Break Down Graveler\'s Barrier!", { 75, "SPECIES_GRAVELER" }, 1500,
     g("rock", 5, { { "top", "left", "right", "center", "bottom" } }, 0.4, "center"), "lv2_block"),
+  -- three goals at a time, upper right / lower left / lower right then again (live read of the
+  -- game, 2026-10-12; oras-extract/live_st/spatk_lv2.jsonl)
   regular(2, "spa", "Home In on Magneton!", { 82, "SPECIES_MAGNETON" }, 1500,
-    g("magnet", 2, { { "center", "left" }, { "top", "right" }, { "bottom", "center" } }, 0.4, "center"), "lv2_homing"),
+    g("magnet", 3, { { "right", "left", "bottom" }, { "top", "left", "right" } }, 0.4, "top"), "lv2_homing"),
   regular(2, "spd", "Watch Out for Tentacruel\'s Bitbots!", { 73, "SPECIES_TENTACRUEL" }, 1000,
     g("jelly", 1, { { "tentacle_l" }, { "tentacle_r" }, { "head" }, { "body" } }, 0.4, "body"), "lv2_bits"),
   regular(2, "spe", "Hammer Aerodactyl with High-Speed Shots!", { 142, "SPECIES_AERODACTYL" }, 1000,
@@ -165,8 +170,9 @@ local courses = {
     g("biped", 3, { { "head", "left", "right" }, { "body", "legs", "back" } }, 1.0), "lv3_haxorus"),
   regular(3, "def", "Break It! Golem\'s Defensive Line!", { 76, "SPECIES_GOLEM" }, 2500,
     g("rock", 5, { { "top", "left", "right", "center", "bottom" } }, 0.5, "center"), "lv3_defense"),
+  -- three goals at a time, spread wide (live read, spatk_lv3.jsonl)
   regular(3, "spa", "Shake Off That Uncanny Magnezone!", { 462 }, 2500,
-    g("magnet", 2, { { "center", "left" }, { "top", "right" }, { "bottom", "center" } }, 0.5, "center"), "lv3_waves"),
+    g("magnet", 3, { { "left", "right", "top" }, { "left", "bottom", "right" } }, 0.5, "center"), "lv3_waves"),
   regular(3, "spd", "Kick Hard! Get the Dragalge Corps!", { 691 }, 2000,
     g("jelly", 1, { { "tentacle_l" }, { "body" }, { "tentacle_r" }, { "head" } }, 0.5, "body"), "lv3_army"),
   regular(3, "spe", "Catch It! Noivern\'s Wild Wind!", { 715 }, 2000,

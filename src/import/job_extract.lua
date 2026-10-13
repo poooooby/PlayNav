@@ -7,7 +7,7 @@
 -- arg = {
 --   importId = "oras_cci", archive = "a/0/4/2",
 --   items = { { entry, sub, clim, id, w, h, fmt }, ... },
---   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src> },
+--   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src>, gen6text, darc },
 --   outPrefix = "oras/raw/",
 -- }
 -- returns { archive, results = { { id, ok, w, h, err } ... } }
@@ -27,6 +27,7 @@ local Garc = compile("garc")
 local Ctr = compile("ctr")
 local Bclim = compile("bclim")
 local Text = arg.modules and arg.modules.gen6text and compile("gen6text") or nil
+local Darc = arg.modules and arg.modules.darc and compile("darc") or nil
 
 local importId = arg.importId
 local function read(offset, length)
@@ -85,6 +86,30 @@ for _, key in ipairs(order) do
           else
             results[#results + 1] = { id = item.id, ok = true, kind = "text", lines = n }
           end
+        end
+        goto continue
+      end
+      if item.kind == "files" then
+        -- a screen's layout and animations, copied as they are from the entry's darc into
+        -- oras/lyt/<pack>/<name> (the layout player reads them; nothing is decoded here)
+        local files, why = nil, "no darc reader"
+        if Darc then files, why = Darc.files(blob) end
+        if not files then
+          fail(item, "darc: " .. tostring(why))
+        else
+          local pack = item.id:gsub("^lyt/", "")
+          local n, werr = 0, nil
+          for _, name in ipairs(files.order) do
+            if name:match(item.match or "%.bcl[ya][tn]$") then
+              local r = files[name]
+              local okW, e = job.cache:write("oras/lyt/" .. pack .. "/" .. name, blob:sub(r.start, r.stop))
+              if okW == false or (okW == nil and e) then werr = e; break end
+              n = n + 1
+            end
+          end
+          if werr then fail(item, "cache write: " .. tostring(werr))
+          elseif item.count and n < item.count then fail(item, ("darc holds %d files, recipe says %d"):format(n, item.count))
+          else results[#results + 1] = { id = item.id, ok = true, kind = "files", count = n } end
         end
         goto continue
       end

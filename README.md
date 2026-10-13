@@ -83,14 +83,24 @@ on a touch screen below the game or on a device's second display.
 - 👜 **26 training bags:** Stat bags in three sizes (+1, +4 and +12 EVs), the Reset Bag, the
   Soothing Bag, and six bags that power up your next regimen. Tap a bag to read about it, then
   use or discard it.
-- 🎯 **Super-Training Regimens:** Shoot at the goals on a Balloon Bot made in the image of a
-  real Pokémon.
-  - **Controls:** aim and fire on the touch screen, hold to charge a triple-points shot, move
-    with the d-pad and block with L.
-  - **The goals** sit on the balloon's body and move over it. They are trickier on arms and
-    wings, at higher levels and on the fleeing courses.
+- 🎯 **Super-Training Regimens:** Shoot at the goals on a big Balloon Bot made in the image of a
+  real Pokémon, in a stadium, the way the game plays it: the course's title, the balloon pumped
+  up on the grass, both names, **Start**, and **Success!** as the balloon zips off into the sky.
+  - **Controls:** tap the touch screen to shoot where you touch (the brackets on both screens
+    line up), hold to charge a triple-points shot, and block with L or R. A mark on the top
+    screen shows where your last shot went.
+  - **Moving:** your Pokémon rides a hover board. Steer it across and up and down with the
+    d-pad, anywhere on the screen.
+  - **The goals** stay where they appear and move with the balloon. Lv. 1 shows one at a time
+    on a gently swaying balloon; higher levels bring groups of three on a balloon that swings
+    harder, and a red goal that takes several hits. A hit makes the balloon shake.
+  - **The balloon fights back** with soccer balls that grow as they come at you, bigger at
+    higher levels. From Lv. 2 it also lobs balls up off the screen: a red shadow on the grass
+    shows where each one will land.
   - **Energy Shots:** a full energy meter fires your Pokémon's own Energy Shot.
   - **Your EVs help:** they strengthen your shots, soften hits and make you faster.
+  - **The results** show which stat went up on the meter, your time, any new best and the bags
+    you won, with the coach's words a tap at a time.
 - 🏆 **30 regimens:** 18 regular courses over three levels, each with the game's own name,
   description, Balloon Bot and score. Tap one to see its card on the top screen. Clear one
   within the target time for an **Award**.
@@ -189,6 +199,7 @@ Open **OPTIONS → MODS → PlayNav**.
 - **Wing and stone icons:** [PokéSprite](https://github.com/msikma/pokesprite) (the images are
   © Nintendo / Creatures Inc. / GAME FREAK Inc.; see `assets/credits.txt`). Their names
   and descriptions come from [PokeAPI](https://pokeapi.co).
+- **Super Training stadium and hover board:** original art by Collin for PlayNav.
 
 ## 💡 Inspirations
 
