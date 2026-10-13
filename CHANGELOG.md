@@ -5,6 +5,14 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-13 (pre-alpha)
+
+### Fixed
+
+- A training bag cleared on the Super Training home screen now always raises your Pokémon's
+  EVs. With the screen left open through a battle, a bag could add them to an out-of-date copy
+  of your Pokémon that the summary screen never shows.
+
 ## [0.2.0] - 2026-10-12 (pre-alpha)
 
 ### Changed
