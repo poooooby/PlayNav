@@ -5,11 +5,7 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.2.3] - 2026-10-13 (beta)
-
-### Changed
-
-- PlayNav is now in beta.
+## [0.2.3] - 2026-10-13 (pre-alpha)
 
 ### Fixed
 

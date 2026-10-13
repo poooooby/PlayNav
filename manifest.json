@@ -23,7 +23,7 @@
   ],
   "experimental": false,
   "affects_link": false,
-  "description": "Beta. Pokemon-Amie and Super Training from X, Y, Omega Ruby and Alpha Sapphire on a DS-style touch screen (split screen, or a second display such as the AYN Thor). Pet your Pokemon, feed it Poke Puffs, play the Amie minigames, decorate its room and train its EVs. Gen 3 only.",
+  "description": "Pre-alpha. Pokemon-Amie and Super Training from X, Y, Omega Ruby and Alpha Sapphire on a DS-style touch screen (split screen, or a second display such as the AYN Thor). Pet your Pokemon, feed it Poke Puffs, play the Amie minigames, decorate its room and train its EVs. Gen 3 only.",
   "optional_imports": [
     {
       "id": "oras_cci",
