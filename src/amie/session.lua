@@ -214,10 +214,9 @@ return function(mod, deps)
     Layer.backdrop(G2)
     G2.setColor(0.95, 0.9, 0.55, 0.55)
     G2.ellipse("fill", 120, 98, 60, 10)
-    local big = mod.options:get("top_screen_pic") == "large"
     local pic = s.pic
     if pic and pic.image then
-      local scale = big and 1.5 or 1
+      local scale = 1
       local bounce = s.anim.bounce or 0
       local sx = 1 + (s.anim.squash or 0)
       local sy = 1 - (s.anim.squash or 0)

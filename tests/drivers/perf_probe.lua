@@ -5,7 +5,7 @@
 --   POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/perf_probe.lua love .
 -- PLAYNAV_DISPLAY=second_screen times the second display instead (the desktop companion
--- window; the micro-timings are skipped), PERF_SCALE=<n> sets 2ND SCREEN SCALE, and
+-- window; the micro-timings are skipped), and
 -- PERF_NO_KG=1 removes Kanto Gear's hooks for the run (its install and options untouched).
 
 local function body(game, log)
@@ -38,7 +38,6 @@ local function body(game, log)
   game.mods.modOptions.play_nav = game.mods.modOptions.play_nav or {}
   local SECOND = os.getenv("PLAYNAV_DISPLAY") == "second_screen"
   game.mods.modOptions.play_nav.display = SECOND and "second_screen" or "split"
-  if os.getenv("PERF_SCALE") then game.mods.modOptions.play_nav.second_screen_scale = tonumber(os.getenv("PERF_SCALE")) end
   if os.getenv("PERF_NO_KG") == "1" then
     game.mods.hooks:removeOwner("kanto_gear")
     if game.mods.events then game.mods.events:removeOwner("kanto_gear") end

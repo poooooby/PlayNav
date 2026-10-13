@@ -5,6 +5,20 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Split screen has one layout, like a New 3DS XL: the game as large as it fits and the touch
+  screen at the same height. Held upright, the game is at the top with the touch screen just
+  under it and room left below for the on-screen pad; held sideways, the game is on the left
+  with the touch screen beside it, both along the top.
+- The second display always gets the sharpest touch screen PlayNav draws.
+
+### Removed
+
+- The options SPLIT SIZES, GAME SCALE, TOUCH SCALE, GAME SHARE %, BOTTOM SAFE PX and 2ND SCREEN
+  SCALE (the layouts above replace them), and TOP SCREEN PICTURE (Amie is moving to the touch
+  screen; the top screen is kept for its games).
+
 ## [0.2.3-beta.1] - 2026-10-13 (pre-alpha)
 
 ### Fixed

@@ -66,27 +66,12 @@ return function(mod)
       min = 0, max = 3, step = 1 },
     { key = "affection_benefits", label = "AFFECTION BENEFITS", type = "toggle", default = true },
     { key = "training", label = "SUPER TRAINING", type = "toggle", default = true },
-    { key = "top_screen_pic", label = "TOP SCREEN PICTURE", type = "choice", default = "small",
-      choices = { { "SMALL", "small" }, { "LARGE", "large" } } },
     { key = "display", label = "TOUCH SCREEN", type = "choice", default = "auto",
       choices = { { "AUTO", "auto" }, { "SECOND SCREEN", "second_screen" },
         { "SPLIT SCREEN", "split" }, { "OFF", "off" } } },
     { key = "surface", label = "SHOW TOUCH SCREEN", type = "choice", default = "when_needed",
       choices = { { "WHEN NEEDED", "when_needed" }, { "ALWAYS", "always" } } },
-    { key = "split_balance", label = "SPLIT SIZES", type = "choice", default = "auto",
-      choices = { { "AUTO", "auto" }, { "3DS", "ds3" }, { "EQUAL", "equal" }, { "3DS FLIPPED", "ds3_flip" },
-        { "MAX GAME", "game" }, { "MAX TOUCH", "touch" } } },
-    { key = "game_scale", label = "GAME SCALE", type = "choice", default = "auto",
-      choices = { { "AUTO", "auto" }, { "1X", "1" }, { "2X", "2" }, { "3X", "3" }, { "4X", "4" }, { "5X", "5" }, { "6X", "6" } } },
-    { key = "touch_scale", label = "TOUCH SCALE", type = "choice", default = "auto",
-      choices = { { "AUTO", "auto" }, { "1X", "1" }, { "2X", "2" }, { "3X", "3" }, { "4X", "4" }, { "5X", "5" }, { "6X", "6" } } },
-    { key = "split_ratio", label = "GAME SHARE %", type = "number", default = 60,
-      min = 35, max = 80, step = 5 },
-    { key = "bottom_safe_area", label = "BOTTOM SAFE PX", type = "number", default = 0,
-      min = 0, max = 200, step = 8 },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
-    { key = "second_screen_scale", label = "2ND SCREEN SCALE", type = "number", default = 3,
-      min = 1, max = 4, step = 1 },
     { key = "dev_scratch", label = "DEV: SCRATCH APP", type = "toggle", default = false },
     { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
     { key = "use_rom_art", label = "USE EXTRACTED ART", type = "toggle", default = true },
@@ -572,22 +557,55 @@ return function(mod)
     return math.min(0.1, math.max(0, dt))
   end
 
+  -- window units to physical pixels (the engine's Display.fit draws the picture at a whole
+  -- number of physical pixels)
+  local function windowDpi()
+    if not (love and love.graphics and love.graphics.getDPIScale) then return 1 end
+    local ok, d = pcall(love.graphics.getDPIScale)
+    d = ok and tonumber(d) or 1
+    return d > 0 and d or 1
+  end
+
+  -- Portrait split leaves the engine's touch pad its room: from the top of its highest
+  -- control in the lower half (the player's own positions included) to the window's foot.
+  -- Measured whenever the pad is on in the engine's settings, not only while it shows, so the
+  -- layout does not jump when a PlayNav screen hides the pad.
+  local okTC, TC = pcall(require, "src.core.TouchControls")
+  if not (okTC and type(TC) == "table") then TC = nil end
+  local function padReserve(ww, wh)
+    if wh < ww or not TC then return 0 end
+    local game = state.game
+    local opts = game and type(game.options) == "table" and game.options or nil
+    if opts and TC.normalizeConfig then
+      local okC, cfg = pcall(TC.normalizeConfig, opts.touchControls)
+      if okC and type(cfg) == "table" and not cfg.enabled then return 0 end
+    end
+    if TC.active == false then return 0 end
+    local okL, zones = pcall(TC.layout, TC)
+    if not (okL and type(zones) == "table") and TC.defaultLayout then
+      okL, zones = pcall(TC.defaultLayout, ww, wh, 0, 0, 1, true)
+    end
+    if not (okL and type(zones) == "table") then return math.floor(wh * 0.3) end
+    local top = wh
+    for name, z in pairs(zones) do
+      if name ~= "hotbar" and type(z) == "table" and tonumber(z.cy) and z.cy > wh / 2 then
+        top = math.min(top, z.cy - (tonumber(z.h) or tonumber(z.w) or 0) / 2)
+      end
+    end
+    return math.max(0, wh - top)
+  end
+
   -- Gen 3 has no viewport seam, but it fits its picture into the rectangle
-  -- Playfield.cutout reports. In split mode the mod stacks picture and
-  -- surface (src/layout.lua Layout.stack), hands the picture area to the
+  -- Playfield.cutout reports. In split mode the mod lays out picture and
+  -- surface (src/layout.lua Layout.dual, New 3DS XL style), hands the picture area to the
   -- engine through src/cutout.lua, and keeps the rest for the surface, so
   -- both scale with the window and never overlap. Without the cutout seam
   -- the surface falls back to the free strip under the engine's own placement.
   local function gen3Rect(vp)
     local ww, wh = vp.width or 0, vp.height or 0
     if ww < 1 or wh < 1 then return nil end
-    local safe = mod.options:get("bottom_safe_area") or 0
-    local share = (mod.options:get("split_ratio") or 60) / 100
     if Cutout and Cutout.pf then
-      local lay = Layout.stack(ww, wh, { safeBottom = safe, maxGameShare = share,
-        balance = mod.options:get("split_balance") or "auto",
-        gameScale = tonumber(mod.options:get("game_scale")),
-        surfaceScale = tonumber(mod.options:get("touch_scale")) })
+      local lay = Layout.dual(ww, wh, { dpi = windowDpi(), reserveBottom = padReserve(ww, wh) })
       if lay then
         Cutout:set(lay.game)
         return lay.surface
@@ -595,14 +613,14 @@ return function(mod)
     end
     if wh >= ww then
       local bottom = (vp.gameY or 0) + (vp.gameHeight or 0)
-      local r = Layout.inRect(0, bottom, ww, wh - bottom, { safeBottom = safe, anchor = "bottom" })
+      local r = Layout.inRect(0, bottom, ww, wh - bottom, { anchor = "bottom" })
       if r and r.scale >= 1 then return r end
     else
       local right = (vp.gameX or 0) + (vp.gameWidth or 0)
-      local r = Layout.inRect(right, 0, ww - right, wh, { safeBottom = safe })
+      local r = Layout.inRect(right, 0, ww - right, wh, {})
       if r and r.scale >= 1 then return r end
     end
-    return Layout.split(ww, wh, { ratio = share, safeBottom = safe }).surface
+    return Layout.split(ww, wh, {}).surface
   end
 
   -- once per boot: if the player's card image is there and the art is not
@@ -743,11 +761,8 @@ return function(mod)
       end
       local due = t - state.pushAt
       if not Surface.pending and ((needsDraw and due >= 1 / 30) or due >= 1.0) then
-        -- never past what is drawn (HD.MAX_K, 4): a larger frame is only the same picture
-        -- stretched, and it costs the readback and the transfer by the square (a saved 5 or 6
-        -- from before the cap counts as 4)
-        local k = math.floor(tonumber(mod.options:get("second_screen_scale")) or 3)
-        k = math.max(1, math.min(k, PUSH_K_MAX))
+        -- always as sharp as PlayNav draws (HD.MAX_K, 4); the display fits it to its size
+        local k = PUSH_K_MAX
         state.pushK = k
         state.pushAt = t
         -- drawn now, read back without waiting (the pixels come through pollPush); only a LOVE
@@ -777,10 +792,7 @@ return function(mod)
     end
     local b = type(base) == "table" and base
       or { x = 0, y = 0, width = ctx.width, height = ctx.height }
-    local layout = Layout.split(b.width, b.height, {
-      ratio = (mod.options:get("split_ratio") or 55) / 100,
-      safeBottom = mod.options:get("bottom_safe_area") or 0,
-    })
+    local layout = Layout.split(b.width, b.height, {})
     local s = layout.surface
     state.rect = { x = s.x + (b.x or 0), y = s.y + (b.y or 0), w = s.w, h = s.h, scale = s.scale }
     return {

@@ -1,7 +1,6 @@
--- Driver: boots Emerald, opens the Amie room in a 1280x720 window and then a
--- 432x768 one, and cycles the SPLIT SIZES presets, logging where the picture
--- and the surface land and taking a shot of each. A quick check of the
--- stacked split layout.
+-- Driver: boots Emerald, opens the Amie room in split mode at several window sizes
+-- (landscape and portrait), logging where the picture and the touch screen land and
+-- taking a shot of each. A quick check of the split layout (Layout.dual).
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/split_probe.lua love .
 
@@ -55,24 +54,12 @@ local function body(game, log)
     local r = X.state().rect
     return r and ("%d,%d %dx%d @%s"):format(r.x, r.y, r.w, r.h, tostring(r.scale)) or "nil"
   end
-  for _, size in ipairs({ { 1280, 720 }, { 432, 768 }, { 720, 1280 } }) do
+  -- one layout (src/layout.lua Layout.dual): each window size once
+  for _, size in ipairs({ { 1280, 720 }, { 1920, 1080 }, { 432, 768 }, { 720, 1280 }, { 540, 1200 } }) do
     love.window.setMode(size[1], size[2], { resizable = true, highdpi = true })
     U.wait(10)
-    for _, mode in ipairs({ "auto", "ds3", "equal", "ds3_flip", "game", "touch" }) do
-      opts.split_balance = mode
-      opts.game_scale, opts.touch_scale = "auto", "auto"
-      U.wait(8)
-      log(("%dx%d %-9s picture %-22s surface %s"):format(size[1], size[2], mode, picture(), surface()))
-      U.shot(game, ("%s/split_%dx%d_%s.png"):format(dir, size[1], size[2], mode))
-    end
-    opts.split_balance = "auto"
-    opts.game_scale, opts.touch_scale = "2", "auto"
-    U.wait(8)
-    log(("%dx%d game 2x    picture %-22s surface %s"):format(size[1], size[2], picture(), surface()))
-    opts.game_scale, opts.touch_scale = "auto", "2"
-    U.wait(8)
-    log(("%dx%d touch 2x   picture %-22s surface %s"):format(size[1], size[2], picture(), surface()))
-    opts.game_scale, opts.touch_scale = "auto", "auto"
+    log(("%dx%d picture %-22s surface %s"):format(size[1], size[2], picture(), surface()))
+    U.shot(game, ("%s/split_%dx%d.png"):format(dir, size[1], size[2]))
   end
   R.session.finish()
   U.wait(5)

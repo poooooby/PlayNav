@@ -37,8 +37,11 @@ on a touch screen below the game or on a device's second display.
 ### Core Mechanics
 
 - 📱 **A touch screen of your own:** On a single screen (a phone, a PC window) the game and the
-  touch screen sit stacked or side by side and never overlap. On a device with a second display,
-  such as the AYN Thor, the touch screen moves there and the game keeps the whole main screen.
+  touch screen are laid out like a New 3DS XL: the game as large as it fits, and the touch screen
+  at the same height. Held upright, the game is at the top with the touch screen just under it,
+  leaving room for the on-screen pad below. Held sideways, the game is on the left and the touch
+  screen beside it, both along the top. On a device with a second display, such as the AYN Thor,
+  the touch screen moves there at its sharpest and the game keeps the whole main screen.
   It only appears when you need it, so other mods can use that screen the rest of the time.
 - 🧸 **Pokémon-Amie:** Spend time with your Pokémon to raise its affection, and it fights better
   for you.
@@ -141,16 +144,9 @@ Open **OPTIONS → MODS → PlayNav**.
 | **PUFFS PER WIN** | 0-3 | 1 | Poké Puffs you get for each battle won. |
 | **AFFECTION BENEFITS** | On / Off | On | Affection's bonuses in battle. Off for vanilla battles. |
 | **SUPER TRAINING** | On / Off | On | Super Training: the TRAINING menu entry. |
-| **TOP SCREEN PICTURE** | Small / Large | Small | The size of your Pokémon on the top screen during Amie. |
 | **TOUCH SCREEN** | Auto / Second Screen / Split Screen / Off | Auto | Where the touch screen goes. Auto uses a second display when there is one, otherwise splits the window. |
 | **SHOW TOUCH SCREEN** | When Needed / Always | When Needed | Only while Amie or Super Training is open, or all the time. |
-| **SPLIT SIZES** | Auto / 3DS / Equal / 3DS Flipped / Max Game / Max Touch | Auto | How a split window shares space: like a 3DS (game larger), equal like a DS, or one side as large as it can be. |
-| **GAME SCALE** | Auto / 1X-6X | Auto | Split screen: fix the game's size; the touch screen takes the rest. |
-| **TOUCH SCALE** | Auto / 1X-6X | Auto | Split screen: fix the touch screen's size; the game takes the rest. |
-| **GAME SHARE %** | 35-80 | 60 | Split screen, Auto: the most of the window the game may take. |
-| **BOTTOM SAFE PX** | 0-200 | 0 | Space kept free at the bottom for a phone's gesture bar. |
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
-| **2ND SCREEN SCALE** | 1-4 | 3 | How sharp the picture sent to a second display is. |
 | **EXTRACT AMIE ART ON BOOT** | On / Off | On | Unpack the art from your card image automatically on the first start after you add it. |
 | **USE EXTRACTED ART** | On / Off | On | Draw with your game's art and text. Off: simple shapes and PlayNav's own wording. |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |

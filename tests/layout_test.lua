@@ -58,93 +58,52 @@ do
   T.check(L.surface.scale >= 1, "a Deck fits at least 1x")
 end
 
--- ------- the Gen 3 stack: picture and surface never overlap, both scale with the window
+-- ------- the Gen 3 split, New 3DS XL style: the picture as large as it can be, the touch
+-- screen at its height, under it (portrait) or right of it (landscape)
 
+local function near(a, b) return math.abs(a - b) < 0.01 end
 do
-  local L = Layout.stack(1080, 2400, { safeBottom = 48 })
+  -- a 1080x2400 phone with the engine's pad taking the bottom 700
+  local L = Layout.dual(1080, 2400, { reserveBottom = 700 })
   T.eq(L.orientation, "portrait", "a phone is portrait")
   T.eq(L.game.scale, 4, "a 1080-wide phone shows the picture at 4x")
   T.eq(L.game.w, 960, "...960 wide")
-  T.eq(L.surface.scale, 4, "...and the surface at 4x")
-  T.check(L.game.y + L.game.h <= L.surface.y, "the picture ends above the surface")
-  T.check(L.surface.y + L.surface.h <= 2400 - 48, "the surface stays above the safe area")
-  T.check(L.game.y > 0 and L.game.y < 600, "the pair is centred, not pinned to the top")
-  local D = Layout.stack(432, 768, {})
-  T.eq(D.game.scale, 1, "a 432x768 window shows the picture at 1x")
-  T.eq(D.surface.scale, 1, "...and the surface at 1x")
-  T.check(D.game.y + D.game.h < D.surface.y, "...stacked without overlap")
-  T.check(D.game.y >= 4 and D.surface.y + D.surface.h <= 768, "...inside the window")
-  local P = Layout.stack(720, 1280, {})
-  T.eq(P.game.scale, 3, "720 wide gives a 3x picture")
-  T.eq(P.surface.scale, 2, "...with a 2x surface under it")
-  local S = Layout.stack(250, 420, {})
-  T.eq(S.game.scale, 1, "a tiny window keeps the picture at 1x")
-  T.check(S.surface.scale > 0 and S.surface.scale < 1, "...and shrinks the surface below 1x rather than overlapping")
-  T.check(S.game.y + S.game.h <= S.surface.y, "...still no overlap")
-  local W = Layout.stack(1280, 720, {})
+  T.eq(L.game.y, 4, "...at the top")
+  T.eq(L.game.x, 60, "...centred across")
+  T.check(near(L.surface.h, L.game.h), "the touch screen is as tall as the picture (the XL's 240 / 240 rows)")
+  T.check(near(L.surface.w, L.game.h * 256 / 192), "...at its own 4:3")
+  T.check(L.surface.y >= L.game.y + L.game.h and L.surface.y - (L.game.y + L.game.h) <= 8, "...just under the picture")
+  T.check(L.surface.y + L.surface.h <= 2400 - 700, "the pad's room stays free")
+  T.check(near(L.surface.scale, L.surface.h / 192), "the surface scale is its height over 192")
+
+  -- landscape: far left, from the top, side by side
+  local W = Layout.dual(1280, 720, { reserveBottom = 300 })
   T.eq(W.orientation, "landscape", "a desktop window is landscape")
-  T.eq(W.game.scale, 3, "720 tall gives a 3x picture (4x would leave no room for the surface)")
-  T.check(W.game.x + W.game.w <= W.surface.x, "the surface sits right of the picture")
-  T.check(W.surface.scale >= 1, "...at 1x or more")
-  local Tall = Layout.stack(1440, 3200, { maxGameShare = 0.4 })
-  T.check(Tall.game.h <= 3200 * 0.4 + 1, "the game share caps the picture height")
-end
+  T.eq(W.game.x, 4, "the picture sits at the far left")
+  T.eq(W.game.y, 4, "...from the top")
+  T.eq(W.surface.y, W.game.y, "the touch screen shares its top edge")
+  T.check(W.game.x + W.game.w < W.surface.x, "...right of the picture, no overlap")
+  T.check(W.surface.x + W.surface.w <= 1280, "...inside the window")
+  T.eq(W.game.scale, 3, "720 tall: 3x (4x would leave the touch screen under 80% of the picture's height)")
+  T.check(W.surface.h >= W.game.h * Layout.MIN_MATCH, "...which leaves it at least 80%")
+  T.check(W.surface.h + W.surface.y <= 720, "the pad reserve is portrait only; landscape still fits")
 
--- ------- sharing the room: balance modes and fixed scales
+  -- the Thor's 1920x1080 main screen in split mode
+  local Th = Layout.dual(1920, 1080, {})
+  T.eq(Th.game.scale, 4, "1920x1080: a 4x picture, 960x640")
+  T.check(near(Th.surface.h, 640), "...with the touch screen 640 tall beside it")
 
-do
-  local E = Layout.stack(1080, 2400, { balance = "equal" })
-  T.eq(E.game.scale, 4, "EQUAL on a 1080x2400 phone: picture 4x")
-  T.eq(E.surface.scale, 4, "...and surface 4x")
-  local E2 = Layout.stack(720, 1280, { balance = "equal" })
-  T.eq(E2.game.scale, 2, "EQUAL on 720x1280 drops both to 2x (3x + 3x would not fit)")
-  T.eq(E2.surface.scale, 2, "...surface 2x")
-  local G = Layout.stack(720, 1280, { balance = "game" })
-  T.eq(G.game.scale, 3, "GAME on 720x1280 keeps the 3x picture")
-  T.eq(G.surface.scale, 2, "...surface 2x in the rest")
-  local Gd = Layout.stack(432, 768, { balance = "game" })
-  T.eq(Gd.game.scale, 1, "GAME on the dev window: 1x picture (the width allows no more)")
-  local Tc = Layout.stack(720, 1280, { balance = "touch" })
-  T.eq(Tc.surface.scale, 2, "TOUCH on 720x1280: the surface at its largest, 2x")
-  T.eq(Tc.game.scale, 3, "...and the picture still 3x since it fits")
-  local Tl = Layout.stack(1280, 720, { balance = "touch" })
-  T.eq(Tl.surface.scale, 3, "TOUCH on 1280x720: a 3x surface")
-  T.eq(Tl.game.scale, 2, "...leaves a 2x picture")
-  local D3 = Layout.stack(1080, 2400, { balance = "ds3" })
-  T.eq(D3.game.scale, 4, "3DS on a 1080x2400 phone: picture 4x")
-  T.eq(D3.surface.scale, 3, "...over a 3x surface")
-  local D3f = Layout.stack(1080, 2400, { balance = "ds3_flip" })
-  T.eq(D3f.game.scale, 3, "3DS flipped: picture 3x")
-  T.eq(D3f.surface.scale, 4, "...under a 4x surface")
-  local D3l = Layout.stack(1280, 720, { balance = "ds3" })
-  T.eq(D3l.game.scale, 3, "3DS on 1280x720: picture 3x")
-  T.eq(D3l.surface.scale, 2, "...beside a 2x surface")
-  local D3lf = Layout.stack(1280, 720, { balance = "ds3_flip" })
-  T.eq(D3lf.game.scale, 2, "3DS flipped on 1280x720: picture 2x")
-  T.eq(D3lf.surface.scale, 3, "...beside a 3x surface")
-  local D3s = Layout.stack(432, 768, { balance = "ds3" })
-  T.eq(D3s.game.scale, 1, "3DS on the dev window falls back to 1x and 1x")
-  T.eq(D3s.surface.scale, 1, "...since one step up does not fit")
-  local F = Layout.stack(1080, 2400, { gameScale = 2 })
-  T.eq(F.game.scale, 2, "a fixed GAME SCALE 2 is honoured")
-  T.eq(F.surface.scale, 4, "...and the surface takes the largest that fits")
-  local F2 = Layout.stack(1080, 2400, { gameScale = 2, surfaceScale = 3 })
-  T.eq(F2.surface.scale, 3, "both fixed: surface 3x")
-  local F3 = Layout.stack(1080, 2400, { gameScale = 9 })
-  T.eq(F3.game.scale, 4, "a GAME SCALE too big for the window is clamped")
-  local F4 = Layout.stack(1280, 720, { surfaceScale = 2 })
-  T.eq(F4.surface.scale, 2, "a fixed TOUCH SCALE 2 is honoured")
-  T.eq(F4.game.scale, 3, "...and the picture fills the rest at 3x")
-  local F5 = Layout.stack(432, 768, { surfaceScale = 4 })
-  T.eq(F5.surface.scale, 1, "a TOUCH SCALE too big is clamped to what fits beside a 1x picture")
-  T.eq(F5.game.scale, 1, "...with the picture at 1x")
-  for _, L in ipairs({ E, E2, G, Gd, Tc, Tl, D3, D3f, D3l, D3lf, D3s, F, F2, F3, F4, F5 }) do
-    if L.orientation == "portrait" then
-      T.check(L.game.y + L.game.h <= L.surface.y, "no overlap in portrait for " .. L.balance)
-    else
-      T.check(L.game.x + L.game.w <= L.surface.x, "no overlap in landscape for " .. L.balance)
-    end
-  end
+  -- a high-DPI phone: the picture is a whole number of physical pixels
+  local D = Layout.dual(412, 915, { dpi = 2.625, reserveBottom = 260 })
+  T.check(near(D.game.w * 2.625, 960), "dpi 2.625: the picture is 960 physical pixels (4x)")
+  T.check(near(D.game.x * 2.625, math.floor(D.game.x * 2.625 + 1e-6)), "...on a whole physical pixel")
+
+  -- a squeezed window: the picture stays at 1x and the touch screen takes what is left
+  local S = Layout.dual(260, 300, {})
+  T.eq(S.game.scale, 1, "a tiny window keeps the picture at 1x")
+  T.check(S.surface.h < S.game.h and S.surface.h > 0, "...and shrinks the touch screen rather than overlap")
+  T.check(S.game.y + S.game.h <= S.surface.y, "...still no overlap")
+  T.eq(Layout.dual(0, 100, {}), nil, "no window, no layout")
 end
 
 -- ------- margin placement (Gen 3)
