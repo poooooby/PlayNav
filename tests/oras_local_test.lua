@@ -11,10 +11,9 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 local T = require("tests.modkit")
 local StreamMD5 = require("src.mods.StreamMD5")
 
-local cci = os.getenv("ORAS_CCI")
-  or "C:/Users/Collin/Downloads/Pokemon Alpha Sapphire (USA) (En,Ja,Fr,De,Es,It,Ko) (Rev 2)/Pokemon Alpha Sapphire (USA) (En,Ja,Fr,De,Es,It,Ko) (Rev 2).cci"
-local resultsPath = os.getenv("ORAS_RESULTS")
-  or "C:/Users/Collin/Documents/oras-extract/sheets_amie/results.lua"
+local home = os.getenv("USERPROFILE") or os.getenv("HOME") or "."
+local cci = os.getenv("ORAS_CCI") or "mods/play_nav/baseroms/alpha_sapphire_rev2.cci"
+local resultsPath = os.getenv("ORAS_RESULTS") or (home .. "/Documents/oras-extract/sheets_amie/results.lua")
 
 local function loadFile(path)
   local f = assert(io.open(path, "rb"))

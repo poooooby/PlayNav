@@ -48,7 +48,7 @@ local fake = {
   battleFacts = function(ev) return { damaged = true, wild = true, grass = true, foeTypes = { "WATER" }, result = ev.result } end,
   activeMon = function(ev) return ev.battle.player.mon end,
   leadMon = function() return party[1] end,
-  playerName = function() return "COLLIN" end,
+  playerName = function() return "WOOBLE" end,
   dexSeen = function() return { 1, 4, 7, 25, 252, 255 } end,
   speciesName = function(sp) return "SPECIES" .. tostring(sp) end,
   iconSpecies = function() return nil end,

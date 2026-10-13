@@ -182,7 +182,7 @@ N.BLOCK = { LEN = 0.6, COOLDOWN = 1.5, DEF_BONUS = 0.5 }
 
 -- the trainee stands on a floating stand and moves across and up / down on a plane facing the
 -- balloon (the d-pad); Z is its fixed depth, Y_MAX how high it can rise
--- (SPEED 25% under the first draft's 1.1 for a steadier stand: Collin, 2026-10-12; the
+-- (SPEED 25% under the first draft's 1.1 for a steadier stand: Wooble, 2026-10-12; the
 -- balls' speeds and the lob's flight were eased with it)
 -- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
 -- below the top: (140 - 51) / 70.5 at the stand's depth)
@@ -192,7 +192,7 @@ N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.82, R = 0.12, H = 0.3
 -- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
 -- balloon's (FAR, z = 1) a world unit is hw px across and hu px up, and the floor is at y = fy.
 -- The balloon is drawn large (a sprite about 140 px wide hovering over the stadium's grass,
--- from Collin's concept, 2026-10-12); the trainee's stand floats in front of it.
+-- from Wooble's concept, 2026-10-12); the trainee's stand floats in front of it.
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
 
 N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
@@ -276,19 +276,19 @@ N.EVIDENCE = {
   ["BLOCK"] = { class = "placeholder", source = "AS text 44:67: L throws up a barrier for a short period, not usable nonstop; longer with Def/SpD (gamepedia); lengths unknown", confidence = "low" },
   ["PLAYER"] = { class = "placeholder", source = "bounded box and faster with Spe verified; sizes are not", confidence = "low" },
   ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal", confidence = "low" },
-  ["BOT.SCALE_MAX"] = { class = "placeholder", source = "Collin (2026-10-12): 1.2, so the large balloon of this view stays on the top screen; the game's own cap is not measured", confidence = "low" },
+  ["BOT.SCALE_MAX"] = { class = "placeholder", source = "Wooble (2026-10-12): 1.2, so the large balloon of this view stays on the top screen; the game's own cap is not measured", confidence = "low" },
   ["BOT.R"] = { class = "placeholder", source = "", confidence = "low" },
   ["BOT.SHAPE_CY"] = { class = "placeholder", source = "ours: the sprite balloon's centre, so it fits the visible sky (y 0..2.09 at the bot's depth)", confidence = "low" },
   ["BOT.AIM_X"] = { class = "placeholder", source = "ours: the aim reach across with a sprite balloon (the sky at the bot's depth is +-1.71)", confidence = "low" },
   ["BOT.AIM_Y"] = { class = "placeholder", source = "ours: the aim reach up with a sprite balloon", confidence = "low" },
   ["BOT.FLINCH_S"] = { class = "placeholder", source = "atwiki: the balloon flinches on a goal", confidence = "low" },
-  ["VIEW"] = { class = "placeholder", source = "ours: the layout of Collin's concept for the top screen (2026-10-12)", confidence = "low" },
-  ["ATTACK.BALL"] = { class = "inferred", source = "Collin (2026-10-12): the attacks are the game's soccer ball, bigger at higher levels (up to the sprite's size at Lv1 / Lv2, about twice at Lv3), growing as they come at the trainee; the multipliers are ours", confidence = "low" },
-  ["ATTACK.lob"] = { class = "inferred", source = "Collin (2026-10-12): balls lobbed up off screen come down on the trainee, a red shadow marking where; flight and height are ours", confidence = "low" },
+  ["VIEW"] = { class = "placeholder", source = "ours: the layout of Wooble's concept for the top screen (2026-10-12)", confidence = "low" },
+  ["ATTACK.BALL"] = { class = "inferred", source = "Wooble (2026-10-12): the attacks are the game's soccer ball, bigger at higher levels (up to the sprite's size at Lv1 / Lv2, about twice at Lv3), growing as they come at the trainee; the multipliers are ours", confidence = "low" },
+  ["ATTACK.lob"] = { class = "inferred", source = "Wooble (2026-10-12): balls lobbed up off screen come down on the trainee, a red shadow marking where; flight and height are ours", confidence = "low" },
   ["BOT.SWAY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: Lv1 a loop of +-12 x +-28 px every 4.6 s, Lv2 +-9 x +-14 px slowly, Lv3 swings of up to 120 px (the secret courses take Lv3's until measured)", confidence = "medium" },
   ["BOT.SHAKE_S"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: after a goal the others jitter +-10-20 px for 3-5 s", confidence = "medium" },
   ["BOT.SHAKE_PX"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st", confidence = "medium" },
-  ["PLAYER.Y_MAX"] = { class = "inferred", source = "the game: the trainee's stand moves up and down as well as across (Collin)", confidence = "medium" },
+  ["PLAYER.Y_MAX"] = { class = "inferred", source = "the game: the trainee's stand moves up and down as well as across (Wooble)", confidence = "medium" },
   ["PLAYER.Z"] = { class = "placeholder", source = "ours: the stand's depth", confidence = "low" },
   ["BOT.CY"] = { class = "placeholder", source = "", confidence = "low" },
   ["BOT.RAGE_AT"] = { class = "verified", source = "atwiki: Aegislash rages past 2400; AS text 44:84: gets faster as you get more points, shots more powerful", confidence = "medium" },

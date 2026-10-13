@@ -215,7 +215,7 @@ Open **OPTIONS → MODS → PlayNav**.
 - **Wing and stone icons:** [PokéSprite](https://github.com/msikma/pokesprite) (the images are
   © Nintendo / Creatures Inc. / GAME FREAK Inc.; see `assets/credits.txt`). Their names
   and descriptions come from [PokeAPI](https://pokeapi.co).
-- **Super Training stadium and hover board:** original art by Collin for PlayNav.
+- **Super Training stadium and hover board:** original art by Wooble for PlayNav.
 
 ## 💡 Inspirations
 

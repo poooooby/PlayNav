@@ -1,6 +1,7 @@
 # garc_blob.py <romfs garc path> <entry> <sub> <out.bin>: write the decompressed entry blob and list the magics in it (darc, CLYT, CLIM)
 import sys
-sys.path.insert(0, r"C:\Users\Collin\Documents\GitHub\g1r-ds-touch\tools")
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import garc_dump as g
 path, entry, sub, out = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), sys.argv[4]
 data = open(path, "rb").read()
