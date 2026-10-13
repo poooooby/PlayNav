@@ -191,6 +191,7 @@ return function(mod, T, deps)
     local s = T.session
     local course = s and s.course
     if not (s and course) then return nil end
+    if T.liveMon then T.liveMon(s) end
     local rec = s.rec
     local res = { courseId = course.id, courseName = T.courseName(course.id), clear = outcome.clear == true,
       remaining = math.max(0, outcome.remaining or 0), total = outcome.total or 0, secret = course.secret ~= nil,

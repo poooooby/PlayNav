@@ -235,6 +235,26 @@ do
   T.eq(party[1].hp, 23, "...and current HP with it")
 end
 
+-- ------- the party rebuilt while Core Training is open (a battle's write-back): the bag's EVs
+-- go to the party's own record, not the copy the session opened on
+
+do
+  local old = party[1]
+  local copy = {}
+  for k, v in pairs(old) do copy[k] = v end
+  copy.evs = {}
+  for k, v in pairs(old.evs) do copy.evs[k] = v end
+  party[1] = copy
+  local before = copy.evs.def
+  local bags = Store.bags()
+  bags[1] = "def_s"
+  T.check(S.attachBag(1), "Defense Bag S on the stand")
+  for _ = 1, S.state().bag.needed do S.hitBag("tap") end
+  T.eq(copy.evs.def, before + 1, "the party's current record got the Defense EV")
+  T.eq(old.evs.def, before, "...not the stale copy")
+  T.check(S.session.mon == copy, "the session follows the party's record")
+end
+
 -- ------- a cleared bag's finishing move: the clip with its line, the glow, the bag's words
 -- at frame 170, the home screen at 200 with the stat's +N for 120 more
 

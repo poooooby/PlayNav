@@ -486,7 +486,19 @@ return function(mod, deps)
 
   local lieDown
 
+  -- the party's own record of the trainee: the engine can rebuild the party's tables (a
+  -- battle's write-back, a reorder, a load) while Core Training stays open, so a reference
+  -- taken when it opened may be an old copy the summary screen never reads
+  local function liveMon(s)
+    if not (s and s.mon) then return s and s.mon end
+    local mon = host.resolve and host.resolve(s.mon) or s.mon
+    if mon and mon ~= s.mon then s.mon = mon end
+    return s.mon
+  end
+  T.liveMon = liveMon
+
   local function finishBag(s)
+    liveMon(s)
     local rec = s.rec
     local bag = rec.bag
     local def = bag and Rules.bag(bag.id)
