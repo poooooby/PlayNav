@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-13 (pre-alpha)
+
 ### Added
 
 - Super Training has its music: the regimen picker, the regimens and their results play the
