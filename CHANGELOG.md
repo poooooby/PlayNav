@@ -5,6 +5,12 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Super Training has its music: the regimen picker, the regimens and their results play the
+  game's own tracks from your Alpha Sapphire card image, and the overworld's music waits until
+  you leave. The art is unpacked again once on the next start to pick the music up.
+
 ## [0.2.1] - 2026-10-13 (pre-alpha)
 
 ### Fixed

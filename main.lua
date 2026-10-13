@@ -264,6 +264,7 @@ return function(mod)
     local makeBagsApp = loadSibling(mod, "src/training/bags_app.lua")
     local makeHud = loadSibling(mod, "src/training/hud.lua")
     local makeResults = loadSibling(mod, "src/training/results.lua")
+    local makeMusic = loadSibling(mod, "src/training/music.lua")
     if amieHost and TrainingNumbers and makeTRules and makeTStore and makeTHost and makeTSession and makeCoreApp and Radar then
       TRules = makeTRules(TrainingNumbers, ShotTypes or {})
       TStore = makeTStore(mod, TRules)
@@ -293,6 +294,10 @@ return function(mod)
         if makeResults then
           local okR, res = pcall(makeResults, mod, Training, TRules, Radar)
           if okR and type(res) == "table" then Training.results = res else mod.log:warn("training results failed to build: %s", tostring(res)) end
+        end
+        if makeMusic then
+          local okM, music = pcall(makeMusic, mod, Training, trainHost)
+          if okM and type(music) == "table" then Training.music = music else mod.log:warn("training music failed to build: %s", tostring(music)) end
         end
         makeRegimen(mod, Training, { host = trainHost, Rules = TRules, Store = TStore, Items = TItems,
           Courses = Courses, Sim = TSim, Draw = Draw })

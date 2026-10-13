@@ -770,4 +770,50 @@ do
   S.finish()
 end
 
+-- ------- the music: which of the game's tracks each screen plays (src/training/music.lua)
+
+do
+  local M = S.music
+  T.check(M ~= nil, "the music module is built")
+  if M then
+    local W = function(st) return (M.wanted(st)) end
+    T.eq(W(nil), nil, "no session: no music")
+    T.eq(W({ layered = false, mode = "core" }), nil, "the home screen keeps the field's music")
+    T.eq(W({ layered = true, mode = "courses" }), "bgm/sp_menu", "the picker plays sp_menu")
+    local id, _, fade = M.wanted({ layered = true, mode = "courses", trans = { to = "regimen", t = 3 } })
+    T.check(id == nil and fade > 0, "into a regimen the picker's music fades")
+    id, _, fade = M.wanted({ layered = true, mode = "courses", trans = { to = "core", from = "courses", t = 3 } })
+    T.check(id == nil and fade > 0, "back home the picker's music fades with the shutters")
+    local sim0, hud0, show0 = S.sim, S.hud, S.REGIMEN_SHOW
+    S.hud = { P = {}, OUTRO = { BANNER = 7.5 } }
+    S.REGIMEN_SHOW = true
+    S.sim = { phase = "countdown", t = 0.5 }
+    local course = { id = "x" }
+    T.eq(W({ layered = true, mode = "regimen", course = course }), "bgm/sp_gamestart", "the title: sp_gamestart")
+    S.sim.t = M.STAGE_AT + 0.1
+    T.eq(W({ layered = true, mode = "regimen", course = course }), "bgm/sp_stage", "the balloon inflating: sp_stage")
+    S.sim = { phase = "play", t = 30 }
+    T.eq(W({ layered = true, mode = "regimen", course = { secret = "a" } }), "bgm/sp_stage_02", "a secret regimen: sp_stage_02")
+    local outro = { t = 2, outcome = { clear = true } }
+    T.eq(W({ layered = true, mode = "regimen", course = course, outro = outro }), nil, "the last hit stops the music")
+    outro.t = 7.6
+    T.eq(W({ layered = true, mode = "regimen", course = course, outro = outro }), "bgm/sp_clear", "the banner: sp_clear")
+    outro.outcome = { timeout = true }
+    T.eq(W({ layered = true, mode = "regimen", course = course, outro = outro }), "bgm/sp_gameover", "time up: sp_gameover")
+    T.eq(W({ layered = true, mode = "result", result = { clear = true } }), "bgm/sp_clear", "the results keep sp_clear")
+    T.eq(W({ layered = true, mode = "result", result = { clear = true }, trans = { from = "result", t = 5 } }), nil,
+      "out of the results the music fades with the screens")
+    T.eq(W({ layered = true, mode = "courses", trans = { from = "result", switched = true, t = 40 } }), "bgm/sp_menu",
+      "...and the picker's starts again")
+    S.sim, S.hud, S.REGIMEN_SHOW = sim0, hud0, show0
+    -- without the import there is nothing to play, and the field's music is left alone
+    local assets0 = S.assets
+    S.assets = { music = function() return nil end }
+    T.check(not M.available(), "no decoded music without the import")
+    T.check(pcall(M.update, 0.1), "the update runs without the music")
+    T.check(not M.holding, "...and does not hold the field's music")
+    S.assets = assets0
+  end
+end
+
 T.finish()

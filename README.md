@@ -43,8 +43,8 @@ on a touch screen below the game or on a device's second display.
 - 🧸 **Pokémon-Amie:** Spend time with your Pokémon to raise its affection, and it fights better
   for you.
 - 🏋️ **Super Training:** Raise your Pokémon's EVs with training bags and shooting regimens.
-- 🖼️ **The real 3DS look, from your own game:** Give PlayNav your own Alpha Sapphire card image
-  and it uses that game's art and English text throughout. Without it, simple drawn shapes and
+- 🖼️ **The real 3DS look and sound, from your own game:** Give PlayNav your own Alpha Sapphire
+  card image and it uses that game's art, music and English text throughout. Without it, simple drawn shapes and
   PlayNav's own wording stand in.
 - 🔍 **Sharp at any size:** Both screens are drawn at your display's full resolution. The 3DS
   art stays smooth at any size, Pokémon sprites keep their square pixels, and text stays crisp.
@@ -117,6 +117,8 @@ on a touch screen below the game or on a device's second display.
   - **Your EVs help:** they strengthen your shots, soften hits and make you faster.
   - **The results** show which stat went up on the meter, your time, any new best and the bags
     you won, with the coach's words a tap at a time.
+  - **Music:** the regimen picker, every regimen and its results play Super Training's own
+    music from your game, in place of the overworld's, which picks up again when you go back.
 - 🏆 **30 regimens:** 18 regular courses over three levels, each with the game's own name,
   description, Balloon Bot and score. Tap one to see its card on the top screen. Clear one
   within the target time for an **Award**.
@@ -170,8 +172,8 @@ Open **OPTIONS → MODS → PlayNav**.
    | **Size** | 2,147,483,648 bytes (2 GiB) |
    | **MD5** | `0563f9dee1b95de32d579e40c20e2bfc` |
 
-   The launcher checks it and keeps a private copy. On the next start PlayNav unpacks the art and
-   text in a few seconds, then tells you the copy can be removed under Imported files.
+   The launcher checks it and keeps a private copy. On the next start PlayNav unpacks the art,
+   music and text in a few seconds, then tells you the copy can be removed under Imported files.
 
 ## 🔗 Works With
 

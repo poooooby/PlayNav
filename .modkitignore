@@ -36,8 +36,10 @@ tests/training_flow_test.lua
 tests/training_rules_test.lua
 tests/training_sim_test.lua
 tests/lytfile_test.lua
+tests/bcstm_test.lua
 tools/README.md
 tools/bclim.py
+tools/bcstm.py
 tools/clan.py
 tools/clyt.py
 tools/cro.py

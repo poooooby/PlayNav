@@ -1056,6 +1056,14 @@ return function(mod, deps)
   function T.frame(dt)
     local s = T.session
     if s and not s.layered then T.tick(dt) end
+    -- the music follows the screens (and holds the field's music meanwhile)
+    if T.music then
+      local ok, err = pcall(T.music.update, dt)
+      if not ok and not T.musicWarned then
+        T.musicWarned = true
+        mod.log:warn("super training: music failed (%s)", tostring(err))
+      end
+    end
   end
 
   -- a battle takes the bottom screen back; Super Training waits under it

@@ -30,6 +30,23 @@ return function(mod, base)
     return pcall(H.Stack.pop, H.LAYER_ID)
   end
 
+  -- the field's music, held while Super Training's own plays (the engine's pause keeps its
+  -- place; resume carries on from there)
+  function H.overworldMusic(on)
+    local A = H.Audio
+    if not A then return false end
+    local fn = on and A.resumeBgm or A.pauseBgm
+    return fn ~= nil and pcall(fn) == true
+  end
+
+  -- the music volume the player chose (the engine's options), 0..1
+  function H.musicGain()
+    local A = H.Audio
+    local v = A and tonumber(A._bgmVolume) or 1
+    if A and A._helpActive then v = v * 0.5 end
+    return math.max(0, math.min(1, v))
+  end
+
   function H.layerOpen()
     local ok, has = pcall(H.Stack.has, H.LAYER_ID)
     return ok and has == true

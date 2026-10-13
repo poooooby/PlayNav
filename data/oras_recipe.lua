@@ -794,8 +794,23 @@ add("a/1/1/4", 0, 0, 17, "lyt/st_hud/big_target_break", 32, 32, "ETC1A4")
 add("a/1/1/4", 0, 0, 18, "lyt/st_hud/big_target_c", 32, 32, "ETC1A4")
 add("a/1/1/4", 0, 0, 67, "lyt/st_hud/target02_c", 48, 48, "ETC1A4")
 
+-- Super Training's music: the game's streams (sound/, BCSTM, DSP-ADPCM), decoded by the extract
+-- job into oras/bgm/<name>.wav with their loop points beside them (src/training/music.lua plays
+-- them). Matched against a capture of a Lv. 1 regimen: menu on the regimen picker, gamestart with
+-- the title, stage from the balloon's inflating, clear / gameover with the banner and on through
+-- the results.
+local function stream(path, id, note)
+  A[#A + 1] = { kind = "stream", archive = path, entry = 0, sub = 0, id = id, note = note }
+end
+stream("sound/bgm_xy_sp_menu.dspadpcm.bcstm", "bgm/sp_menu", "the regimen picker")
+stream("sound/bgm_xy_sp_gamestart.dspadpcm.bcstm", "bgm/sp_gamestart", "a regimen's title")
+stream("sound/bgm_xy_sp_stage.dspadpcm.bcstm", "bgm/sp_stage", "a regimen")
+stream("sound/bgm_xy_sp_stage_02.dspadpcm.bcstm", "bgm/sp_stage_02", "a secret regimen (not heard in a capture)")
+stream("sound/bgm_xy_sp_clear.dspadpcm.bcstm", "bgm/sp_clear", "cleared, through the results")
+stream("sound/bgm_xy_sp_gameover.dspadpcm.bcstm", "bgm/sp_gameover", "time ran out, through the results")
+
 return {
-  version = 17,
+  version = 18,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

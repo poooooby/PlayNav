@@ -21,7 +21,7 @@ return function(mod, deps)
   }
 
   local IMPORT = Recipe.source.import or "oras_cci"
-  local MODULES = { "lz", "garc", "ctr", "bclim", "gen6text", "darc" }
+  local MODULES = { "lz", "garc", "ctr", "bclim", "gen6text", "darc", "bcstm" }
 
   local function log(fmt, ...) mod.log:info("import: " .. fmt, ...) end
 
@@ -240,7 +240,7 @@ return function(mod, deps)
         pcall(mod.job.release, mod.job, handle)
         if st.status == "ok" and type(st.result) == "table" then
           for _, r in ipairs(st.result.results or {}) do
-            if r.ok and (r.kind == "text" or r.kind == "files") then
+            if r.ok and (r.kind == "text" or r.kind == "files" or r.kind == "stream") then
               E.results[r.id] = { ok = true, w = 0, h = 0, bytes = r.count or 0, text = true }
               E.done = E.done + 1
             elseif r.ok then

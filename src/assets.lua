@@ -21,7 +21,7 @@ return function(mod)
     local chunk = load(src, "=oras/manifest.lua")
     local ok, m = pcall(chunk)
     A.manifest = (ok and type(m) == "table") and m or nil
-    A.images, A.missing, A.texts = {}, {}, {}
+    A.images, A.missing, A.texts, A.tracks = {}, {}, {}, {}
     A.loadedAt = os.time()
     return A.manifest
   end
@@ -90,6 +90,35 @@ return function(mod)
     local m = A.manifest.assets
     if not (m and m["lyt/" .. pack]) then return nil end
     return cacheRead("oras/lyt/" .. pack .. "/" .. name)
+  end
+
+  -- a music track the extract decoded (recipe kind "stream", id "bgm/<name>"):
+  -- { sd = love SoundData, rate, channels, samples, loop, loopStart } or nil
+  A.tracks = {}
+  function A.music(id)
+    if A.tracks[id] ~= nil then return A.tracks[id] or nil end
+    local track = false
+    local m = A.ready() and A.manifest.assets or nil
+    if m and m[id] and love and love.sound and love.filesystem then
+      local name = id:gsub("^bgm/", "")
+      local wav = cacheRead("oras/bgm/" .. name .. ".wav")
+      local metaSrc = cacheRead("oras/bgm/" .. name .. ".lua")
+      local chunk = metaSrc and load(metaSrc, "=oras/bgm/" .. name, "t", {})
+      local okM, meta = pcall(chunk or error)
+      if wav and okM and type(meta) == "table" then
+        local ok, sd = pcall(function()
+          return love.sound.newSoundData(love.filesystem.newFileData(wav, name .. ".wav"))
+        end)
+        if ok and sd then
+          track = { sd = sd, rate = meta.rate, channels = meta.channels, samples = meta.samples,
+            loop = meta.loop, loopStart = meta.loopStart }
+        else
+          mod.log:warn("music %s failed to load: %s", id, tostring(sd))
+        end
+      end
+    end
+    A.tracks[id] = track
+    return track or nil
   end
 
   -- draw helper: image centred at (x, y) scaled by s, or nothing (returns false)

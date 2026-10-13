@@ -7,7 +7,7 @@
 -- arg = {
 --   importId = "oras_cci", archive = "a/0/4/2",
 --   items = { { entry, sub, clim, id, w, h, fmt }, ... },
---   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src>, gen6text, darc },
+--   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src>, gen6text, darc, bcstm },
 --   outPrefix = "oras/raw/",
 -- }
 -- returns { archive, results = { { id, ok, w, h, err } ... } }
@@ -28,6 +28,7 @@ local Ctr = compile("ctr")
 local Bclim = compile("bclim")
 local Text = arg.modules and arg.modules.gen6text and compile("gen6text") or nil
 local Darc = arg.modules and arg.modules.darc and compile("darc") or nil
+local Bcstm = arg.modules and arg.modules.bcstm and compile("bcstm") or nil
 
 local importId = arg.importId
 local function read(offset, length)
@@ -40,10 +41,35 @@ local fs, ferr = Ctr.open(read)
 if not fs then error("card image: " .. tostring(ferr), 0) end
 local aOff, aLen = fs:file(arg.archive)
 if not aOff then error("archive " .. arg.archive .. ": " .. tostring(aLen), 0) end
-local g, gerr = Garc.open(read, aOff, aLen)
-if not g then error("archive " .. arg.archive .. ": " .. tostring(gerr), 0) end
 
 local function u16le(v) return string.char(v % 256, math.floor(v / 256) % 256) end
+
+-- a music stream (recipe kind "stream"): the file itself is the item, decoded to a WAV in
+-- oras/bgm/<name>.wav with its loop point in oras/bgm/<name>.lua
+local item1 = arg.items and arg.items[1]
+if item1 and item1.kind == "stream" then
+  local results = {}
+  local wav, info = nil, "no stream reader"
+  if Bcstm then wav, info = Bcstm.wav(read(aOff, aLen)) end
+  if not wav then
+    results[1] = { id = item1.id, ok = false, err = "stream: " .. tostring(info) }
+  else
+    local name = item1.id:gsub("^bgm/", "")
+    local meta = ("return { rate = %d, channels = %d, samples = %d, loop = %s, loopStart = %d }\n"):format(
+      info.rate, info.channels, info.samples, tostring(info.loop), info.loopStart)
+    local okW, werr = job.cache:write("oras/bgm/" .. name .. ".wav", wav)
+    if okW ~= false and not (okW == nil and werr) then okW, werr = job.cache:write("oras/bgm/" .. name .. ".lua", meta) end
+    if okW == false or (okW == nil and werr) then
+      results[1] = { id = item1.id, ok = false, err = "cache write: " .. tostring(werr) }
+    else
+      results[1] = { id = item1.id, ok = true, kind = "stream", count = info.samples }
+    end
+  end
+  return { archive = arg.archive, results = results }
+end
+
+local g, gerr = Garc.open(read, aOff, aLen)
+if not g then error("archive " .. arg.archive .. ": " .. tostring(gerr), 0) end
 
 -- group items by entry/sub so each blob is read and decompressed once
 local groups, order = {}, {}

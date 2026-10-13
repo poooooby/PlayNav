@@ -66,7 +66,21 @@ local function body(game, log)
   if X.import then
     waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120)
   end
-  local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
+  -- the music at each shot: our track, whether it sounds, and the field's music held or not
+  local okAu, Audio = pcall(require, "src.core.game3.audio")
+  local function musicState()
+    local M = TR.session and TR.session.music
+    local v = M and M.voice
+    local playing = v and v.src and v.src:isPlaying()
+    return ("music %s playing %s pos %s held %s | field paused %s stopped %s song %s"):format(
+      tostring(M and M.current), tostring(playing), tostring(v and v.pos), tostring(M and M.holding),
+      tostring(okAu and Audio._bgmPaused), tostring(okAu and Audio.isBgmStopped and Audio.isBgmStopped()),
+      tostring(okAu and Audio._currentSong and Audio._currentSong.id))
+  end
+  local function shot(name)
+    log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING")
+    log("  " .. musicState())
+  end
   local function win(ax, ay)
     local r = X.state().rect
     if not r then return -1, -1 end

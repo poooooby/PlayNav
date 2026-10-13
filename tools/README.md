@@ -117,6 +117,16 @@ The in-game decoders are tested against the same data with
   pack `a/0/2/8` entry 2, the English words in `a/2/1/7` entry 0 sub 2. File 98 of `a/0/7/3` is
   the species names by National Dex number (0 Egg).
 
+- `bcstm.py info <file.bcstm> ...` / `bcstm.py wav <file.bcstm> <out.wav>` reads the game's music
+  streams (`sound/*.dspadpcm.bcstm`, DSP-ADPCM, stereo, intro + loop point) and decodes one to a
+  WAV; the twin of `src/import/bcstm.lua`, which the import job runs (recipe kind `stream`).
+  Super Training's tracks are `bgm_xy_sp_*` (28000 Hz): `menu` (17.4 s, loop from 6.14),
+  `gamestart` (2.6 s, once), `stage` (64.2 s, loop 7.68), `stage_02` (67.8 s, loop 10.75),
+  `clear` (21.6 s, loop 6.14), `gameover` (34.1 s, loop 5.63), plus the jingle
+  `me_xy_sp_stage_open` (32728 Hz). Matched by cross-correlation against a capture of a Lv. 1
+  regimen (r 0.95-1.0): menu on the picker, gamestart with the title, stage 3.0 s later, silence
+  from the last hit, clear with the banner and through the results, menu again on the picker.
+
 ## Pokémon-Amie text and UI (added for 0.3.2)
 
 - The same English archive `a/0/7/3` holds Amie: file 81 the 26 Poké Puff names (tiers x
