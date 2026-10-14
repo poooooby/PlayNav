@@ -5,6 +5,12 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The beaten balloon leaks and bursts with the game's own air: gusts curling off it as it
+  zigzags, then a burst of cloud as it zips away, leaving a trail. The art comes from your card
+  image.
+
 ## [0.2.4] - 2026-10-14 (pre-alpha)
 
 ### Added

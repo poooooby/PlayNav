@@ -140,6 +140,17 @@ The in-game decoders are tested against the same data with
   audio: with the capture's known music subtracted (aligned per half second, +-25 ms) the
   regimen sounds matched at r 0.70-0.99; `data/training_sounds.lua` holds what was found.
 
+- `bch.py list <garc> [entry]` / `bch.py extract <garc> <entry> <dir>`: the textures in 3D model /
+  effect files (BCH 0x21): the main header's fourth (pointer table, count) is the textures; each
+  texture entry holds its GPU command list (offset, words: texture unit registers 0x82 size,
+  0x85 data address relative to the data section, 0x8e PICA format) and its name at +0x1c in
+  the string table. Pixels decode with `bclim.py`'s routines. Twin of `src/import/bch.lua`
+  (`tests/bch_test.lua`). The regimen's 3D scene is `a/1/1/4` (85 BCH: stadium e80-87, shots
+  e24-60 `emd_sp*` / `etxm_*`, barriers e62-67, flags / sky e75, grid e78); no balloon or
+  deflation effect is named anywhere. The battle effects `a/0/3/2` hold the shared smoke family:
+  e240 `etxm_streamline02f` (8 frames of 128x64, the air gusts) and `etxm_circle01m` (soft round
+  mask), e155 `etxm_kumo01m` (cloud shading), e68 `etxm_smoke01m/02m`, e445 `etxm_bombsmoke01`.
+
 ## Pokémon-Amie text and UI (added for 0.3.2)
 
 - The same English archive `a/0/7/3` holds Amie: file 81 the 26 Poké Puff names (tiers x

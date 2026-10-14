@@ -31,6 +31,7 @@ local Darc = arg.modules and arg.modules.darc and compile("darc") or nil
 local Bcstm = arg.modules and arg.modules.bcstm and compile("bcstm") or nil
 local Bcsar = arg.modules and arg.modules.bcsar and compile("bcsar") or nil
 local Seq = arg.modules and arg.modules.seqsynth and compile("seqsynth") or nil
+local Bch = arg.modules and arg.modules.bch and compile("bch") or nil
 
 local importId = arg.importId
 local function read(offset, length)
@@ -169,6 +170,32 @@ for _, key in ipairs(order) do
           if werr then fail(item, "cache write: " .. tostring(werr))
           elseif item.count and n < item.count then fail(item, ("darc holds %d files, recipe says %d"):format(n, item.count))
           else results[#results + 1] = { id = item.id, ok = true, kind = "files", count = n } end
+        end
+        goto continue
+      end
+      if item.kind == "bch" then
+        -- a texture inside a 3D model / effect file (BCH), found by its name; its pixels go the
+        -- same way as a CLIM's (raw RGBA, then a PNG on the main thread)
+        local t, why = nil, "no BCH reader"
+        if Bch then t, why = Bch.texture(blob, item.name) end
+        local img
+        if t and t.format then
+          img, why = Bclim.decodeRaw(t.format, t.w, t.h, blob:sub(t.data + 1), #blob - t.data)
+        elseif t then
+          why = "unknown texture format"
+        end
+        if not img then
+          fail(item, "bch: " .. tostring(why))
+        elseif img.w ~= item.w or img.h ~= item.h then
+          fail(item, ("is %dx%d, recipe says %dx%d"):format(img.w, img.h, item.w, item.h))
+        else
+          local payload = "DSRW" .. u16le(img.w) .. u16le(img.h) .. img.rgba
+          local okW, werr = job.cache:write((arg.outPrefix or "oras/raw/") .. item.id .. ".rgba", payload)
+          if okW == false or (okW == nil and werr) then
+            fail(item, "cache write: " .. tostring(werr))
+          else
+            results[#results + 1] = { id = item.id, ok = true, w = img.w, h = img.h }
+          end
         end
         goto continue
       end

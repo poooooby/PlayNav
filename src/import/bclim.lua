@@ -203,8 +203,13 @@ end
 function M.decode(data)
   local hdr, err = M.header(data)
   if not hdr then return nil, err end
-  local w, h, fmt = hdr.w, hdr.h, hdr.format
-  local tex = data
+  return M.decodeRaw(hdr.format, hdr.w, hdr.h, data, hdr.dataSize)
+end
+
+-- texture data without a CLIM header (a BCH's textures): fmt by name, Morton tiles at
+-- power-of-two sizes, `size` bytes available
+function M.decodeRaw(fmt, w, h, tex, size)
+  local hdr = { dataSize = size or #tex }
   local out = {}
   -- prefill so partially covered tiles leave transparent pixels, not holes
   local zero = char(0)

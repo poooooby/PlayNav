@@ -872,8 +872,19 @@ sfx("SEQ_SE_SP_DECIDE", "se/sp_decide")
 sfx("SEQ_SE_SYS_057", "se/sys_057")
 sfx("SEQ_SE_MESSAGE", "se/message")
 
+-- textures inside 3D effect files (BCH), by name: the balloon's way out (src/training/
+-- arena_draw.lua). Super Training draws these from the battle effects' shared textures; the
+-- capture's air gusts are this flipbook (8 frames of 128x64, a puff curling away), its clouds
+-- a cloud texture under a soft round mask.
+local function bchtex(archive, entry, name, id, w, h)
+  A[#A + 1] = { kind = "bch", archive = archive, entry = entry, sub = 0, name = name, id = id, w = w, h = h }
+end
+bchtex("a/0/3/2", 240, "etxm_streamline02f", "fx/streamline02f", 128, 512)
+bchtex("a/0/3/2", 240, "etxm_circle01m", "fx/circle01m", 64, 64)
+bchtex("a/0/3/2", 155, "etxm_kumo01m", "fx/kumo01m", 128, 128)
+
 return {
-  version = 23,
+  version = 24,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

@@ -800,6 +800,150 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
   end
 
+  -- ------- the game's air (fx/* textures, recipe kind "bch": battle effects' shared textures)
+  -- streamline02f: 8 frames of 128x64, a puff curling away, white on black (ETC1, no alpha);
+  -- circle01m: a soft round mask; kumo01m: cloud shading. Brightness is the alpha (the shader).
+  -- sizes and distances in the balloon's half widths (its sprite's size on screen)
+  D.AIR = {
+    GUST_EVERY = 0.28, GUST_LIFE = 0.42, GUST_DIST = 0.7, GUST_SIZE = 0.38,   -- the leak's gusts
+    BURST_N = 10, BURST_LIFE = 1.2, BURST_SIZE = 1.4,                        -- the burst's clouds
+    TRAIL_EVERY = 0.05, TRAIL_LIFE = 0.9, TRAIL_SIZE = 0.9,                  -- the trail as it zips off
+    ANGLES = { -0.35, 3.6, -1.1, 2.9, 0.2, -2.2, 3.3, -0.7 },                -- gusts' directions, in turn
+  }
+  local AIR_SRC = [[
+    extern Image shade;
+    extern number useShade;
+    vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) {
+      vec4 p = Texel(tex, tc);
+      float a = max(p.r, max(p.g, p.b)) * p.a;
+      vec3 rgb = color.rgb;
+      if (useShade > 0.5) {
+        // a cloud: a dense core under the soft mask, shaded grey by the cloud texture
+        vec4 k = Texel(shade, tc);
+        rgb = color.rgb * mix(0.7, 1.0, max(k.r, max(k.g, k.b)));
+        a = clamp(a * 2.2, 0.0, 1.0);
+      }
+      return vec4(rgb, a * color.a);
+    }
+  ]]
+  local function airShader()
+    if D.airShader == nil then
+      D.airShader = false
+      local G = love and love.graphics
+      if G and G.newShader then
+        local ok, sh = pcall(G.newShader, AIR_SRC)
+        if ok then D.airShader = sh end
+      end
+    end
+    return D.airShader or nil
+  end
+
+  -- one frame of the gust flipbook (8 of 128x64, top to bottom)
+  local function gustQuad(img, f)
+    D.gustQuads = D.gustQuads or {}
+    if not D.gustQuads[f] then
+      D.gustQuads[f] = love.graphics.newQuad(0, f * 64, 128, 64, img:getDimensions())
+    end
+    return D.gustQuads[f]
+  end
+
+  -- the game's air sprites, when the import has them (else the drawn circles stand in)
+  local function airArt()
+    local streak, circle, kumo = art("fx/streamline02f"), art("fx/circle01m"), art("fx/kumo01m")
+    local sh = airShader()
+    if streak and circle and kumo and sh then return streak, circle, kumo, sh end
+    return nil
+  end
+
+  -- the leak: gusts shoot off the balloon's edge, each a puff (the flipbook, curling away) at the
+  -- head of a thin streak trailing back toward the balloon (the capture's first deflation)
+  local function drawGusts(G2, x, y, t, scale, edge)
+    local streak, _, _, sh = airArt()
+    local A = D.AIR
+    local first = math.max(0, math.floor((t - A.GUST_LIFE) / A.GUST_EVERY))
+    for i = first, math.floor(t / A.GUST_EVERY) do
+      local u = (t - i * A.GUST_EVERY) / A.GUST_LIFE
+      if u >= 0 and u < 1 then
+        local ang = A.ANGLES[i % #A.ANGLES + 1]
+        local dx, dy = math.cos(ang), math.sin(ang)
+        local ox, oy = x + dx * edge * 0.85, y + dy * edge * 0.6
+        local dist = A.GUST_DIST * edge * (1 - (1 - u) * (1 - u))
+        local hx, hy = ox + dx * dist, oy + dy * dist
+        local fade = 1 - u
+        -- the streak: a thin line from where it left to the puff, fading along its length
+        G2.setColor(1, 1, 1, 0.7 * fade)
+        G2.setLineWidth(math.max(0.8, edge * 0.03))
+        G2.line(ox + dx * dist * 0.25, oy + dy * dist * 0.25, hx, hy)
+        G2.setLineWidth(1)
+        if streak and sh then
+          local f = math.min(7, math.floor(u * 8))
+          local w = A.GUST_SIZE * edge
+          G2.setShader(sh)
+          sh:send("useShade", 0)
+          G2.setColor(1, 1, 1, 0.95)
+          -- the puff points the way it flies (the flipbook's puffs rise: turn them onto the line)
+          G2.draw(streak, gustQuad(streak, f), hx, hy, ang + math.pi / 2, w / 64, w / 64, 64, 32)
+          G2.setShader()
+        else
+          G2.setColor(1, 1, 1, 0.8 * fade)
+          G2.circle("fill", hx, hy, A.GUST_SIZE * edge * 0.2, 10)
+        end
+      end
+    end
+  end
+
+  -- a cloud: the soft round mask, shaded by the cloud texture
+  local function drawCloud(G2, x, y, px, a, rot)
+    local _, circle, kumo, sh = airArt()
+    if circle and sh then
+      G2.setShader(sh)
+      sh:send("useShade", 1)
+      sh:send("shade", kumo)
+      G2.setColor(1, 1, 1, a)
+      G2.draw(circle, x, y, rot or 0, px / 64, px / 64, 32, 32)
+      G2.setShader()
+    else
+      G2.setColor(1, 1, 1, a * 0.8)
+      G2.circle("fill", x, y, px * 0.4, 16)
+    end
+  end
+
+  -- the burst and the trail: a cluster of clouds where it burst, then clouds left behind on its
+  -- way as it zips off (the capture's second deflation); the trail remembers where it passed
+  local function drawBurst(G2, x, y, t, scale, edge)
+    local A = D.AIR
+    if t < A.BURST_LIFE then
+      local u = t / A.BURST_LIFE
+      -- on its trailing side (it zips off up and to the right): a dense cluster to its left
+      D.burstAt = D.burstAt or { x = x, y = y, edge = edge }
+      local e0 = D.burstAt.edge
+      for i = 1, A.BURST_N do
+        local ang = 2.2 + (i - 1) * 0.22
+        local r = e0 * (0.55 + 0.75 * (1 - (1 - u) ^ 2)) * (0.75 + 0.35 * ((i * 37) % 10) / 10)
+        local px = A.BURST_SIZE * e0 * (0.7 + 0.5 * u) * (0.8 + 0.4 * ((i * 53) % 10) / 10)
+        drawCloud(G2, D.burstAt.x + math.cos(ang) * r, D.burstAt.y + math.sin(ang) * r * 0.8, px,
+          u < 0.55 and 1 or (1 - u) / 0.45, i)
+      end
+    end
+    -- the trail
+    D.trail = D.trail or {}
+    local last = D.trail[#D.trail]
+    if not last or t - last.t >= A.TRAIL_EVERY then
+      D.trail[#D.trail + 1] = { x = x, y = y, t = t, e = edge }
+    end
+    for _, p in ipairs(D.trail) do
+      local u = (t - p.t) / A.TRAIL_LIFE
+      if u < 1 then
+        drawCloud(G2, p.x, p.y, A.TRAIL_SIZE * p.e * (0.6 + 0.6 * u), 0.9 * (1 - u), p.t * 7)
+      end
+    end
+  end
+
+  -- a new way out: forget the last one's burst and trail
+  function D.resetAir()
+    D.trail, D.burstAt = nil, nil
+  end
+
   local function drawTwinkle(G2, x, y, k)
     local a = math.sin(k * math.pi)
     local r = 4 + 16 * a
@@ -856,16 +1000,25 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
           G2.setColor(0, 0, 0, shadowA)
           G2.ellipse("fill", cx + (b.dx or 0), floorY, R * 0.9 * sx, 5 * math.min(1, sx))
         end
+        local halfW = ((sim.shape and sim.shape.halfW) or 1) * R * sx
+        local gameAir = airArt() and (b.leakT or b.burstT)
+        if gameAir and b.burstT then
+          -- the game's burst and its trail, behind the balloon
+          drawBurst(G2, cx + (b.dx or 0), cy + dy, b.burstT, b.puffScale or 1, halfW)
+        end
         G2.push()
         G2.translate(cx + (b.dx or 0), cy + dy)
         G2.scale(sx, sy)
         G2.translate(-cx, -cy)
         drawBot(G2, sim, { noShadow = true, noGoals = b.noGoals })
         G2.pop()
-        if b.puffs then
-          local halfW = ((sim.shape and sim.shape.halfW) or 1) * R * sx
+        if gameAir then
+          -- the leak's gusts come off its surface toward us: in front of it
+          if b.leakT then drawGusts(G2, cx + (b.dx or 0), cy + dy, b.leakT, b.puffScale or 1, halfW) end
+        elseif b.puffs then
           drawPuffs(G2, cx + (b.dx or 0), cy + dy, b.puffs, sim.t + (s.outro and s.outro.t or 0), b.puffScale, halfW)
         end
+        if not b.burstT then D.resetAir() end
       end
     else
       drawBot(G2, sim)

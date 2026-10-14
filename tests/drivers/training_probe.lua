@@ -365,7 +365,8 @@ local function body(game, log)
     log("forceEnd:", TR.session.forceEnd({ clear = true, remaining = sim.remaining }))
   end
   -- the end: the balloon goes, Success!, the fade
-  for _, at in ipairs({ { 1.0, "t07b_outro_wobble" }, { 3.0, "t07c_outro_fly" }, { 5.3, "t07c2_outro_away" }, { 6.4, "t07d_outro_twinkle" },
+  for _, at in ipairs({ { 1.0, "t07b_outro_wobble" }, { 2.0, "t07c0_outro_gusts" }, { 3.0, "t07c_outro_fly" },
+    { 4.9, "t07c1_outro_burst" }, { 5.1, "t07c15_outro_burst2" }, { 5.3, "t07c2_outro_away" }, { 6.4, "t07d_outro_twinkle" },
     { 7.9, "t07e_outro_success" } }) do
     waitUntil(function() local o = TR.session.session.outro; return not o or o.t >= at[1] end, 12)
     shot(at[2])

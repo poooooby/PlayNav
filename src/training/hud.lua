@@ -338,7 +338,11 @@ return function(mod, T, Rules, Sim)
         -- the last goal bursts with the final hit: none ride along; the shadow fades as it rises
         pose.bot = { dx = wob + zig + fly * 60 + away * 40, dy = -fly * 25 - away * 20, scale = scale,
           alpha = t < O.AWAY[2] and 1 or 0, puffs = t >= O.FLY[1] and t < O.AWAY[2] and fly or nil, puffScale = scale,
-          noGoals = true, shadow = 1 - fly }
+          noGoals = true, shadow = 1 - fly,
+          -- the game's air (arena_draw): gusts while it leaks (the zigzag), then the burst as it
+          -- zips away and its trail, lasting past its going a little
+          leakT = (t >= O.FLY[1] and t < O.AWAY[1]) and (t - O.FLY[1]) or nil,
+          burstT = (t >= O.AWAY[1] and t < O.TWINKLE[2]) and (t - O.AWAY[1]) or nil }
         if t >= O.TWINKLE[1] and t < O.TWINKLE[2] then
           pose.twinkle = { k = (t - O.TWINKLE[1]) / (O.TWINKLE[2] - O.TWINKLE[1]), dx = endX, dy = endY }
         end
