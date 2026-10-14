@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-14 (pre-alpha)
+
 ### Added
 
 - Super Training plays the game's own sound effects, unpacked from your card image: the
@@ -21,9 +23,6 @@ All notable changes to this mod are documented here. The format follows
   sound that sags back a little before the next.
 - Super Training's music and sound effects are balanced as the game balances them: the music
   sits lower, so the effects come through.
-
-### Changed
-
 - Super Training's music follows the game's sound settings like the game's own music: it is
   off when the music volume is 0 or the audio mode is EXT. ONLY, follows the music volume and
   MUSIC FILTER, dips under cries, and pauses whenever the game's sound does.
