@@ -122,6 +122,7 @@ on a touch screen below the game or on a device's second display.
     you won, with the coach's words a tap at a time.
   - **Music:** the regimen picker, every regimen and its results play Super Training's own
     music from your game, in place of the overworld's, which picks up again when you go back.
+    It follows the game's sound settings: music volume, audio mode and music filter.
 - 🏆 **30 regimens:** 18 regular courses over three levels, each with the game's own name,
   description, Balloon Bot and score. Tap one to see its card on the top screen. Clear one
   within the target time for an **Award**.

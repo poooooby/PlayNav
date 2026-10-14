@@ -5,6 +5,12 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Super Training's music follows the game's sound settings like the game's own music: it is
+  off when the music volume is 0 or the audio mode is EXT. ONLY, follows the music volume and
+  MUSIC FILTER, dips under cries, and pauses whenever the game's sound does.
+
 ## [0.2.3] - 2026-10-13 (pre-alpha)
 
 ### Changed

@@ -72,6 +72,11 @@ local function body(game, log)
   end
   -- the music at each shot: our track, whether it sounds, and the field's music held or not
   local okAu, Audio = pcall(require, "src.core.game3.audio")
+  -- PROBE_MUSIC_VOL=<0-7> sets the engine's music volume for this run (options.lua untouched)
+  if okAu and os.getenv("PROBE_MUSIC_VOL") then
+    Audio._bgmVolume = (tonumber(os.getenv("PROBE_MUSIC_VOL")) or 7) / 7
+    log("music volume set to", Audio._bgmVolume)
+  end
   local function musicState()
     local M = TR.session and TR.session.music
     local v = M and M.voice

@@ -39,12 +39,49 @@ return function(mod, base)
     return fn ~= nil and pcall(fn) == true
   end
 
-  -- the music volume the player chose (the engine's options), 0..1
+  -- The game's audio settings, read every frame from the engine's Gen 3 audio (the same state
+  -- its own music and effects use), so a change in the options menu applies at once.
+  -- Music on: music volume above 0 and the audio mode not EXT. ONLY (the external player in
+  -- place of the game's music).
+  function H.musicOn()
+    local A = H.Audio
+    if not A then return true end
+    if A._audioMode == "external_only" then return false end
+    return (tonumber(A._bgmVolume) or 1) > 0
+  end
+
+  -- the music's gain, 0..1: the music volume, held down while a cry or a loud effect plays
+  -- (the engine's duck) and halved under the help screen, as the game's own music is
   function H.musicGain()
     local A = H.Audio
     local v = A and tonumber(A._bgmVolume) or 1
-    if A and A._helpActive then v = v * 0.5 end
+    if A then
+      v = v * math.min(tonumber(A._duck) or 1, tonumber(A._seDuck) or 1)
+      if A._helpActive then v = v * 0.5 end
+    end
     return math.max(0, math.min(1, v))
+  end
+
+  -- the music filter (options MUSIC FILTER 1-3): the low-pass high gain the engine gives its
+  -- own music, or nil when off
+  H.MUSIC_FILTER = { 0.4, 0.16, 0.064 }
+  function H.musicFilter()
+    local A = H.Audio
+    local level = A and tonumber(A._filterLevel)
+    return level and H.MUSIC_FILTER[level] or nil
+  end
+
+  -- the effects volume, 0..1 (for sounds PlayNav plays itself; host.playSe goes through the
+  -- engine, which applies it already)
+  function H.sfxGain()
+    local A = H.Audio
+    return math.max(0, math.min(1, A and tonumber(A._sfxVolume) or 1))
+  end
+
+  -- the engine has stopped its audio (the window lost focus, the app was suspended)
+  function H.audioSuspended()
+    local A = H.Audio
+    return A ~= nil and A._suspended == true
   end
 
   function H.layerOpen()

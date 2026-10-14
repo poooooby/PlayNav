@@ -813,6 +813,52 @@ do
     T.check(pcall(M.update, 0.1), "the update runs without the music")
     T.check(not M.holding, "...and does not hold the field's music")
     S.assets = assets0
+
+    -- the game's audio settings drive it (a stand-in for the engine's Gen 3 audio state)
+    local H = X.training.host
+    local realAudio = H.Audio
+    local fakeAudio = { _bgmVolume = 1, _audioMode = "both" }
+    X._test.setRefreshHost({ Audio = fakeAudio })
+    T.check(H.musicOn(), "music on at volume 7, BOTH")
+    fakeAudio._bgmVolume = 0
+    T.check(not H.musicOn(), "music volume 0: off")
+    fakeAudio._bgmVolume, fakeAudio._audioMode = 1, "external_only"
+    T.check(not H.musicOn(), "EXT. ONLY: off (the external player takes the music)")
+    fakeAudio._audioMode = "game_only"
+    T.check(H.musicOn(), "GAME ONLY: on")
+    fakeAudio._bgmVolume, fakeAudio._duck, fakeAudio._helpActive = 4 / 7, 0.5, true
+    T.check(math.abs(H.musicGain() - 4 / 7 * 0.5 * 0.5) < 1e-9, "the gain: volume x the cry duck x the help screen's half")
+    fakeAudio._duck, fakeAudio._helpActive = nil, nil
+    fakeAudio._filterLevel = 2
+    T.eq(H.musicFilter(), H.MUSIC_FILTER[2], "the music filter follows the engine's level")
+    fakeAudio._filterLevel = nil
+    T.eq(H.musicFilter(), nil, "...and none when it is off")
+    fakeAudio._sfxVolume = 3 / 7
+    T.check(math.abs(H.sfxGain() - 3 / 7) < 1e-9, "the effects volume for PlayNav's own sounds")
+    -- with a track in the cache, music off picks nothing; on again, the picker's track comes back
+    S.assets = { music = function() return { rate = 28000, channels = 2, samples = 10, loop = true, loopStart = 0 } end }
+    local sess0 = S.session
+    S.session = { layered = true, mode = "courses" }
+    fakeAudio._bgmVolume = 0
+    M.current = "x"
+    M.update(0.1)
+    T.eq(M.current, nil, "music off: nothing plays on the picker")
+    fakeAudio._bgmVolume = 1
+    M.update(0.1)
+    T.eq(M.current, "bgm/sp_menu", "music back on: sp_menu again")
+    fakeAudio._suspended = true
+    M.current = "y"
+    M.update(0.1)
+    T.eq(M.current, "y", "the engine's audio suspended: ours waits (nothing changes)")
+    T.check(M.paused, "...paused")
+    fakeAudio._suspended = nil
+    M.update(0.1)
+    T.check(not M.paused and M.current == "bgm/sp_menu", "resumed with the engine")
+    S.session = nil
+    M.update(0.1)
+    S.session = sess0
+    S.assets = assets0
+    X._test.setRefreshHost({ Audio = realAudio })
   end
 end
 

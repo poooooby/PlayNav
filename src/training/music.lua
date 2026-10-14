@@ -12,6 +12,9 @@
 --   back to the picker    the result's music fades with the screens, sp_menu again
 --   back home             the picker's music fades with its shutters; the field's carries on
 -- A secret regimen plays sp_stage_02 (not heard in a capture).
+-- The game's audio settings drive it like the game's own music: the music volume (0 or EXT.
+-- ONLY = off), the duck under cries and loud effects, the music filter, and a pause while the
+-- engine's audio is suspended (host.musicOn / musicGain / musicFilter / audioSuspended).
 --
 -- M = makeMusic(mod, T, host) ; M.wanted(s) -> id, loop, fade (pure) ; M.update(dt)
 
@@ -130,6 +133,18 @@ return function(mod, T, host)
     if v and v.src then pcall(v.src.stop, v.src) end
   end
 
+  -- the game's settings on one voice: its volume, and the music filter (applied when it changes)
+  local function applySettings(v, gain, filter)
+    pcall(v.src.setVolume, v.src, gain * v.gain)
+    if v.filter ~= (filter or false) and v.src.setFilter then
+      v.filter = filter or false
+      pcall(function()
+        if filter then v.src:setFilter({ type = "lowpass", volume = 1, highgain = filter })
+        else v.src:setFilter() end
+      end)
+    end
+  end
+
   M.voice, M.fading, M.holding = nil, {}, false
 
   function M.stopAll()
@@ -156,7 +171,20 @@ return function(mod, T, host)
       if M.voice or #M.fading > 0 then M.stopAll() end
       return
     end
+    -- the engine has stopped its audio (focus lost, suspended): ours waits with it
+    if host.audioSuspended and host.audioSuspended() then
+      if not M.paused then
+        M.paused = true
+        if M.voice then pcall(M.voice.src.pause, M.voice.src) end
+        for _, f in ipairs(M.fading) do pcall(f.src.pause, f.src) end
+      end
+      return
+    end
+    M.paused = false
     local id, loop, fade = M.wanted(s)
+    -- music off in the game's settings (volume 0, or EXT. ONLY): silence; it starts afresh
+    -- when turned back on
+    if host.musicOn and not host.musicOn() then id, fade = nil, 0 end
     if id ~= M.current then
       M.current = id
       if M.voice then
@@ -170,6 +198,7 @@ return function(mod, T, host)
       M.voice = id and startVoice(id, loop) or nil
     end
     local gain = host.musicGain and host.musicGain() or 1
+    local filter = host.musicFilter and host.musicFilter() or nil
     for i = #M.fading, 1, -1 do
       local f = M.fading[i]
       f.fade.t = f.fade.t + dt
@@ -179,13 +208,13 @@ return function(mod, T, host)
         table.remove(M.fading, i)
       else
         f.gain = f.fade.from * k
-        pcall(f.src.setVolume, f.src, gain * f.gain)
+        applySettings(f, gain, filter)
         pump(f)
       end
     end
     local v = M.voice
     if v then
-      pcall(v.src.setVolume, v.src, gain * v.gain)
+      applySettings(v, gain, filter)
       pump(v)
     end
   end
