@@ -88,6 +88,10 @@ local function decodeBlock(b, p, size, n, ch, out)
   return i
 end
 
+-- shared with the sound-effect renderer (src/import/seqsynth.lua): one channel's DSP-ADPCM
+-- frames at byte p (0-based) into out[1..n]; ch = { coefs[0..15], hist1, hist2 } is advanced
+M.dspBlock = decodeBlock
+
 local function le16(v) if v < 0 then v = v + 65536 end return v % 256, floor(v / 256) end
 local function le32(v) return string.char(v % 256, floor(v / 256) % 256, floor(v / 65536) % 256, floor(v / 16777216) % 256) end
 

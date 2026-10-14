@@ -750,7 +750,8 @@ return function(N)
       self.bot.shake = N.BOT.SHAKE_S or 0
     end
     self.stats.hits = self.stats.hits + 1
-    emit(self, "goal_hit", { points = pts, goal = goal.kind, anchor = goal.anchor, score = self.score })
+    emit(self, "goal_hit", { points = pts, goal = goal.kind, anchor = goal.anchor, score = self.score,
+      stage = shot and shot.stage, energy = shot and shot.energy })
   end
 
   function Sim:updateShots(step)

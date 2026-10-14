@@ -862,4 +862,80 @@ do
   end
 end
 
+-- ------- the game's own sound effects (src/sfx.lua; data/training_sounds.lua)
+
+do
+  T.check(S.sounds and S.sounds.pump == "se/sp_036", "the sound map is loaded (the pump is SP_036)")
+  local wanted = { "start_course", "pump", "bot_name", "play", "press", "charging", "charged_shot", "charged_hit",
+    "clear", "result_next", "result_jingle", "deflate_hiss", "deflate_burst", "star", "transition", "select_course",
+    "shot", "goal_hit", "goals_spawned", "attack_warn", "attack_launch", "ball_flight" }
+  for _, ev in ipairs(wanted) do
+    local v = S.sounds[ev]
+    local first = type(v) == "table" and v[1] or v
+    T.check(type(first) == "string" and first:match("^se/") ~= nil, "a game effect for " .. ev)
+    T.check(S.sounds.EVIDENCE and S.sounds.EVIDENCE[ev] ~= nil, "...with its evidence: " .. ev)
+  end
+  -- not in the cache (headless): the stand-in plays
+  local n0 = #sounds
+  local sfx0 = S.sfx
+  S.sfx = { play = function() return false end }
+  S.playSe("start_course", "SE_SELECT")
+  T.eq(sounds[#sounds], "SE_SELECT", "no rendered effect: the Emerald stand-in")
+  T.eq(#sounds, n0 + 1, "...once")
+  -- in the cache: the game's effect, no stand-in
+  local played = {}
+  S.sfx = { play = function(id) played[#played + 1] = id; return { stop = function() played.stopped = id end } end }
+  S.playSe("start_course", "SE_SELECT")
+  T.eq(played[#played - 1], "se/sp_decide", "the accept: the game's DECIDE...")
+  T.eq(played[#played], "se/sp_031", "...with SP_031 layered on it")
+  T.eq(#sounds, n0 + 1, "...and not the stand-in")
+  -- the press and the charging hum follow the sim's charge
+  local s = { }
+  local sim = { phase = "play", player = { charging = true } }
+  S.chargeSound(s, sim)
+  T.eq(played[#played - 1], "se/sp_019", "a press: SP_019")
+  T.eq(played[#played], "se/sp_024", "...and the hum, SP_024")
+  local n1 = #played
+  S.chargeSound(s, sim)
+  T.eq(#played, n1, "held: nothing new")
+  sim.player.charging = false
+  S.chargeSound(s, sim)
+  T.eq(played.stopped, "se/sp_024", "let go: the hum stops")
+  S.sfx = sfx0
+
+  -- punching the bag is silent in the game: no stand-in either
+  do
+    local hl = S.HIT_LOCK
+    S.HIT_LOCK = 0
+    local n2 = #sounds
+    S.hitBag("tap")
+    T.eq(#sounds, n2, "a punch makes no sound (as the game's)")
+    S.HIT_LOCK = hl
+  end
+
+  -- the player (src/sfx.lua): the effects volume, and silence at 0 or while suspended
+  local f = io.open("mods/play_nav/src/sfx.lua", "rb")
+  local makeSfx = assert(load(f:read("*a"), "@sfx.lua"))()
+  f:close()
+  local made, vol = 0, nil
+  local loveSaved = love
+  love = { audio = { newSource = function()
+    made = made + 1
+    return { setVolume = function(_, v) vol = v end, play = function() end, stop = function() end,
+      isPlaying = function() return true end }
+  end } }
+  local hostF = { gain = 1, suspended = false }
+  local Sfx = makeSfx({ log = { warn = function() end } }, {
+    assets = { sound = function(id) return id == "se/sp_001" and {} or nil end },
+    host = { sfxGain = function() return hostF.gain end, audioSuspended = function() return hostF.suspended end } })
+  T.eq(Sfx.play("se/nope"), false, "an effect not in the cache: false (the caller's stand-in plays)")
+  hostF.gain = 4 / 7
+  T.check(Sfx.play("se/sp_001") and made == 1 and math.abs(vol - 4 / 7) < 1e-9, "plays at the effects volume")
+  hostF.gain = 0
+  T.check(Sfx.play("se/sp_001") and made == 1, "effects volume 0: silent (no stand-in either)")
+  hostF.gain, hostF.suspended = 1, true
+  T.check(Sfx.play("se/sp_001") and made == 1, "the game's sound suspended: silent")
+  love = loveSaved
+end
+
 T.finish()

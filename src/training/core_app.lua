@@ -159,7 +159,9 @@ return function(mod, Pointer, T, Rules, Radar, host)
       return
     end
     if inRect(x, y, REGIMENS) then
-      -- the bounce, then the shutters close and the picker comes up (T.goTo's timing)
+      -- the bounce, then the shutters close and the picker comes up (T.goTo's timing), to the
+      -- game's own sound for it
+      if T.playSe then T.playSe("transition") end
       if T.goTo then T.goTo("courses") elseif T.enterCourses then T.enterCourses() end
       return
     end

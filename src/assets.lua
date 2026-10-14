@@ -21,7 +21,7 @@ return function(mod)
     local chunk = load(src, "=oras/manifest.lua")
     local ok, m = pcall(chunk)
     A.manifest = (ok and type(m) == "table") and m or nil
-    A.images, A.missing, A.texts, A.tracks = {}, {}, {}, {}
+    A.images, A.missing, A.texts, A.tracks, A.sounds = {}, {}, {}, {}, {}
     A.loadedAt = os.time()
     return A.manifest
   end
@@ -119,6 +119,26 @@ return function(mod)
     end
     A.tracks[id] = track
     return track or nil
+  end
+
+  -- a sound effect the extract rendered (recipe kind "sfx", id "se/<name>"): love SoundData or nil
+  A.sounds = {}
+  function A.sound(id)
+    if A.sounds[id] ~= nil then return A.sounds[id] or nil end
+    local sd = false
+    local m = A.ready() and A.manifest.assets or nil
+    if m and m[id] and love and love.sound and love.filesystem then
+      local name = id:gsub("^se/", "")
+      local wav = cacheRead("oras/se/" .. name .. ".wav")
+      if wav then
+        local ok, res = pcall(function()
+          return love.sound.newSoundData(love.filesystem.newFileData(wav, name .. ".wav"))
+        end)
+        if ok and res then sd = res else mod.log:warn("sound %s failed to load: %s", id, tostring(res)) end
+      end
+    end
+    A.sounds[id] = sd
+    return sd or nil
   end
 
   -- draw helper: image centred at (x, y) scaled by s, or nothing (returns false)

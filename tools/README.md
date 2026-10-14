@@ -127,6 +127,19 @@ The in-game decoders are tested against the same data with
   regimen (r 0.95-1.0): menu on the picker, gamestart with the title, stage 3.0 s later, silence
   from the last hit, clear with the banner and through the results, menu again on the picker.
 
+- `bcsar.py list|render|renderall|match` reads the sound archive (`sound/sango_sound.bcsar`: STRG
+  names -> item ids, INFO tables sounds 0x2100 / banks 0x2101 / wave archives 0x2103 / files
+  0x2106, FILE) and renders sound effects: a CSEQ sequence (notes, waits, note-wait `c7`, pan /
+  volume / pitch bend + range / vibrato `ca`-`cd` / ADSR `d0`-`d3` / hold `b1`, tracks `fe` +
+  `88`, random `a0`, sweeps `a3`, loops `d4`/`fc`) on its CBNK (instrument -> direct / range /
+  index tables -> velocity region: wave, original key, volume, pan, pitch float, ADSR) with the
+  CWARs' DSP-ADPCM CWAVs, at 32728 Hz. Twin of `src/import/bcsar.lua` + `seqsynth.lua` (sample
+  for sample, `tests/bcsar_test.lua`). Super Training is `SEQ_SE_SP_001`..`051` + `_DECIDE`
+  (each its own bank; 68 waves, all DSP-ADPCM); Amie is `SEQ_SE_KW_*` (104) and the
+  `GROUP_KW_GAME1..3` minigames. `match` cross-correlates every render against a capture's
+  audio: with the capture's known music subtracted (aligned per half second, +-25 ms) the
+  regimen sounds matched at r 0.70-0.99; `data/training_sounds.lua` holds what was found.
+
 ## Pokémon-Amie text and UI (added for 0.3.2)
 
 - The same English archive `a/0/7/3` holds Amie: file 81 the 26 Poké Puff names (tiers x

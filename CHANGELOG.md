@@ -5,6 +5,23 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Super Training plays the game's own sound effects, unpacked from your card image: the
+  Regimens button, picking and accepting a course, the balloon's five pumps, its name, Start!,
+  your shots (tapped and charged) and their hits, new goals, the balloon winding up and
+  throwing and its balls in flight, the clearing hit, the balloon leaking air and bursting
+  off, the star as it vanishes, and the results' lines, Award and rewards. Sounds the game's
+  own effects don't cover yet keep their old ones. They follow the game's effects volume.
+
+### Changed
+
+- Punching the bag is silent, as it is in the game.
+- The balloon is pumped up the way the game does it: five pumps, each a quick swell on its
+  sound that sags back a little before the next.
+- Super Training's music and sound effects are balanced as the game balances them: the music
+  sits lower, so the effects come through.
+
 ### Changed
 
 - Super Training's music follows the game's sound settings like the game's own music: it is

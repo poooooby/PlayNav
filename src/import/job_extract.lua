@@ -29,6 +29,8 @@ local Bclim = compile("bclim")
 local Text = arg.modules and arg.modules.gen6text and compile("gen6text") or nil
 local Darc = arg.modules and arg.modules.darc and compile("darc") or nil
 local Bcstm = arg.modules and arg.modules.bcstm and compile("bcstm") or nil
+local Bcsar = arg.modules and arg.modules.bcsar and compile("bcsar") or nil
+local Seq = arg.modules and arg.modules.seqsynth and compile("seqsynth") or nil
 
 local importId = arg.importId
 local function read(offset, length)
@@ -63,6 +65,37 @@ if item1 and item1.kind == "stream" then
       results[1] = { id = item1.id, ok = false, err = "cache write: " .. tostring(werr) }
     else
       results[1] = { id = item1.id, ok = true, kind = "stream", count = info.samples }
+    end
+  end
+  return { archive = arg.archive, results = results }
+end
+
+-- the game's sound effects (recipe kind "sfx"): each a sequence rendered on its bank's
+-- instruments into oras/se/<name>.wav; the archive is read in ranges, never whole
+if item1 and item1.kind == "sfx" then
+  local results = {}
+  local ar, why = nil, "no sound-archive reader"
+  if Bcsar and Seq and Bcstm then ar, why = Bcsar.open(read, aOff, aLen) end
+  for _, item in ipairs(arg.items) do
+    if not ar then
+      results[#results + 1] = { id = item.id, ok = false, err = "sound archive: " .. tostring(why) }
+    else
+      local ok, res = pcall(function()
+        local snd = assert(ar:sound(item.name))
+        local L, R, n = Seq.render(snd, ar, { dsp = Bcstm.dspBlock })
+        return { wav = Seq.wav(L, R, n), n = n }
+      end)
+      if not ok then
+        results[#results + 1] = { id = item.id, ok = false, err = "render: " .. tostring(res) }
+      else
+        local name = item.id:gsub("^se/", "")
+        local okW, werr = job.cache:write("oras/se/" .. name .. ".wav", res.wav)
+        if okW == false or (okW == nil and werr) then
+          results[#results + 1] = { id = item.id, ok = false, err = "cache write: " .. tostring(werr) }
+        else
+          results[#results + 1] = { id = item.id, ok = true, kind = "sfx", count = res.n }
+        end
+      end
     end
   end
   return { archive = arg.archive, results = results }

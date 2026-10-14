@@ -49,12 +49,14 @@ return function(mod, T, Rules, Radar)
       end
       local band = r.newBest and (line(139) or "New best time!") or (r.medal and (line(137) or "You've achieved the target time!"))
         or (line(136) or "Don't give up! Try to reach that target time!")
-      add({ show = "time", band = band, text = T.praise(r, true) or r.praise })
+      -- an Award or a new best time: the game's jingle with it
+      add({ show = "time", band = band, text = T.praise(r, true) or r.praise, jingle = (r.newBest or r.medal) and true or nil })
     else
       add({ text = line(127) or T.resultText("failed") })
     end
     if r.bag or r.item then
-      add({ show = "bags", text = line(165) or "You faced the challenge of a Super-Training Regimen and got a reward in return!" })
+      add({ show = "bags", jingle = true,
+        text = line(165) or "You faced the challenge of a Super-Training Regimen and got a reward in return!" })
       if r.bag then
         if r.bagKept == false then
           add({ show = "bags", text = line(163) or T.resultText("rackFull") })
@@ -152,6 +154,8 @@ return function(mod, T, Rules, Radar)
   function R.enterPage()
     local p = R.list[R.page]
     R.pageT = 0
+    -- an Award / new best time, a reward received: the game's jingle (data/training_sounds.lua)
+    if p and p.jingle and T.playSe then T.playSe("result_jingle") end
     local B = R.bottom
     if not (p and B) then return end
     if p.show ~= R.shown then
@@ -174,6 +178,8 @@ return function(mod, T, Rules, Radar)
       if T.goTo then T.goTo("courses") elseif T.leaveResult then T.leaveResult() end
       return true
     end
+    -- a tap on: the game's continue sound
+    if T.playSe then T.playSe("result_next") end
     R.page = R.page + 1
     R.enterPage()
     return true

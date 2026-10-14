@@ -317,6 +317,26 @@ return function(mod, deps)
     onChange()
   end
   T.setMode = setMode
+
+  -- the game's own effect for `event` (data/training_sounds.lua, rendered by the import), else
+  -- the Emerald stand-in; returns the effect's handle (handle:stop()) when the game's played
+  function T.playSe(event, standIn, opts)
+    local id = event and T.sounds and T.sounds[event]
+    if type(id) == "table" and T.sfx then
+      -- several layered: all of them (the first's handle comes back)
+      local first
+      for _, one in ipairs(id) do
+        local h = T.sfx.play(one, opts)
+        first = first or h
+      end
+      if first then return first end
+    elseif id and T.sfx then
+      local h = T.sfx.play(id, opts)
+      if h then return h end
+    end
+    if standIn then host.playSe(standIn) end
+    return nil
+  end
   T.wall = wall
   T.onChange = onChange
 
@@ -670,7 +690,7 @@ return function(mod, deps)
       return false, "no_bag"
     end
     s.anim.hit = 0.25
-    host.playSe("SE_BALL_BOUNCE_1")
+    -- (no sound: the game's punches are silent, Wooble's second capture)
     punch(s)
     Store.save()
     onChange()
@@ -681,7 +701,6 @@ return function(mod, deps)
     local s = T.session
     if not s then return false end
     s.anim.hit = 0.25
-    host.playSe("SE_BALL_BOUNCE_1")
     local id = blankBagPunch(s, "tap")
     Store.save()
     onChange()
@@ -1035,7 +1054,7 @@ return function(mod, deps)
       if t == T.session and t.anim then
         t.anim.statUp = nil
         t.anim.hit = 0.25
-        if rec.bag then host.playSe("SE_BALL_BOUNCE_1") end
+        -- (silent, as the game's punches are)
       end
       if rec.bag then punch(t) else blankBagPunch(t, "auto") end
       if rec.resting then break end

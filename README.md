@@ -47,7 +47,7 @@ on a touch screen below the game or on a device's second display.
   for you.
 - 🏋️ **Super Training:** Raise your Pokémon's EVs with training bags and shooting regimens.
 - 🖼️ **The real 3DS look and sound, from your own game:** Give PlayNav your own Alpha Sapphire
-  card image and it uses that game's art, music and English text throughout. Without it, simple drawn shapes and
+  card image and it uses that game's art, music, sound effects and English text throughout. Without it, simple drawn shapes and
   PlayNav's own wording stand in.
 - 🔍 **Sharp at any size:** Both screens are drawn at your display's full resolution. The 3DS
   art stays smooth at any size, Pokémon sprites keep their square pixels, and text stays crisp.
@@ -123,6 +123,9 @@ on a touch screen below the game or on a device's second display.
   - **Music:** the regimen picker, every regimen and its results play Super Training's own
     music from your game, in place of the overworld's, which picks up again when you go back.
     It follows the game's sound settings: music volume, audio mode and music filter.
+  - **Sound effects:** the regimens play the game's own sounds from your card image, at the
+    game's effects volume: from the Regimens button and the balloon's pumps, through every shot,
+    hit and attack, to the balloon zipping off as a star and the results.
 - 🏆 **30 regimens:** 18 regular courses over three levels, each with the game's own name,
   description, Balloon Bot and score. Tap one to see its card on the top screen. Clear one
   within the target time for an **Award**.
@@ -170,7 +173,7 @@ Open **OPTIONS → MODS → PlayNav**.
    | **MD5** | `0563f9dee1b95de32d579e40c20e2bfc` |
 
    The launcher checks it and keeps a private copy. On the next start PlayNav unpacks the art,
-   music and text in a few seconds, then tells you the copy can be removed under Imported files.
+   music, sound effects and text in a few seconds, then tells you the copy can be removed under Imported files.
 
 ## 🔗 Works With
 

@@ -172,7 +172,7 @@ return function(mod, Pointer, T, Rules)
       T.say(why == "not_fully_trained" and (T.gameLine("training_courses", 168) or "Only a Fully Trained POKeMON may enter.")
         or T.resultText("locked"), 3)
     end
-    if T.playSe then T.playSe("SE_SELECT") end
+    if T.playSe then T.playSe("select_course", "SE_SELECT") end
   end
 
   function app:pointer(ev, rec)

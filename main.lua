@@ -327,6 +327,20 @@ return function(mod)
       if Training and Training.arenaDraw then Training.arenaDraw.assets = Assets end
       if Training then Training.assets = Assets end
       if Amie then Amie.assets = Assets end
+      -- the game's own sound effects (rendered by the import), shared as mod.sfx
+      local makeSfx = loadSibling(mod, "src/sfx.lua")
+      if makeSfx then
+        local okS, sfx = pcall(makeSfx, mod, { assets = Assets, host = trainHost })
+        if okS and type(sfx) == "table" then
+          mod.sfx = sfx
+          if Training then
+            Training.sfx = sfx
+            Training.sounds = loadSibling(mod, "data/training_sounds.lua") or {}
+          end
+        else
+          mod.log:warn("sound effects failed to build: %s", tostring(sfx))
+        end
+      end
       -- the game's own screens (layouts and clips the extract copies): shared as mod.lyt
       local LytFiles = loadSibling(mod, "src/lytfile.lua")
       local LytPlayer = loadSibling(mod, "src/lytplayer.lua")

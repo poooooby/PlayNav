@@ -23,10 +23,16 @@ return function(mod, T, Rules, Sim)
   local H = {}
   local FPS = 30
 
-  -- PUMPS: the balloon lies flat on the grass and is blown up in three pumps (each swells it
-  -- sideways, then it settles a little); RISE: full, it floats up to its place
-  H.INTRO = { PUMPS = { 2.7, 4.9 }, RISE = { 4.9, 5.7 }, BOT_NAME = { 7.1, 8.1 }, PLAYER_NAME = { 8.5, 9.9 },
-    HUD_IN = 10.1, START = 10.5 }
+  -- PUMP_AT: the balloon lies flat on the grass and is blown up in five pumps, each with the
+  -- game's pump sound (onsets measured in the capture's audio, data/training_sounds.lua), each
+  -- swelling it sideways before it settles; PUMPS spans them; RISE: full, it floats up to its
+  -- place. BOT_NAME_SE: the name's sound, as it slides in.
+  -- PUMP_PEAK / PUMP_REST: its size (of full) at each pump's peak and where it sags to after,
+  -- measured from the capture's frames (pumps 3-5; 1-2 scaled down to match)
+  H.INTRO = { PUMP_AT = { 3.05, 3.69, 4.52, 5.36, 6.19 }, PUMP_PEAK = { 0.32, 0.46, 0.67, 0.89, 1.06 },
+    PUMP_REST = { 0.24, 0.34, 0.45, 0.73, 0.9 }, PUMP_SWELL_S = 0.08, PUMP_SAG_S = 0.25,
+    PUMPS = { 3.05, 6.6 }, RISE = { 6.6, 7.0 },
+    BOT_NAME = { 7.1, 8.1 }, BOT_NAME_SE = 7.50, PLAYER_NAME = { 8.5, 9.9 }, HUD_IN = 10.1, START = 10.5 }
   H.INTRO_S = H.INTRO.START + 41 / FPS
   H.OUTRO = { HUD_OUT = 0.3, WOBBLE = { 0.5, 1.5 }, FLY = { 1.5, 4.8 }, AWAY = { 4.8, 6.0 }, TWINKLE = { 6.0, 6.8 }, BANNER = 7.5,
     FADE = { 9.0, 9.5 }, END = 9.6 }
@@ -146,6 +152,10 @@ return function(mod, T, Rules, Sim)
 
   local function introCues(P, sim, s, t)
     local I = H.INTRO
+    for k, at in ipairs(I.PUMP_AT) do
+      cue("pump" .. k, at, t, function() if T.playSe then T.playSe("pump") end end)
+    end
+    cue("bot_name_se", I.BOT_NAME_SE, t, function() if T.playSe then T.playSe("bot_name") end end)
     cue("bot_name", I.BOT_NAME[1], t, function()
       P:setText("1q", balloonName(sim))
       P:play("enemy_name_on")
@@ -173,6 +183,17 @@ return function(mod, T, Rules, Sim)
       P:set("13", "visible", false)
       P:set("58", "visible", false)
     end)
+    -- the exit's sounds on our own animation's phases: the leak while it zigzags off, the
+    -- burst as it zips away, the twinkle as it vanishes (data/training_sounds.lua)
+    if o.outcome and o.outcome.clear and T.playSe then
+      cue("hiss", O.FLY[1], t, function() H.hiss = T.playSe("deflate_hiss") end)
+      cue("burst", O.AWAY[1], t, function()
+        if type(H.hiss) == "table" then H.hiss.stop() end
+        H.hiss = nil
+        T.playSe("deflate_burst")
+      end)
+      cue("star", O.TWINKLE[1], t, function() T.playSe("star") end)
+    end
     cue("banner", O.BANNER, t, function()
       if o.outcome and o.outcome.clear then P:play("game_clear") else P:play("ohdear") end
     end)
@@ -264,20 +285,32 @@ return function(mod, T, Rules, Sim)
     local pose = {}
     if sim.phase == "countdown" then
       local I, t = H.INTRO, sim.t
-      -- three pumps: each from one size to the next with a sideways swell, then a settle
-      local LEVELS = { 0.18, 0.5, 0.78, 1.0 }
-      local pumps = #LEVELS - 1
-      local span = (I.PUMPS[2] - I.PUMPS[1]) / pumps
-      local u = (t - I.PUMPS[1]) / span
-      local i = math.max(0, math.min(pumps - 1, math.floor(u)))
-      local f = math.max(0, math.min(1, u - i))
-      local from, to = LEVELS[i + 1], LEVELS[i + 2]
-      local blow = f < 0.6 and smooth(0, 0.6, f) or 1
-      local settle = f >= 0.6 and math.sin((f - 0.6) / 0.4 * math.pi) * 0.04 or 0
-      local size = from + (to - from) * blow - settle
-      if t >= I.PUMPS[2] then size = 1 end
+      -- five pumps, as the capture shows them (the balloon's size measured frame by frame):
+      -- at each pump's sound it swells fast to PUMP_PEAK, a little wider than tall, in
+      -- PUMP_SWELL_S, then sags back toward PUMP_REST until the next pump; after the last it
+      -- fills out to full for the rise
+      local at, peak, rest = I.PUMP_AT, I.PUMP_PEAK, I.PUMP_REST
+      local i = 0
+      for k = #at, 1, -1 do if t >= at[k] then i = k; break end end
+      local size, swell = rest[1] * 0.6, 0
+      if i > 0 then
+        local dt = t - at[i]
+        local before = i > 1 and rest[i - 1] or rest[1] * 0.6
+        if dt < I.PUMP_SWELL_S then
+          local k = smooth(0, I.PUMP_SWELL_S, dt)
+          size = before + (peak[i] - before) * k
+          swell = math.sin(k * math.pi * 0.5) * 0.12
+        else
+          local k = 1 - math.exp(-(dt - I.PUMP_SWELL_S) / I.PUMP_SAG_S)
+          size = peak[i] + (rest[i] - peak[i]) * k
+          swell = 0.12 * (1 - k)
+        end
+        if i == #at then
+          -- the last: fill out to full by the rise
+          size = size + (1 - size) * smooth(at[i] + 0.3, I.RISE[1], t)
+        end
+      end
       local progress = math.max(0, math.min(1, (t - I.PUMPS[1]) / (I.PUMPS[2] - I.PUMPS[1])))
-      local swell = (f < 0.6 and t < I.PUMPS[2]) and math.sin(f / 0.6 * math.pi) * 0.12 or 0
       local rise = smooth(I.RISE[1], I.RISE[2], t)
       -- flat at first, rounding out as it fills; a little bounce as it lifts off
       local flat = 0.35 + 0.65 * progress

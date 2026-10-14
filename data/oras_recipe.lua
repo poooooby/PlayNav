@@ -809,8 +809,71 @@ stream("sound/bgm_xy_sp_stage_02.dspadpcm.bcstm", "bgm/sp_stage_02", "a secret r
 stream("sound/bgm_xy_sp_clear.dspadpcm.bcstm", "bgm/sp_clear", "cleared, through the results")
 stream("sound/bgm_xy_sp_gameover.dspadpcm.bcstm", "bgm/sp_gameover", "time ran out, through the results")
 
+-- Super Training's sound effects: note sequences on sampled instruments in the sound archive,
+-- rendered by the extract job (src/import/bcsar.lua + seqsynth.lua, twin of tools/bcsar.py)
+-- into oras/se/<name>.wav. The game names them by number only; data/training_sounds.lua says
+-- which plays when (matched against a capture of a Lv. 1 regimen).
+local function sfx(name, id)
+  A[#A + 1] = { kind = "sfx", archive = "sound/sango_sound.bcsar", entry = 0, sub = 0, id = id, name = name }
+end
+sfx("SEQ_SE_SP_001", "se/sp_001")
+sfx("SEQ_SE_SP_002", "se/sp_002")
+sfx("SEQ_SE_SP_003", "se/sp_003")
+sfx("SEQ_SE_SP_004", "se/sp_004")
+sfx("SEQ_SE_SP_005", "se/sp_005")
+sfx("SEQ_SE_SP_006", "se/sp_006")
+sfx("SEQ_SE_SP_007", "se/sp_007")
+sfx("SEQ_SE_SP_008", "se/sp_008")
+sfx("SEQ_SE_SP_009", "se/sp_009")
+sfx("SEQ_SE_SP_010", "se/sp_010")
+sfx("SEQ_SE_SP_011", "se/sp_011")
+sfx("SEQ_SE_SP_012", "se/sp_012")
+sfx("SEQ_SE_SP_013", "se/sp_013")
+sfx("SEQ_SE_SP_014", "se/sp_014")
+sfx("SEQ_SE_SP_015", "se/sp_015")
+sfx("SEQ_SE_SP_016", "se/sp_016")
+sfx("SEQ_SE_SP_017", "se/sp_017")
+sfx("SEQ_SE_SP_018", "se/sp_018")
+sfx("SEQ_SE_SP_019", "se/sp_019")
+sfx("SEQ_SE_SP_020", "se/sp_020")
+sfx("SEQ_SE_SP_021", "se/sp_021")
+sfx("SEQ_SE_SP_022", "se/sp_022")
+sfx("SEQ_SE_SP_023", "se/sp_023")
+sfx("SEQ_SE_SP_024", "se/sp_024")
+sfx("SEQ_SE_SP_025", "se/sp_025")
+sfx("SEQ_SE_SP_026", "se/sp_026")
+sfx("SEQ_SE_SP_027", "se/sp_027")
+sfx("SEQ_SE_SP_028", "se/sp_028")
+sfx("SEQ_SE_SP_029", "se/sp_029")
+sfx("SEQ_SE_SP_030", "se/sp_030")
+sfx("SEQ_SE_SP_031", "se/sp_031")
+sfx("SEQ_SE_SP_032", "se/sp_032")
+sfx("SEQ_SE_SP_033", "se/sp_033")
+sfx("SEQ_SE_SP_034", "se/sp_034")
+sfx("SEQ_SE_SP_035", "se/sp_035")
+sfx("SEQ_SE_SP_036", "se/sp_036")
+sfx("SEQ_SE_SP_037", "se/sp_037")
+sfx("SEQ_SE_SP_038", "se/sp_038")
+sfx("SEQ_SE_SP_039", "se/sp_039")
+sfx("SEQ_SE_SP_040", "se/sp_040")
+sfx("SEQ_SE_SP_041", "se/sp_041")
+sfx("SEQ_SE_SP_042", "se/sp_042")
+sfx("SEQ_SE_SP_043", "se/sp_043")
+sfx("SEQ_SE_SP_044", "se/sp_044")
+sfx("SEQ_SE_SP_045", "se/sp_045")
+sfx("SEQ_SE_SP_046", "se/sp_046")
+sfx("SEQ_SE_SP_047", "se/sp_047")
+sfx("SEQ_SE_SP_048", "se/sp_048")
+sfx("SEQ_SE_SP_049", "se/sp_049")
+sfx("SEQ_SE_SP_050", "se/sp_050")
+sfx("SEQ_SE_SP_051", "se/sp_051")
+sfx("SEQ_SE_SP_DECIDE", "se/sp_decide")
+-- two of the game's system sounds Super Training uses (data/training_sounds.lua)
+sfx("SEQ_SE_SYS_057", "se/sys_057")
+sfx("SEQ_SE_MESSAGE", "se/message")
+
 return {
-  version = 18,
+  version = 23,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

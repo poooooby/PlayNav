@@ -50,7 +50,7 @@ return function(mod, T, deps)
     end
     if T.REGIMEN_SHOW and not s.trans then
       s.trans = { to = "regimen", from = s.mode, course = id, t = 0 }
-      host.playSe("SE_SELECT")
+      T.playSe("start_course", "SE_SELECT")
       T.onChange()
       return true
     end
@@ -92,20 +92,92 @@ return function(mod, T, deps)
       if T.hud.P then T.sim.countdown = T.hud.INTRO_S end
     end
     T.setMode("regimen")
-    if not T.REGIMEN_SHOW then host.playSe("SE_SELECT") end
+    if not T.REGIMEN_SHOW then T.playSe("start_course", "SE_SELECT") end
     return true
   end
 
   -- ------- ticking and input
 
+  -- the Emerald stand-ins for what the capture did not show (data/training_sounds.lua has the
+  -- game's own effects for the rest)
   local SE = { goal_hit = "SE_BALL_BOUNCE_1", player_hit = "SE_NOT_EFFECTIVE", bot_pop = "SE_SUCCESS",
     blocked = "SE_SELECT", bit_pop = "SE_BALL_BOUNCE_2", chance_goal = "SE_EXP", overcharge = "SE_FAILURE",
     barrier_up = "SE_SELECT", attack_telegraph = "SE_SELECT" }
+
+  -- one event's sound: the game's effect where the capture showed it, else the stand-in
+  local function eventSound(e, cleared)
+    local charged = (e.stage or 1) >= 2 or e.energy
+    if e.kind == "play" then
+      T.playSe("play")
+    elseif e.kind == "shot_fired" then
+      T.playSe(charged and "charged_shot" or "shot")
+    elseif e.kind == "goal_hit" then
+      T.playSe(charged and "charged_hit" or "goal_hit", SE.goal_hit)
+    elseif e.kind == "goals_spawned" then
+      T.playSe("goals_spawned")
+    elseif e.kind == "attack_telegraph" then
+      -- the wind-up loops until the throw
+      local s = T.session
+      if s and not s.warnSound then s.warnSound = T.playSe("attack_warn", SE.attack_telegraph) or true end
+    elseif e.kind == "attack_launch" then
+      local s = T.session
+      if s and type(s.warnSound) == "table" then s.warnSound.stop() end
+      if s then s.warnSound = nil end
+      T.playSe("attack_launch")
+    elseif e.kind == "clear" then
+      T.playSe("clear")
+    elseif e.kind == "bot_pop" and cleared then
+      -- the clearing pop is the clear's own sound
+    elseif SE[e.kind] then
+      host.playSe(SE[e.kind])
+    end
+  end
+
+  -- a ball in the air toward the trainee: the game's flight sound loops while any is
+  local function flightSound(s, sim)
+    local n = 0
+    for _, b in ipairs(sim.balls or {}) do if not b.dead then n = n + 1 end end
+    local on = n > 0 and sim.phase == "play"
+    if on and not s.flightSound then
+      s.flightSound = T.playSe("ball_flight") or true
+    elseif not on and s.flightSound then
+      if type(s.flightSound) == "table" then s.flightSound.stop() end
+      s.flightSound = nil
+    end
+  end
+
+  -- every looping sound stops (the regimen ends or is left)
+  local function stopLoops(s)
+    for _, k in ipairs({ "chargeSound", "flightSound", "warnSound" }) do
+      if type(s[k]) == "table" then s[k].stop() end
+      s[k] = nil
+    end
+  end
+  T.stopRegimenLoops = stopLoops
+
+  -- the press and the charging hum follow the sim's charge (whichever input started it)
+  local function chargeSound(s, sim)
+    local on = sim.player and sim.player.charging and sim.phase == "play"
+    if on and not s.chargeSound then
+      T.playSe("press")
+      s.chargeSound = T.playSe("charging") or true
+    elseif not on and s.chargeSound then
+      if type(s.chargeSound) == "table" then s.chargeSound.stop() end
+      s.chargeSound = nil
+    end
+  end
+  T.chargeSound = chargeSound
 
   function T.tickRegimen(dt)
     local s = T.session
     local sim = T.sim
     if not (s and sim) then return end
+    chargeSound(s, sim)
+    flightSound(s, sim)
+    if sim.phase ~= "play" and s.warnSound then
+      if type(s.warnSound) == "table" then s.warnSound.stop() end
+      s.warnSound = nil
+    end
     -- the end's show: the result waits for it
     if s.outro then
       s.outro.t = s.outro.t + dt
@@ -120,8 +192,10 @@ return function(mod, T, deps)
     end
     local events = sim:update(dt)
     local ended = nil
+    local cleared = false
+    for _, e in ipairs(events) do if e.kind == "clear" then cleared = true end end
     for _, e in ipairs(events) do
-      if SE[e.kind] then host.playSe(SE[e.kind]) end
+      eventSound(e, cleared)
       if e.kind == "clear" then
         ended = { clear = true, remaining = e.remaining, total = e.total }
       elseif e.kind == "timeout" then
@@ -282,6 +356,7 @@ return function(mod, T, deps)
   function T.quitRegimen()
     local s = T.session
     if not s then return false end
+    stopLoops(s)
     T.sim = nil
     s.course = nil
     s.result = nil

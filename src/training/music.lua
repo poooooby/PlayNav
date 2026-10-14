@@ -26,6 +26,12 @@ return function(mod, T, host)
   M.CHUNK = 4096         -- sample frames per queued buffer
   M.BUFFERS = 8
   M.enabled = true
+  -- the game's own mix: in the capture its effects stand at 1.98x their rendered level against
+  -- the music at its decoded level (the music at 0.353 of the stream, the effects at 0.70 of
+  -- our renders, 11 effects and 9 music windows all within 0.68-0.71 / 0.33-0.36). The
+  -- renders have no headroom for x2 (16 of 52 peak above half scale), so the music comes down
+  -- instead: effects at the effects volume, the music at MIX of the music volume.
+  M.MIX = 0.505
 
   local LOOPS = { ["bgm/sp_gamestart"] = false }
 
@@ -197,7 +203,7 @@ return function(mod, T, host)
       end
       M.voice = id and startVoice(id, loop) or nil
     end
-    local gain = host.musicGain and host.musicGain() or 1
+    local gain = (host.musicGain and host.musicGain() or 1) * M.MIX
     local filter = host.musicFilter and host.musicFilter() or nil
     for i = #M.fading, 1, -1 do
       local f = M.fading[i]

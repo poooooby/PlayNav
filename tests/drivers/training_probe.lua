@@ -86,6 +86,17 @@ local function body(game, log)
       tostring(okAu and Audio._bgmPaused), tostring(okAu and Audio.isBgmStopped and Audio.isBgmStopped()),
       tostring(okAu and Audio._currentSong and Audio._currentSong.id))
   end
+  -- every game effect played (src/sfx.lua), with the regimen clock when there is one
+  local Sfx = TR.session and TR.session.sfx
+  if Sfx then
+    local play0 = Sfx.play
+    Sfx.play = function(id, opts)
+      local h = play0(id, opts)
+      local sim = TR.session.sim
+      log(("  sfx %s %s%s"):format(id, h and "played" or "MISSING", sim and (" at sim t %.2f %s"):format(sim.t or 0, sim.phase or "") or ""))
+      return h
+    end
+  end
   local function shot(name)
     log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING")
     log("  " .. musicState())
@@ -279,7 +290,10 @@ local function body(game, log)
     "hud", tostring(TR.session.hud and TR.session.hud.P ~= nil), "countdown", tostring(TR.session.sim and TR.session.sim.countdown))
   local aim = Apps:get("training_aim")
   local sim = TR.session.sim
-  for _, at in ipairs({ { 0.4, "t06a_intro_title" }, { 3.1, "t06b_intro_pump" }, { 4.2, "t06c_intro_pump2" }, { 5.3, "t06c2_intro_rise" },
+  -- the pumps: each one's peak (sound + 0.08 s) and its sag before the next (as the capture)
+  for _, at in ipairs({ { 0.4, "t06a_intro_title" }, { 3.13, "t06b_pump1_peak" }, { 3.6, "t06b_pump1_sag" },
+    { 4.6, "t06b_pump3_peak" }, { 5.25, "t06b_pump3_sag" }, { 5.44, "t06b_pump4_peak" }, { 6.1, "t06b_pump4_sag" },
+    { 6.27, "t06b_pump5_peak" }, { 7.0, "t06c2_intro_risen" },
     { 7.6, "t06d_intro_balloon" }, { 9.2, "t06e_intro_trainee" }, { 11.0, "t06f_intro_start" } }) do
     waitUntil(function() return sim.t >= at[1] or sim.phase ~= "countdown" end, 15)
     shot(at[2])

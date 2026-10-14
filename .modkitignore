@@ -37,11 +37,13 @@ tests/training_rules_test.lua
 tests/training_sim_test.lua
 tests/lytfile_test.lua
 tests/bcstm_test.lua
+tests/bcsar_test.lua
 tests/surface_push_test.lua
 tests/drivers/perf_probe.lua
 tools/README.md
 tools/bclim.py
 tools/bcstm.py
+tools/bcsar.py
 tools/clan.py
 tools/clyt.py
 tools/cro.py
