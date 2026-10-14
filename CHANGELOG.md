@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-14 (pre-alpha)
+
 ### Changed
 
 - The beaten balloon leaks and bursts with the game's own air: gusts curling off it as it
