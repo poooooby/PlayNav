@@ -49,7 +49,8 @@ local function body(game, log)
   Player.cellX, Player.cellY, Player.px, Player.py = 14, 12, 14 * 16, 12 * 16
   Player.targetX, Player.targetY = 14, 12
   if s and #(s.party or {}) == 0 then
-    Party.giveMon(s, C:require("species", "SPECIES_TORCHIC"), 12)
+    -- PROBE_SPECIES (e.g. RAPIDASH): the lead, for a larger sprite; Torchic by default
+    Party.giveMon(s, C:require("species", "SPECIES_" .. (os.getenv("PROBE_SPECIES") or "TORCHIC")), 12)
     Party.giveMon(s, C:require("species", "SPECIES_ZIGZAGOON"), 6)
   end
   U.wait(60)
@@ -291,10 +292,11 @@ local function body(game, log)
   local aim = Apps:get("training_aim")
   local sim = TR.session.sim
   -- the pumps: each one's peak (sound + 0.08 s) and its sag before the next (as the capture)
-  for _, at in ipairs({ { 0.4, "t06a_intro_title" }, { 3.13, "t06b_pump1_peak" }, { 3.6, "t06b_pump1_sag" },
+  for _, at in ipairs({ { 0.4, "t06a_intro_title" }, { 2.0, "t06a2_cam_close" }, { 3.13, "t06b_pump1_peak" }, { 3.6, "t06b_pump1_sag" },
     { 4.6, "t06b_pump3_peak" }, { 5.25, "t06b_pump3_sag" }, { 5.44, "t06b_pump4_peak" }, { 6.1, "t06b_pump4_sag" },
     { 6.27, "t06b_pump5_peak" }, { 7.0, "t06c2_intro_risen" },
-    { 7.6, "t06d_intro_balloon" }, { 9.2, "t06e_intro_trainee" }, { 11.0, "t06f_intro_start" } }) do
+    { 7.6, "t06d_intro_balloon" }, { 8.0, "t06d2_trainee_riding_in" }, { 8.6, "t06d3_sway" }, { 9.2, "t06e_intro_trainee" },
+    { 10.0, "t06e2_sway_ending" }, { 11.0, "t06f_intro_start" } }) do
     waitUntil(function() return sim.t >= at[1] or sim.phase ~= "countdown" end, 15)
     shot(at[2])
   end

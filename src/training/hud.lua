@@ -34,6 +34,16 @@ return function(mod, T, Rules, Sim)
     PUMPS = { 3.05, 6.6 }, RISE = { 6.6, 7.0 },
     BOT_NAME = { 7.1, 8.1 }, BOT_NAME_SE = 7.50, PLAYER_NAME = { 8.5, 9.9 }, HUD_IN = 10.1, START = 10.5 }
   H.INTRO_S = H.INTRO.START + 41 / FPS
+  -- ours, on top of the capture's timings:
+  -- SWAY: full and risen, the balloon sways in the air (AMP units across, BOB down, TILT
+  --   radians, HZ) from IN, easing out to nothing by OUT (the game's start), so it is where the
+  --   game starts it
+  -- ENTER: the trainee rides in from past the area's right edge, arriving as its name shows
+  -- CAM: the stadium seen close on the flat balloon (ZOOM) through the title, then zooming out
+  --   and up as it fills, settled by the end of the rise
+  H.SWAY = { IN = { 7.0, 7.6 }, OUT = { 9.7, 10.5 }, AMP = 4, BOB = 1.5, TILT = 0.035, HZ = 0.45 }
+  H.ENTER = { 7.6, 8.5 }
+  H.CAM = { ZOOM = 2.4, OUT = { 2.7, 7.0 } }
   H.OUTRO = { HUD_OUT = 0.3, WOBBLE = { 0.5, 1.5 }, FLY = { 1.5, 4.8 }, AWAY = { 4.8, 6.0 }, TWINKLE = { 6.0, 6.8 }, BANNER = 7.5,
     FADE = { 9.0, 9.5 }, END = 9.6 }
 
@@ -317,6 +327,20 @@ return function(mod, T, Rules, Sim)
       pose.bot = { ground = true, rise = rise, sx = size * (1 + swell), sy = size * flat * (1 - swell * 0.5)
         + (rise > 0 and rise < 1 and math.sin(rise * math.pi) * 0.05 or 0),
         alpha = t < I.PUMPS[1] and 0 or 1 }
+      -- full and up: a sway in the air, gone by the start
+      local Sw = H.SWAY
+      local env = smooth(Sw.IN[1], Sw.IN[2], t) * (1 - smooth(Sw.OUT[1], Sw.OUT[2], t))
+      if env > 0 then
+        local ph = (t - Sw.IN[1]) * Sw.HZ * 2 * math.pi
+        pose.bot.dx = Sw.AMP * math.sin(ph) * env
+        pose.bot.bob = Sw.BOB * math.sin(ph * 2 + 0.8) * env
+        pose.bot.rz = Sw.TILT * math.sin(ph + 0.6) * env
+      end
+      -- the trainee: off past the right edge until it rides in for its name
+      pose.playerIn = smooth(H.ENTER[1], H.ENTER[2], t)
+      -- the camera: close on the flat balloon, out and up as it fills
+      local out = smooth(H.CAM.OUT[1], H.CAM.OUT[2], t)
+      if out < 1 then pose.cam = { zoom = 1 + (H.CAM.ZOOM - 1) * (1 - out), k = out } end
       -- the stadium comes up out of its outline under the title
       pose.veil = 1 - smooth(0.6, 2.4, t)
       pose.hideReticle = true

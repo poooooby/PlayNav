@@ -25,6 +25,10 @@ All notable changes to this mod are documented here. The format follows
   - The stadium grows to cover a wide screen instead of stretching its edges.
   - The beaten balloon flies off to just above the stadium roof's edge on every screen size,
     and its star is bigger.
+- Super Training's regimen intro: the view starts close on the flat balloon and zooms out and up
+  as it is pumped full; once up, the balloon sways gently in the air and settles into its
+  starting place as the game begins; your Pokémon rides in from the right on its board just
+  before its name shows, instead of waiting on screen.
   - The picker's title runs across the top. On a tall screen its stats and the course's
     picture grow to fill it and the target and best times sit under the stats; otherwise the
     stats keep to the left and the picture and times to the right.

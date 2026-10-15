@@ -1024,8 +1024,23 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     local Hud = T and T.hud
     local pose = Hud and Hud.pose and Hud.pose(sim, s) or nil
-    drawBackground(G2, sim, T)
     local ex, ey, ew, eh = extent(T)
+    -- the intro's camera (hud.pose cam): the scene drawn zoomed about the flat balloon on the
+    -- grass, which shows at the area's middle; as it settles (k -> 1) the focus moves to the
+    -- middle itself, so zoom 1 is the plain view. The HUD and the fades stay outside it.
+    local cam = pose and pose.cam
+    if cam then
+      local bx, by = sim:botOffset()
+      local fx = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
+      local mx, my = ex + ew / 2, ey + eh / 2
+      local k = cam.k or 0
+      local Fx, Fy = fx + (mx - fx) * k, (D.BOT_SHADOW_Y - 6) + (my - D.BOT_SHADOW_Y + 6) * k
+      G2.push()
+      G2.translate(mx, my)
+      G2.scale(cam.zoom, cam.zoom)
+      G2.translate(-Fx, -Fy)
+    end
+    drawBackground(G2, sim, T)
     -- the stadium comes up out of the dark under the intro's title
     if pose and pose.veil and pose.veil > 0 then
       G2.setColor(0.0, 0.12, 0.14, 0.85 * pose.veil)
@@ -1051,6 +1066,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
           local onGround = D.BOT_SHADOW_Y - halfH * sy
           dy = (onGround - cy) * (1 - (b.rise or 0))
         end
+        dy = dy + (b.bob or 0)
         -- its shadow stays on the grass under it: as wide as it is, fading as it leaves
         local _, _, _, hwFar = Sim.view()
         local R = N.BOT.R * hwFar * sim.bot.scale
@@ -1068,6 +1084,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         end
         G2.push()
         G2.translate(cx + (b.dx or 0), cy + dy)
+        if b.rz then G2.rotate(b.rz) end
         G2.scale(sx, sy)
         G2.translate(-cx, -cy)
         drawBot(G2, sim, { noShadow = true, noGoals = b.noGoals })
@@ -1105,8 +1122,22 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     drawBalls(G2, sim, "behind")
     drawShots(G2, sim)
     if s then s.hudReticle = Hud and Hud.P ~= nil and Hud.sim == sim or nil end
-    drawPlayer(G2, sim, s)
+    -- the trainee rides in from past the area's right edge (hud.pose playerIn: 0 off, 1 there)
+    local enter = pose and pose.playerIn
+    if enter and enter < 1 then
+      if enter > 0 then
+        local p = sim.player
+        local px = Sim.project(p.x, p.y or 0, p.z)
+        G2.push()
+        G2.translate((ex + ew + 40 - px) * (1 - enter), 0)
+        drawPlayer(G2, sim, s)
+        G2.pop()
+      end
+    else
+      drawPlayer(G2, sim, s)
+    end
     drawBalls(G2, sim, "front")
+    if cam then G2.pop() end
     if not (Hud and Hud.draw and Hud.draw(G2, sim, s)) then drawHud(G2, sim, s, T) end
     if pose and pose.fade and pose.fade > 0 then
       G2.setColor(0, 0, 0, pose.fade)
