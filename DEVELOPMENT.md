@@ -112,7 +112,7 @@ SHOT_DIR=/tmp/play_nav POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_T
 POKEPORT_DRIVER=mods/play_nav/tests/drivers/emerald_shot.lua love .
 ```
 
-- `emerald_shot.lua` - Amie end to end: the room, care after battle, petting, puffs, the
+- `emerald_shot.lua` - Amie end to end: the room, petting, puffs, the
   minigames, Décor and visitors, benefits, the second display. `SHOT_W` / `SHOT_H` set the window;
   `PLAYNAV_HD=0` compares against the low-resolution path.
 - `training_probe.lua` - Super Training: a bag to completion, a regimen played with the pad,

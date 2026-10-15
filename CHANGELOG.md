@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-14 (pre-alpha)
+
 ### Added
 
 - A Pokémon with four or more hearts says the game's own lines in battle: "That's it! I knew you
