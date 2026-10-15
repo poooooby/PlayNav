@@ -435,72 +435,140 @@ return function(mod, Pointer, T, Rules)
   -- counter-clockwise every 200 frames
   local CUR_TURN = 200
 
+  -- The card in a larger area (Wl x Hl card units, 0.6 to the screen unit; the card's own
+  -- 400x240 as the game has it). Boxes, y down: the rows x 0..180, y 55..235; the picture with
+  -- its turning brackets about x 303..395, y 21..111 (scaled from its top right); the target
+  -- window 190..400 x 99..161, the best 180..400 x 161..241.
+  -- A tall area puts the two windows side by side under the rows (`under`, at `underY`, scale
+  -- `win`, a little under 1 when the width is short of 442); the rows grow to fill the height
+  -- left, the picture into the width beside them. Otherwise everything stays as it is.
+  local CARD = { ROWS_TOP = 55, ROWS_W = 180, ROWS_H = 180, PIC_X = 395, PIC_TOP = 21, PIC_W = 92,
+    TARGET = { x = 190, y = 99, w = 210, h = 62 }, BEST = { x = 180, y = 161, w = 220, h = 80 },
+    GAP = 12, EDGE = 8, ROWS_MAX = 1.5, PIC_MAX = 1.6, WIN_MAX = 1.3, WIN_MIN = 0.9 }
+  app.CARD = CARD
+  function app.cardFit(Wl, Hl)
+    local F = { rows = 1, pic = 1, win = 1, under = false }
+    if Wl < 401 and Hl < 241 then return F end
+    local winW = CARD.TARGET.w + CARD.GAP + CARD.BEST.w
+    local win = math.min(CARD.WIN_MAX, (Wl - 2 * CARD.EDGE) / winW)
+    local rowsRoom = Hl - CARD.EDGE - CARD.BEST.h * win - CARD.GAP - CARD.ROWS_TOP
+    local rows = math.min(CARD.ROWS_MAX, rowsRoom / CARD.ROWS_H,
+      (Wl - 2 * CARD.EDGE - CARD.GAP - CARD.PIC_W) / CARD.ROWS_W)
+    if win < CARD.WIN_MIN or rows < 1.1 then return F end
+    F.under, F.win, F.rows = true, win, rows
+    F.underY = CARD.ROWS_TOP + CARD.ROWS_H * rows + CARD.GAP
+    F.pic = math.max(1, math.min(CARD.PIC_MAX, (Wl - CARD.EDGE - (CARD.ROWS_W * rows + CARD.GAP)) / CARD.PIC_W))
+    return F
+  end
+
   function app.drawCard(G2, s)
     local font = fonts()
-    -- the background fills the whole top screen; the card's 400x240 fits its width
+    -- the area: the frame, or the whole playfield when the top screen fills it (T.topExtent)
+    local e = T.topExtent or { x = 0, y = 0, w = 240, h = 160 }
+    -- the background fills the whole area, its pattern at the frame's tile size
     G2.push()
+    G2.translate(e.x, e.y)
     G2.scale(240 / 400, 160 / 240)
-    drawBackground(G2, 400, 240, UP, 100, { 10, 6 })
+    local bw, bh = e.w * 400 / 240, e.h * 240 / 160
+    drawBackground(G2, bw, bh, UP, 100, { 10 * bw / 400, 6 * bh / 240 })
     G2.pop()
     local c = s.picked and T.course(s.picked)
     if not c or not L then return end
-    -- the card's width fits the top screen; its title sits at the top edge
+    -- the card's 400 units fit the frame's width; its title sits at the area's top edge, the
+    -- stats keep to its left and the picture and windows to its right
     G2.push()
     G2.scale(0.6, 0.6)
+    local L0, R0, T0 = e.x / 0.6, (e.x + e.w) / 0.6, e.y / 0.6
     local small = cardFont(G2)
-    -- the dark band and the title bar
+    -- the dark band and the title bar, across the area
     local clear = { 0, 0, 0, 0 }
     local black = { 0, 0, 0, 255 }
-    L.quad(G2, nil, 200, 30, 400, 60, { colors = { black, black, clear, clear }, alpha = 180 })
-    L.quad(G2, nil, 200, 44, 400, 22, { alpha = 160, colors = { black, black, black, black } })
-    L.text(G2, small, T.resultText("possible"), 5, 34, 290, 20, { align = "center" })
+    local mid, span = (L0 + R0) / 2, R0 - L0
+    L.quad(G2, nil, mid, T0 + 30, span, 60, { colors = { black, black, clear, clear }, alpha = 180 })
+    L.quad(G2, nil, mid, T0 + 44, span, 22, { alpha = 160, colors = { black, black, black, black } })
     local title = art("training/ss_title_win")
     if title then
-      L.quad(G2, title, 100, 15, 200, 30, { colors = UP.title })
-      L.quad(G2, title, 300, 15, 200, 30, { colors = { UP.title[2], UP.title[1], UP.title[4], UP.title[3] }, flipX = true })
+      L.quad(G2, title, L0 + span / 4, T0 + 15, span / 2, 30, { colors = UP.title })
+      L.quad(G2, title, R0 - span / 4, T0 + 15, span / 2, 30, { colors = { UP.title[2], UP.title[1], UP.title[4], UP.title[3] }, flipX = true })
     end
+    G2.translate(L0, T0)
+    L.text(G2, small, T.resultText("possible"), 5, 34, 290, 20, { align = "center" })
     L.text(G2, small, ("Lv. %d"):format(c.level or 1), 19, 4, 60, 20, { align = "center" })
     L.text(G2, small, T.courseName(c.id), 79, 4, 290, 20)
-    -- what it can raise: the six stats, the course's own with its arrow and gain
+    -- the card's parts, each scaled to the room it has (app.cardFit)
+    local F = app.cardFit(R0 - L0, (e.h / 0.6))
+    local function scaled(px, py, k, fn)
+      G2.push()
+      G2.translate(px, py)
+      G2.scale(k, k)
+      G2.translate(-px, -py)
+      fn(cardFont(G2))
+      G2.pop()
+    end
+    -- what it can raise: the six stats, the course's own with its arrow and gain (from the
+    -- left edge, under the band)
     local win = art("training/ss_status_win")
     local up = art("training/ss_up_arrow")
     local gain = c.stat and Rules.courseEv(c, s.rec.pending) or nil
-    for i, row in ipairs(ROWS) do
-      local y = 40 + i * 30
-      local w = row[2]
-      if win then L.quad(G2, win, w / 2, y, w, 30, { colors = { black, black, black, black }, alpha = 180 }) end
-      local rgb = { row[3][1] / 255, row[3][2] / 255, row[3][3] / 255, 1 }
-      L.text(G2, small, T.statWord(row[1]), 18, y - 10, 70, 20, { color = rgb })
-      if c.stat == row[1] and gain then
-        if up then L.quad(G2, up, 10, y, 10, 20, { colors = { row[3], row[3], row[3], row[3] } }) end
-        L.text(G2, small, ("+%d"):format(gain), 103, y - 10, 50, 20, { color = rgb, align = "center" })
+    scaled(0, CARD.ROWS_TOP, F.rows, function(font)
+      for i, row in ipairs(ROWS) do
+        local y = 40 + i * 30
+        local w = row[2]
+        if win then L.quad(G2, win, w / 2, y, w, 30, { colors = { black, black, black, black }, alpha = 180 }) end
+        local rgb = { row[3][1] / 255, row[3][2] / 255, row[3][3] / 255, 1 }
+        L.text(G2, font, T.statWord(row[1]), 18, y - 10, 70, 20, { color = rgb })
+        if c.stat == row[1] and gain then
+          if up then L.quad(G2, up, 10, y, 10, 20, { colors = { row[3], row[3], row[3], row[3] } }) end
+          L.text(G2, font, ("+%d"):format(gain), 103, y - 10, 50, 20, { color = rgb, align = "center" })
+        end
+      end
+    end)
+    -- the right-hand side: from here x 400 is the area's right edge
+    local off = R0 - L0 - 400
+    G2.translate(off, 0)
+    -- the course's picture in its frame, the brackets' shadow round it
+    scaled(CARD.PIC_X, CARD.PIC_TOP, F.pic, function()
+      local pic = c.bots[1] and c.bots[1].art and art(c.bots[1].art)
+      local frame = art("training/ss_stage_icon01")
+      if pic then fit(G2, pic, 348, 66, 64, 64) elseif frame then fit(G2, frame, 348, 66, 64, 64) end
+      local cur = art("training/ss_cur")
+      if cur then
+        G2.push()
+        G2.translate(348, 66)
+        G2.rotate(-2 * math.pi * (app.clock % CUR_TURN) / CUR_TURN)
+        L.quad(G2, cur, 0, 0, 90, 64, { colors = { black, black, black, black }, alpha = 100 })
+        G2.pop()
+      end
+    end)
+    -- the target time and, once there is one, the best time: on the right as the game has
+    -- them, or side by side under the rows when the area is tall (F.under)
+    local lt, rt = art("training/ss_stage_win_lt"), art("training/ss_stage_win_rt")
+    local function window(box, at, fn)
+      if F.under then
+        G2.push()
+        G2.translate(at - off, F.underY)
+        G2.scale(F.win, F.win)
+        G2.translate(-box.x, -box.y)
+        fn(cardFont(G2))
+        G2.pop()
+      else
+        fn(small)
       end
     end
-    -- the course's picture in its frame, the brackets' shadow round it
-    local pic = c.bots[1] and c.bots[1].art and art(c.bots[1].art)
-    local frame = art("training/ss_stage_icon01")
-    if pic then fit(G2, pic, 348, 66, 64, 64) elseif frame then fit(G2, frame, 348, 66, 64, 64) end
-    local cur = art("training/ss_cur")
-    if cur then
-      G2.push()
-      G2.translate(348, 66)
-      G2.rotate(-2 * math.pi * (app.clock % CUR_TURN) / CUR_TURN)
-      L.quad(G2, cur, 0, 0, 90, 64, { colors = { black, black, black, black }, alpha = 100 })
-      G2.pop()
-    end
-    -- the target time
-    local lt, rt = art("training/ss_stage_win_lt"), art("training/ss_stage_win_rt")
-    L.window(G2, lt, rt, 295, 130, 210, 62)
-    L.text(G2, small, T.resultText("targetRemaining"), 202, 109, 180, 20)
-    fit(G2, art("training/medal"), 218, 141, 20, 20, 180)
-    L.text(G2, small, clock(Rules.medalTarget(c)), 235, 131, 150, 20)
-    -- the best time, once there is one
+    window(CARD.TARGET, CARD.EDGE, function(font)
+      L.window(G2, lt, rt, 295, 130, 210, 62)
+      L.text(G2, font, T.resultText("targetRemaining"), 202, 109, 180, 20)
+      fit(G2, art("training/medal"), 218, 141, 20, 20, 180)
+      L.text(G2, font, clock(Rules.medalTarget(c)), 235, 131, 150, 20)
+    end)
     local rec = T.courseRecord(c.id)
     if rec and rec.best then
-      L.window(G2, lt, rt, 290, 201, 220, 80)
-      L.text(G2, small, T.resultText("bestTime"), 197, 174, 180, 20)
-      drawIcon(G2, activeIcon(), 210, 212, 40)
-      L.text(G2, small, clock(rec.best), 233, 202, 150, 20)
+      window(CARD.BEST, CARD.EDGE + (CARD.TARGET.w + CARD.GAP) * F.win, function(font)
+        L.window(G2, lt, rt, 290, 201, 220, 80)
+        L.text(G2, font, T.resultText("bestTime"), 197, 174, 180, 20)
+        drawIcon(G2, activeIcon(), 210, 212, 40)
+        L.text(G2, font, clock(rec.best), 233, 202, 150, 20)
+      end)
     end
     G2.pop()
     G2.setColor(1, 1, 1, 1)

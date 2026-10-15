@@ -153,6 +153,31 @@ T.check(not Top.draw(vp), "HD off: not drawn")
 T.check(not layer.hdLive, "...the plain draw")
 HD.enabled = true
 
+-- a layer that paints the whole playfield: it gets the playfield as an extent in 240x160 units
+local seen
+layer.drawScene = function() drawn = drawn + 1; seen = layer.extent end
+local fills = true
+layer.fillTop = function() return fills end
+Top.playfield = function() return { x = 0, y = 0, w = 540, h = 404 } end
+T.check(Top.wantsFill(), "fillTop true, HD on: the top screen fills")
+T.check(Top.draw(vp), "...drawn")
+T.check(seen ~= nil, "...with an extent")
+T.eq(seen and seen.x, -5, "...from 5 units left of the frame (10 px at 2x)")
+T.eq(seen and seen.y, -10, "...and 10 above it")
+T.eq(seen and seen.w, 270, "...270 units across (540 px)")
+T.eq(seen and seen.h, 202, "...202 down")
+T.eq(layer.extent, nil, "...cleared after the draw")
+fills = false
+T.check(not Top.wantsFill(), "fillTop false: no fill")
+Top.draw(vp)
+T.eq(seen, nil, "...and no extent")
+fills = true
+HD.enabled = false
+T.check(not Top.wantsFill(), "HD off: never fills (the engine's own draw covers the frame only)")
+HD.enabled = true
+layer.fillTop = nil
+Top.playfield = nil
+
 layer.drawScene = function() error("boom") end
 T.check(not Top.draw(vp), "an error: not drawn")
 T.check(not layer.hdLive, "...the next frame is the plain draw")

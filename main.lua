@@ -608,18 +608,27 @@ return function(mod)
   local layoutCache = {}
   -- the overworld is on the top screen (no PlayNav layer on top of the engine's stack: Super
   -- Training's home): the playfield takes all the room the touch screen leaves (Layout.dual
-  -- `fill`); with Amie or a regimen up, the exact picture
+  -- `fill`); a regimen fills too (topFills); with Amie, the picker or results up, the exact picture
   local function overworldLive()
     if not (HdTop and HdTop.topLayer) then return false end
     local ok, layer = pcall(HdTop.topLayer)
     return ok and layer == nil
   end
+  -- the top screen fills the playfield: the live overworld, or a layer of ours that paints it
+  -- all (the regimen's stadium; src/hd_top.lua wantsFill)
+  local function topFills()
+    if overworldLive() then return true end
+    if not (HdTop and HdTop.wantsFill) then return false end
+    local ok, v = pcall(HdTop.wantsFill)
+    return ok and v == true
+  end
+  if HdTop then HdTop.playfield = function() return Cutout and Cutout:active() and Cutout.rect or nil end end
   local function gen3Rect(vp)
     local ww, wh = vp.width or 0, vp.height or 0
     if ww < 1 or wh < 1 then return nil end
     if Cutout and Cutout.pf then
       local c, now, dpi = layoutCache, Pointer.now(), windowDpi()
-      local fill = overworldLive()
+      local fill = topFills()
       local moved = c.ww ~= ww or c.wh ~= wh or c.dpi ~= dpi or c.fill ~= fill
       if moved or now >= (c.padAt or 0) then
         local reserve = padReserve(ww, wh)

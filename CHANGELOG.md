@@ -5,6 +5,41 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- After you enter the Hall of Fame, visitors to the room bring you a Supreme Honor Poké Puff
+  (once).
+- Unlimited clears in any minigame can now give the Supreme Spring Poké Puff, alongside each
+  game's own seasonal one.
+
+### Changed
+
+- Super Training on split screen: the regimen picker, the regimens and the results fill the
+  whole top of the screen instead of a box with black around it, and the touch screen stays on
+  the pad's room throughout, as on the home screen (it no longer moves between screens).
+  - A regimen's stadium is Wooble's new, taller art and shows more of the stands; balls and the
+    beaten balloon fly on past the old edge. The HUD's bands reach the edges and the names,
+    timer and score sit in the corners.
+  - The guts circle sits at the bottom of the bigger screen, and the HUD's bands, names, timer
+    and score grow with the screen on phones where the game picture is small next to it.
+  - The stadium grows to cover a wide screen instead of stretching its edges.
+  - The beaten balloon flies off to just above the stadium roof's edge on every screen size,
+    and its star is bigger.
+  - The picker's title runs across the top. On a tall screen its stats and the course's
+    picture grow to fill it and the target and best times sit under the stats; otherwise the
+    stats keep to the left and the picture and times to the right.
+  - The results' title, stat rows, Effort-o-Meter and bar grow into the extra room without
+    overlapping (the stat rows and the meter together, at one size). The meter's shape no longer shows before the meter slides in.
+  - Needs HD DRAWING on (the default).
+- Tile Puzzle: the picture has a two-colour patterned border and stars and petals scattered
+  over it, as the game's does, so you can tell where edge and middle tiles go.
+- A Pokémon leaves you a present each time it gains a heart (50, 100, 150 and 255 affection),
+  as in the game, instead of at our own steps (25 and 75 are gone).
+
+### Fixed
+
+- Walking 50 steps still raises enjoyment at exactly 70; it stopped one point early.
+
 ## [0.3.0] - 2026-10-14 (pre-alpha)
 
 ### Added

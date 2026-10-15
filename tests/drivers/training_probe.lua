@@ -27,7 +27,7 @@ local function body(game, log)
     end
     return pred() and true or false
   end
-  love.window.setMode(1280, 720, { resizable = true, highdpi = true })
+  love.window.setMode(tonumber(os.getenv("SHOT_W")) or 1280, tonumber(os.getenv("SHOT_H")) or 720, { resizable = true, highdpi = true })
   U.wait(2)
   if not waitFor(function() return game.phase == "boot" and game.boot end, 900) then
     log("FAIL boot phase not reached; phase:", game.phase)
@@ -378,7 +378,12 @@ local function body(game, log)
   log(("result: clear %s ev +%s (%s) medal %s bag %s kept %s; hp ev now %d; cleared lv1_hp %s"):format(
     tostring(r and r.clear), tostring(r and r.ev), tostring(r and r.stat), tostring(r and r.medal), tostring(r and r.bag),
     tostring(r and r.bagKept), evs2b.hp, tostring(TR.store.cleared().lv1_hp)))
-  waitSecs(1.4)
+  -- the results' top screen as it plays: the rows slide in, the stat goes up, the gauge fills
+  for _, at in ipairs({ { 0.1, "t08a0_result_start" }, { 0.45, "t08a1_rows_in" }, { 0.9, "t08a2_rows_done" },
+    { 1.35, "t08a3_stat_up" }, { 1.9, "t08a4_gauge" }, { 2.8, "t08a5_gauge_more" } }) do
+    waitUntil(function() local R0 = TR.session.results; return not R0 or (R0.t or 0) >= at[1] end, 6)
+    shot(at[2])
+  end
   log("result page at shot:", TR.session.results and TR.session.results.page, "t", TR.session.results and TR.session.results.t)
   shot("t08_result")
   log("result words:", tostring(r and r.praise), "|", tostring(r and r.statText), "| unlocked", r and #r.unlocked)
@@ -397,7 +402,9 @@ local function body(game, log)
     if TR.state().mode ~= "result" or (Rs and Rs.done) then break end
     shot(("t08p%d_result_page"):format(i))
     tapAt("next", 128, 90)
-    waitSecs(0.9)
+    waitSecs(0.3)
+    shot(("t08p%d_result_page_turn"):format(i))
+    waitSecs(0.6)
     log(("  tap %d: page %s/%s active %s events %s"):format(i, tostring(Rs and Rs.page), tostring(Rs and Rs.list and #Rs.list),
       tostring(Apps:active() and Apps:active().id), table.concat(seen, " ")))
     seen = {}

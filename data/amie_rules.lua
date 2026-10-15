@@ -40,14 +40,14 @@ return {
   },
 
   BATTLE = { FULLNESS = -10, ENJOYMENT = 5 },
-  STEPS = { EVERY = 50, FULLNESS = -1, ENJOYMENT = 1, ENJOYMENT_BELOW = 70 },
+  STEPS = { EVERY = 50, FULLNESS = -1, ENJOYMENT = 1, ENJOYMENT_BELOW = 70 },  -- 0-70 inclusive
   HIT = { ENJOYMENT = -5, WINDOW_S = 0.3, RADIUS_PX = 10 },
   HIGH_FIVE = { ENJOYMENT = 10, HOLD_S = 5, MIN_AFFECTION = 5 },
   OPEN_PLAY = { ENJOYMENT = 10 },
   MAKING_FACES = { AFFECTION = 8, FULLNESS = -50, ENJOYMENT = 80 },  -- needs a camera; unused
 
   DANCE_EVERY = 50,                      -- hearts and two cries at 50, 100, ...; three at 255
-  GIFT_AFFECTION = { 25, 50, 75, 100, 150, 255 },
+  GIFT_AFFECTION = { 50, 100, 150, 255 },  -- each affection level from 2 up
   HINT = { LOW = 50, HIGH = 200 },       -- icons over a wandering Pokemon
 
   -- benefits in battle
@@ -87,7 +87,7 @@ return {
     OPEN_PLAY = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affecting stats", confidence = "high" },
     MAKING_FACES = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affecting stats (needs the camera; unused)", confidence = "high" },
     DANCE_EVERY = { class = "inferred", source = "Bulbapedia: the Pokemon celebrates as affection grows; the cadence is ours", confidence = "low" },
-    GIFT_AFFECTION = { class = "inferred", source = "a/0/7/3 file 111 lines 10, 11, 19 name three gift moments ('played a lot', 'looking close', 'friends forever'); the affection steps are ours", confidence = "low" },
+    GIFT_AFFECTION = { class = "verified", source = "oraswiki Pokemon-Amie: decorations are won by raising the affection level (levels 2-5 at 50 / 100 / 150 / 255); a/0/7/3 file 111 lines 11, 19 are the gift lines", confidence = "medium" },
     HINT = { class = "placeholder", source = "ours: when the room shows a hunger or boredom icon", confidence = "low" },
     BENEFITS = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affection benefits", confidence = "high" },
     NON_EATERS = { class = "verified", source = "Bulbapedia Poke Puff: species that cannot eat", confidence = "high" },

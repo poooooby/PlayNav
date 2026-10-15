@@ -223,26 +223,99 @@ return function(mod, T, Rules, Radar)
   -- ------- drawing
 
   local function drawMeter(G, P, s)
+    -- the meter slides in with status_in; its shape waits for it
+    if (R.t or 0) < R.TOP.STATUS_IN + 0.1 then return end
     local x, y, w, h = P:box("7o")
     if not (x and Rules.meterAxes and Radar) then return end
     local cx, cy = x + w / 2, y + h / 2
     local ri, ro = Rules.meterAxes(s.base or {}, s.evs or {}, Radar.ORDER)
+    local k = w / 128   -- the canvas pane is 128 across; larger when the meter is scaled up
     local inner, outer = {}, {}
     for i = 1, 6 do
       local a = -math.pi / 2 + (i - 1) * math.pi / 3
-      inner[#inner + 1] = cx + math.cos(a) * ri[i]
-      inner[#inner + 1] = cy + math.sin(a) * ri[i]
-      outer[#outer + 1] = cx + math.cos(a) * ro[i]
-      outer[#outer + 1] = cy + math.sin(a) * ro[i]
+      inner[#inner + 1] = cx + math.cos(a) * ri[i] * k
+      inner[#inner + 1] = cy + math.sin(a) * ri[i] * k
+      outer[#outer + 1] = cx + math.cos(a) * ro[i] * k
+      outer[#outer + 1] = cy + math.sin(a) * ro[i] * k
     end
     G.setColor(0.8, 1, 0.25, 1)
     G.polygon("fill", outer)
     G.setColor(0.05, 0.62, 0.45, 1)
     G.polygon("fill", inner)
-    G.setLineWidth(2)
+    G.setLineWidth(2 * k)
     G.setColor(0.85, 1, 0.3, 1)
     G.polygon("line", outer)
     G.setLineWidth(1)
+  end
+
+  -- A larger area (Wl x Hl layout units, the layout centred across it from its top): the
+  -- full-width backdrops widen; the title bar and the band under it grow (`t`, as far as the
+  -- width allows); the stat rows (5r .. 5z, with their +N) and the meter (7n: the radar, its
+  -- labels and +N, the bar 8g, with the bar's arrow 8i) grow by one scale (`s`), the rows from
+  -- the left edge, the meter on the right, as large as the room under the band allows without
+  -- the two meeting.
+  -- Natural boxes (layout units, y down): title 0..30, band to 60; rows x 0..180, y 55..235;
+  -- meter x 224..390, y 100..235 (centre 307, 167.5).
+  R.FIT = { ROWS = { "5r", "5t", "5v", "5x", "61", "5z" }, ROWS_TOP = 55, ROWS_W = 180, ROWS_H = 180,
+    METER = { cx = 307, cy = 167.5, hw = 83, hh = 67.5 }, BAND = 60, GAP = 12, EDGE = 8, MAX = 1.9 }
+  function R.fitAdjust(P, Wl, Hl)
+    local F, A = R.FIT, {}
+    local kx = Wl / P.L.W
+    for name, pane in pairs(P.L.byName) do
+      if pane.kind == "pic" and math.abs(pane.w or 0) >= P.L.W - 0.5 then A[name] = { qx = kx } end
+    end
+    if Wl < P.L.W + 1 and Hl < P.L.H + 1 then return A end
+    local Lx, Rx = (P.L.W - Wl) / 2, (P.L.W + Wl) / 2
+    local M = F.METER
+    -- the title bar (5j carries 6t and the texts) about the top middle; the band (5p, with 6v
+    -- and its text) under it, its picture still across the area
+    local t = math.max(1, math.min(F.MAX, Wl / P.L.W, Hl / P.L.H))
+    local function about(name, ax, ay, k, extra)
+      local pane = P.L.byName[name]
+      if not pane then return end
+      local parent = pane.parent
+      local px, py = 0, 0
+      if parent and parent ~= P.L.root then px, py = parent.t[1], parent.t[2] end
+      local ox, oy = P.L.W / 2 + px + pane.t[1], P.L.H / 2 - py - pane.t[2]
+      local nx, ny = ax + (ox - ax) * k, ay + (oy - ay) * k
+      local a = extra or {}
+      a.dx, a.dy, a.sx, a.sy = nx - ox, -(ny - oy), k, k
+      A[name] = a
+    end
+    about("5j", P.L.W / 2, 0, t)
+    about("5p", P.L.W / 2, 0, t, { qx = kx / t })
+    A["6v"] = { qx = kx / t }
+    local band = F.BAND * t
+    -- the rows and the meter: one scale
+    local room = Hl - band - F.EDGE
+    local s = math.min(F.MAX, (Wl - 2 * F.EDGE - F.GAP) / (F.ROWS_W + 2 * M.hw),
+      (room + 5) / F.ROWS_H, room / (2 * M.hh))
+    s = math.max(1, s)
+    -- the rows: each grows from its left edge (x -> Lx + x * s, the slide in scaled with it,
+    -- so they wait fully off the area), from just under the band; their parent 5i sits at the
+    -- layout's middle
+    local top = band - (F.BAND - F.ROWS_TOP)
+    for _, name in ipairs(F.ROWS) do
+      local pane = P.L.byName[name]
+      if pane then
+        local y = P.L.H / 2 - pane.t[2]
+        local ny = top + (y - F.ROWS_TOP) * s
+        A[name] = { mx = s, dx = Lx + P.L.W / 2 * (s - 1), dy = -(ny - y), sx = s, sy = s }
+      end
+    end
+    -- the meter: right-aligned, centred down the room under the band
+    local Xc = Rx - F.EDGE - M.hw * s
+    local Yc = band + F.EDGE / 2 + room / 2
+    local function place(name)
+      local pane = P.L.byName[name]
+      if not pane then return end
+      local ox, oy = P.L.W / 2 + pane.t[1], P.L.H / 2 - pane.t[2]
+      local nx, ny = Xc + (ox - M.cx) * s, Yc + (oy - M.cy) * s
+      A[name] = { dx = nx - ox, dy = -(ny - oy), sx = s, sy = s }
+    end
+    place("7n"); place("8i")
+    R.fitScales = { title = t, rows = s, meter = s }
+    return A
   end
 
   -- 400x240 into the top screen's 240x160: the card's way (0.6, top-anchored), the backdrop
@@ -250,12 +323,22 @@ return function(mod, T, Rules, Radar)
   function R.drawTop(G2, s)
     local P = R.top
     if not P or R.s ~= s then return false end
+    -- the area: the frame, or the whole playfield when the top screen fills it (T.topExtent);
+    -- the layout keeps its size, centred across the area from its top
+    local e = T.topExtent
     G2.push()
+    if e then G2.translate(e.x + e.w / 2 - 120, e.y) end
     G2.scale(0.6, 0.6)
-    -- the layout as the game has it, top-aligned at 0.6; only the backdrops fill down to 160
-    -- (spreading the panes would pull the gauge's bar off its track)
-    P.stretchY = (160 / 0.6) / 240
+    -- the layout as the game has it, top-aligned at 0.6; only the backdrops fill down to the
+    -- area's bottom (spreading the panes would pull the gauge's bar off its track) and, when
+    -- it is wider, across it
+    P.stretchY = ((e and e.h or 160) / 0.6) / 240
     P.stretchMode = "backdrop"
+    local fitKey = e and ("%.2f %.2f"):format(e.w, e.h) or "frame"
+    if P._fitKey ~= fitKey then
+      P._fitKey = fitKey
+      P.adjust = e and R.fitAdjust(P, e.w / 0.6, e.h / 0.6) or nil
+    end
     -- the meter's canvas is drawn by the game: hide the pane, draw the stats over it after
     P:set("7o", "visible", false)
     P:draw(G2)

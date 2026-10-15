@@ -333,10 +333,15 @@ return function(mod, T, Rules, Sim)
         local zig = math.sin(fly * math.pi * 5) * 40 * (1 - fly)
         local away = smooth(O.AWAY[1], O.AWAY[2], t)
         local scale = (1 - 0.5 * fly) * (1 - 0.96 * away)
-        -- (the balloon hovers high: keep its way out inside the sky)
-        local endX, endY = 60 + 40, -25 - 20
+        -- its way out ends just above the stadium roof's edge (arena_draw D.exitOffset, from
+        -- the art's place on this screen): 60% of the way on the zigzag, the rest zipping off
+        local endX, endY = 100, -45
+        if T.exitOffset then
+          local ok, x, y = pcall(T.exitOffset, sim, T)
+          if ok and x then endX, endY = x, y end
+        end
         -- the last goal bursts with the final hit: none ride along; the shadow fades as it rises
-        pose.bot = { dx = wob + zig + fly * 60 + away * 40, dy = -fly * 25 - away * 20, scale = scale,
+        pose.bot = { dx = wob + zig + (fly * 0.6 + away * 0.4) * endX, dy = (fly * 0.55 + away * 0.45) * endY, scale = scale,
           alpha = t < O.AWAY[2] and 1 or 0, puffs = t >= O.FLY[1] and t < O.AWAY[2] and fly or nil, puffScale = scale,
           noGoals = true, shadow = 1 - fly,
           -- the game's air (arena_draw): gusts while it leaks (the zigzag), then the burst as it
@@ -354,9 +359,68 @@ return function(mod, T, Rules, Sim)
     return pose
   end
 
+  -- The top screen fills the playfield (T.topExtent, 240x160 units): the HUD's edges go with
+  -- it. The frame bands spread across, the timer, names, score and gauges keep to their
+  -- corners, full-screen washes and banners widen; the brackets (5x / 5z, which aiming maps
+  -- onto: aim_app TOPBOX), goals, balls and popups stay on the arena.
+  local adjustKey, adjustT = nil, nil
+  H.EDGE_MAX = 1.8
+  local function fitAdjust(e)
+    if not e then return nil end
+    local key = ("%s %.2f %.2f %.2f %.2f"):format(tostring(H.P), e.x, e.y, e.w, e.h)
+    if key == adjustKey then return adjustT end
+    local kx, ky = e.w / 240, e.h / 160
+    local SY = S * STRETCH
+    local dl, dr = e.x / S, (e.x + e.w - 240) / S
+    local dt, db = -e.y / SY, -(e.y + e.h - 160) / SY
+    local dcx, dcy = (e.x + e.w / 2 - 120) / S, -(e.y + e.h / 2 - 80) / SY
+    -- the edge pieces grow with the area too (kh), each about its own corner of the frame
+    -- (fx, fy: 0 / 120 / 240, 0 / 160) before it moves out to the area's: on a screen where the
+    -- frame is small next to the area they would otherwise be tiny
+    local kh = math.max(1, math.min(H.EDGE_MAX, kx, ky))
+    local function corner(fx, fy, sxk, syk)
+      return { mx = kh, my = kh, sx = kh, sy = kh,
+        dx = (fx - 120) * (1 - kh) / S + sxk, dy = (80 - fy) * (1 - kh) / SY + syk }
+    end
+    local A = {
+      -- the bands (top-left 5g carries top-right 5e, bottom-right 5a carries 5c), 105 from the
+      -- middle: across the area, as thick as kh, from their edge
+      ["5g"] = { dx = -105 * (kx - 1) + dcx, sx = kx, sy = kh, my = kh, dy = 80 * (1 - kh) / SY + dt },
+      ["5a"] = { dx = 105 * (kx - 1) + dcx, sx = kx, sy = kh, my = kh, dy = (80 - 160) * (1 - kh) / SY + db },
+      ["1u"] = corner(240, 0, dr, dt),        -- the timer
+      ["58"] = corner(120, 160, 0, db),       -- the guts circle and its charge, down with the foot
+      ["6u"] = corner(120, 160, 0, db),
+      j = corner(0, 0, dl, dt),               -- the balloon's name
+      w = corner(240, 160, dr, db),           -- the trainee's name, the score
+      ["1j"] = { dx = dcx, dy = dt, qx = kx }, -- the caution bands
+      ["1n"] = { dx = dcx, dy = db, qx = kx },
+    }
+    for _, n in ipairs({ "i", "m", "p", "1d", "1g" }) do A[n] = corner(240, 0, dr, dt) end
+    for _, n in ipairs({ "g", "1l", "11", "6x" }) do A[n] = { dx = dcx, dy = dcy, qx = kx, qy = ky } end
+    for _, n in ipairs({ "65", "6z" }) do A[n] = { dx = 100 * (kx - 1), qx = kx, qy = ky } end
+    for _, n in ipairs({ "63", "71" }) do A[n] = { dx = -100 * (kx - 1), qx = kx, qy = ky } end
+    for _, n in ipairs({ "67", "69", "75", "77" }) do A[n] = { qy = kx } end
+    for _, n in ipairs({ "9p", "9l", "9j", "9n", "9h", "7e", "7i", "7k" }) do A[n] = { qx = kx } end
+    -- the panes the game parks just off its screen until they are wanted (the penalty score,
+    -- idle goals, balls and marks) stay off the wider area: out past the same edge
+    local root = H.P and H.P.L and H.P.L.root
+    for _, c in ipairs(root and root.children or {}) do
+      if not A[c.name] and c.t then
+        local x, y = 200 + c.t[1], 120 - c.t[2]
+        local dx = (x < 0 and dl) or (x > 400 and dr) or 0
+        local dy = (y < 0 and dt) or (y > 240 and db) or 0
+        if dx ~= 0 or dy ~= 0 then A[c.name] = { dx = dx, dy = dy, parked = true } end
+      end
+    end
+    adjustKey, adjustT = key, A
+    return A
+  end
+  H.fitAdjust = fitAdjust
+
   function H.draw(G2, sim, s)
     local P = H.P
     if not P or sim ~= H.sim then return false end
+    P.adjust = fitAdjust(T.topExtent)
     G2.push()
     G2.scale(S, S)
     P:draw(G2)

@@ -701,6 +701,13 @@ return function(mod, deps)
     local meta = Store.meta()
     meta.steps = (meta.steps or 0) + 1
     if meta.steps % N.STEPS.EVERY ~= 0 then return false end
+    -- after the Hall of Fame, visitors bring a Supreme Honor Poke Puff, once
+    if not meta.honorGiven and host.gameCleared and host.gameCleared() then
+      meta.honorGiven = true
+      local pending = Store.visitors().gifts
+      pending[#pending + 1] = { kind = "honor", puff = "puff/supreme_honor" }
+      Store.saveVisitors()
+    end
     Store.saveMeta()
     local m = metersFor(G.activeKey())
     if not m then return false end

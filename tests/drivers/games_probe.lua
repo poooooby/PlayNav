@@ -88,6 +88,14 @@ local function body(game, log)
   local tileApp = Apps:get("game_tile")
   U.wait(240)
   U.shot(game, dir .. "/probe_tile.png")
+  -- nearly solved: every tile home but two, to see the picture's guides
+  local tst = tileApp.debugState and tileApp.debugState()
+  if tst and tst.pz then
+    for i = 1, tst.pz.n do tst.pz.tiles[i] = i end
+    tst.pz.tiles[1], tst.pz.tiles[tst.pz.n] = tst.pz.n, 1
+    U.wait(5)
+    U.shot(game, dir .. "/probe_tile_solved.png")
+  end
   tileApp.forceEnd(35)
   U.wait(5)
   U.shot(game, dir .. "/probe_tile_result.png")

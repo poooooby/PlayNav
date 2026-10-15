@@ -272,9 +272,19 @@ return function(mod, deps)
   end
 
   -- the top screen in 240x160 units (drawn by Layer.draw or, at window resolution, hd_top)
+  -- the picker's card, the regimen and the results paint the whole playfield (src/hd_top.lua
+  -- hands its extent in as Layer.extent, 240x160 units); main then lays the top screen out as
+  -- it does for the overworld
+  local FILL_MODES = { courses = true, regimen = true, result = true }
+  function Layer.fillTop()
+    local s = T.session
+    return s ~= nil and FILL_MODES[s.mode] == true
+  end
+
   function Layer.drawScene(G2)
     local s = T.session
     if not s then return end
+    T.topExtent = FILL_MODES[s.mode] and Layer.extent or nil
     G2.push("all")
     if (s.mode == "regimen" or s.mode == "result") and T.drawTop then
       local ok, err = pcall(T.drawTop, G2, s)
@@ -290,10 +300,12 @@ return function(mod, deps)
     end
     local v = T.transView("top")
     if v and v.black and v.black > 0 then
+      local e = T.topExtent
       G2.setColor(0, 0, 0, v.black)
-      G2.rectangle("fill", 0, 0, 240, 160)
+      if e then G2.rectangle("fill", e.x, e.y, e.w, e.h) else G2.rectangle("fill", 0, 0, 240, 160) end
     end
     G2.pop()
+    T.topExtent = nil
   end
 
   -- ------- lifecycle

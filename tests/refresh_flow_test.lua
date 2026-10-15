@@ -189,6 +189,20 @@ m.fullness, m.enjoyment = 100, 50
 for _ = 1, 50 do S.onStep() end
 T.eq(m.fullness, 99, "50 steps take one fullness")
 T.eq(m.enjoyment, 51, "...and give one enjoyment")
+-- the Hall of Fame: one Supreme Honor puff waits with the visitors, once
+local gifts = A.store.visitors().gifts
+local giftsBefore = #gifts
+local liveHost = X._test.refreshHost()
+liveHost.gameCleared = function() return true end
+for _ = 1, 100 do S.onStep() end
+liveHost.gameCleared = function() return false end
+T.eq(#gifts, giftsBefore + 1, "after the Hall of Fame one gift waits, however far you walk")
+T.eq(gifts[#gifts].puff, "puff/supreme_honor", "...a Supreme Honor puff")
+local honorJar = #A.puffs()
+A.visitors.claim(#gifts)
+T.eq(A.puffs()[#A.puffs()], "puff/supreme_honor", "...claimed into the jar")
+T.eq(#A.puffs(), honorJar + 1, "...one puff")
+m.fullness, m.enjoyment = 99, 51
 S.onBattleStarted()
 T.eq(m.fullness, 89, "entering a battle takes 10 fullness")
 T.eq(m.enjoyment, 56, "...and gives 5 enjoyment")

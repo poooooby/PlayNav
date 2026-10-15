@@ -250,9 +250,23 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   D.drawBalloon = drawBalloon
 
-  -- the stadium (assets/st-bg1.png, Wooble's own recreation of the scene): read once, drawn to
-  -- cover the screen with the grass line where the trainee's stand floats
-  D.BG = { file = "assets/st-bg1.png", h = 170, y = -8 }
+  -- the stadium (assets/stadiumlarge.jpg, Wooble's own recreation of the scene, square so it
+  -- reaches past the frame when the top screen fills the playfield): read once, drawn `w` units
+  -- across with its grass line (`grassFrac` of its height) at `grassY`, where the trainee's
+  -- stand floats; past its edges the edge texels stretch (clamp)
+  D.BG = { file = "assets/stadiumlarge.jpg", w = 302.2, grassFrac = 1270 / 1920, grassY = 118.4,
+    -- where the beaten balloon leaves the stadium and twinkles out: just above the roof's edge
+    -- on the right (the edge is at y 470 of 1920 at x 1600), as fractions of the art
+    exit = { x = 1600 / 1920, y = 425 / 1920 } }
+
+  -- the area the top screen covers, in 240x160 units: T.topExtent while hd_top fills the
+  -- playfield (x, y, w, h), else the frame
+  local function extent(T)
+    local e = T and T.topExtent
+    if e then return e.x, e.y, e.w, e.h end
+    return 0, 0, 240, 160
+  end
+  D.extent = extent
   local function bgImage()
     if D.bg == nil then
       D.bg = false
@@ -264,6 +278,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
           local im = G.newImage(data, { mipmaps = true })
           im:setFilter("linear", "linear")
           im:setMipmapFilter("linear")
+          im:setWrap("clamp", "clamp")
           return im
         end)
         if ok then D.bg = img end
@@ -272,16 +287,54 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return D.bg or nil
   end
 
-  local function drawBackground(G2, sim)
+  -- where the art goes this frame: its top left (ix, iy) and units per texel (s), as large as
+  -- it is, or larger where the area reaches past the art (a screen where the frame is small
+  -- next to the area): grown about the grass line's middle, so the ground still meets the
+  -- trainee's stand, rather than stretching the edge texels. iw, ih: the art's size (nil without it)
+  local function bgPlace(T)
     local bg = bgImage()
+    local ex, ey, ew, eh = extent(T)
+    local iw, ih = 1920, 1920
+    if bg then iw, ih = bg:getDimensions() end
+    local W, Hu = D.BG.w, D.BG.w * ih / iw
+    local gf, gy = D.BG.grassFrac, D.BG.grassY
+    local k = math.max(1, 2 * (120 - ex) / W, 2 * (ex + ew - 120) / W,
+      (gy - ey) / (Hu * gf), (ey + eh - gy) / (Hu * (1 - gf)))
+    local s = W * k / iw
+    return 120 - W * k / 2, gy - ih * gf * s, s, iw, ih
+  end
+  -- a point of the art (fractions of its width / height) in 240x160 units this frame
+  function D.bgPoint(T, fx, fy)
+    local ix, iy, s, iw, ih = bgPlace(T)
+    return ix + fx * iw * s, iy + fy * ih * s
+  end
+  -- the beaten balloon's way out: from where it hovers to just above the roof's edge
+  -- (D.BG.exit), wherever that is on this screen, on it or not
+  function D.exitOffset(sim, T)
+    local bx, by = sim:botOffset()
+    local cx, cy = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
+    local tx, ty = D.bgPoint(T, D.BG.exit.x, D.BG.exit.y)
+    return tx - cx, ty - cy
+  end
+
+  local bgQuad, bgQuadKey = nil, nil
+  local function drawBackground(G2, sim, T)
+    local bg = bgImage()
+    local ex, ey, ew, eh = extent(T)
     if bg then
-      local iw, ih = bg:getDimensions()
-      local s = D.BG.h / ih
+      local ix, iy, s, iw, ih = bgPlace(T)
+      -- one quad over the whole area, in image pixels; clamp stretches the edges past the art
+      local qx, qy, qw, qh = (ex - ix) / s, (ey - iy) / s, ew / s, eh / s
+      local key = ("%.2f %.2f %.2f %.2f"):format(qx, qy, qw, qh)
+      if bgQuadKey ~= key then
+        bgQuad = love.graphics.newQuad(qx, qy, qw, qh, iw, ih)
+        bgQuadKey = key
+      end
       G2.setColor(1, 1, 1, 1)
-      G2.draw(bg, 120 - iw * s / 2, D.BG.y, 0, s, s)
+      G2.draw(bg, bgQuad, ex, ey, 0, s, s)
       if sim and sim.bot and sim.bot.aura > 0 then
         G2.setColor(1, 0.2, 0.2, 0.15 + 0.15 * math.sin(sim.t * 20))
-        G2.rectangle("fill", 0, 0, 240, 160)
+        G2.rectangle("fill", ex, ey, ew, eh)
       end
       return
     end
@@ -947,16 +1000,19 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     D.trail, D.burstAt = nil, nil
   end
 
+  -- the star: its arms reach R0 + R * the swell, LINE thick, the centre DOT0 + DOT
+  D.TWINKLE = { R0 = 5.5, R = 22, LINE = 1.7, DOT0 = 2, DOT = 2.8 }
   local function drawTwinkle(G2, x, y, k)
+    local Tw = D.TWINKLE
     local a = math.sin(k * math.pi)
-    local r = 4 + 16 * a
+    local r = Tw.R0 + Tw.R * a
     G2.setColor(1, 1, 1, 0.9 * a)
-    G2.setLineWidth(1.2)
+    G2.setLineWidth(Tw.LINE)
     G2.line(x - r, y, x + r, y)
     G2.line(x, y - r, x, y + r)
     G2.line(x - r * 0.4, y - r * 0.4, x + r * 0.4, y + r * 0.4)
     G2.line(x - r * 0.4, y + r * 0.4, x + r * 0.4, y - r * 0.4)
-    G2.circle("fill", x, y, 1.5 + 2 * a, 10)
+    G2.circle("fill", x, y, Tw.DOT0 + Tw.DOT * a, 10)
     G2.setLineWidth(1)
   end
 
@@ -968,15 +1024,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     local Hud = T and T.hud
     local pose = Hud and Hud.pose and Hud.pose(sim, s) or nil
-    drawBackground(G2, sim)
+    drawBackground(G2, sim, T)
+    local ex, ey, ew, eh = extent(T)
     -- the stadium comes up out of the dark under the intro's title
     if pose and pose.veil and pose.veil > 0 then
       G2.setColor(0.0, 0.12, 0.14, 0.85 * pose.veil)
-      G2.rectangle("fill", 0, 0, 240, 160)
+      G2.rectangle("fill", ex, ey, ew, eh)
       G2.setColor(0.2, 1, 0.8, 0.5 * pose.veil)
       for i = 0, 6 do
         local y = 92 + i * i * 2
-        G2.line(0, y, 240, y)
+        G2.line(ex, y, ex + ew, y)
       end
     end
     local b = pose and pose.bot
@@ -1029,7 +1086,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if pose and pose.twinkle then
       local bx, by = sim:botOffset()
       local cx, cy = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
-      drawTwinkle(G2, cx + (pose.twinkle.dx or 85), math.max(8, cy + (pose.twinkle.dy or -110)), pose.twinkle.k)
+      drawTwinkle(G2, cx + (pose.twinkle.dx or 85), cy + (pose.twinkle.dy or -110), pose.twinkle.k)
     end
     local last = sim.player.lastShot
     if last and sim.phase == "play" then
@@ -1053,14 +1110,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if not (Hud and Hud.draw and Hud.draw(G2, sim, s)) then drawHud(G2, sim, s, T) end
     if pose and pose.fade and pose.fade > 0 then
       G2.setColor(0, 0, 0, pose.fade)
-      G2.rectangle("fill", 0, 0, 240, 160)
+      G2.rectangle("fill", ex, ey, ew, eh)
     end
   end
 
   function D.drawResult(G2, s, T)
     local r = s.result
     G2.setColor(0.16, 0.2, 0.3, 1)
-    G2.rectangle("fill", 0, 0, 240, 160)
+    G2.rectangle("fill", extent(T))
     G2.setColor(1, 1, 1, 0.92)
     G2.rectangle("fill", 10, 22, 220, 128, 4, 4)
     if not r then return end

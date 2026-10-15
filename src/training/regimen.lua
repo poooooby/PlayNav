@@ -10,6 +10,7 @@ return function(mod, T, deps)
   local Courses, Sim, Draw = deps.Courses, deps.Sim, deps.Draw
   local N = Rules.N
   T.Courses, T.Sim, T.Draw = Courses, Sim, Draw
+  T.exitOffset = Draw and Draw.exitOffset   -- the beaten balloon's way out (hud.pose)
 
   function T.courseList() return Courses and Courses.courses or {} end
   function T.course(id) return Courses and Courses.byId and Courses.byId[id] or nil end

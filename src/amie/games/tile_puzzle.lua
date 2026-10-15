@@ -29,6 +29,34 @@ return function(mod, Pointer, G, Games, Rules, host)
   local st = nil
   local canvas = nil
   local sprites = {}   -- the three bouncing Pokemon in the picture
+  local marks = nil    -- landmarks in the picture: stars and petals (newMarks)
+
+  -- the picture's guides, as the game's own puzzle picture has them: a two-colour patterned
+  -- band round the edge (each side split differently, so an edge tile shows where it goes),
+  -- and stars and petals scattered over the scene
+  local BAND = 10
+  local CREAM = { 0.98, 0.95, 0.74 }
+  local CYAN = { 0.55, 0.86, 0.96 }
+  -- per side, from its start (top / bottom left to right, left / right top to bottom): the
+  -- fraction where each colour ends
+  local SIDES = {
+    top = { { 0.52, CREAM }, { 1, CYAN } },
+    right = { { 0.58, CYAN }, { 1, CREAM } },
+    bottom = { { 0.36, CYAN }, { 0.62, CREAM }, { 1, CYAN } },
+    left = { { 0.45, CREAM }, { 1, CYAN } },
+  }
+  local function newMarks()
+    local m = { stars = {}, petals = {} }
+    for i = 1, 9 do
+      m.stars[i] = { x = BAND + 8 + math.random() * (PIC_W - 2 * BAND - 16),
+        y = BAND + 8 + math.random() * (PIC_H - 2 * BAND - 16), r = 4 + math.random() * 2.5, a = math.random() * 6.28 }
+    end
+    for i = 1, 46 do
+      m.petals[i] = { x = BAND + math.random() * (PIC_W - 2 * BAND),
+        y = BAND + math.random() * (PIC_H - 2 * BAND) * 0.6, a = math.random() * 3.14, l = 2 + math.random() * 2 }
+    end
+    return m
+  end
 
   local function art(id)
     local A = app.assets
@@ -93,6 +121,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.pz = newPuzzle(firstDiff)
     st.pzDiff = firstDiff
     startSprites(game.participants)
+    marks = newMarks()
     game.hud = ("TILE PUZZLE  %s"):format(Games.DIFF_LABEL[game.diff])
   end
 
@@ -209,6 +238,70 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   -- the picture canvas is PIC_W x PIC_H logical units at the surface's density (the
   -- transform the surface draws under), so the tiles keep the art's full resolution
+  local function star5(G2, x, y, r, a)
+    local v = {}
+    for i = 0, 9 do
+      local rr = (i % 2 == 0) and r or r * 0.45
+      local t = a + i * math.pi / 5
+      v[#v + 1] = x + math.sin(t) * rr
+      v[#v + 1] = y - math.cos(t) * rr
+    end
+    local ok, tris = pcall(love.math.triangulate, v)
+    if ok then for _, t in ipairs(tris) do G2.polygon("fill", t) end end
+  end
+
+  -- one stretch of the band: the colour, a row of lighter diamonds along its middle
+  local function bandRun(G2, x, y, w, h, col)
+    G2.setColor(col[1], col[2], col[3], 1)
+    G2.rectangle("fill", x, y, w, h)
+    G2.setColor(1, 1, 1, 0.45)
+    local d = BAND * 0.32
+    if w >= h then
+      local cy = y + h / 2
+      for cx = x + 5, x + w - 3, 8 do G2.polygon("fill", cx, cy - d, cx + d, cy, cx, cy + d, cx - d, cy) end
+    else
+      local cx = x + w / 2
+      for cy = y + 5, y + h - 3, 8 do G2.polygon("fill", cx, cy - d, cx + d, cy, cx, cy + d, cx - d, cy) end
+    end
+  end
+
+  local function drawGuides(G2)
+    if marks then
+      for _, p in ipairs(marks.petals) do
+        G2.setColor(0.88, 0.16, 0.2, 0.9)
+        G2.push()
+        G2.translate(p.x, p.y)
+        G2.rotate(p.a)
+        G2.ellipse("fill", 0, 0, p.l, p.l * 0.45, 8)
+        G2.pop()
+      end
+      for _, sr in ipairs(marks.stars) do
+        G2.setColor(0.55, 0.38, 0.05, 0.9)
+        star5(G2, sr.x, sr.y, sr.r + 1, sr.a)
+        G2.setColor(1, 0.86, 0.3, 1)
+        star5(G2, sr.x, sr.y, sr.r, sr.a)
+      end
+    end
+    -- the band: top and bottom full width, left and right between them
+    local function side(list, x, y, len, horizontal)
+      local from = 0
+      for _, run in ipairs(list) do
+        local a, b = from * len, run[1] * len
+        if horizontal then bandRun(G2, x + a, y, b - a, BAND, run[2])
+        else bandRun(G2, x, y + a, BAND, b - a, run[2]) end
+        from = run[1]
+      end
+    end
+    side(SIDES.top, 0, 0, PIC_W, true)
+    side(SIDES.bottom, 0, PIC_H - BAND, PIC_W, true)
+    side(SIDES.left, 0, BAND, PIC_H - 2 * BAND, false)
+    side(SIDES.right, PIC_W - BAND, BAND, PIC_H - 2 * BAND, false)
+    -- the line between the band and the scene
+    G2.setColor(0.25, 0.25, 0.3, 0.7)
+    G2.setLineWidth(1)
+    G2.rectangle("line", BAND + 0.5, BAND + 0.5, PIC_W - 2 * BAND - 1, PIC_H - 2 * BAND - 1)
+  end
+
   local canvasK = 1
   local function renderPicture(G2)
     if not (love and love.graphics and love.graphics.newCanvas) then return nil end
@@ -246,6 +339,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         G2.circle("fill", sp.x, sp.y - 30 - bounce, 24, 20)
       end
     end
+    drawGuides(G2)
     G2.setCanvas(prev)
     G2.pop()
     return canvas

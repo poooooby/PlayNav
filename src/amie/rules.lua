@@ -89,7 +89,7 @@ return function(N)
   function R.steps(meters, blocks)
     for _ = 1, blocks or 1 do
       add(meters, "fullness", N.STEPS.FULLNESS)
-      if (meters.enjoyment or 0) < N.STEPS.ENJOYMENT_BELOW then add(meters, "enjoyment", N.STEPS.ENJOYMENT) end
+      if (meters.enjoyment or 0) <= N.STEPS.ENJOYMENT_BELOW then add(meters, "enjoyment", N.STEPS.ENJOYMENT) end
     end
   end
 

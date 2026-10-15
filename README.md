@@ -68,17 +68,19 @@ on a touch screen below the game or on a device's second display.
   bite. There are 26 kinds, from Basic to Supreme, and you win them in battles and games. A
   few Pokémon, like Metapod and Shedinja, can't eat.
 - ✋ **Little moments:** Rest a finger beside a fond Pokémon and it gives you a high five. Tap
-  twice too fast and it feels hit. It dances as its affection grows and leaves you presents at
-  milestones.
+  twice too fast and it feels hit. It dances as its affection grows and leaves you a present
+  each time it gains a heart.
 - 🎯 **Three minigames,** picked with the GAMES button on the Play screen:
   - **Berry Picker:** hand each Pokémon the berry it asks for.
   - **Head It:** tap Pokémon to bounce yarn, with combos and FEVER.
-  - **Tile Puzzle:** swap tiles to rebuild a moving picture.
+  - **Tile Puzzle:** swap tiles to rebuild a moving picture. A two-colour border and scattered
+    stars and petals show where each tile goes.
 
   Each game has Easy, Normal, Hard and Unlimited ranks, star ratings and Poké Puff prizes.
 - 🛋️ **Décor and visitors:** Decorate the room with any of 34 wallpapers and 172 cushions and
   objects. Set out a Poké Puff and visiting Pokémon from your Pokédex drop by. Three that stay
-  chat together and leave you a present.
+  chat together and leave you a present. Once you've entered the Hall of Fame, they bring you a
+  Supreme Honor Poké Puff.
 - ⚔️ **Affection in battle:** The fonder your Pokémon, the more it does for you. At two hearts
   it earns more experience. From three it can hang on at 1 HP. From four it can shake off a
   status. At 200 affection foes miss it more, and at five hearts it lands more critical hits.
@@ -107,6 +109,8 @@ on a touch screen below the game or on a device's second display.
 - 🎯 **Super-Training Regimens:** Shoot at the goals on a big Balloon Bot made in the image of a
   real Pokémon, in a stadium, the way the game plays it: the course's title, the balloon pumped
   up on the grass, both names, **Start**, and **Success!** as the balloon zips off into the sky.
+  On split screen the picker, the stadium and the results fill the whole top of the screen, as
+  the overworld does.
   - **Controls:** tap the touch screen to shoot where you touch (the brackets on both screens
     line up), hold to charge a triple-points shot, and block with L or R. A mark on the top
     screen shows where your last shot went.

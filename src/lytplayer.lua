@@ -13,6 +13,12 @@
 --   inherit = true passes the pane's alpha to its children)
 -- P.stretchY = k: every pane's position (not its size) spread by k about the layout's middle,
 --   full-height panes stretched with it: the layout fits a screen of another shape)
+-- P.adjust = { [name] = { mx, my, dx, dy, sx, sy, qx, qy } }: per pane, on top of its clips:
+--   its position times mx / my plus dx / dy (layout units, in its parent's space, y up; mx
+--   scales a clip's slide with the pane), a scale of the pane and its children, and a
+--   scale of its own picture alone (about its origin); fits a layout to a wider / taller screen
+--   while chosen panes keep their place (src/training/hud.lua); `parked = true` applies it only
+--   while no tx / ty is set on the pane from outside
 -- P.stretchMode = "backdrop" (with stretchY): the panes stay where the layout has them (top
 --   aligned); only full-height pictures stretch down to fill the taller screen
 -- P:setText(pane, s, opts) (opts.align "left" | "center" | "right", opts.color) ;
@@ -442,9 +448,30 @@ end
 -- scale and the shift the stretch gave it
 -- an image set from outside draws plain: no texture SRT, black 0 and white 255
 local PLAIN_MAT = { srt = {}, black = { 0, 0, 0, 0 }, white = { 255, 255, 255, 255 } }
+-- the pane's P.adjust entry, or nil (`parked`: only while nothing places the pane, no tx /
+-- ty set from outside)
+local function adjustOf(self, pane)
+  local adj = self.adjust and self.adjust[pane.name]
+  if adj and adj.parked then
+    local o = self.over[pane.name]
+    if o and (o.tx ~= nil or o.ty ~= nil) then return nil end
+  end
+  return adj
+end
+
 local function drawPane(self, G, pane, parentAlpha, sh, ctx)
   local st = paneProps(self, pane)
   if not st.visible then return end
+  local adj = adjustOf(self, pane)
+  -- the pane's height as the layout has it (P.adjust's scaling left out): what decides whether
+  -- it is a full-height backdrop, so a pane scaled up to the screen's height is not stretched
+  local layoutH = math.abs(st.h * (ctx.syRaw or ctx.sy) * st.sy)
+  local rawSy = st.sy
+  if adj then
+    st.tx, st.ty = st.tx * (adj.mx or 1) + (adj.dx or 0), st.ty * (adj.my or 1) + (adj.dy or 0)
+    st.sx = st.sx * (adj.sx or 1)
+    st.sy = st.sy * (adj.sy or 1)
+  end
   local alpha = clamp01(st.alpha / 255) * parentAlpha
   local sy = st.sy
   local absY = ctx.y + st.ty * ctx.sy
@@ -452,7 +479,7 @@ local function drawPane(self, G, pane, parentAlpha, sh, ctx)
   local k = self.stretchY
   local inBackdrop = ctx.inBackdrop
   if k and self.stretchMode == "backdrop" then
-    if not inBackdrop and pane.kind ~= "pan" and math.abs(st.h * ctx.sy * st.sy) >= self.L.H - 0.5 and ctx.sy ~= 0 then
+    if not inBackdrop and pane.kind ~= "pan" and layoutH >= self.L.H - 0.5 and ctx.sy ~= 0 then
       -- a backdrop: taller by k, its top where it was (its children come along with it)
       sy = sy * k
       st.ty = st.ty - self.L.H * (k - 1) / 2 / ctx.sy
@@ -465,11 +492,12 @@ local function drawPane(self, G, pane, parentAlpha, sh, ctx)
     st.ty = st.ty + (shift - ctx.shift) / ctx.sy
     -- a full-height picture (a mask, a backdrop) stretches with the screen; a group pane's
     -- children are placed by the shift above, so it keeps its scale
-    if pane.kind ~= "pan" and math.abs(st.h * ctx.sy * st.sy) >= self.L.H - 0.5 then sy = sy * k end
+    if pane.kind ~= "pan" and layoutH >= self.L.H - 0.5 then sy = sy * k end
   end
   local childCtx = pane._ctx
   if not childCtx then childCtx = {}; pane._ctx = childCtx end
   childCtx.y, childCtx.sy, childCtx.shift, childCtx.inBackdrop = absY, ctx.sy * st.sy, shift, inBackdrop
+  childCtx.syRaw = (ctx.syRaw or ctx.sy) * rawSy
   G.push()
   G.translate(st.tx, -st.ty)
   if st.rz ~= 0 then G.rotate(-math.rad(st.rz)) end
@@ -488,9 +516,10 @@ local function drawPane(self, G, pane, parentAlpha, sh, ctx)
       if not img and not map then img = plainImage(G) end
       if img and st.w ~= 0 and st.h ~= 0 then
         local cols = fillCols(pane.colors, st.colorAnim, alpha)
-        local x0, y0 = rectOf(pane, st.w, st.h)
+        local qw, qh = st.w * (adj and adj.qx or 1), st.h * (adj and adj.qy or 1)
+        local x0, y0 = rectOf(pane, qw, qh)
         local ws, wt = map and WRAP[map.wrapS], map and WRAP[map.wrapT]
-        quad(G, img, x0, y0, st.w, st.h, pane.uv, cols, self.images[pane.name] and PLAIN_MAT or mat, mp, sh, ws, wt)
+        quad(G, img, x0, y0, qw, qh, pane.uv, cols, self.images[pane.name] and PLAIN_MAT or mat, mp, sh, ws, wt)
       end
     elseif pane.kind == "txt" then
       drawText(self, G, pane, st, alpha)
@@ -522,16 +551,19 @@ function Player:box(name)
   local p = pane
   while p do table.insert(chain, 1, p); p = p.parent end
   local x, y, sx, sy = self.L.W / 2, self.L.H / 2, 1, 1
-  local st
+  local st, adj
   for _, q in ipairs(chain) do
     st = paneProps(self, q)
-    x, y = x + st.tx * sx, y - st.ty * sy
-    sx, sy = sx * st.sx, sy * st.sy
+    adj = adjustOf(self, q)
+    local tx, ty = st.tx, st.ty
+    if adj then tx, ty = tx * (adj.mx or 1) + (adj.dx or 0), ty * (adj.my or 1) + (adj.dy or 0) end
+    x, y = x + tx * sx, y - ty * sy
+    sx, sy = sx * st.sx * (adj and adj.sx or 1), sy * st.sy * (adj and adj.sy or 1)
   end
   if self.stretchY and self.stretchMode ~= "backdrop" then
     y = (self.L.H / 2 + (y - self.L.H / 2) * self.stretchY) + self.L.H / 2 * (self.stretchY - 1)
   end
-  local w, h = st.w * math.abs(sx), st.h * math.abs(sy)
+  local w, h = st.w * math.abs(sx) * (adj and adj.qx or 1), st.h * math.abs(sy) * (adj and adj.qy or 1)
   local x0, y0 = rectOf(pane, w, h)
   return x + x0, y + y0, w, h
 end

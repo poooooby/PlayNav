@@ -213,7 +213,7 @@ return function(mod, deps)
     if not rec then return nil end
     table.remove(pending, index)
     local decor = Decor.ensure(Store.decor())
-    local gift = Decor.roll(Decor.requestOf(rec), decor, V.rng)
+    local gift = rec.puff and { kind = "puff", id = rec.puff } or Decor.roll(Decor.requestOf(rec), decor, V.rng)
     local text = Decor.grant(gift, decor, Store.puffs())
     -- the game's own lines: "You got X from A, B, and C!" for a visitor group, "You and
     -- MON are looking close! Found X!" / "You'll be friends forever with MON!" for milestones

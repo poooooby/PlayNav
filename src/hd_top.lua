@@ -38,6 +38,19 @@ return function(mod, deps)
     return nil
   end
 
+  -- the top layer paints the whole playfield (its `fillTop()` says so): main lays the top
+  -- screen out as it does for the live overworld, and draw() hands the layer the playfield as
+  -- `layer.extent` in 240x160 units. Only while this overlay draws (HD on, no failures), since
+  -- the engine's own draw of a layer covers the 240x160 frame alone.
+  -- M.playfield: main sets it, () -> { x, y, w, h } in window units or nil
+  function M.wantsFill()
+    if not (HD and HD.enabled and M.failures < 3) then return false end
+    local layer = M.topLayer()
+    if not (layer and layer.fillTop) then return false end
+    local ok, v = pcall(layer.fillTop)
+    return ok and v == true
+  end
+
   local function standDown()
     if M.last then M.last.hdLive = false end
     M.last = nil
@@ -59,16 +72,25 @@ return function(mod, deps)
     if gw < 1 or gh < 1 then M.why = "no game rect"; standDown(); return false end
     M.why = nil
     if M.last and M.last ~= layer then M.last.hdLive = false end
+    local pf = M.playfield and M.wantsFill() and M.playfield() or nil
+    local sx, sy = gw / M.W, gh / M.H
     G.push("all")
     G.origin()
     G.setShader()
     G.setBlendMode("alpha")
-    G.setScissor(gx, gy, gw, gh)
+    if pf then
+      G.setScissor(pf.x, pf.y, pf.w, pf.h)
+      layer.extent = { x = (pf.x - gx) / sx, y = (pf.y - gy) / sy, w = pf.w / sx, h = pf.h / sy }
+    else
+      G.setScissor(gx, gy, gw, gh)
+      layer.extent = nil
+    end
     G.translate(gx, gy)
-    G.scale(gw / M.W, gh / M.H)
+    G.scale(sx, sy)
     G.setColor(1, 1, 1, 1)
     local ok, err = pcall(layer.drawScene, G)
     G.pop()
+    layer.extent = nil
     if ok then
       layer.hdLive = true
       M.last = layer

@@ -49,6 +49,7 @@ return function(mod, deps)
     },
   }
   C.SEASONAL = { berry = "puff/supreme_fall", head = "puff/supreme_summer", tile = "puff/supreme_winter" }
+  C.SPRING_ODDS = 0.5           -- ours: the wiki names no odds
   local TIER_OF = { B = "basic", Fr = "frosted", Fa = "fancy", D = "deluxe", S = "supreme" }
 
   C.TITLES = {
@@ -140,7 +141,8 @@ return function(mod, deps)
     for _, r in ipairs(C.parseReward(spec)) do
       for _ = 1, r.n do
         if r.tier == "supreme" then
-          ids[#ids + 1] = C.SEASONAL[game] or "puff/supreme_spring"
+          -- any game's Unlimited can give Supreme Spring; the other seasons are each game's own
+          ids[#ids + 1] = (rng() < C.SPRING_ODDS or not C.SEASONAL[game]) and "puff/supreme_spring" or C.SEASONAL[game]
         else
           local flavor = FLAVORS[math.floor(rng() * #FLAVORS) + 1] or "sweet"
           ids[#ids + 1] = "puff/" .. flavor .. "_" .. r.tier

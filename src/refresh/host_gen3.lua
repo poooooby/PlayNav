@@ -101,6 +101,21 @@ return function(mod)
     return type(n) == "string" and n or nil
   end
 
+  -- the player has entered the Hall of Fame (FLAG_SYS_GAME_CLEAR, Emerald and FireRed)
+  function H.gameCleared()
+    local ok, v = pcall(function()
+      local session = H.Runtime3.getSession()
+      local Sem, Flags = req("src.core.game3.field_semantics"), req("src.core.game3.scripting.flags")
+      if not (session and Sem and Flags) then return false end
+      local id = Sem.flag(session, "FLAG_SYS_GAME_CLEAR")
+      if not id then return false end
+      local Space = package.loaded["src.core.game3.scripting.space"]
+      local store = (Space and Space.active and Space.store) or session
+      return Flags.getFlag(store, nil, id) == true
+    end)
+    return ok and v == true
+  end
+
   -- species the Pokedex marks as seen (internal species ids)
   function H.dexSeen()
     local ok, session = pcall(H.Runtime3.getSession)

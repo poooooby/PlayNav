@@ -14,7 +14,7 @@ return function(CATALOG, Rules)
   -- the puff a visitor group leaves instead of an item, by set
   D.SET_PUFF_TIER = { A = "basic", B = "frosted", C = "fancy", D = "deluxe" }
   -- affection milestones to sets (Bulbapedia: 25 -> B, 50 -> C, 75 and 100 -> D, 150 -> E, 255 -> F)
-  D.MILESTONE_SET = { [25] = "B", [50] = "C", [75] = "D", [100] = "D", [150] = "E", [255] = "F" }
+  D.MILESTONE_SET = { [50] = "C", [100] = "D", [150] = "E", [255] = "F" }
 
   D.BY_ID = {}
   D.ITEMS = {}        -- cushions and objects
