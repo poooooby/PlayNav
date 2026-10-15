@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-10-15 (pre-alpha)
+
 ### Added
 
 - After you enter the Hall of Fame, visitors to the room bring you a Supreme Honor Poké Puff
