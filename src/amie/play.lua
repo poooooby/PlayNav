@@ -1,12 +1,11 @@
--- PLAY: the bottom-screen half of Pokemon-Amie's play mode. The Pokemon in
--- the middle, a tray along the top (cleaning tools and medicine only while
--- there is something to clean or cure, Poke Puffs always), petting with
--- per-species favored / disfavored spots and effects, a rapid double-tap
--- "hit", the five-second high-five, puffs eaten bite by bite while held on
--- the Pokemon, and the prompt tiles after a battle.
+-- PLAY: the bottom-screen half of Pokemon-Amie's close-up. The Pokemon in the middle, a
+-- tray along the top (Poke Puffs, the games), petting with per-species favored / disfavored
+-- spots and effects, a rapid double-tap "hit", the five-second high-five, puffs eaten bite by
+-- bite while held on the Pokemon, and the games picker on this same screen (the GAMES tray
+-- button: three badges, the four ranks under the chosen one).
 -- Rules: src/amie/rules.lua, spots: src/amie/petting.lua, state: src/amie/session.lua.
 
-return function(mod, Pointer, G, Care, Rules, Petting)
+return function(mod, Pointer, G, Rules, Petting)
 
   -- a line that fits its strip: wrapped, and drawn smaller if it still runs over (src/textfit.lua)
   local function fitText(G2, text, x, y, w, h, align)
@@ -29,13 +28,28 @@ return function(mod, Pointer, G, Care, Rules, Petting)
   local W, H = 256, 178
   local TRAY = { y = 2, h = 32, slot = 36 }
   local TRAY_BOTTOM = TRAY.y + TRAY.h + 2
-  local TOOL_LABEL = { medicine = "MEDIC", comb = "COMB", brush = "BRUSH", towel = "TOWEL", dryer = "DRYER", beans = "PUFFS", games = "GAMES" }
+  local TOOL_LABEL = { beans = "PUFFS", games = "GAMES" }
   local BODY = { cx = 128, cy = 102, rx = 54, ry = 58 }
   local PLAY = { x = 0, y = TRAY_BOTTOM, w = 256, h = 110 }
   local PIC = { cx = 128, bottom = 150, scale = 2 }
   local DONE = { x = 200, y = 158, w = 50, h = 16 }
-  local YES = { x = 24, y = 96, w = 96, h = 48 }
-  local NO = { x = 136, y = 96, w = 96, h = 48 }
+  -- the games picker over the Pokemon's head: the three badges, their names, the four ranks
+  -- with their best stars
+  local GAMES = { x = 8, y = 38, w = 240, h = 88, badge = 34, gap = 22, badgeY = 42, diffY = 92, diffW = 50, diffH = 13, diffGap = 5 }
+  local gameSel = "berry"
+  local function badgeRect(i)
+    local x = (W - 3 * GAMES.badge - 2 * GAMES.gap) / 2 + (i - 1) * (GAMES.badge + GAMES.gap)
+    return { x = x, y = GAMES.badgeY, w = GAMES.badge, h = GAMES.badge }
+  end
+  local function diffRect(i)
+    local x = (W - 4 * GAMES.diffW - 3 * GAMES.diffGap) / 2 + (i - 1) * (GAMES.diffW + GAMES.diffGap)
+    return { x = x, y = GAMES.diffY, w = GAMES.diffW, h = GAMES.diffH }
+  end
+  -- badge art: five looks per game in the misc pack, in game order
+  local BADGE_BASE = { berry = 0, head = 5, tile = 10 }
+  local function badgeId(game, diffIndex)
+    return ("game/badge_%02d"):format((BADGE_BASE[game] or 0) + (diffIndex or 1) - 1)
+  end
   local BEAN_ROW = { x = 40, y = 40, w = 174, h = 22 }
   local PUFF_SLOT = 29
   local PUFF_PER_PAGE = 6
@@ -44,7 +58,6 @@ return function(mod, Pointer, G, Care, Rules, Petting)
 
   local particles = {}
   local drag = nil        -- { kind = <puff id>, x, y, id, feeding }
-  local toolCursor = nil  -- { x, y } while a cleaning tool is pressed
   local cursor = nil      -- { x, y, kind, down } the Amie hand
   local emote = nil       -- { id, untilT }
   local effectFx = nil    -- { kind, x, y, untilT } burning / paralyzing / ...
@@ -54,7 +67,7 @@ return function(mod, Pointer, G, Care, Rules, Petting)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -62,14 +75,9 @@ return function(mod, Pointer, G, Care, Rules, Petting)
     emote = { id = id, untilT = Pointer.now() + (secs or 1.2) }
   end
 
-  -- the tray adapts: care tools only while they are needed
+  -- the tray: Poke Puffs, and the games when they are built
   local function tools(s)
-    local list = {}
-    if s.status then list[#list + 1] = "medicine" end
-    for _, t in ipairs({ "comb", "brush", "towel", "dryer" }) do
-      if Care.remaining(s.marks, Care.MARK_FOR[t]) > 0 then list[#list + 1] = t end
-    end
-    list[#list + 1] = "beans"
+    local list = { "beans" }
     if G.Games then list[#list + 1] = "games" end
     return list
   end
@@ -151,12 +159,6 @@ return function(mod, Pointer, G, Care, Rules, Petting)
 
   -- ------- input
 
-  local function handlePrompt(ev, rec)
-    if ev.phase ~= "released" or not Pointer.isTap(rec, 20, 1.5) then return end
-    if inRect(ev.x, ev.y, YES) then G.accept()
-    elseif inRect(ev.x, ev.y, NO) then G.decline() end
-  end
-
   local function react(hearts, spot, x, y)
     if hearts > 0 then
       spawn("heart", x, y - 10, hearts)
@@ -180,6 +182,16 @@ return function(mod, Pointer, G, Care, Rules, Petting)
       local t = toolAt(s, ev.x, ev.y)
       if t then rec.amieTray = t; return end
       if inRect(ev.x, ev.y, DONE) then rec.amieDone = true; return end
+      if s.tool == "games" then
+        -- the picker: a badge, a rank, or the panel itself (which the finger does not pet through)
+        for i = 1, 3 do
+          if inRect(ev.x, ev.y, badgeRect(i)) then rec.amieBadge = i; return end
+        end
+        for i = 1, 4 do
+          if inRect(ev.x, ev.y, diffRect(i)) then rec.amieDiff = i; return end
+        end
+        if inRect(ev.x, ev.y, GAMES) then return end
+      end
       if s.tool == "beans" then
         local dir = arrowAt(ev.x, ev.y)
         if dir then rec.amieArrow = dir; return end
@@ -193,7 +205,6 @@ return function(mod, Pointer, G, Care, Rules, Petting)
       if ev.y >= PLAY.y and ev.y <= PLAY.y + PLAY.h then
         rec.amieBody = true
         rec.lastBodyX, rec.lastBodyY = ev.x, ev.y
-        if Care.MARK_FOR[s.tool] then toolCursor = { x = ev.x, y = ev.y } end
         -- a bare finger resting off the Pokemon may become a high-five
         if s.tool == nil and not onBody(ev.x, ev.y, 1.25) and G.canHighFive() then
           holdFive = { id = ev.id, startT = Pointer.now(), x = ev.x, y = ev.y }
@@ -213,20 +224,7 @@ return function(mod, Pointer, G, Care, Rules, Petting)
       rec.lastBodyX, rec.lastBodyY = ev.x, ev.y
       local distPx = math.sqrt(dx * dx + dy * dy)
       if distPx <= 0 then return end
-      if Care.MARK_FOR[s.tool] then
-        toolCursor = { x = ev.x, y = ev.y }
-        local steps = math.max(1, math.ceil(distPx / 4))
-        local x0, y0 = ev.x - dx, ev.y - dy
-        local unit = (BODY.rx + BODY.ry) / 2
-        local removedTotal = 0
-        for i = 1, steps do
-          local px, py = x0 + dx * i / steps, y0 + dy * i / steps
-          local bx, by = toBody(px, py)
-          local removed = G.rubAt(bx, by, (distPx / steps) / unit)
-          removedTotal = removedTotal + (removed or 0)
-        end
-        if removedTotal > 0 then spawn(s.tool == "dryer" and "steam" or "puff", ev.x, ev.y, 1) end
-      elseif s.tool == nil and onBody(ev.x, ev.y, 1.2) then
+      if s.tool == nil and onBody(ev.x, ev.y, 1.2) then
         local spot, effect = spotAt(s, ev.x, ev.y)
         if spot == "effect" then
           -- an interrupting effect ends the stroke
@@ -252,19 +250,26 @@ return function(mod, Pointer, G, Care, Rules, Petting)
         if d.feeding then G.feedDrop(); showEmote("emote/sad", 1.2) end
         return
       end
-      toolCursor = nil
       holdFive = nil
       if ev.phase == "released" and Pointer.isTap(rec, 16, 1.0) then
         local now = Pointer.now()
         if rec.amieTray and toolAt(s, ev.x, ev.y) == rec.amieTray then
-          if rec.amieTray == "games" then G.enterGames() else G.selectTool(rec.amieTray) end
+          if rec.amieTray == "games" and s.tool ~= "games" then G.showGames() else G.selectTool(rec.amieTray) end
+        elseif rec.amieBadge and inRect(ev.x, ev.y, badgeRect(rec.amieBadge)) then
+          gameSel = G.Games.GAMES[rec.amieBadge] or gameSel
+          G.click()
+        elseif rec.amieDiff and inRect(ev.x, ev.y, diffRect(rec.amieDiff)) then
+          local diff = G.Games.DIFFS[rec.amieDiff]
+          if diff and G.Games.isUnlocked(gameSel, diff) then
+            G.startGame(gameSel, diff)
+          else
+            G.say("Earn three stars on the rank below first.", 2.5)
+          end
         elseif rec.amieArrow and arrowAt(ev.x, ev.y) == rec.amieArrow then
           local _, pages = puffPages(s)
           app.puffPage = math.min(math.max((app.puffPage or 1) + rec.amieArrow, 1), pages)
         elseif rec.amieDone and inRect(ev.x, ev.y, DONE) then
           G.back()
-        elseif rec.amieBody and s.tool == "medicine" and onBody(ev.x, ev.y, 1.2) then
-          if G.cure() then spawn("sparkle", BODY.cx, BODY.cy, 10); showEmote("emote/happy", 1.5) end
         elseif rec.amieBody and s.tool == nil and onBody(ev.x, ev.y, 1.2) then
           -- two quick taps on the same place is a hit; one tap is a pet
           local N = Rules.N.HIT
@@ -286,14 +291,13 @@ return function(mod, Pointer, G, Care, Rules, Petting)
           end
         end
       end
-      rec.amieTray, rec.amieDone, rec.amieBody, rec.amieArrow = nil, nil, nil, nil
+      rec.amieTray, rec.amieDone, rec.amieBody, rec.amieArrow, rec.amieBadge, rec.amieDiff = nil, nil, nil, nil, nil, nil
     end
   end
 
   function app:pointer(ev, rec, game)
     local s = G.session
     if not s then return end
-    if s.mode == "prompt" then return handlePrompt(ev, rec) end
     return handlePlay(ev, rec, s)
   end
 
@@ -374,66 +378,12 @@ return function(mod, Pointer, G, Care, Rules, Petting)
 
   local function drawTool(G2, tool, x, y, size, lit)
     local a = lit and 1 or 0.55
-    if tool == "medicine" then
-      G2.setColor(0.95, 0.95, 1, a); G2.rectangle("fill", x - 3, y - size / 2, 6, size, 3, 3)
-      G2.setColor(0.9, 0.2, 0.3, a); G2.rectangle("fill", x - 3, y, 6, size / 2, 3, 3)
-    elseif tool == "comb" then
-      G2.setColor(0.95, 0.75, 0.35, a); G2.rectangle("fill", x - size / 2, y - 4, size, 6, 2, 2)
-      for i = 0, 5 do G2.rectangle("fill", x - size / 2 + 1 + i * (size / 6), y + 2, 2, size / 2) end
-    elseif tool == "brush" then
-      G2.setColor(0.6, 0.4, 0.25, a); G2.rectangle("fill", x - 3, y - size / 2, 6, size * 0.6, 2, 2)
-      G2.setColor(0.9, 0.85, 0.7, a); G2.rectangle("fill", x - size / 2, y + size * 0.1, size, size * 0.4, 2, 2)
-    elseif tool == "towel" then
-      G2.setColor(0.4, 0.75, 0.95, a); G2.rectangle("fill", x - size / 2, y - size / 2 + 3, size, size - 6, 3, 3)
-      G2.setColor(1, 1, 1, a * 0.6); G2.rectangle("fill", x - size / 2, y - 2, size, 4)
-    elseif tool == "dryer" then
-      G2.setColor(0.85, 0.3, 0.6, a); G2.rectangle("fill", x - size / 2, y - 6, size * 0.8, 12, 4, 4)
-      G2.rectangle("fill", x - 2, y + 4, 6, size / 2, 2, 2)
-      G2.setColor(1, 1, 1, a * 0.8); G2.circle("fill", x + size * 0.3, y, 4, 10)
-    elseif tool == "beans" then
+    if tool == "beans" then
       G2.setColor(0.95, 0.55, 0.2, a); G2.ellipse("fill", x, y, size / 2, size / 3)
       G2.setColor(0.6, 0.3, 0.1, a); G2.ellipse("line", x, y, size / 2, size / 3)
     elseif tool == "games" then
       G2.setColor(0.35, 0.65, 0.95, a); G2.circle("fill", x, y, size / 2, 16)
       G2.setColor(1, 1, 1, a); G2.polygon("fill", x - 3, y - 5, x - 3, y + 5, x + 5, y)
-    end
-  end
-
-  local function markPos(m) return BODY.cx + m.x * BODY.rx, BODY.cy + m.y * BODY.ry end
-
-  local function drawMark(G2, m)
-    if m.amount <= 0 then return end
-    local x, y = markPos(m)
-    local r = m.r * (BODY.rx + BODY.ry) / 2
-    local a = 0.25 + 0.75 * m.amount
-    if m.kind == "mud" then
-      G2.setColor(0.42, 0.26, 0.12, a)
-      G2.circle("fill", x, y, r, 16)
-      G2.circle("fill", x + r * 0.6, y - r * 0.4, r * 0.6, 12)
-      G2.circle("fill", x - r * 0.5, y + r * 0.4, r * 0.5, 12)
-    elseif m.kind == "dust" then
-      G2.setColor(0.6, 0.6, 0.58, a)
-      for i = 0, 7 do
-        local ang = m.seed * 6.28 + i * 0.8
-        G2.circle("fill", x + math.cos(ang) * r * 0.8, y + math.sin(ang) * r * 0.6, 1.6 + (i % 3) * 0.6, 8)
-      end
-    elseif m.kind == "wet" then
-      G2.setColor(0.35, 0.6, 1, a)
-      G2.circle("fill", x, y + r * 0.2, r * 0.6, 14)
-      G2.polygon("fill", x - r * 0.55, y + r * 0.1, x + r * 0.55, y + r * 0.1, x, y - r * 0.9)
-      G2.setColor(1, 1, 1, a * 0.7)
-      G2.circle("fill", x - r * 0.2, y, r * 0.15, 8)
-    elseif m.kind == "ruffled" then
-      G2.setColor(0.15, 0.15, 0.2, a)
-      G2.setLineWidth(1.5)
-      local px, py = x - r, y
-      for i = 1, 6 do
-        local nx = x - r + i * (r / 3)
-        local ny = y + ((i % 2 == 0) and -r * 0.5 or r * 0.5)
-        G2.line(px, py, nx, ny)
-        px, py = nx, ny
-      end
-      G2.setLineWidth(1)
     end
   end
 
@@ -517,18 +467,6 @@ return function(mod, Pointer, G, Care, Rules, Petting)
       G2.setColor(0.9, 0.75, 0.3, 1)
       G2.circle("fill", BODY.cx, BODY.cy - bounce, 40 * sx, 32)
     end
-    for _, m in ipairs(s.marks) do drawMark(G2, m) end
-
-    if s.mode == "prompt" then
-      G2.setColor(0, 0, 0, 0.45)
-      G2.rectangle("fill", 0, -(app.bleed or 0), w, h + (app.bleed or 0))
-      G2.setColor(1, 1, 1, 1)
-      G2.printf(("%s could use some care."):format(s.name), 8, 60, w - 16, "center")
-      G2.printf("Refresh?", 8, 76, w - 16, "center")
-      drawButton(G2, YES, "YES", { 0.25, 0.65, 0.35 })
-      drawButton(G2, NO, "NO", { 0.55, 0.22, 0.25 })
-      return
-    end
 
     -- tray
     local list = tools(s)
@@ -605,12 +543,51 @@ return function(mod, Pointer, G, Care, Rules, Petting)
       if app.font then G2.setFont(app.font) end
     end
 
+    -- the games picker
+    if s.tool == "games" and G.Games then
+      local Games = G.Games
+      G2.setColor(0, 0, 0, 0.45)
+      G2.rectangle("fill", GAMES.x, GAMES.y, GAMES.w, GAMES.h, 6, 6)
+      for i, game in ipairs(Games.GAMES) do
+        local r = badgeRect(i)
+        if game == gameSel then
+          G2.setColor(1, 1, 1, 0.5)
+          G2.rectangle("fill", r.x - 3, r.y - 3, r.w + 6, r.h + 6, 6, 6)
+        end
+        local unlocked = math.max(1, math.min(4, Games.unlocked(game)))
+        local img = art(badgeId(game, unlocked))
+        if img then
+          G2.setColor(1, 1, 1, 1)
+          local iw, ih = img:getDimensions()
+          G2.draw(img, r.x + r.w / 2, r.y + r.h / 2, 0, r.w / iw, r.h / ih, iw / 2, ih / 2)
+        else
+          local colors = { berry = { 0.4, 0.75, 0.35 }, head = { 0.4, 0.6, 0.95 }, tile = { 0.9, 0.55, 0.3 } }
+          local c = colors[game] or { 0.5, 0.5, 0.5 }
+          G2.setColor(c[1], c[2], c[3], 1)
+          G2.circle("fill", r.x + r.w / 2, r.y + r.h / 2, r.w / 2, 24)
+        end
+        G2.setColor(1, 1, 1, 1)
+        if app.smallFont then G2.setFont(app.smallFont) end
+        G2.printf(Games.name(game), r.x - 14, r.y + r.h + 1, r.w + 28, "center")
+      end
+      for i, diff in ipairs(Games.DIFFS) do
+        local r = diffRect(i)
+        local open = Games.isUnlocked(gameSel, diff)
+        G2.setColor(open and 0.25 or 0.15, open and 0.45 or 0.15, open and 0.7 or 0.18, open and 1 or 0.7)
+        G2.rectangle("fill", r.x, r.y, r.w, r.h, 4, 4)
+        G2.setColor(1, 1, 1, open and 1 or 0.5)
+        G2.printf(open and Games.diffLabel(diff):upper() or "LOCKED", r.x, r.y + 2, r.w, "center")
+        Games.drawStars(G2, r.x + 7, r.y + r.h + 8, Games.best(gameSel, diff), 3, art)
+      end
+      if app.font then G2.setFont(app.font) end
+    end
+
     -- emote bubble beside the head
     if emote then
       local img = art(emote.id)
       if img then
         G2.setColor(1, 1, 1, 1)
-        local ey = s.tool == "beans" and BODY.cy - 24 or BODY.cy - 66
+        local ey = (s.tool == "beans" or s.tool == "games") and BODY.cy - 24 or BODY.cy - 66
         -- the bubble's tail points down-right: it sits above-left of the Pokemon
         G2.draw(img, BODY.cx - 48, ey, 0, 0.8, 0.8, 25, 25)
       end
@@ -628,9 +605,8 @@ return function(mod, Pointer, G, Care, Rules, Petting)
       else drawTool(G2, "beans", drag.x, drag.y, 14 * k / 0.6, true) end
     end
 
-    -- the cursor: the tool while a cleaning tool is held; the Amie hand for
-    -- a bare finger (crossed right after a disliked rub, open while a
-    -- high-five is building); the effect hand over a hot / shocking spot
+    -- the cursor: the Amie hand for a bare finger (crossed right after a disliked rub, open
+    -- while a high-five is building); the effect hand over a hot / shocking spot
     if effectFx then
       local img = art(EFFECT_HAND[effectFx.kind] or "fx/hit")
       if img then
@@ -641,8 +617,6 @@ return function(mod, Pointer, G, Care, Rules, Petting)
         G2.setColor(1, 0.6, 0.2, 0.9)
         G2.circle("line", effectFx.x, effectFx.y, 10)
       end
-    elseif toolCursor and Care.MARK_FOR[s.tool] then
-      drawTool(G2, s.tool, toolCursor.x, toolCursor.y - 4, 24, true)
     elseif cursor and cursor.down and s.tool == nil then
       local annoyed = app.dislikeUntil and Pointer.now() < app.dislikeUntil
       local id = annoyed and "hand/dislike" or (holdFive and "hand/flat" or "hand/pet")
@@ -658,12 +632,6 @@ return function(mod, Pointer, G, Care, Rules, Petting)
       end
     end
 
-    if s.status then
-      G2.setColor(0.6, 0.2, 0.7, 0.9)
-      G2.rectangle("fill", 6, 40, 34, 12, 3, 3)
-      G2.setColor(1, 1, 1, 1)
-      G2.printf(s.status, 6, 39, 34, "center")
-    end
     local lv = Rules.level(s.meters.affection)
     local heartImg = art("ui/icon_heart")
     for i = 1, 5 do
@@ -691,13 +659,14 @@ return function(mod, Pointer, G, Care, Rules, Petting)
 
   function app:releaseAll()
     if drag and drag.feeding then G.feedDrop() end
-    drag, toolCursor, holdFive = nil, nil, nil
+    drag, holdFive = nil, nil
   end
   app.leave = app.releaseAll
 
   -- for tests and the driver: geometry in app space
-  app.geometry = { BODY = BODY, TRAY = TRAY, DONE = DONE, YES = YES, NO = NO, BEAN_ROW = BEAN_ROW,
-    PUFF_SLOT = PUFF_SLOT, ARROW_L = ARROW_L, ARROW_R = ARROW_R, tools = tools, trayX = trayX }
+  app.geometry = { BODY = BODY, TRAY = TRAY, DONE = DONE, BEAN_ROW = BEAN_ROW,
+    PUFF_SLOT = PUFF_SLOT, ARROW_L = ARROW_L, ARROW_R = ARROW_R, tools = tools, trayX = trayX,
+    GAMES = GAMES, gameBadge = badgeRect, gameDiff = diffRect }
 
   return app
 end

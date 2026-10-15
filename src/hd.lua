@@ -55,6 +55,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 ]]
 
 local sharp, sharpFailed = nil, false
+local sharpImg = nil                      -- the image whose size the shader holds
+local TEX_SIZE, PX_PER_TEXEL = { 1, 1 }, { 1, 1 }
 function HD.sharpShader()
   if sharp or sharpFailed then return sharp end
   local g = G()
@@ -93,7 +95,9 @@ function HD.drawPixel(img, a, ...)
   if not (g and img) then return end
   sx = sx or 1
   sy = sy or sx
-  local s = HD.outputScale() * math.abs(sx) / texelsPerUnit(img)
+  local out = HD.outputScale()
+  local tpu = texelsPerUnit(img)
+  local s = out * math.abs(sx) / tpu
   local mode = HD.modeFor(s)
   local prevMin, prevMag = "nearest", "nearest"
   if img.getFilter then prevMin, prevMag = img:getFilter() end
@@ -102,10 +106,17 @@ function HD.drawPixel(img, a, ...)
   local prevShader = g.getShader and g.getShader() or nil
   if mode ~= "nearest" and img.setFilter then img:setFilter("linear", "linear") end
   if shader then
-    local pw, ph = img:getPixelDimensions()
-    pcall(shader.send, shader, "texSize", { pw, ph })
-    local sy2 = HD.outputScale() * math.abs(sy) / texelsPerUnit(img)
-    pcall(shader.send, shader, "pxPerTexel", { math.max(1, s), math.max(1, sy2) })
+    -- the uniforms through two reused tables; the texture size only when the image changes
+    -- (a table per draw, with a call as its last element, allocated tens of KB on this LuaJIT)
+    if sharpImg ~= img then
+      local pw, ph = img:getPixelDimensions()
+      TEX_SIZE[1], TEX_SIZE[2] = pw, ph
+      pcall(shader.send, shader, "texSize", TEX_SIZE)
+      sharpImg = img
+    end
+    local sy2 = out * math.abs(sy) / tpu
+    PX_PER_TEXEL[1], PX_PER_TEXEL[2] = math.max(1, s), math.max(1, sy2)
+    pcall(shader.send, shader, "pxPerTexel", PX_PER_TEXEL)
     g.setShader(shader)
   end
   if quad then g.draw(img, quad, x, y, r or 0, sx, sy, ox or 0, oy or 0)

@@ -11,8 +11,9 @@ return function(mod, Files, Player)
   local S = { layouts = {}, clips = {} }
   if Player and Files then Player.setFiles(Files) end
 
+  -- the USE EXTRACTED ART option, as main reads it into the loader once a frame
   local function useArt()
-    return not (mod.options and mod.options.get and mod.options:get("use_rom_art") == false)
+    return not (S.assets and S.assets.enabled == false)
   end
 
   local function bytes(pack, name)

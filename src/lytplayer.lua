@@ -172,9 +172,20 @@ function Player:setImage(pane, img) self.images[pane] = img end
 
 -- ------- the state of one pane this frame
 
+-- one state table per pane, reused frame to frame: a layout draw is hundreds of panes, and
+-- a table each left the device's collector sweeping every frame
+local BASE_KEYS = { tx = true, ty = true, rz = true, sx = true, sy = true, w = true, h = true, alpha = true,
+  visible = true, colorAnim = true }
 local function paneProps(self, pane)
-  local st = { tx = pane.t[1], ty = pane.t[2], rz = pane.rz, sx = pane.s[1], sy = pane.s[2], w = pane.w, h = pane.h,
-    alpha = pane.alpha, visible = pane.visible }
+  local st = pane._st
+  if st then
+    for k in pairs(st) do if not BASE_KEYS[k] then st[k] = nil end end
+  else
+    st = {}
+    pane._st = st
+  end
+  st.tx, st.ty, st.rz, st.sx, st.sy, st.w, st.h = pane.t[1], pane.t[2], pane.rz, pane.s[1], pane.s[2], pane.w, pane.h
+  st.alpha, st.visible, st.colorAnim = pane.alpha, pane.visible, nil
   local colors
   for _, a in ipairs(self.active) do
     if self.bound[a.name][pane.name] then
@@ -230,14 +241,29 @@ function Player:image(texName)
 end
 
 local CORNERS = { "tl", "tr", "bl", "br" }
+local WHITE4 = { 255, 255, 255, 255 }
+local CKEY = {}
+for i, c in ipairs(CORNERS) do CKEY[i] = { r = "c" .. c .. ".r", g = "c" .. c .. ".g", b = "c" .. c .. ".b", a = "c" .. c .. ".a" } end
 local function vcolor(base, anim, i, alpha)
-  local c = base and base[i] or { 255, 255, 255, 255 }
+  local c = base and base[i] or WHITE4
   local r, g, b, a = c[1], c[2], c[3], c[4]
   if anim then
-    local k = "c" .. CORNERS[i] .. "."
-    r = anim[k .. "r"] or r; g = anim[k .. "g"] or g; b = anim[k .. "b"] or b; a = anim[k .. "a"] or a
+    local k = CKEY[i]
+    r = anim[k.r] or r; g = anim[k.g] or g; b = anim[k.b] or b; a = anim[k.a] or a
   end
   return r / 255, g / 255, b / 255, a / 255 * alpha
+end
+
+-- the four corner colours of the pane being drawn (quad reads them at once; one set reused).
+-- Never `{ vcolor(...) }`: a call as a constructor's last element is a multi-value store that
+-- this LuaJIT compiles into a slow path allocating tens of KB per table.
+local COLS = { {}, {}, {}, {} }
+local function fillCols(base, anim, alpha)
+  for i = 1, 4 do
+    local c = COLS[i]
+    c[1], c[2], c[3], c[4] = vcolor(base, anim, i, alpha)
+  end
+  return COLS
 end
 
 local function clamp01(v) return v < 0 and 0 or (v > 1 and 1 or v) end
@@ -251,43 +277,48 @@ local function rectOf(pane, w, h)
 end
 
 local mesh
+local DEFAULT_UV = { 0, 0, 1, 0, 0, 1, 1, 1 }
+local BLACK0, WHITE255 = { 0, 0, 0, 0 }, { 255, 255, 255, 255 }
+-- the mesh's four vertices and the shader's two colours: filled in place every quad
+local VERTS = { {}, {}, {}, {} }
+local SEND_B, SEND_W = { 0, 0, 0, 0 }, { 1, 1, 1, 1 }
+local function setVert(v, x, y, u, vv, c)
+  v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8] = x, y, u, vv, c[1], c[2], c[3], c[4]
+end
 local function quad(G, img, x0, y0, w, h, uv, cols, mat, mp, sh, wrapS, wrapT)
   -- texture coordinates: the pane's own, through the material's texture SRT (about the
   -- centre: (uv - 0.5) * scale + 0.5 + translate)
-  local u = uv or { 0, 0, 1, 0, 0, 1, 1, 1 }
+  local u = uv or DEFAULT_UV
   local srt = mat and mat.srt[1]
   local tx, ty, sx, sy = 0, 0, 1, 1
   if srt then tx, ty, sx, sy = srt[1], srt[2], srt[4], srt[5] end
   if mp then
     tx = mp["ts0.0"] or tx; ty = mp["ts0.1"] or ty; sx = mp["ts0.3"] or sx; sy = mp["ts0.4"] or sy
   end
-  local function t(i)
-    return (u[i] - 0.5) * sx + 0.5 + tx, (u[i + 1] - 0.5) * sy + 0.5 + ty
-  end
-  local u1, v1 = t(1)
-  local u2, v2 = t(3)
-  local u3, v3 = t(5)
-  local u4, v4 = t(7)
-  local verts = {
-    { x0, y0, u1, v1, cols[1][1], cols[1][2], cols[1][3], cols[1][4] },
-    { x0 + w, y0, u2, v2, cols[2][1], cols[2][2], cols[2][3], cols[2][4] },
-    { x0 + w, y0 + h, u4, v4, cols[4][1], cols[4][2], cols[4][3], cols[4][4] },
-    { x0, y0 + h, u3, v3, cols[3][1], cols[3][2], cols[3][3], cols[3][4] },
-  }
+  local u1, v1 = (u[1] - 0.5) * sx + 0.5 + tx, (u[2] - 0.5) * sy + 0.5 + ty
+  local u2, v2 = (u[3] - 0.5) * sx + 0.5 + tx, (u[4] - 0.5) * sy + 0.5 + ty
+  local u3, v3 = (u[5] - 0.5) * sx + 0.5 + tx, (u[6] - 0.5) * sy + 0.5 + ty
+  local u4, v4 = (u[7] - 0.5) * sx + 0.5 + tx, (u[8] - 0.5) * sy + 0.5 + ty
+  setVert(VERTS[1], x0, y0, u1, v1, cols[1])
+  setVert(VERTS[2], x0 + w, y0, u2, v2, cols[2])
+  setVert(VERTS[3], x0 + w, y0 + h, u4, v4, cols[4])
+  setVert(VERTS[4], x0, y0 + h, u3, v3, cols[3])
   if not mesh then mesh = G.newMesh(4, "fan", "stream") end
-  mesh:setVertices(verts)
+  mesh:setVertices(VERTS)
   img:setWrap(wrapS or "clamp", wrapT or "clamp")
   mesh:setTexture(img)
   if sh then
-    local bl, wh = mat and mat.black or { 0, 0, 0, 0 }, mat and mat.white or { 255, 255, 255, 255 }
+    local bl, wh = mat and mat.black or BLACK0, mat and mat.white or WHITE255
     local b1, b2, b3, b4 = bl[1], bl[2], bl[3], bl[4]
     local w1, w2, w3, w4 = wh[1], wh[2], wh[3], wh[4]
     if mp then
       b1 = mp.mc0 or b1; b2 = mp.mc1 or b2; b3 = mp.mc2 or b3; b4 = mp.mc3 or b4
       w1 = mp.mc4 or w1; w2 = mp.mc5 or w2; w3 = mp.mc6 or w3; w4 = mp.mc7 or w4
     end
-    sh:send("black", { b1 / 255, b2 / 255, b3 / 255, b4 / 255 })
-    sh:send("white", { w1 / 255, w2 / 255, w3 / 255, w4 / 255 })
+    SEND_B[1], SEND_B[2], SEND_B[3], SEND_B[4] = b1 / 255, b2 / 255, b3 / 255, b4 / 255
+    SEND_W[1], SEND_W[2], SEND_W[3], SEND_W[4] = w1 / 255, w2 / 255, w3 / 255, w4 / 255
+    sh:send("black", SEND_B)
+    sh:send("white", SEND_W)
     G.setShader(sh)
   end
   G.setColor(1, 1, 1, 1)
@@ -305,15 +336,17 @@ local function fontFor(G, px, opts)
   -- the game's font sizes name its cell; love's default face at 0.64 of it matches the
   -- width of the game's lines (measured against a capture)
   local size = math.max(4, math.floor(px * k * Player.FONT_SCALE + 0.5))
-  local key = size .. ":" .. tostring(opts and opts.fontKey)
-  local f = Player.fonts[key]
+  local fk = opts and opts.fontKey or false
+  local byKey = Player.fonts[fk]
+  if not byKey then byKey = {}; Player.fonts[fk] = byKey end
+  local f = byKey[size]
   if f == nil then
     local ok, font = pcall(function()
       if opts and opts.font then return opts.font(size) end
       return G.newFont(size)
     end)
     f = ok and font or false
-    Player.fonts[key] = f
+    byKey[size] = f
   end
   return f or nil, k
 end
@@ -328,8 +361,12 @@ local function drawText(self, G, pane, st, alpha)
   local hp = pane.textPos % 3
   local align = t.align or (hp == 0 and "left" or (hp == 1 and "center" or "right"))
   local vp = math.floor(pane.textPos / 3)
-  local lines = {}
-  for line in (t.s .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
+  local lines = t.lines
+  if not lines then
+    lines = {}
+    for line in (t.s .. "\n"):gmatch("(.-)\n") do lines[#lines + 1] = line end
+    t.lines = lines
+  end
   local lh = font:getHeight() / k
   local inv = 1 / k
   local total = lh * #lines
@@ -354,8 +391,7 @@ local function drawWindow(self, G, pane, st, alpha, sh)
   local L = self.L
   local w, h = st.w, st.h
   local x0, y0 = rectOf(pane, w, h)
-  local cols = {}
-  for i = 1, 4 do cols[i] = { vcolor(pane.content.colors, st.colorAnim, i, alpha) } end
+  local cols = fillCols(pane.content.colors, st.colorAnim, alpha)
   local cm = L.materials[pane.content.mat]
   local cimg = cm and cm.maps[1] and self:image(L.textures[cm.maps[1].tex]) or plainImage(G)
   local frames = pane.frames or {}
@@ -374,17 +410,17 @@ local function drawWindow(self, G, pane, st, alpha, sh)
   local half = math.min(th, h / 2)
   if cimg then quad(G, cimg, x0 + tw / 2, y0 + half / 2, w - tw / 2 - rw / 2, h - half, pane.content.uv, cols, cm, nil, sh) end
   G.setColor(1, 1, 1, alpha)
-  local function q(img, x, y, qw, qh)
-    local iw, ih = img:getDimensions()
-    return G.newQuad(x, y, qw, qh, iw, ih)
-  end
   self.wq = self.wq or {}
-  local key = pane.name .. ":" .. tw .. ":" .. th .. ":" .. half
-  local Q = self.wq[key]
-  if not Q then
-    Q = { lt = q(lt, 0, 0, tw, half), rt = q(rt, 0, 0, rw, half), ltEdge = q(lt, tw - 1, 0, 1, half),
+  local Q = self.wq[pane.name]
+  if not (Q and Q.tw == tw and Q.th == th and Q.half == half and Q.lt0 == lt and Q.rt0 == rt) then
+    local function q(img, x, y, qw, qh)
+      local iw, ih = img:getDimensions()
+      return G.newQuad(x, y, qw, qh, iw, ih)
+    end
+    Q = { tw = tw, th = th, half = half, lt0 = lt, rt0 = rt,
+      lt = q(lt, 0, 0, tw, half), rt = q(rt, 0, 0, rw, half), ltEdge = q(lt, tw - 1, 0, 1, half),
       ltSide = q(lt, 0, th - 1, tw, 1), rtSide = q(rt, 0, th - 1, rw, 1), mid = q(lt, tw - 1, th - 1, 1, 1) }
-    self.wq[key] = Q
+    self.wq[pane.name] = Q
   end
   G.draw(lt, Q.lt, x0, y0)
   G.draw(lt, Q.lt, x0, y0 + h, 0, 1, -1)
@@ -404,6 +440,8 @@ end
 
 -- ctx: the parent's absolute y (layout units, y up from the middle), its accumulated y
 -- scale and the shift the stretch gave it
+-- an image set from outside draws plain: no texture SRT, black 0 and white 255
+local PLAIN_MAT = { srt = {}, black = { 0, 0, 0, 0 }, white = { 255, 255, 255, 255 } }
 local function drawPane(self, G, pane, parentAlpha, sh, ctx)
   local st = paneProps(self, pane)
   if not st.visible then return end
@@ -429,7 +467,9 @@ local function drawPane(self, G, pane, parentAlpha, sh, ctx)
     -- children are placed by the shift above, so it keeps its scale
     if pane.kind ~= "pan" and math.abs(st.h * ctx.sy * st.sy) >= self.L.H - 0.5 then sy = sy * k end
   end
-  local childCtx = { y = absY, sy = ctx.sy * st.sy, shift = shift, inBackdrop = inBackdrop }
+  local childCtx = pane._ctx
+  if not childCtx then childCtx = {}; pane._ctx = childCtx end
+  childCtx.y, childCtx.sy, childCtx.shift, childCtx.inBackdrop = absY, ctx.sy * st.sy, shift, inBackdrop
   G.push()
   G.translate(st.tx, -st.ty)
   if st.rz ~= 0 then G.rotate(-math.rad(st.rz)) end
@@ -447,12 +487,10 @@ local function drawPane(self, G, pane, parentAlpha, sh, ctx)
       end
       if not img and not map then img = plainImage(G) end
       if img and st.w ~= 0 and st.h ~= 0 then
-        local cols = {}
-        for i = 1, 4 do cols[i] = { vcolor(pane.colors, st.colorAnim, i, alpha) } end
+        local cols = fillCols(pane.colors, st.colorAnim, alpha)
         local x0, y0 = rectOf(pane, st.w, st.h)
         local ws, wt = map and WRAP[map.wrapS], map and WRAP[map.wrapT]
-        quad(G, img, x0, y0, st.w, st.h, pane.uv, cols, self.images[pane.name] and { srt = {}, black = { 0, 0, 0, 0 },
-          white = { 255, 255, 255, 255 } } or mat, mp, sh, ws, wt)
+        quad(G, img, x0, y0, st.w, st.h, pane.uv, cols, self.images[pane.name] and PLAIN_MAT or mat, mp, sh, ws, wt)
       end
     elseif pane.kind == "txt" then
       drawText(self, G, pane, st, alpha)

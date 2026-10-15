@@ -19,7 +19,7 @@ return function(mod, deps)
 
   local function art(id)
     local A = D.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -197,6 +197,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 }
 ]]
   local balloonShader, balloonFailed = nil, false
+  local BAL_TEX, BAL_PPT = { 1, 1 }, { 1, 1 }   -- the uniforms' tables, reused every draw
   local function balloon()
     if balloonShader or balloonFailed then return balloonShader end
     local G = love and love.graphics
@@ -227,8 +228,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     if sh then
       img:setFilter("linear", "linear")
-      sh:send("texSize", { pw, ph })
-      sh:send("pxPerTexel", { math.max(1, out / tpu), math.max(1, out / tpu) })
+      BAL_TEX[1], BAL_TEX[2] = pw, ph
+      BAL_PPT[1], BAL_PPT[2] = math.max(1, out / tpu), math.max(1, out / tpu)
+      sh:send("texSize", BAL_TEX)
+      sh:send("pxPerTexel", BAL_PPT)
       G2.setShader(sh)
       -- the outline: the silhouette nudged around it
       sh:send("silhouette", 1)

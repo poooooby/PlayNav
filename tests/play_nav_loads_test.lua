@@ -33,9 +33,9 @@ for _, generation in ipairs({ 3 }) do
     local apps = type(exports.apps) == "table" and exports.apps.list or {}
     local ids = {}
     for _, a in ipairs(apps) do ids[a.id] = true end
-    T.check(apps[1] and apps[1].id == "play" and ids.home and ids.decorate and ids.games and ids.game_berry
+    T.check(apps[1] and apps[1].id == "play" and ids.home and ids.decorate and ids.game_berry
       and ids.game_head and ids.game_tile and ids.import and ids.training_core,
-      "play, home, decorate, games, the three games, import and training are registered")
+      "play, home, decorate, the three games, import and training are registered")
     T.check(type(exports.training) == "table" and type(exports.training.open) == "function",
       "super training is exported")
     T.check(type(exports.import) == "table" and type(exports.import.check) == "function",

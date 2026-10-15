@@ -104,6 +104,34 @@ do
   T.check(S.surface.h < S.game.h and S.surface.h > 0, "...and shrinks the touch screen rather than overlap")
   T.check(S.game.y + S.game.h <= S.surface.y, "...still no overlap")
   T.eq(Layout.dual(0, 100, {}), nil, "no window, no layout")
+
+  -- fill (the overworld live on top, Kanto Gear style): the touch screen as wide as the window
+  -- on the pad's room, the playfield everything above it
+  local F = Layout.dual(540, 1200, { reserveBottom = 385, fill = true })
+  T.eq(F.fill, true, "fill is reported")
+  T.check(near(F.surface.w, 540 - 8), "fill: the touch screen spans the window, less its margins")
+  T.check(near(F.surface.h, F.surface.w * 192 / 256), "...at 4:3")
+  T.check(near(F.surface.y + F.surface.h, 1200 - 385 - 4), "...sitting on the pad's room")
+  T.eq(F.game.x, 0, "the playfield starts at the left edge")
+  T.eq(F.game.y, 0, "...and the top")
+  T.eq(F.game.w, 540, "...full width")
+  T.check(F.game.y + F.game.h <= F.surface.y, "...ending above the touch screen")
+  T.check(F.game.h >= 160 * 2, "...tall enough for the 2x frame")
+  T.eq(F.picture.w, 480, "the frame lands at 2x inside it")
+  T.check(F.picture.y >= F.game.y and F.picture.y + F.picture.h <= F.game.y + F.game.h, "...centred within it")
+  T.check(F.surface.w > L.surface.w * 540 / 1080 * 1.2 or F.surface.h > 320, "fill gives a bigger touch screen than the XL rule")
+  -- a phone at 2.625 dpi: still on whole physical pixels
+  local Fd = Layout.dual(412, 915, { dpi = 2.625, reserveBottom = 260, fill = true })
+  T.check(near(Fd.picture.w * 2.625, math.floor(Fd.picture.w * 2.625 + 1e-6)), "fill at dpi 2.625: the frame is whole pixels")
+  T.check(Fd.game.y + Fd.game.h <= Fd.surface.y and Fd.surface.y + Fd.surface.h <= 915 - 260, "...nothing overlaps, the pad keeps its room")
+  -- landscape fill: the touch screen as before, the playfield the whole column left of it
+  local Fl = Layout.dual(1200, 540, { fill = true })
+  local Nl = Layout.dual(1200, 540, {})
+  T.check(near(Fl.surface.x, Nl.surface.x) and near(Fl.surface.h, Nl.surface.h), "landscape fill keeps the touch screen")
+  T.eq(Fl.game.h, 540, "...and the playfield is the full height")
+  T.check(Fl.game.x + Fl.game.w <= Fl.surface.x, "...left of the touch screen")
+  -- without fill the playfield is the picture itself
+  T.eq(L.picture, L.game, "no fill: the playfield is the picture")
 end
 
 -- ------- margin placement (Gen 3)

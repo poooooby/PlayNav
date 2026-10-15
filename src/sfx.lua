@@ -19,6 +19,30 @@ return function(mod, deps)
     return host and host.sfxGain and host.sfxGain() or 1
   end
 
+  -- one static Source per effect (its samples uploaded once); every play is a clone of it,
+  -- which shares the buffer instead of uploading the samples again
+  local bases = setmetatable({}, { __mode = "k" })
+  local function voice(id, sd)
+    local base = bases[sd]
+    if base == nil then
+      local ok, src = pcall(love.audio.newSource, sd, "static")
+      if not ok then
+        mod.log:warn("sound %s would not play: %s", id, tostring(src))
+        bases[sd] = false
+        return nil
+      end
+      base = src
+      bases[sd] = base
+    end
+    if not base then return nil end
+    if base.clone then
+      local ok, c = pcall(base.clone, base)
+      if ok and c then return c end
+    end
+    local ok, src = pcall(love.audio.newSource, sd, "static")
+    return ok and src or nil
+  end
+
   -- the game's own effect if it is in the cache: true when it played (or was silent on purpose:
   -- effects volume 0 or sound suspended), false when it is missing
   function S.play(id, opts)
@@ -27,11 +51,8 @@ return function(mod, deps)
     local handle = { stop = function() end }
     local g = gain() * (opts and opts.volume or 1)
     if g <= 0 or (host and host.audioSuspended and host.audioSuspended()) then return handle end
-    local ok, src = pcall(love.audio.newSource, sd)
-    if not ok then
-      mod.log:warn("sound %s would not play: %s", id, tostring(src))
-      return false
-    end
+    local src = voice(id, sd)
+    if not src then return false end
     pcall(src.setVolume, src, math.min(1, g))
     pcall(src.play, src)
     S.playing[src] = true

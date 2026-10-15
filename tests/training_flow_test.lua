@@ -917,24 +917,29 @@ do
   local f = io.open("mods/play_nav/src/sfx.lua", "rb")
   local makeSfx = assert(load(f:read("*a"), "@sfx.lua"))()
   f:close()
-  local made, vol = 0, nil
-  local loveSaved = love
-  love = { audio = { newSource = function()
-    made = made + 1
-    return { setVolume = function(_, v) vol = v end, play = function() end, stop = function() end,
+  -- one Source is made per effect (its samples uploaded once); every play is a clone of it
+  local made, cloned, vol = 0, 0, nil
+  local function fakeSource()
+    local src = { setVolume = function(_, v) vol = v end, play = function() end, stop = function() end,
       isPlaying = function() return true end }
-  end } }
+    src.clone = function() cloned = cloned + 1; return fakeSource() end
+    return src
+  end
+  local loveSaved = love
+  love = { audio = { newSource = function() made = made + 1; return fakeSource() end } }
   local hostF = { gain = 1, suspended = false }
+  local sd1 = {}   -- the cached SoundData (Assets.sound returns the same one each time)
   local Sfx = makeSfx({ log = { warn = function() end } }, {
-    assets = { sound = function(id) return id == "se/sp_001" and {} or nil end },
+    assets = { sound = function(id) return id == "se/sp_001" and sd1 or nil end },
     host = { sfxGain = function() return hostF.gain end, audioSuspended = function() return hostF.suspended end } })
   T.eq(Sfx.play("se/nope"), false, "an effect not in the cache: false (the caller's stand-in plays)")
   hostF.gain = 4 / 7
-  T.check(Sfx.play("se/sp_001") and made == 1 and math.abs(vol - 4 / 7) < 1e-9, "plays at the effects volume")
+  T.check(Sfx.play("se/sp_001") and made == 1 and cloned == 1 and math.abs(vol - 4 / 7) < 1e-9, "plays at the effects volume")
+  T.check(Sfx.play("se/sp_001") and made == 1 and cloned == 2, "a second play clones the same buffer (no new upload)")
   hostF.gain = 0
-  T.check(Sfx.play("se/sp_001") and made == 1, "effects volume 0: silent (no stand-in either)")
+  T.check(Sfx.play("se/sp_001") and made == 1 and cloned == 2, "effects volume 0: silent (no stand-in either)")
   hostF.gain, hostF.suspended = 1, true
-  T.check(Sfx.play("se/sp_001") and made == 1, "the game's sound suspended: silent")
+  T.check(Sfx.play("se/sp_001") and made == 1 and cloned == 2, "the game's sound suspended: silent")
   love = loveSaved
 end
 

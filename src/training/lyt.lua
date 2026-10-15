@@ -32,19 +32,29 @@ return function()
   -- repU / repV (repeat count), u0 / v0 (texture offset in repeats). Meshes are rebuilt per
   -- call: the panes here are few.
   local mesh
+  local WHITE4 = { WHITE, WHITE, WHITE, WHITE }
+  local NO_OPTS = {}
+  -- the four vertices, filled in place (no tables per call: these draw every frame)
+  local VERTS = { {}, {}, {}, {} }
+  local function setVert(t, x, y, u, vv, k, a)
+    t[1], t[2], t[3], t[4] = x, y, u, vv
+    t[5], t[6], t[7], t[8] = k[1] / 255, k[2] / 255, k[3] / 255, (k[4] or 255) / 255 * a
+  end
   function L.quad(G, img, cx, cy, w, h, opts)
-    opts = opts or {}
-    local c = opts.colors or { WHITE, WHITE, WHITE, WHITE }
+    opts = opts or NO_OPTS
+    local c = opts.colors or WHITE4
     local a = (opts.alpha or 255) / 255
     local x0, y0 = cx - w / 2, cy - h / 2
     local u0, v0 = opts.u0 or 0, opts.v0 or 0
     local u1, v1 = u0 + (opts.repU or 1), v0 + (opts.repV or 1)
     if opts.flipX then u0, u1 = u1, u0 end
     if opts.flipY then v0, v1 = v1, v0 end
-    local function v(x, y, u, vv, k) return { x, y, u, vv, k[1] / 255, k[2] / 255, k[3] / 255, (k[4] or 255) / 255 * a } end
-    local verts = { v(x0, y0, u0, v0, c[1]), v(x0 + w, y0, u1, v0, c[2]), v(x0 + w, y0 + h, u1, v1, c[4]), v(x0, y0 + h, u0, v1, c[3]) }
+    setVert(VERTS[1], x0, y0, u0, v0, c[1], a)
+    setVert(VERTS[2], x0 + w, y0, u1, v0, c[2], a)
+    setVert(VERTS[3], x0 + w, y0 + h, u1, v1, c[4], a)
+    setVert(VERTS[4], x0, y0 + h, u0, v1, c[3], a)
     if not mesh then mesh = G.newMesh(4, "fan", "stream") end
-    mesh:setVertices(verts)
+    mesh:setVertices(VERTS)
     if img then
       if opts.repU or opts.repV then img:setWrap("repeat", "repeat") end
       mesh:setTexture(img)
@@ -57,23 +67,32 @@ return function()
 
   -- a texture mirrored 2x2 into the rect (the material's mirror wrap at scale 2: one quarter
   -- drawn four ways)
+  local QUARTERS = { { -1, -1, false, false }, { 1, -1, true, false }, { -1, 1, false, true }, { 1, 1, true, true } }
+  local quarterOpts = {}
   function L.mirror4(G, img, cx, cy, w, h, opts)
-    opts = opts or {}
+    opts = opts or NO_OPTS
     local hw, hh = w / 2, h / 2
-    for _, q in ipairs({ { -1, -1, false, false }, { 1, -1, true, false }, { -1, 1, false, true }, { 1, 1, true, true } }) do
-      L.quad(G, img, cx + q[1] * hw / 2, cy + q[2] * hh / 2, hw, hh,
-        { colors = opts.colors, alpha = opts.alpha, flipX = q[3], flipY = q[4] })
+    for _, q in ipairs(QUARTERS) do
+      quarterOpts.colors, quarterOpts.alpha, quarterOpts.flipX, quarterOpts.flipY = opts.colors, opts.alpha, q[3], q[4]
+      L.quad(G, img, cx + q[1] * hw / 2, cy + q[2] * hh / 2, hw, hh, quarterOpts)
     end
   end
 
   -- the card's windows: lt / rt are the left and right corner pieces (the bottom ones the same
   -- flipped), the edges their inner rows and columns stretched, the middle their last pixel
-  local quads = {}
+  local quads = setmetatable({}, { __mode = "k" })
   local function quadOf(G, img, x, y, w, h)
-    local iw, ih = img:getDimensions()
-    local key = tostring(img) .. x .. ":" .. y .. ":" .. w .. ":" .. h
-    quads[key] = quads[key] or G.newQuad(x, y, w, h, iw, ih)
-    return quads[key]
+    local byImg = quads[img]
+    if not byImg then byImg = {}; quads[img] = byImg end
+    -- one number per rect (each part under 1024): no string built per draw
+    local key = ((x * 1024 + y) * 1024 + w) * 1024 + h
+    local q = byImg[key]
+    if not q then
+      local iw, ih = img:getDimensions()
+      q = G.newQuad(x, y, w, h, iw, ih)
+      byImg[key] = q
+    end
+    return q
   end
   function L.window(G, lt, rt, cx, cy, w, h, alpha)
     if not (lt and rt) then

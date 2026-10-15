@@ -48,7 +48,7 @@ local function body(game, log)
   if X.import then waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120) end
   log("open play:", R.openPlay())
   U.wait(10)
-  log("enter games:", S.enterGames())
+  log("show games:", S.showGames())
   U.wait(10)
   log("start berry:", S.startGame("berry", "easy"))
   local app = Apps:get("game_berry")

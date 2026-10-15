@@ -1,5 +1,5 @@
--- Pokemon-Amie end to end against a fake Gen 3 host: battle.ended ->
--- prompt -> YES -> clean, cure, pet by spot, hit, high-five, feed -> DONE,
+-- Pokemon-Amie end to end against a fake Gen 3 host: battle.ended drops a
+-- puff; play -> pet by spot, hit, high-five, feed -> DONE,
 -- with the top-screen layer pushed and popped, the meters persisted in
 -- mod.save (schema 2), steps and battles moving the stats outside a session.
 -- Run from the engine root: luajit mods/play_nav/tests/refresh_flow_test.lua
@@ -77,67 +77,33 @@ do
   T.eq(why, "no mon", "a fainted Pokemon is skipped")
 end
 
--- ------- the prompt
+-- ------- a won battle: Poke Puffs, and nothing opens
 
-S.rng = function() return 0.05 end   -- every kind hits; positions are deterministic
-local started = A.onBattleEnded(ev)
-T.eq(started, true, "a won battle with a dirty, poisoned Pokemon prompts")
+S.rng = function() return 0.05 end
+local granted, whyGrant = A.onBattleEnded(ev)
+T.eq(granted, true, "a won battle grants a Poke Puff")
+T.eq(whyGrant, "puffs", "...and says so")
+T.eq(A.state(), nil, "...without opening a session")
+T.eq(#stack, 0, "...or pushing the layer")
+T.eq(X._test.surfaceWanted(), false, "...and the surface stays dormant")
+T.eq(#A.puffs(), 11, "the puff is in the jar on top of the starting ten")
+
+-- ------- play, straight in
+
+T.eq(A.openPlay(), true, "openPlay() opens the close-up")
 local st = A.state()
-T.eq(st.mode, "prompt", "the session opens in the prompt mode")
+T.eq(st.mode, "play", "the session opens in the play mode")
 T.eq(st.name, "SPARKY", "the nickname is shown")
-T.eq(st.status, "PSN", "the status is read from the Pokemon")
-T.check(#st.marks > 0, "marks were rolled")
 T.eq(#stack, 1, "the top-screen layer is pushed")
 T.eq(X.apps:active().id, "play", "the surface switched to the PLAY app")
 T.eq(X._test.surfaceWanted(), true, "a session wakes the dormant surface")
-T.eq(#A.puffs(), 11, "a win granted a puff on top of the starting ten")
-T.check(#st.marks <= 7, "no more than three kinds of mark")
-
--- NO closes everything
-S.decline()
-T.eq(A.state(), nil, "NO ends the session")
-T.eq(#stack, 0, "...and pops the layer")
-T.eq(X._test.surfaceWanted(), false, "...and the surface goes dormant again")
-
--- ------- YES, then play
-
-T.eq(A.onBattleEnded(ev), true, "prompt again")
-local layer = stack[1]
-layer.handleInput({ wasPressed = function(_, k) return k == "a" end, isDown = function() return false end })
-st = A.state()
-T.eq(st.mode, "play", "A on the top screen accepts")
 T.check(#cries >= 1, "the Pokemon cries when play starts")
 T.eq(st.meters.enjoyment, 10, "opening play gives 10 enjoyment")
+T.eq(#X.apps:get("play").geometry.tools(S.session), 2, "the tray holds the puffs and the games")
 
--- cleaning: pick the right tool for the first mark and rub it away
-local first = st.marks[1]
-local tool = A.care.TOOL_FOR[first.kind]
-S.selectTool(tool)
-T.eq(A.state().tool, tool, "the tool is selected")
-S.selectTool(tool)
-T.eq(A.state().tool, nil, "selecting it again puts the tool down")
-S.setTool(tool)
-local before = first.amount
-S.rubAt(first.x, first.y, 0.3)
-T.check(first.amount < before, "rubbing with the right tool wears the mark")
-for _, m in ipairs(st.marks) do
-  S.setTool(A.care.TOOL_FOR[m.kind])
-  for _ = 1, 20 do S.rubAt(m.x, m.y, 0.2) end
-end
-T.eq(A.care.allClean(st.marks), true, "every mark can be rubbed away")
-local cleaned = false
-for _, s in ipairs(sounds) do if s == "SE_SUCCESS" then cleaned = true end end
-T.eq(cleaned, true, "finishing plays the success jingle")
-T.check(st.meters.enjoyment > 10, "a clean Pokemon enjoyed it")
-
--- medicine
-S.selectTool("medicine")
-T.eq(S.cure(), true, "medicine cures the status")
-T.eq(party[1].status, nil, "...on the real party record")
-T.eq(A.state().status, nil, "...and in the session")
-T.eq(S.cure(), false, "a second dose does nothing")
-
--- petting by spot: Pikachu (25) likes under the chin (chest), not its stomach
+-- petting by spot: Pikachu (25) likes under the chin (chest), not its stomach. With no
+-- affection at all every spot pets as a normal one, so start it off with a little.
+st.meters.affection = 5
 st.meters.enjoyment = 100
 local aff = st.meters.affection
 local hearts, kind, event = S.petStroke(30, 100, "favored")
@@ -214,7 +180,7 @@ T.check(type(saved) == "table" and type(saved.mons) == "table", "meters are in m
 local rec = saved.mons["1234:77"]
 T.check(rec ~= nil, "...keyed by personality:otId")
 T.eq(rec.affection, st.meters.affection, "...with the affection reached")
-T.check(rec.lastCareAt ~= nil, "...and a care timestamp")
+T.check(rec.lastCareAt ~= nil, "...and a last-played timestamp")
 
 -- ------- outside a session: steps and battles move the active Pokemon's stats
 
@@ -232,7 +198,6 @@ T.eq(m.enjoyment, 56, "...and gives 5 enjoyment")
 T.eq(A.open(), true, "open() from the menu opens the room")
 T.eq(A.state().mode, "home", "...mode home")
 T.eq(X.apps:active().id, "home", "...on the HOME app")
-T.eq(#A.state().marks, 0, "...with nothing to clean")
 S.enterPlay()
 T.eq(A.state().mode, "play", "PLAY switches to play")
 T.eq(X.apps:active().id, "play", "...on the PLAY app")
@@ -257,17 +222,20 @@ T.eq(A.state().fromHome, false, "...with no room to go back to")
 S.back()
 T.eq(A.state(), nil, "...so BACK closes")
 
--- ------- minigames: the picker needs three healthy Pokemon, a game records a result
+-- ------- minigames: the picker (on the play screen) needs three healthy Pokemon, a game records a result
 
 T.eq(A.openPlay(), true, "play again for the games")
-local okG, whyG = S.enterGames()
+local okG, whyG = S.showGames()
 T.eq(okG, false, "with one healthy Pokemon the games refuse")
 T.eq(whyG, "need three healthy Pokemon", "...saying why")
 party[2].hp = 15
 party[3] = { personality = 99, otId = 77, species = 4, hp = 10, maxHp = 20, nickname = "EMBER" }
-T.eq(S.enterGames(), true, "with three they open")
-T.eq(A.state().mode, "games", "...mode games")
-T.eq(X.apps:active().id, "games", "...on the picker")
+T.eq(S.showGames(), false, "a poisoned Pokemon is out too (SPARKY is still poisoned)")
+party[1].status = nil
+T.eq(S.showGames(), true, "with three healthy they open")
+T.eq(A.state().mode, "play", "...still the play mode")
+T.eq(A.state().tool, "games", "...with the picker up")
+T.eq(X.apps:active().id, "play", "...on the PLAY app")
 T.eq(A.meters("1234:77").enjoyment > 0, true, "opening the games cheers the active Pokemon")
 local okStart, whyStart = S.startGame("berry", "normal")
 T.eq(okStart, false, "normal is locked at first")
@@ -289,7 +257,9 @@ T.eq(res.stars, 4, "...20 berries is four stars")
 T.eq(#A.puffs(), jarBefore + 5, "...five puffs in the jar")
 T.eq(res.unlockedNew, "normal", "...normal unlocked")
 S.leaveGame()
-T.eq(A.state().mode, "games", "leaving the result returns to the picker")
+T.eq(A.state().mode, "play", "leaving the result returns to play")
+T.eq(A.state().tool, "games", "...with the picker still up")
+T.check(A.state().message and A.state().message:find("puffs"), "...and the result as a line")
 T.eq(S.startGame("head", "easy"), true, "Head It starts")
 local happ = X.apps:get("game_head")
 for _ = 1, 40 do happ:update(0.1) end
@@ -303,7 +273,8 @@ tapp.forceEnd(25)
 T.eq(A.state().lastResult.stars, 4, "25 seconds on easy Tile Puzzle is four stars")
 S.leaveGame()
 S.back()
-T.eq(A.state().mode, "play", "BACK from the picker returns to play")
+T.eq(A.state().tool, nil, "BACK folds the picker")
+T.eq(A.state().mode, "play", "...and stays on play")
 S.finish()
 party[3] = nil
 party[2].hp = 0
@@ -349,6 +320,109 @@ if A.benefits then
   T.eq(A.benefits.endurePct(200), 20, "200 points endure 20%")
   T.eq(A.benefits.endurePct(255), 25, "level 5 endures 25%")
   T.eq(A.benefits.affectionOf(party[1]), m.affection, "affection is read from the save by key")
+
+  -- each benefit through the engine's own hook chain, as a Gen 3 battle calls it (Bulbapedia
+  -- "Affection", Generation VI: the numbers Alpha Sapphire uses)
+  A.benefits.install()
+  local H = run.loader.hooks
+  local saved = m.affection
+  local me = { side = "player", partyIndex = 1, mon = party[1] }
+  local foe = { side = "opponent", partyIndex = 1, mon = {} }
+  local st = { playerHalf = 6, playerName = "WOOBLE" }
+  local function exp(aff)
+    m.affection = aff
+    return H:call("exp.gain", function() return 100 end, { mon = party[1], battle = st })
+  end
+  T.eq(exp(49), 100, "experience: level 1, no boost")
+  T.eq(exp(50), 120, "experience: level 2 and up, 1.2x")
+  -- critical hits: a second chance of 1/(d-1) on a miss doubles 1/d
+  local drew
+  local function crit(aff, stage, roll)
+    m.affection = aff
+    drew = nil
+    return H:call("battle.crit", function() return false end, { battle = st, attacker = me, stage = stage,
+      rng = function(lo, hi) drew = hi; return roll end })
+  end
+  T.eq(crit(254, 0, 0), false, "crit: under level 5, nothing extra")
+  T.eq(crit(255, 0, 0), true, "crit: level 5, the extra chance can land")
+  T.eq(drew, 14, "...a second draw of 1 in 15 at stage 0 (1/16 doubled to 1/8)")
+  T.eq(crit(255, 1, 1), false, "...and miss")
+  T.eq(drew, 6, "...1 in 7 at stage 1 (1/8 doubled to 1/4)")
+  -- dodging: the foe's accuracy drops 10 points at 200+, never for moves that cannot miss
+  local seen
+  local function acc(aff, effect)
+    m.affection = aff
+    seen = nil
+    H:call("battle.accuracy", function(c) seen = c.accuracy; return true end,
+      { battle = st, user = foe, target = me, accuracy = 100, move = { effect = effect or 0 } })
+    return seen
+  end
+  T.eq(acc(199), 100, "dodge: under 200, the foe's accuracy stands")
+  T.eq(acc(200), 90, "dodge: 200+, the foe's accuracy drops 10 points")
+  T.eq(acc(255, 17), 100, "...not for a move that cannot miss (Swift)")
+  -- enduring: a knockout left at 1 HP, 10 / 15 / 20 / 25 %
+  party[1].hp = 50
+  local function hit(aff, roll)
+    m.affection = aff
+    return (H:call("battle.damage", function() return 80, {} end,
+      { battle = st, user = foe, target = me, rng = function() return roll end }))
+  end
+  T.eq(hit(99, 0), 80, "endure: under level 3, the knockout lands")
+  T.eq(hit(100, 9), 49, "endure: level 3, a roll under 10 leaves 1 HP")
+  T.eq(hit(100, 10), 80, "...and 10 or more does not")
+  T.eq(hit(255, 24), 49, "endure: level 5, under 25 holds on")
+
+  -- the game's level-4 lines (Bulbapedia "Affection", X / Y / ORAS wording)
+  local said = {}
+  A.benefits.sayHook = function(t) said[#said + 1] = t end
+  local E = run.loader.events
+  local function last() return said[#said] end
+  -- a fresh battle: nothing left over from the checks above (their queued crit line, the
+  -- stand-in battler's endure flag)
+  me._amieEndure = nil
+  E:emit("battle.started", { battle = st })
+  -- a super-effective hit, said once the next move starts (after "It's super effective!")
+  m.affection = 150
+  local n0 = #said
+  E:emit("battle.damage_dealt", { battle = st, user = me, target = foe, damage = 20, effectiveness = 20 })
+  T.eq(#said, n0, "super effective: held until the next move")
+  E:emit("battle.move_used", { battle = st })
+  T.eq(last(), "That's it! I knew you could do it!", "...then the game's line")
+  m.affection = 149
+  n0 = #said
+  E:emit("battle.damage_dealt", { battle = st, user = me, target = foe, damage = 20, effectiveness = 20 })
+  E:emit("battle.move_used", { battle = st })
+  T.eq(#said, n0, "under level 4: no line")
+  -- the HP bar turning red (under 10 of 48 pixels), once on the way in
+  m.affection = 150
+  party[1].maxHp, party[1].hp = 100, 15
+  n0 = #said
+  E:emit("battle.damage_dealt", { battle = st, user = foe, target = me, damage = 30 })
+  E:emit("battle.turn_ended", { battle = st })
+  T.check(said[n0 + 1] and said[n0 + 1]:find("is in a bit of a pinch. It looks like it might cry...", 1, true) ~= nil,
+    "into the red: the pinch line")
+  n0 = #said
+  party[1].hp = 10
+  E:emit("battle.damage_dealt", { battle = st, user = foe, target = me, damage = 5 })
+  E:emit("battle.turn_ended", { battle = st })
+  T.eq(#said, n0, "already red: not again")
+  T.check(A.benefits.inRed(20, 100) and not A.benefits.inRed(21, 100), "red is under 10 of 48 pixels (20 of 100)")
+  -- asleep: once each time it falls asleep
+  local sleeper = { side = "player", partyIndex = 1, mon = party[1], status = "SLEEP" }
+  local stS = { playerHalf = 6, battlers = { [0] = sleeper } }
+  n0 = #said
+  E:emit("battle.turn_started", { battle = stS })
+  T.check(last() and last():find("is fast asleep... Zzz... Zzz...", 1, true) ~= nil, "asleep (spelled SLEEP): the game's line")
+  E:emit("battle.turn_started", { battle = stS })
+  T.eq(#said, n0 + 1, "...once while it sleeps")
+  sleeper.status = nil
+  E:emit("battle.turn_started", { battle = stS })
+  sleeper.status = "SLP"
+  E:emit("battle.turn_started", { battle = stS })
+  T.eq(#said, n0 + 2, "...and again when it falls asleep again")
+  T.eq(A.benefits.statusCode("PARALYSIS"), "PAR", "status spellings map to the game's codes")
+  A.benefits.sayHook = nil
+  m.affection = saved
 end
 
 -- ------- the option turns it off

@@ -47,7 +47,7 @@ return function(mod, Pointer, T, Rules, Store)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -283,7 +283,7 @@ return function(mod, Pointer, T, Rules, Store)
     G.polygon("fill", x0 + d, my - d, x0 + 2 * d, my, x0 + d, my + d, x0, my)
     text(G, T.bagName(id), x0 + 2 * d + 5, y0, DESC[3] - 20 - 2 * d - 5, small, k)
     text(G, T.bagDescription(id), x0, y0 + 20, DESC[3] - 16, small, k)
-    local labels = { T.uiText("use"), T.uiText("discard"), T.uiText("back") }
+    local labels = { T.uiText("use"), T.uiText("discard"), (T.uiText("back")) }
     for i = 1, 3 do bar(G, DESC_BARS[i], labels[i], small) end
   end
 

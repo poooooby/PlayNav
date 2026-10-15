@@ -4,16 +4,22 @@
 --   level 4+  shake off a status at the end of the turn, 20%
 --   200+      the foe's accuracy drops 10 points (moves that cannot miss never reach the hook)
 --   level 5   critical-hit chance doubled
+-- and the game's lines at level 4+ that change nothing (Bulbapedia "Affection", the X / Y / ORAS
+-- wording): a super-effective hit, the HP bar turning red, an HP item used on it, asleep
 -- Everything goes through the engine's public hooks and events; nothing is
 -- patched. Skipped in link, facility and tutorial battles, before any extra
 -- RNG draw, so a link battle never desyncs.
 --
 -- deps = { Rules, Store, host, enabled = fn() -> bool }
 
+local unpack = unpack or table.unpack
+
 return function(mod, deps)
   local Rules, Store, host = deps.Rules, deps.Store, deps.host
   local N = Rules.N.BENEFITS
-  local B = { installed = false, stats = { exp = 0, crit = 0, dodge = 0, endure = 0, cure = 0 } }
+  local B = { installed = false, stats = { exp = 0, crit = 0, dodge = 0, endure = 0, cure = 0 },
+    -- how often the engine reached each hook (applied or not): the drivers' proof of wiring
+    calls = { exp = 0, crit = 0, accuracy = 0, damage = 0, turn = 0 } }
 
   local function enabled()
     if deps.enabled then return deps.enabled() ~= false end
@@ -75,6 +81,7 @@ return function(mod, deps)
   end
 
   local function say(text)
+    if B.sayHook then return B.sayHook(text) end   -- the tests read the lines here
     local ad = adapter()
     if ad and ad.say then
       local ok, err = pcall(ad.say, ad, text)
@@ -100,6 +107,16 @@ return function(mod, deps)
   end
   B.endurePct = endurePct
 
+  -- a battler's status as the engine spells it ("SLP" or "SLEEP", ...) -> the game's code
+  local STATUS_CODE = { SLEEP = "SLP", POISON = "PSN", TOXIC = "TOX", BURN = "BRN", FREEZE = "FRZ",
+    FROZEN = "FRZ", PARALYSIS = "PAR", PARALYZE = "PAR" }
+  local function statusCode(status)
+    if not status then return nil end
+    local s = tostring(status):upper()
+    return STATUS_CODE[s] or s:sub(1, 3)
+  end
+  B.statusCode = statusCode
+
   local STATUS_TEXT = {
     BRN = "%s blew on its burn and made it better so that %s wouldn't worry!",
     PSN = "%s managed to expel the poison so that %s wouldn't worry!",
@@ -110,12 +127,31 @@ return function(mod, deps)
   }
 
   local pendingText = {}  -- printed at the start of the next turn
+  -- printed when the next move starts or the turn ends: after the game's own lines for the hit
+  -- or the item ("It's super effective!", the HP restored), before the foe's "used ...!"
+  local soonText = {}
+
+  -- level 4's flavour lines (B.FLAVOR_LEVEL); the HP bar is red under 10 of its 48 pixels (Gen 3)
+  B.FLAVOR_LEVEL = 4
+  B.LINES = {
+    super = "That's it! I knew you could do it!",
+    pinch = "%s is in a bit of a pinch. It looks like it might cry...",
+    healed = "%s is thrilled to bits!",
+    asleep = "%s is fast asleep... Zzz... Zzz...",
+  }
+  local function inRed(hp, max)
+    hp, max = tonumber(hp) or 0, tonumber(max) or 0
+    return hp > 0 and max > 0 and math.floor(hp * 48 / max) < 10
+  end
+  B.inRed = inRed
+  local function fond(mon) return levelOf(mon) >= B.FLAVOR_LEVEL end
 
   function B.install()
     if B.installed or not (mod.hooks and mod.events) then return false end
     B.installed = true
 
     mod.hooks:wrap("exp.gain", function(next, ctx)
+      B.calls.exp = B.calls.exp + 1
       local amount = next()
       if not enabled() or type(ctx) ~= "table" or skip(ctx.battle) then return amount end
       if levelOf(ctx.mon) >= N.EXP_LEVEL then
@@ -126,6 +162,7 @@ return function(mod, deps)
     end)
 
     mod.hooks:wrap("battle.crit", function(next, ctx)
+      B.calls.crit = B.calls.crit + 1
       local hit = next()
       if hit or not enabled() or type(ctx) ~= "table" then return hit end
       local st = ctx.battle
@@ -133,7 +170,14 @@ return function(mod, deps)
       if levelOf(ctx.attacker.mon) < N.CRIT_LEVEL then return hit end
       local okR, RulesG3 = pcall(require, "src.core.game3.battle.rules")
       local CHANCE = okR and RulesG3.crit and RulesG3.crit.CHANCE or { [0] = 16, [1] = 8, [2] = 4, [3] = 3, [4] = 2 }
-      local den = CHANCE[tonumber(ctx.stage) or 0] or 16
+      -- the attacker's crit stage (high-crit move, Focus Energy, Scope Lens...): the engine's hook
+      -- does not pass it, so ask the engine's own rule, as its roll does
+      local stage = tonumber(ctx.stage)
+      if not stage and okR and RulesG3.crit and RulesG3.crit.stage then
+        local okS, s = pcall(RulesG3.crit.stage, ctx.attacker, ctx.moveNum or ctx.moveId, ctx.highCrit)
+        if okS then stage = tonumber(s) end
+      end
+      local den = CHANCE[stage or 0] or 16
       if den <= 2 then return true end
       -- a second draw with odds (1/den) / (1 - 1/den) brings the total to 2/den
       local rng = rngOf(ctx)
@@ -148,6 +192,7 @@ return function(mod, deps)
     end)
 
     mod.hooks:wrap("battle.accuracy", function(next, ctx)
+      B.calls.accuracy = B.calls.accuracy + 1
       if enabled() and type(ctx) == "table" then
         local st = ctx.battle
         if not skip(st) and isPlayer(st, ctx.target) and not isPlayer(st, ctx.user)
@@ -168,6 +213,7 @@ return function(mod, deps)
     end)
 
     mod.hooks:wrap("battle.damage", function(next, ctx)
+      B.calls.damage = B.calls.damage + 1
       local dmg, info = next()
       if not enabled() or type(ctx) ~= "table" then return dmg, info end
       local st = ctx.battle
@@ -194,9 +240,52 @@ return function(mod, deps)
         target._amieEndure = nil
         say(("%s toughed it out to show its best side to %s!"):format(nameOf(target.mon), trainerName(ev.battle)))
       end
+      if not enabled() or type(ev) ~= "table" or skip(ev.battle) then return end
+      local st, user = ev.battle, ev.user
+      -- a super-effective hit by a fond Pokemon
+      if isPlayer(st, user) and not isPlayer(st, target) and (tonumber(ev.effectiveness) or 10) > 10
+          and (tonumber(ev.damage) or 0) > 0 and fond(user.mon) then
+        soonText[#soonText + 1] = B.LINES.super
+      end
+      -- a fond Pokemon's HP bar turning red
+      if isPlayer(st, target) and type(target.mon) == "table" and fond(target.mon) then
+        local mon = target.mon
+        local before = (tonumber(mon.hp) or 0) + (tonumber(ev.damage) or 0)
+        if inRed(mon.hp, mon.maxHp) and not inRed(before, mon.maxHp) then
+          soonText[#soonText + 1] = B.LINES.pinch:format(nameOf(mon))
+        end
+      end
     end)
 
+    -- an HP item used on a fond Pokemon in battle: the engine has no event for it, so its battle
+    -- item use is wrapped (once); "heal" is its result for an HP-restoring item
+    local okI, BattleItems = pcall(require, "src.core.game3.battle.items")
+    if okI and type(BattleItems) == "table" and type(BattleItems.use) == "function" and not BattleItems._amieWrapped then
+      local use = BattleItems.use
+      BattleItems._amieWrapped = true
+      BattleItems.use = function(st, adapterArg, bag, session, itemId, partySlot, ...)
+        local res = { use(st, adapterArg, bag, session, itemId, partySlot, ...) }
+        if res[1] == "heal" and enabled() and not skip(st) then
+          local party = session and session.party
+          local mon = type(party) == "table" and partySlot and party[partySlot]
+          if type(mon) == "table" and fond(mon) then soonText[#soonText + 1] = B.LINES.healed:format(nameOf(mon)) end
+        end
+        return unpack(res, 1, table.maxn(res))
+      end
+    end
+
+    local function flushSoon()
+      if #soonText == 0 then return end
+      local list = soonText
+      soonText = {}
+      for _, t in ipairs(list) do say(t) end
+    end
+    B.flushSoon = flushSoon
+    mod.events:on("battle.move_used", flushSoon)
+
     mod.events:on("battle.turn_ended", function(ev)
+      B.calls.turn = B.calls.turn + 1
+      flushSoon()
       if not enabled() then return end
       local st = ev and ev.battle
       if skip(st) or (st and st.over) then return end
@@ -214,9 +303,9 @@ return function(mod, deps)
             and levelOf(b.mon) >= N.CURE_LEVEL then
           local okRoll, v = pcall(ad.roll, ad, 0, 99)
           if okRoll and type(v) == "number" and v < N.CURE_PCT then
-            local code = tostring(status):upper():sub(1, 3)
+            local code = statusCode(status)
+            -- the five major conditions only: affection never shakes off confusion
             pcall(ad.clearStatus, ad, b)
-            b.confusionTurns = nil
             B.stats.cure = B.stats.cure + 1
             local text = STATUS_TEXT[code] or "%s shook off its condition so that %s wouldn't worry!"
             pendingText[#pendingText + 1] = text:format(nameOf(b.mon), trainerName(st))
@@ -232,8 +321,29 @@ return function(mod, deps)
       for _, t in ipairs(list) do say(t) end
     end
     mod.events:on("battle.turn_started", flush)
-    mod.events:on("battle.started", function() pendingText = {} end)
-    mod.events:on("battle.ended", function() pendingText = {} end)
+    -- a fond Pokemon asleep: the game's line once each time it falls asleep
+    mod.events:on("battle.turn_started", function(ev)
+      local st = ev and ev.battle
+      if not enabled() or skip(st) then return end
+      local list = {}
+      if type(st.battlers) == "table" then
+        for id = 0, 3 do if st.battlers[id] then list[#list + 1] = st.battlers[id] end end
+      elseif st.player then
+        list[1] = st.player
+      end
+      for _, b in ipairs(list) do
+        local status = b.status or (b.mon and b.mon.status)
+        local asleep = statusCode(status) == "SLP"
+        if not asleep then
+          b._amieSleepSaid = nil
+        elseif isPlayer(st, b) and not b._amieSleepSaid and fond(b.mon) then
+          b._amieSleepSaid = true
+          say(B.LINES.asleep:format(nameOf(b.mon)))
+        end
+      end
+    end)
+    mod.events:on("battle.started", function() pendingText, soonText = {}, {} end)
+    mod.events:on("battle.ended", function() pendingText, soonText = {}, {} end)
     return true
   end
 

@@ -26,7 +26,9 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   local ARROW_L = { x = 2, y = 144, w = 18, h = 30 }
   local ARROW_R = { x = 236, y = 144, w = 18, h = 30 }
   local DONE = { x = 206, y = 128, w = 46, h = 12 }
-  local FLOOR = { y0 = 60, y1 = 124 }     -- where items may stand (their feet)
+  local FLOOR = { y0 = 60, y1 = 160 }     -- where items may stand (their feet); the drawer is away while one is held
+  local PUT_AWAY = { y = H - 14, h = 14 } -- the strip that takes an item back while the drawer is away
+  local drawerT = 1                        -- 1 the drawer is up, 0 slid away (while an item is held)
   local PLATE = { x = 212, y = 72 }       -- where the set-out puff sits
 
   local tab = "cushion"
@@ -35,7 +37,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -84,6 +86,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   local function floorY(y) return math.min(FLOOR.y1, math.max(FLOOR.y0, y)) end
 
   -- for the driver and tests
+  app.drawerT = function() return drawerT end
   function app.geometry()
     return { TAB = TAB, tabX = tabX, slotX = slotX, ROW = ROW, DONE = DONE, DRAWER = DRAWER, ARROW_L = ARROW_L, ARROW_R = ARROW_R }
   end
@@ -94,27 +97,28 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     if not (s and s.mode == "decorate") then return end
     local decor, room = records()
     if ev.phase == "pressed" then
-      if inRect(ev.x, ev.y, DONE) then rec.decorDone = true; return end
-      for i, t in ipairs(TABS) do
-        if inRect(ev.x, ev.y, { x = tabX(i), y = TAB.y, w = TAB.w, h = TAB.h }) then rec.decorTab = t; return end
-      end
-      if inRect(ev.x, ev.y, ARROW_L) then rec.decorArrow = -1; return end
-      if inRect(ev.x, ev.y, ARROW_R) then rec.decorArrow = 1; return end
-      local e = entryAt(ev.x, ev.y)
-      if e then
-        if tab == "cushion" or tab == "object" then
-          drag = { id = e.id, x = ev.x, y = ev.y, pointer = ev.id }
-        else
-          rec.decorEntry = e.id
+      if drawerT > 0.5 then
+        if inRect(ev.x, ev.y, DONE) then rec.decorDone = true; return end
+        for i, t in ipairs(TABS) do
+          if inRect(ev.x, ev.y, { x = tabX(i), y = TAB.y, w = TAB.w, h = TAB.h }) then rec.decorTab = t; return end
         end
-        return
-      end
-      if ev.y < DRAWER.y then
-        local idx = Decor.itemAt(room, ev.x, ev.y, 4)
-        if idx then
-          local it = room.items[idx]
-          drag = { id = it.id, x = ev.x, y = ev.y, pointer = ev.id, fromRoom = idx, ox = it.x - ev.x, oy = it.y - ev.y }
+        if inRect(ev.x, ev.y, ARROW_L) then rec.decorArrow = -1; return end
+        if inRect(ev.x, ev.y, ARROW_R) then rec.decorArrow = 1; return end
+        local e = entryAt(ev.x, ev.y)
+        if e then
+          if tab == "cushion" or tab == "object" then
+            drag = { id = e.id, x = ev.x, y = ev.y, pointer = ev.id }
+          else
+            rec.decorEntry = e.id
+          end
+          return
         end
+      end
+      -- a placed item anywhere, the drawer's empty parts included (items may stand under it)
+      local idx = Decor.itemAt(room, ev.x, ev.y, 4)
+      if idx then
+        local it = room.items[idx]
+        drag = { id = it.id, x = ev.x, y = ev.y, pointer = ev.id, fromRoom = idx, ox = it.x - ev.x, oy = it.y - ev.y }
       end
     elseif ev.phase == "moved" then
       if drag and drag.pointer == ev.id then drag.x, drag.y = ev.x, ev.y end
@@ -124,14 +128,14 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
         drag = nil
         if ev.phase ~= "released" then return end
         if d.fromRoom then
-          if ev.y >= DRAWER.y then
+          if ev.y >= PUT_AWAY.y then
             Decor.remove(room, d.fromRoom)
             host.playSe("SE_SELECT")
             G.say(("Put the %s away."):format(Decor.name(d.id)), 1.5)
           else
             Decor.move(room, d.fromRoom, ev.x + (d.ox or 0), floorY(ev.y + (d.oy or 0)))
           end
-        elseif ev.y < DRAWER.y then
+        elseif ev.y < PUT_AWAY.y then
           local ok, why = Decor.place(room, decor, d.id, ev.x, floorY(ev.y))
           if ok then host.playSe("SE_PIN")
           elseif why == "full" then G.say(G.tx("roomFull", nil, "The room is full (30 items)."), 2) end
@@ -171,7 +175,11 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
 
   function app:update(dt)
     local s = G.session
-    app.live = s ~= nil and s.mode == "decorate" and drag ~= nil
+    -- the drawer slides away while an item is held, so it can be set down where the drawer was
+    local target = drag and 0 or 1
+    drawerT = drawerT + (target - drawerT) * math.min(1, (dt or 0) * 12)
+    if math.abs(target - drawerT) < 0.01 then drawerT = target end
+    app.live = s ~= nil and s.mode == "decorate" and (drag ~= nil or drawerT ~= target)
   end
 
   -- ------- drawing
@@ -229,7 +237,9 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       if img then G2.setColor(1, 1, 1, 1); G2.draw(img, PLATE.x, PLATE.y - 8, 0, 0.5, 0.5, 20, 20)
       else G2.setColor(0.95, 0.55, 0.2, 1); G2.ellipse("fill", PLATE.x, PLATE.y - 6, 8, 6) end
     end
-    -- the drawer
+    -- the drawer (slid down out of view while an item is held)
+    G2.push()
+    G2.translate(0, (1 - drawerT) * (DRAWER.h + 2))
     G2.setColor(0.12, 0.12, 0.18, 0.88)
     G2.rectangle("fill", 0, DRAWER.y, w, DRAWER.h)
     for i, t in ipairs(TABS) do
@@ -290,7 +300,22 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     end
     G2.setColor(1, 1, 1, 0.7)
     G2.printf(("%d/%d items"):format(#(room.items or {}), Decor.MAX_ITEMS), 120, TAB.y + 2, 60, "right")
+    G2.setColor(0.3, 0.3, 0.36, 1)
+    G2.rectangle("fill", DONE.x, DONE.y, DONE.w, DONE.h, 4, 4)
+    G2.setColor(1, 1, 1, 0.95)
+    G2.printf("DONE", DONE.x, DONE.y + 1, DONE.w, "center")
     if app.font then G2.setFont(app.font) end
+    G2.pop()
+    -- while the drawer is away: the strip that takes an item back
+    if drawerT < 0.99 then
+      local a = 1 - drawerT
+      G2.setColor(0.12, 0.12, 0.18, 0.88 * a)
+      G2.rectangle("fill", 0, PUT_AWAY.y, w, PUT_AWAY.h)
+      G2.setColor(1, 1, 1, 0.9 * a)
+      if app.smallFont then G2.setFont(app.smallFont) end
+      G2.printf(drag and drag.fromRoom and "PUT AWAY" or "DROP HERE TO CANCEL", 0, PUT_AWAY.y + 2, w, "center")
+      if app.font then G2.setFont(app.font) end
+    end
     if drag then drawItem(G2, drag.id, drag.x + (drag.ox or 0), floorY(drag.y + (drag.oy or 0)), 1, 0.85) end
     if s.message then
       G2.setColor(0, 0, 0, 0.6)
@@ -300,12 +325,6 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       fitText(G2, s.message, 6, DRAWER.y - 18, 188, 14, "center")
       if app.font then G2.setFont(app.font) end
     end
-    G2.setColor(0.3, 0.3, 0.36, 1)
-    G2.rectangle("fill", DONE.x, DONE.y, DONE.w, DONE.h, 4, 4)
-    G2.setColor(1, 1, 1, 0.95)
-    if app.smallFont then G2.setFont(app.smallFont) end
-    G2.printf("DONE", DONE.x, DONE.y + 1, DONE.w, "center")
-    if app.font then G2.setFont(app.font) end
   end
 
   function app:releaseAll() drag = nil end

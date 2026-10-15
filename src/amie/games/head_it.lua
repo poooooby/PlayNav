@@ -35,7 +35,7 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -336,7 +336,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     Games.drawNumber(G2, art, st.score, 12, 7, 16, "left")
     if onArt then G2.setColor(0.15, 0.15, 0.2, 1) end
     if st.lives then
-      local chance = { art("game/chance_blue"), art("game/chance_pink"), art("game/chance_orange") }
+      local chance = { art("game/chance_blue"), art("game/chance_pink"), (art("game/chance_orange")) }
       if chance[1] and chance[2] and chance[3] then
         G2.printf(Games.line("head", "chances", nil, "Chances:"), 60, 9, 48, "right")
         for i = 1, 3 do

@@ -1,6 +1,6 @@
 -- Driver: boots Emerald (Gen 3) in a portrait window and exercises Pokemon-
 -- Amie end to end with synthetic touches: the surface stays dormant in
--- the field, the START menu entry opens Refresh, a battle prompts for care,
+-- the field, the START menu entry opens Amie, a won battle drops a puff,
 -- NO resumes the field, a poisoned rematch is accepted and cleaned, cured,
 -- petted and fed, DONE releases the field; then the second display.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
@@ -291,36 +291,20 @@ local function body(game, log)
   end
 
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
-  loader.modOptions.play_nav.prompt_always = true
-  loader.modOptions.play_nav.care_frequency = "high"
-  S.rng = function() return 0.05 end
-
+  local puffsBefore = #R.puffs()
   local ok1 = runBattle()
-  local prompted = waitFor(function() return topId() == "play_nav_amie" end, 300)
-  log("battle 1 ran:", ok1, "prompt shown:", prompted, "phase:", R.state() and R.state().phase,
+  U.wait(30)
+  log("battle 1 ran:", ok1, "amie layer after battle:", topId() == "play_nav_amie", "puffs", puffsBefore, "->", #R.puffs(),
     "mode", state().mode, "rect", rectStr())
+  shot("03_after_battle")
+  -- the close-up, straight from the exports (the START menu path was shot above)
+  local openedPlay = R.openPlay()
+  local prompted = waitFor(function() return topId() == "play_nav_amie" end, 300)
+  log("openPlay:", openedPlay, "layer:", prompted, "phase:", R.state() and R.state().phase, "mode", state().mode)
   if prompted then
     U.wait(10)
-    shot("03_refresh_prompt")
-    tapAt("rno", 136 + 48, 96 + 24)
-    U.wait(10)
-    log("after NO: top", topId(), "session", tostring(R.state()), "mode", state().mode)
-  end
-
-  -- poisoned rematch, accepted
-  local s3 = Runtime.getSession()
-  if s3 and s3.party and s3.party[1] then s3.party[1].status = "PSN" end
-  local ok2 = runBattle()
-  prompted = waitFor(function() return topId() == "play_nav_amie" end, 300)
-  log("battle 2 ran:", ok2, "prompt (poisoned):", prompted, "status:", R.state() and R.state().status)
-  if prompted then
-    tapAt("ryes", 24 + 48, 96 + 24)
-    U.wait(10)
-    local st = R.state()
-    log("care phase:", st and st.phase, "marks:", st and #st.marks, "status:", st and st.status)
-    shot("04_refresh_dirty")
-    local Care = R.care
-    -- the tray adapts to what the Pokemon needs; ask the app where a tool sits
+    shot("04_play")
+    -- the tray: ask the app where a tool sits
     local playApp = Apps:get("play")
     local function trayX(tool)
       local list = playApp.geometry.tools(S.session)
@@ -333,31 +317,6 @@ local function body(game, log)
       local x = trayX(tool)
       if x then tapAt("rtool", x, 18) else log("tray has no", tool) end
     end
-    local function markPx(m) return 128 + m.x * 44, 102 + m.y * 48 end
-    local mid = false
-    for _, m in ipairs(st.marks) do
-      local tool = Care.TOOL_FOR[m.kind]
-      if R.state().tool ~= tool then tapTool(tool) end
-      local mx, my = markPx(m)
-      -- start the stroke well outside the body ellipse, the way a player
-      -- sweeps in from the sprite's edge, then scrub across the mark
-      press("rub", 8, my)
-      for i = 1, 6 do move("rub", 8 + (mx - 8) * i / 6, my); U.wait(1) end
-      for i = 1, 10 do
-        move("rub", mx + 8, my + 4); U.wait(1)
-        move("rub", mx - 8, my - 4); U.wait(1)
-      end
-      release("rub", mx - 8, my - 4)
-      U.wait(2)
-      if not mid then mid = true; shot("05_refresh_midclean") end
-    end
-    log("all clean:", Care.allClean(st.marks), "remaining:", Care.remaining(st.marks))
-    tapTool("medicine")
-    tapAt("rbody", 128, 100)
-    U.wait(5)
-    log("after medicine: status", tostring(R.state().status), "party status",
-      tostring(Runtime.getSession().party[1].status))
-    shot("06_refresh_cured")
     if R.state().tool then tapTool(R.state().tool) end
     local affBefore = R.state().meters.affection
     press("pet", 100, 96)
@@ -429,8 +388,7 @@ local function body(game, log)
     U.wait(8)
     log("games picker: mode", R.state() and R.state().mode, "app", Apps:active().id, "message", tostring(R.state() and R.state().message))
     shot("08d_games_picker")
-    local menu = Apps:get("games")
-    local geo = menu and menu.geometry()
+    local geo = playApp.geometry
     -- the games run on the clock, the driver on frames: wait in seconds
     local function waitSecs(sec)
       local t0 = love.timer.getTime()
@@ -438,9 +396,11 @@ local function body(game, log)
     end
     local function playGame(gameIndex, appId, value, shotName, midAction)
       if not geo then return end
-      tapAt("gbadge", geo.badgeX(gameIndex) + geo.BADGE.size / 2, geo.BADGE.y + geo.BADGE.size / 2)
+      local br = geo.gameBadge(gameIndex)
+      tapAt("gbadge", br.x + br.w / 2, br.y + br.h / 2)
       U.wait(3)
-      tapAt("gdiff", geo.diffX(1) + geo.DIFF_ROW.w / 2, geo.DIFF_ROW.y + geo.DIFF_ROW.h / 2)
+      local dr = geo.gameDiff(1)
+      tapAt("gdiff", dr.x + dr.w / 2, dr.y + dr.h / 2)
       U.wait(5)
       local st0 = R.state()
       log(appId, "started: mode", st0 and st0.mode, "game", st0 and st0.game and st0.game.id, "app", Apps:active().id)
@@ -554,6 +514,9 @@ local function body(game, log)
         local st5 = R.benefits.stats
         log("benefits battle: attacks", attacks, "exp", statsBefore.exp, "->", st5.exp, "crit", statsBefore.crit, "->", st5.crit,
           "dodge", st5.dodge, "endure", st5.endure, "cure", st5.cure, "lead lv", lead.level, "hp", lead.hp)
+        local c = R.benefits.calls or {}
+        log(("benefits hooks reached: exp %d crit %d accuracy %d damage %d turn_ended %d"):format(
+          c.exp or 0, c.crit or 0, c.accuracy or 0, c.damage or 0, c.turn or 0))
       else
         log("benefits battle failed to start:", tostring(errB))
       end

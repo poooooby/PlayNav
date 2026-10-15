@@ -40,7 +40,9 @@ on a touch screen below the game or on a device's second display.
   touch screen are laid out like a New 3DS XL: the game as large as it fits, and the touch screen
   at the same height. Held upright, the game is at the top with the touch screen just under it,
   leaving room for the on-screen pad below. Held sideways, the game is on the left and the touch
-  screen beside it, both along the top. On a device with a second display, such as the AYN Thor,
+  screen beside it, both along the top. While you walk the overworld with Super Training's home
+  screen open, the touch screen widens to sit on the pad and the overworld fills everything above
+  it (or the whole left side, held sideways). On a device with a second display, such as the AYN Thor,
   the touch screen moves there at its sharpest and the game keeps the whole main screen.
   It only appears when you need it, so other mods can use that screen the rest of the time.
 - 🧸 **Pokémon-Amie:** Spend time with your Pokémon to raise its affection, and it fights better
@@ -65,13 +67,10 @@ on a touch screen below the game or on a device's second display.
 - 🧁 **Poké Puffs:** Drag a puff to your Pokémon and hold it there while it eats, bite by
   bite. There are 26 kinds, from Basic to Supreme, and you win them in battles and games. A
   few Pokémon, like Metapod and Shedinja, can't eat.
-- 🧽 **Care after battle:** When the Pokémon that fought comes back muddy, dusty, wet or with a
-  status, both screens ask whether to care for it. Clean it with the towel, brush, dryer and
-  comb, and cure it with medicine. The game waits until you're done.
 - ✋ **Little moments:** Rest a finger beside a fond Pokémon and it gives you a high five. Tap
   twice too fast and it feels hit. It dances as its affection grows and leaves you presents at
   milestones.
-- 🎯 **Three minigames:**
+- 🎯 **Three minigames,** picked with the GAMES button on the Play screen:
   - **Berry Picker:** hand each Pokémon the berry it asks for.
   - **Head It:** tap Pokémon to bounce yarn, with combos and FEVER.
   - **Tile Puzzle:** swap tiles to rebuild a moving picture.
@@ -83,6 +82,9 @@ on a touch screen below the game or on a device's second display.
 - ⚔️ **Affection in battle:** The fonder your Pokémon, the more it does for you. At two hearts
   it earns more experience. From three it can hang on at 1 HP. From four it can shake off a
   status. At 200 affection foes miss it more, and at five hearts it lands more critical hits.
+  From four hearts it also talks to you in battle, in the game's own words: cheering a
+  super-effective hit, worrying when its HP runs low, delighted when you heal it, dozing when
+  asleep.
 
 ### Super Training 🎈
 
@@ -142,9 +144,7 @@ Open **OPTIONS → MODS → PlayNav**.
 
 | Option | Choices | Default | What it does |
 |---|---|---|---|
-| **POKEMON-AMIE** | On / Off | On | Pokémon-Amie: the AMIE menu entry and care after battle. |
-| **DIRT AFTER BATTLE** | Off / Low / Normal / High | Normal | How often your Pokémon comes back needing a clean. |
-| **ASK AFTER EVERY BATTLE** | On / Off | Off | Offer care after every battle, even when your Pokémon is clean. |
+| **POKEMON-AMIE** | On / Off | On | Pokémon-Amie: the AMIE menu entry, and the Poké Puffs and stat changes from walking and battling. |
 | **PUFFS PER WIN** | 0-3 | 1 | Poké Puffs you get for each battle won. |
 | **AFFECTION BENEFITS** | On / Off | On | Affection's bonuses in battle. Off for vanilla battles. |
 | **SUPER TRAINING** | On / Off | On | Super Training: the TRAINING menu entry. |
@@ -196,7 +196,7 @@ Open **OPTIONS → MODS → PlayNav**.
   supply, unpacked on your own device. Encrypted or compressed images (such as Azahar's `.zcci`)
   aren't accepted yet; supply the plain `.cci`.
 - 🖱️ **On a PC with a second-display window,** strokes don't come through, only taps, so
-  petting and cleaning need Split Screen there. A real second panel, like the AYN Thor's, works
+  petting needs Split Screen there. A real second panel, like the AYN Thor's, works
   fully.
 - 🧁 **Every Pokémon takes three bites** of a puff, and petting spots cover broad areas (head,
   face, belly...) rather than exact pixels.
@@ -223,7 +223,6 @@ Open **OPTIONS → MODS → PlayNav**.
 
 - **Pokémon X, Y, Omega Ruby and Alpha Sapphire**, whose Pokémon-Amie and Super Training this
   recreates as closely as the public record allows.
-- **Pokémon Sun and Moon**, whose Pokémon Refresh inspired the care after battle.
 
 ## 🤖 AI Disclosure
 

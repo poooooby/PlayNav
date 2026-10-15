@@ -1,6 +1,6 @@
 -- PlayNav (id play_nav; ds_touch before 0.3.0): a DS-style bottom touch screen for
 -- gen1recomp, built to host
--- Pokemon-Amie (play, care, minigames) and future touch minigames.
+-- Pokemon-Amie (the room, play, the minigames) and Super Training.
 --
 -- The surface is a logical 256x192 space that lives on the second display
 -- (AYN Thor, or a desktop companion window) or in the lower part of a
@@ -20,14 +20,13 @@
 --   src/amie/petting.lua   zones over the sprite + per-species spots (data/petting_gen3.lua)
 --   src/amie/store.lua     mod.save records and the schema migration
 --   src/amie/session.lua   battle.ended listener, top-screen layer, the session
---   src/amie/play.lua      the bottom-screen play / care app
+--   src/amie/play.lua      the bottom-screen play app (petting, puffs, the games)
 --   src/amie/home.lua      the Amie room: wandering Pokemon, DECORATE / PLAY / SWITCH
 --   src/amie/games/        common rules, the picker, Berry Picker, Head It, Tile Puzzle
 --   src/amie/decor.lua     the decor catalogue rules (data/decor_catalog.lua), gifts
 --   src/amie/decorate.lua  the decorate drawer over the room
 --   src/amie/visitors.lua  visiting Pokemon, their chat and gifts
 --   src/amie/benefits.lua  affection benefits in battle (hooks)
---   src/refresh/care.lua   pure cleaning rules: marks, tools, rubbing
 --   src/refresh/host_gen3.lua  the Gen 3 engine adapter
 --   src/pad_hide.lua       hides the built-in pad; Gen 3 touch routing
 --   src/cutout.lua         hands the Gen 3 picture area to the engine in split mode
@@ -59,9 +58,6 @@ end
 return function(mod)
   mod.options:define({
     { key = "refresh", label = "POKEMON-AMIE", type = "toggle", default = true },
-    { key = "care_frequency", label = "DIRT AFTER BATTLE", type = "choice", default = "normal",
-      choices = { { "OFF", "off" }, { "LOW", "low" }, { "NORMAL", "normal" }, { "HIGH", "high" } } },
-    { key = "prompt_always", label = "ASK AFTER EVERY BATTLE", type = "toggle", default = false },
     { key = "beans_per_win", label = "PUFFS PER WIN", type = "number", default = 1,
       min = 0, max = 3, step = 1 },
     { key = "affection_benefits", label = "AFFECTION BENEFITS", type = "toggle", default = true },
@@ -117,7 +113,6 @@ return function(mod)
 
   -- ------- Pokemon-Amie (Gen 3 host in v1; the rules and apps are host-agnostic)
 
-  local Care = loadSibling(mod, "src/refresh/care.lua")
   local RuleNumbers = loadSibling(mod, "data/amie_rules.lua")
   local makeRules = loadSibling(mod, "src/amie/rules.lua")
   local PettingData = loadSibling(mod, "data/petting_gen3.lua")
@@ -132,7 +127,6 @@ return function(mod)
   local makeDecorateApp = loadSibling(mod, "src/amie/decorate.lua")
   local makeVisitors = loadSibling(mod, "src/amie/visitors.lua")
   local makeGames = loadSibling(mod, "src/amie/games/common.lua")
-  local makeGamesMenu = loadSibling(mod, "src/amie/games/menu.lua")
   local gameMakers = {
     berry = loadSibling(mod, "src/amie/games/berry_picker.lua"),
     head = loadSibling(mod, "src/amie/games/head_it.lua"),
@@ -141,14 +135,14 @@ return function(mod)
   local makeBenefits = loadSibling(mod, "src/amie/benefits.lua")
   local makeAmieText = loadSibling(mod, "src/amie/text.lua")
   local Rules, Petting, Store, Amie, amieHost, Benefits = nil, nil, nil, nil, nil, nil
-  if Care and RuleNumbers and makeRules and makePetting and makeStore and makeHost and makeSession and makePlayApp then
+  if RuleNumbers and makeRules and makePetting and makeStore and makeHost and makeSession and makePlayApp then
     Rules = makeRules(RuleNumbers)
     Petting = makePetting(PettingData or {})
     Store = makeStore(mod, Rules)
     amieHost = makeHost(mod)
     -- the top-screen overlay finds our layers on the engine's stack through the host
     if HdTop and amieHost.Stack then HdTop.Stack = amieHost.Stack end
-    Amie = makeSession(mod, { host = amieHost, Rules = Rules, Petting = Petting, Care = Care,
+    Amie = makeSession(mod, { host = amieHost, Rules = Rules, Petting = Petting,
       Store = Store, Apps = Apps, onChange = dirty })
     if makeAmieText then
       local okT, AT = pcall(makeAmieText, Amie)
@@ -159,7 +153,7 @@ return function(mod)
         mod.log:warn("amie text helper failed to build (%s); our own wording stands in", tostring(AT))
       end
     end
-    local ok, app = pcall(makePlayApp, mod, Pointer, Amie, Care, Rules, Petting)
+    local ok, app = pcall(makePlayApp, mod, Pointer, Amie, Rules, Petting)
     if ok and type(app) == "table" then
       Apps:register(app)
       app.fontsFn = function() return Surface.font, Surface.smallFont end
@@ -195,16 +189,9 @@ return function(mod)
         Amie.Visitors = makeVisitors(mod, { session = Amie, Rules = Rules, Decor = Decor, Store = Store, host = amieHost })
       end
     end
-    if makeGames and makeGamesMenu then
+    if makeGames then
       local Games = makeGames(mod, { Rules = Rules, Store = Store, host = amieHost, session = Amie })
       Amie.Games = Games
-      local okM, menu = pcall(makeGamesMenu, mod, Pointer, Amie, Games, amieHost)
-      if okM and type(menu) == "table" then
-        Apps:register(menu)
-        menu.fontsFn = function() return Surface.font, Surface.smallFont end
-      else
-        mod.log:error("games menu failed to build: %s", tostring(menu))
-      end
       for id, make in pairs(gameMakers) do
         if make then
           local okG, gapp = pcall(make, mod, Pointer, Amie, Games, Rules, amieHost)
@@ -319,7 +306,8 @@ return function(mod)
     local Recipe = loadSibling(mod, "data/oras_recipe.lua")
     if makeAssets then
       Assets = makeAssets(mod)
-      for _, id in ipairs({ "play", "home", "decorate", "games", "game_berry", "game_head", "game_tile",
+      Assets.enabled = mod.options:get("use_rom_art") ~= false
+      for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile",
         "training_core", "training_bags", "training_courses", "training_aim" }) do
         local a = Apps:get(id)
         if a then a.assets = Assets end
@@ -379,7 +367,7 @@ return function(mod)
     end
   end
   -- the session screens switch apps themselves; no tab strip over them
-  for _, id in ipairs({ "play", "home", "decorate", "games", "game_berry", "game_head", "game_tile", "import" }) do
+  for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile", "import" }) do
     local a = Apps:get(id)
     if a then a.hideTabs = true end
   end
@@ -615,11 +603,33 @@ return function(mod)
   -- engine through src/cutout.lua, and keeps the rest for the surface, so
   -- both scale with the window and never overlap. Without the cutout seam
   -- the surface falls back to the free strip under the engine's own placement.
+  -- the layout changes with the window, its DPI and the pad's room: the pad is measured once
+  -- a second (the player can move its controls), the layout only when one of those moved
+  local layoutCache = {}
+  -- the overworld is on the top screen (no PlayNav layer on top of the engine's stack: Super
+  -- Training's home): the playfield takes all the room the touch screen leaves (Layout.dual
+  -- `fill`); with Amie or a regimen up, the exact picture
+  local function overworldLive()
+    if not (HdTop and HdTop.topLayer) then return false end
+    local ok, layer = pcall(HdTop.topLayer)
+    return ok and layer == nil
+  end
   local function gen3Rect(vp)
     local ww, wh = vp.width or 0, vp.height or 0
     if ww < 1 or wh < 1 then return nil end
     if Cutout and Cutout.pf then
-      local lay = Layout.dual(ww, wh, { dpi = windowDpi(), reserveBottom = padReserve(ww, wh) })
+      local c, now, dpi = layoutCache, Pointer.now(), windowDpi()
+      local fill = overworldLive()
+      local moved = c.ww ~= ww or c.wh ~= wh or c.dpi ~= dpi or c.fill ~= fill
+      if moved or now >= (c.padAt or 0) then
+        local reserve = padReserve(ww, wh)
+        c.padAt = now + 1
+        if moved or c.reserve ~= reserve or c.lay == nil then
+          c.ww, c.wh, c.dpi, c.reserve, c.fill = ww, wh, dpi, reserve, fill
+          c.lay = Layout.dual(ww, wh, { dpi = dpi, reserveBottom = reserve, fill = fill }) or false
+        end
+      end
+      local lay = c.lay
       if lay then
         Cutout:set(lay.game)
         return lay.surface
@@ -692,6 +702,9 @@ return function(mod)
   local function tick(game, viewport)
     state.game = game
     local dt = frameDt()
+    -- the USE EXTRACTED ART option once a frame, for every screen's art() (reading an option
+    -- walks the schema; the screens ask for art dozens of times a frame)
+    if Assets then Assets.enabled = mod.options:get("use_rom_art") ~= false end
     tickExtract()
     setMode(wantedMode())
     pollMouse()
@@ -827,6 +840,35 @@ return function(mod)
     end
     return next()
   end, 1000)
+
+  -- PlayNav's split owns the window's layout: an outer render.output that resizes the whole
+  -- finished frame (Kanto Gear's combined screen) would shrink the picture PlayNav placed. So
+  -- innermost, while the split shows on Gen 3, the frame goes to the window exactly as the
+  -- engine draws it (1:1, scissored to the playfield) and reports it drawn: an outer mod then
+  -- passes it through (Kanto Gear also drops its own touch area then). A shader preset keeps
+  -- the engine's own path.
+  mod.hooks:wrap("render.output", function(next, ctx)
+    if mod.generation == 3 and state.mode == "split" and state.rect and type(ctx) == "table"
+        and ctx.canvas and Cutout and Cutout:active() then
+      local okFx, FX = pcall(require, "src.render.ShaderFX")
+      local shaded = okFx and type(FX) == "table" and FX.active and FX.active()
+      if not shaded then
+        local G = love.graphics
+        local r = Cutout.rect
+        G.push("all")
+        G.setCanvas()
+        G.origin()
+        G.setShader()
+        G.setBlendMode("alpha")
+        G.setScissor(r.x, r.y, r.w, r.h)
+        G.setColor(1, 1, 1, 1)
+        G.draw(ctx.canvas, 0, 0)
+        G.pop()
+        return true
+      end
+    end
+    return next(ctx)
+  end, -10000)
 
   mod.hooks:wrap("render.window", function(next, game, ctx)
     local result = next(game, ctx)
@@ -1017,7 +1059,6 @@ return function(mod)
       meters = function(key) return Store.meters(key) end,
       rules = Rules,
       petting = Petting,
-      care = Care,
       store = Store,
       session = Amie,
       benefits = Benefits,

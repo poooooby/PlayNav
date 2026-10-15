@@ -32,7 +32,17 @@ return function(mod)
         local o = w.owner
         local r = o and o.rect
         if r and type(sw) == "number" and type(sh) == "number" then
+          -- the rect is in window units; the renderer asks in physical pixels (sw, sh = the
+          -- framebuffer), Display.fit in units: answer in the caller's own measure
           local x, y, rw, rh = r.x, r.y, r.w, r.h
+          local G = love and love.graphics
+          if G and G.getDimensions then
+            local okD, uw, uh = pcall(G.getDimensions)
+            if okD and uw and uh and uw > 0 and uh > 0 then
+              local fx, fy = sw / uw, sh / uh
+              x, y, rw, rh = x * fx, y * fy, rw * fx, rh * fy
+            end
+          end
           if x + rw > sw then rw = sw - x end
           if y + rh > sh then rh = sh - y end
           if rw >= 1 and rh >= 1 then return x, y, rw, rh, false, false end

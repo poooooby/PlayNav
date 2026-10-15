@@ -21,7 +21,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   local W, H = 256, 178
   local SLOT_X = { 60, 128, 196 }
   local SLOT_Y = 150
-  local PILE = { y = 40 }
+  local PILE = { y = 34 }   -- the pile sits high enough that a want bubble under it stays clear
   local BERRY_KINDS = { -- recipe ids in difficulty order: Razz, Bluk, Pinap, Wepear, Magost, Durin, Nomel
     "berry/01", "berry/02", "berry/03", "berry/04", "berry/05", "berry/06", "berry/07" }
   local KINDS_FOR = { easy = 3, normal = 5, hard = 7, unlimited = 5 }
@@ -34,7 +34,7 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -311,20 +311,20 @@ return function(mod, Pointer, G, Games, Rules, host)
         local rise = math.min(1, (st.t - sl.shownAt) * 6)
         local y = SLOT_Y + (1 - rise) * 24
         drawIcon(G2, sl.mon, x, y, 2)
-        -- the want bubble with a patience ring
+        -- the want bubble with a patience ring, between the Pokemon's head and the pile
         local bub = art("game/want_bubble")
-        local bx, by = x, y - 86
+        local bx, by = x, y - 74
         if bub then
           G2.setColor(1, 1, 1, 1)
-          G2.draw(bub, bx, by, 0, 0.8, 0.8, 30, 40)
+          G2.draw(bub, bx, by, 0, 0.72, 0.72, 30, 40)
         else
           G2.setColor(1, 1, 1, 0.95)
-          G2.circle("fill", bx, by, 22, 20)
+          G2.circle("fill", bx, by, 19, 20)
         end
-        drawBerry(G2, sl.want, bx, by - 4, 1)
+        drawBerry(G2, sl.want, bx, by - 4, 0.9)
         local f = math.max(0, sl.left / sl.patience)
         G2.setColor(f > 0.35 and 0.3 or 0.9, f > 0.35 and 0.8 or 0.3, 0.3, 1)
-        G2.arc("line", "open", bx, by, 24, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 24)
+        G2.arc("line", "open", bx, by, 20, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 24)
       end
       if sl.react then
         local id = sl.react.kind == "quick" and "game/note_red" or (sl.react.kind == "slow" and "game/note_yellow" or nil)

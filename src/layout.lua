@@ -92,8 +92,17 @@ end
 -- The picture's scale is a whole number of physical pixels (`dpi` = pixels per window unit),
 -- as the engine's Display.fit draws it; the touch screen may be any size. A step smaller
 -- picture is taken when the touch screen would otherwise drop below MIN_MATCH of its height.
--- opts = { gameW, gameH, dpi, reserveBottom, margin, gap, x, y }
--- Returns { orientation, game = {x,y,w,h,scale}, surface = {x,y,w,h,scale} }.
+--
+-- `fill` (the overworld is live on the top screen: Super Training's home, no PlayNav layer on
+-- top), Kanto Gear style: the engine draws the overworld across its whole playfield and
+-- centres only the 240x160 frame (menus, text) at a whole-number scale, so the top gets every
+-- unit the touch screen does not use.
+--   portrait   the touch screen as wide as the window allows (4:3), sitting on the pad's
+--              room; the playfield is everything above it, full width
+--   landscape  the touch screen as without fill; the playfield is the whole column left of it
+-- opts = { gameW, gameH, dpi, reserveBottom, margin, gap, x, y, fill }
+-- Returns { orientation, game = {x,y,w,h,scale} (the playfield handed to the engine),
+-- picture = {x,y,w,h,scale} (where the 240x160 frame lands), surface = {x,y,w,h,scale} }.
 Layout.MIN_MATCH = 0.8
 function Layout.dual(ww, wh, opts)
   opts = opts or {}
@@ -104,6 +113,7 @@ function Layout.dual(ww, wh, opts)
   local gap = opts.gap or 8
   local ox, oy = opts.x or 0, opts.y or 0
   local portrait = wh >= ww
+  local fill = opts.fill == true
   local reserve = portrait and math.max(0, opts.reserveBottom or 0) or 0
   local availW = portrait and ww or (ww - margin * 2)
   local availH = wh - margin * 2 - reserve
@@ -113,7 +123,7 @@ function Layout.dual(ww, wh, opts)
   -- height at most, and what the room leaves
   local function surfaceH(pw, ph)
     local h
-    if portrait then h = math.min(ph, availH - ph - gap, availW / aspect)
+    if portrait then h = math.min(fill and math.huge or ph, availH - ph - gap, (availW - (fill and margin * 2 or 0)) / aspect)
     else h = math.min(ph, availH, (availW - pw - gap) / aspect) end
     return math.max(0, h)
   end
@@ -132,8 +142,12 @@ function Layout.dual(ww, wh, opts)
   local sw = sh * aspect
   -- on whole physical pixels
   local function snap(v) return math.floor(v * dpi + 1e-6) / dpi end
-  local game, surface
-  if portrait then
+  local game, surface, picture
+  if portrait and fill then
+    -- the touch screen on the pad's room; the playfield is all that is above it
+    surface = { x = snap(ox + (ww - sw) / 2), y = snap(oy + wh - reserve - margin - sh), w = sw, h = sh, scale = sh / Layout.H }
+    game = { x = ox, y = oy, w = ww, h = snap(math.max(ph, surface.y - gap - oy)) }
+  elseif portrait then
     local top = oy + margin
     game = { x = snap(ox + (ww - pw) / 2), y = snap(top), w = pw, h = ph, scale = k / dpi }
     surface = { x = snap(ox + (ww - sw) / 2), y = snap(top + ph + gap), w = sw, h = sh, scale = sh / Layout.H }
@@ -141,9 +155,21 @@ function Layout.dual(ww, wh, opts)
     local left, top = ox + margin, oy + margin
     game = { x = snap(left), y = snap(top), w = pw, h = ph, scale = k / dpi }
     surface = { x = snap(left + pw + gap), y = snap(top), w = sw, h = sh, scale = sh / Layout.H }
+    if fill then game = { x = ox, y = oy, w = snap(surface.x - gap - ox), h = wh } end
   end
-  return { orientation = portrait and "portrait" or "landscape", game = game, surface = surface }
+  if fill then
+    -- where the engine's Display.fit puts the frame: the largest whole scale, centred
+    local kk = math.max(1, math.floor(math.min(game.w * dpi / gw, game.h * dpi / gh) + 1e-9))
+    local fw, fh = gw * kk / dpi, gh * kk / dpi
+    picture = { x = snap(game.x + (game.w - fw) / 2), y = snap(game.y + (game.h - fh) / 2), w = fw, h = fh, scale = kk / dpi }
+    game.scale = picture.scale
+  else
+    picture = game
+  end
+  return { orientation = portrait and "portrait" or "landscape", game = game, picture = picture, surface = surface,
+    fill = fill }
 end
+
 
 -- Window (or pushed-frame) coordinates to logical surface coordinates.
 -- Returns lx, ly, inside.

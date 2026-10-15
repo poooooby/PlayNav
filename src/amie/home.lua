@@ -45,7 +45,7 @@ return function(mod, Pointer, G, Rules, Store, host)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 

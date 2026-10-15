@@ -17,11 +17,6 @@ return function(mod, Layout, HD)
     dirty = true,
   }
 
-  local function density(k)
-    if HD then return HD.density(k, 1) end
-    return 1
-  end
-
   -- the canvas for density k (rebuilt only when k changes)
   function S:ensure(k)
     if not G then return nil end
@@ -53,8 +48,10 @@ return function(mod, Layout, HD)
 
   -- Render drawFn(G, w, h) into the canvas at density k (output pixels per logical unit).
   -- Errors are reported and the frame is kept, so a broken app never takes the game down.
+  -- k: output pixels per logical unit, as densityFor gives it (exact, not rounded), or a
+  -- whole push scale
   function S:render(drawFn, k)
-    local canvas = self:ensure(density(k or self.k))
+    local canvas = self:ensure(k or self.k)
     if not canvas then return false end
     G.push("all")
     G.setCanvas(canvas)
@@ -75,10 +72,17 @@ return function(mod, Layout, HD)
   end
 
   -- the density a window rect wants: its scale times the screen's DPI
+  -- exactly, so the canvas has the rect's own pixel size and the blit is one canvas pixel per
+  -- screen pixel (rounding to quarter steps rendered a 1.67 rect at 1.75 and shrank the
+  -- result: soft text). Capped at HD.MAX_K (larger rects scale up from there); 1 with HD off.
+  S.MIN_K = 0.5
   function S:densityFor(rect)
     if not (G and rect) then return 1 end
+    if HD and not HD.enabled then return 1 end
     local dpi = G.getDPIScale and G.getDPIScale() or 1
-    return density((rect.scale or 1) * dpi)
+    local k = (rect.scale or 1) * dpi
+    if k ~= k then return 1 end
+    return math.max(S.MIN_K, math.min(HD and HD.MAX_K or 4, k))
   end
 
   -- Blit the canvas into a window rect {x, y, w, h, scale}; a thin dark bezel keeps the

@@ -32,7 +32,7 @@ return function(mod, Pointer, T, Rules)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     local ok, img = pcall(A.image, id)
     return ok and img or nil
   end
@@ -280,10 +280,15 @@ return function(mod, Pointer, T, Rules)
     return n
   end
 
+  -- the active Pokemon's icon once a frame (T.party asks the engine for the whole party)
+  local iconAt, iconCache = nil, nil
   local function activeIcon()
+    if iconCache ~= nil and iconAt == app.clock then return iconCache or nil end
+    iconAt, iconCache = app.clock, false
     for _, p in ipairs(T.party and T.party() or {}) do
-      if p.active then return p.icon end
+      if p.active then iconCache = p.icon or false end
     end
+    return iconCache or nil
   end
 
   local function drawIcon(G, icon, cx, cy, w)

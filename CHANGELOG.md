@@ -5,6 +5,53 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A Pokémon with four or more hearts says the game's own lines in battle: "That's it! I knew you
+  could do it!" on a super-effective hit, "...is in a bit of a pinch. It looks like it might
+  cry..." when its HP turns red, "...is thrilled to bits!" when you heal it with an item, and
+  "...is fast asleep... Zzz... Zzz..." when it falls asleep.
+
+### Changed
+
+- The minigames are picked on the Play screen itself: the GAMES button opens the three badges
+  and their ranks over your Pokémon, and a finished game brings you back there.
+- Smoother on low-power devices. A regimen's top screen was making about 2.6 MB of garbage a
+  frame, which kept the device's memory collector busy and the frame rate uneven; it now makes
+  about 10 KB. The home screen asks the game for your party once a frame instead of eight
+  times, sound effects share one buffer per effect, and the split layout is measured only when
+  the window changes.
+- Decorating: the drawer slides away while you hold an item, so you can set it down anywhere
+  on the floor, including where the drawer was. Drop it on the strip at the bottom to put it
+  away.
+- Berry Picker: the berry a Pokémon asks for no longer overlaps the pile.
+- Tile Puzzle: the board has the game's dark frame, the tiles already in place stand out from
+  the ones still to move, and your Pokémon are bigger in the picture.
+- Split screen, while you walk the overworld with Super Training's home screen open: the touch
+  screen spans the width and sits just above the on-screen pad, and the overworld fills all the
+  room above it instead of a fixed picture with black around it. Held sideways, the overworld
+  fills the whole left side. Menus and text stay sharp at the game's own size.
+- With Kanto Gear's combined screen also on, PlayNav's split no longer gets shrunk into Kanto
+  Gear's top half; PlayNav's layout wins while its touch screen shows.
+
+### Removed
+
+- Care after battle. Your Pokémon no longer comes back muddy or dusty, both screens no longer
+  ask to clean it, and the DIRT AFTER BATTLE and ASK AFTER EVERY BATTLE options are gone. A won
+  battle still drops Poké Puffs into your jar.
+
+### Fixed
+
+- The split-screen touch screen was drawn slightly soft at most window sizes (rendered a little
+  larger than shown, then shrunk). It now renders at exactly its size on screen.
+- On high-DPI phones the split screen's game area could be placed at the wrong size for the
+  overworld: PlayNav answered the engine in window units where it asked in screen pixels.
+
+- Affection's doubled critical-hit chance now doubles the real chance for moves and items that
+  raise it (Slash, Focus Energy, Scope Lens): before, it added the base chance only.
+- Shaking off a status through affection no longer clears confusion too; as in the game, it
+  covers burn, poison, sleep, freeze and paralysis.
+
 ## [0.2.5] - 2026-10-14 (pre-alpha)
 
 ### Changed

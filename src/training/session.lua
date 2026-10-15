@@ -72,6 +72,12 @@ return function(mod, deps)
     return s ~= nil and refreshedNow(s.rec)
   end
 
+  -- the trainee has no HP left (the screens ask every frame; T.state builds far more)
+  function T.fainted()
+    local s = T.session
+    return s ~= nil and host.isFainted(s.mon) == true
+  end
+
   -- ------- the top-screen layer
 
   local Layer = { isMenu = true }
@@ -127,7 +133,7 @@ return function(mod, deps)
 
   local function topArt(id)
     local A = T.assets
-    if not (A and A.image and id) or mod.options:get("use_rom_art") == false then return nil end
+    if not (A and A.image and id) or A.enabled == false then return nil end
     local ok, img = pcall(A.image, id)
     return ok and img or nil
   end

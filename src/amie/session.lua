@@ -1,20 +1,19 @@
 -- Pokemon-Amie: the session. One Pokemon at a time owns both screens: the
 -- top-screen layer (pushed on the Gen 3 UI stack, which pauses the field)
--- and whichever surface app the mode needs. Modes in this version:
---   prompt  after a battle: "X could use some care. Refresh?"
+-- and whichever surface app the mode needs. Modes:
 --   home    the Amie room: the Pokemon wanders; tap it for DECORATE / PLAY / SWITCH
---   play    care tools when there is something to clean or cure, petting,
---           Poke Puffs, hit, high-five
+--   play    the close-up: petting, Poke Puffs, hit, high-five, and the games picker
+--           (s.tool "games": three badges, four difficulties, on the same screen)
 --   decorate  wallpaper, cushions, objects and the puff set out for visitors
---   games   the minigame picker (three badges, four difficulties)
 --   game    a minigame is running; s.game = { id, diff, participants }
+-- A battle never opens a session: a win drops Poke Puffs into the jar (onBattleEnded).
 -- The stat rules live in src/amie/rules.lua, the per-species spots in
 -- src/amie/petting.lua, the save data in src/amie/store.lua.
 --
--- deps = { host, Rules, Petting, Care, Store, Apps, onChange = fn() }
+-- deps = { host, Rules, Petting, Store, Apps, onChange = fn() }
 
 return function(mod, deps)
-  local host, Rules, Petting, Care, Store, Apps = deps.host, deps.Rules, deps.Petting, deps.Care, deps.Store, deps.Apps
+  local host, Rules, Petting, Store, Apps = deps.host, deps.Rules, deps.Petting, deps.Store, deps.Apps
   local onChange = deps.onChange or function() end
 
   -- pixel art (GBA sprites, icons) through src/hd.lua: whole pixels or the sharp shader
@@ -26,7 +25,7 @@ return function(mod, deps)
   local N = Rules.N
 
   local G = { session = nil, previousApp = nil, rng = math.random, events = {} }
-  G.Rules, G.Petting, G.Care, G.Store = Rules, Petting, Care, Store
+  G.Rules, G.Petting, G.Store = Rules, Petting, Store
 
   local function say(text, secs)
     local s = G.session
@@ -110,16 +109,11 @@ return function(mod, deps)
   function Layer.handleInput(input)
     local s = G.session
     if not s then return end
-    if s.mode == "prompt" then
-      if input:wasPressed("a") then G.accept()
-      elseif input:wasPressed("b") then G.decline() end
-    elseif s.mode == "home" then
+    if s.mode == "home" then
       if input:wasPressed("a") then G.enterPlay()
       elseif input:wasPressed("b") or input:wasPressed("start") then G.finish() end
     elseif s.mode == "decorate" then
       if input:wasPressed("b") then G.enterHome(false) end
-    elseif s.mode == "games" then
-      if input:wasPressed("b") then G.enterPlay() end
     elseif s.mode == "game" then
       if input:wasPressed("b") and G.gameApp and G.gameApp.quit then G.gameApp:quit() end
     else
@@ -161,8 +155,8 @@ return function(mod, deps)
   local METER_ROWS = { { "affection", "ui/icon_heart", HEART }, { "fullness", "ui/icon_full", { 0.95, 0.65, 0.25 } },
     { "enjoyment", "ui/icon_note", { 0.35, 0.65, 0.95 } } }
   local function topIcon(id)
-    local A = (mod.options:get("use_rom_art") ~= false) and G.assets or nil
-    if not (A and A.image) then return nil end
+    local A = G.assets
+    if not (A and A.image) or A.enabled == false then return nil end
     local ok, img = pcall(A.image, id)
     return ok and img or nil
   end
@@ -225,15 +219,13 @@ return function(mod, deps)
     end
     G2.setColor(1, 1, 1, 0.85)
     G2.rectangle("fill", 4, 4, 232, 16, 3, 3)
-    local status = s.status and (" " .. (Rules.STATUS_LABEL[s.status] or s.status)) or ""
-    drawText(s.name .. status, 8, 6, { maxWidth = 224 })
+    drawText(s.name, 8, 6, { maxWidth = 224 })
     drawMeters(G2, s)
     local hint = "B: DONE"
-    if s.mode == "prompt" then hint = "Refresh?  A: YES   B: NO"
-    elseif s.mode == "home" then hint = "A: PLAY   B: CLOSE"
+    if s.mode == "home" then hint = "A: PLAY   B: CLOSE"
     elseif s.mode == "decorate" then hint = "Decorate the room.  B: DONE"
-    elseif s.mode == "games" then hint = "Pick a game.  B: BACK"
     elseif s.mode == "game" then hint = (s.game and s.game.hud) or "B: QUIT"
+    elseif s.tool == "games" then hint = "Pick a game.  B: BACK"
     elseif s.fromHome then hint = "B: BACK" end
     local msg = s.message or hint
     if host.Chrome and host.Chrome.stdFrame then
@@ -275,21 +267,18 @@ return function(mod, deps)
   local function appFor(mode)
     if mode == "home" then return "home" end
     if mode == "decorate" then return "decorate" end
-    if mode == "games" then return "games" end
     return "play"
   end
 
-  -- opts = { marks, status, prompt, home, source }
+  -- opts = { home, source }
   function G.start(mon, opts)
     opts = opts or {}
     if not mon or G.session then return false end
     if G.busy and G.busy() then return false, "busy" end
     mon = host.resolve(mon) or mon
     local s = monFields(mon)
-    s.mode = opts.prompt and "prompt" or (opts.home and "home" or "play")
+    s.mode = opts.home and "home" or "play"
     s.fromHome = opts.home and true or false
-    s.marks = opts.marks or {}
-    if opts.status then s.status = opts.status end
     s.puffs = Store.puffs()
     s.tool = nil
     s.log = {}
@@ -303,13 +292,7 @@ return function(mod, deps)
     if not ok then mod.log:warn("could not push the amie layer: %s", tostring(err)) end
     Apps:setActive(appFor(s.mode), mod.game)
     onChange()
-    if s.mode == "prompt" then
-      say(("%s could use some care."):format(s.name), 60)
-    elseif s.mode == "home" then
-      G.enterHome(true)
-    else
-      G.enterPlay()
-    end
+    if s.mode == "home" then G.enterHome(true) else G.enterPlay() end
     return true
   end
 
@@ -345,12 +328,14 @@ return function(mod, deps)
     onChange()
   end
 
-  -- play's DONE goes back to the room it came from, or closes
+  -- play's BACK: the games panel folds first, then back to the room it came from, or close
   function G.back()
     local s = G.session
     if not s then return end
-    if s.mode == "games" then
-      G.enterPlay()
+    if s.mode == "play" and s.tool == "games" then
+      s.tool = nil
+      host.playSe("SE_SELECT")
+      onChange()
       return
     end
     if s.mode == "play" and s.fromHome then
@@ -362,8 +347,9 @@ return function(mod, deps)
     end
   end
 
-  -- GAMES: the picker. Needs three healthy party members.
-  function G.enterGames()
+  -- GAMES: the picker, on the play screen itself (its tray button; three badges and the four
+  -- ranks under the chosen one). Needs three healthy party members.
+  function G.showGames()
     local s = G.session
     if not s then return false end
     if not G.Games then return false, "no games" end
@@ -372,14 +358,17 @@ return function(mod, deps)
       say(G.tx("needThree"), 3)
       return false, why
     end
-    s.mode = "games"
-    s.tool = nil
+    if s.mode ~= "play" then G.enterPlay() end
+    s.tool = "games"
     s.feeding = nil
-    Apps:setActive("games", mod.game)
     G.Games.noteOpened(s.key)
+    say(G.tx("whichGame", nil, "Pick a game."), 2)
     onChange()
     return true
   end
+
+  -- a tap's click, for the apps that have no host of their own
+  function G.click() host.playSe("SE_SELECT") end
 
   -- a game starts: the app with that id takes the surface
   function G.startGame(id, diff)
@@ -391,7 +380,7 @@ return function(mod, deps)
     s.mode = "game"
     s.game = { id = id, diff = diff, participants = list, hud = nil }
     local app = Apps:get("game_" .. id)
-    if not app then s.mode = "games"; return false, "no app" end
+    if not app then s.mode = "play"; return false, "no app" end
     G.gameApp = app
     Apps:setActive("game_" .. id, mod.game)
     if app.start then app:start(s.game) end
@@ -419,13 +408,19 @@ return function(mod, deps)
     return G.leaveGame(), result
   end
 
+  -- back to the play screen with the picker still open; the result stays as a line
   function G.leaveGame()
     local s = G.session
     if not s then return false end
     s.game = nil
     G.gameApp = nil
-    s.mode = "games"
-    Apps:setActive("games", mod.game)
+    s.mode = "play"
+    s.tool = "games"
+    Apps:setActive("play", mod.game)
+    local r = s.lastResult
+    if r and G.Games then
+      say(("%s %s: %s  +%d puffs"):format(G.Games.name(r.game), G.Games.diffLabel(r.diff), r.title, #r.puffs), 4)
+    end
     onChange()
     return true
   end
@@ -439,7 +434,6 @@ return function(mod, deps)
     persist()
     local f = monFields(mon)
     for k, v in pairs(f) do s[k] = v end
-    s.marks = {}
     s.tool = nil
     s.feeding = nil
     G.setActiveKey(s.key)
@@ -457,17 +451,8 @@ return function(mod, deps)
     Apps:setActive("play", mod.game)
     Rules.openPlay(s.meters)
     host.playCry(s.mon)
-    local needs = Care.needs(s.marks, s.status)
-    if #needs > 0 then say(("Pick a tool to care for %s."):format(s.name), 4)
-    else say(("%s is here!"):format(s.name), 2) end
+    say(("%s is here!"):format(s.name), 2)
     onChange()
-  end
-
-  function G.accept()
-    local s = G.session
-    if not (s and s.mode == "prompt") then return end
-    host.playSe("SE_SELECT")
-    G.enterPlay()
   end
 
   local function close()
@@ -481,12 +466,6 @@ return function(mod, deps)
     end
     G.previousApp = nil
     onChange()
-  end
-
-  function G.decline()
-    if not (G.session and G.session.mode == "prompt") then return end
-    host.playSe("SE_SELECT")
-    close()
   end
 
   function G.finish()
@@ -520,28 +499,6 @@ return function(mod, deps)
     s.anim.timer = 0.35
   end
   G.bump = function(squash, bounce) local s = G.session; if s then bump(s, squash, bounce) end end
-
-  -- stylus in body space, distance in body units
-  function G.rubAt(bx, by, distance)
-    local s = inPlay()
-    if not (s and Care.MARK_FOR[s.tool]) then return 0 end
-    local removed, finished = Care.rub(s.marks, s.tool, bx, by, distance)
-    if removed > 0 then onChange() end
-    if #finished > 0 then
-      host.playSe("SE_PIN")
-      if Care.allClean(s.marks) then
-        local before = s.meters.affection
-        Care.rewardClean(s.meters)
-        affectionChanged(s, before)
-        bump(s, 0.15, 10)
-        host.playSe("SE_SUCCESS")
-        host.playCry(s.mon)
-        say(("%s is all clean!"):format(s.name))
-        s.sparkle = (s.sparkle or 0) + 24
-      end
-    end
-    return removed, finished
-  end
 
   -- `travelPx` more stroke at `speed` px/s over a spot kind ("normal",
   -- "favored", "disfavored"). Returns hearts gained, the spot kind, and
@@ -615,26 +572,6 @@ return function(mod, deps)
     host.playCry(s.mon)
     say(("%s gave you a high five!"):format(s.name), 2)
     onChange()
-    return true
-  end
-
-  function G.cure()
-    local s = inPlay()
-    if not s then return false end
-    if not s.status then
-      say(("%s is fine."):format(s.name))
-      return false
-    end
-    host.cureStatus(s.mon)
-    s.status = nil
-    local before = s.meters.affection
-    Care.rewardCure(s.meters)
-    affectionChanged(s, before)
-    host.playSe("SE_M_HEAL_BELL")
-    bump(s, 0.1, 8)
-    say(("%s got better!"):format(s.name))
-    s.sparkle = (s.sparkle or 0) + 16
-    if s.tool == "medicine" then s.tool = nil end
     return true
   end
 
@@ -796,35 +733,25 @@ return function(mod, deps)
     end
   end
 
-  -- ------- the battle hook
+  -- ------- the battle hook: a won battle drops Poke Puffs into the jar; nothing opens
 
   function G.onBattleEnded(ev)
     if mod.options:get("refresh") == false then return false, "off" end
     if not host.available() then return false, "no host" end
-    if G.session then return false, "busy" end
     local result = ev and ev.result
     local st = ev and ev.battle or {}
     mod.log:info("amie: battle ended (result %s, wild %s, over %s)", tostring(result),
       tostring(st.wild), tostring(st.over))
-    if host.battleActive and host.battleActive() then return false, "active" end
     if result == "lose" or result == "whiteout" or result == "blackout" then return false, "lost" end
     if st.link or st.safari then return false, "kind" end
     local mon = host.activeMon(ev)
     if not mon or host.isEgg(mon) or (mon.hp or 0) <= 0 then return false, "no mon" end
-    if result == "win" then
-      local per = tonumber(mod.options:get("beans_per_win")) or 1
-      if per > 0 then
-        Rules.grantPuffs(Store.puffs(), per, G.rng)
-        Store.savePuffs()
-      end
-    end
-    local facts = host.battleFacts(ev)
-    local marks = Care.roll(facts, mod.options:get("care_frequency") or "normal", G.rng)
-    local status = host.statusOf(mon)
-    if #marks == 0 and not status and mod.options:get("prompt_always") ~= true then
-      return false, "clean"
-    end
-    return G.start(mon, { marks = marks, status = status, prompt = true, source = "battle" })
+    if result ~= "win" then return false, "no win" end
+    local per = tonumber(mod.options:get("beans_per_win")) or 1
+    if per <= 0 then return false, "no puffs" end
+    Rules.grantPuffs(Store.puffs(), per, G.rng)
+    Store.savePuffs()
+    return true, "puffs"
   end
 
   -- the Pokemon the room shows: the remembered active one when it is still
@@ -839,12 +766,12 @@ return function(mod, deps)
     return host.leadMon()
   end
 
-  -- open directly (START menu, other mods): the room, nothing to clean
+  -- open directly (START menu, other mods): the room
   function G.open(mon)
     if not host.available() then return false, "no host" end
     mon = mon or G.activeMon()
     if not mon then return false, "no mon" end
-    return G.start(mon, { marks = {}, prompt = false, home = true, source = "menu" })
+    return G.start(mon, { home = true, source = "menu" })
   end
 
   -- straight into play (other mods, tests)
@@ -852,14 +779,14 @@ return function(mod, deps)
     if not host.available() then return false, "no host" end
     mon = mon or G.activeMon()
     if not mon then return false, "no mon" end
-    return G.start(mon, { marks = {}, prompt = false, home = false, source = "menu" })
+    return G.start(mon, { home = false, source = "menu" })
   end
 
   function G.state()
     local s = G.session
     if not s then return nil end
     return { phase = s.mode, mode = s.mode, key = s.key, name = s.name, tool = s.tool, national = s.national,
-      marks = s.marks, status = s.status, meters = s.meters, puffs = s.puffs,
+      status = s.status, meters = s.meters, puffs = s.puffs,
       message = s.message, source = s.source, feeding = s.feeding, sizeClass = s.sizeClass,
       fromHome = s.fromHome, icon = s.icon, game = s.game, lastResult = s.lastResult }
   end

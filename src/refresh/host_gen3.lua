@@ -196,16 +196,6 @@ return function(mod)
     return nil
   end
 
-  -- the engine's own pattern (item_use.lua): clear every status mirror
-  function H.cureStatus(mon)
-    if not mon then return false end
-    mon.status = nil
-    mon.sleep = 0
-    mon.statusNum = nil
-    mon.status1 = nil
-    return true
-  end
-
   function H.playCry(mon)
     if not (H.Audio and H.Audio.playCry) then return end
     local species = H.speciesOf(mon)
@@ -231,29 +221,6 @@ return function(mod)
     return ok and has == true
   end
 
-  -- what the battle tells us about how dirty the Pokemon got
-  function H.battleFacts(ev)
-    local st = ev and ev.battle or {}
-    local mon = st.player and st.player.mon
-    local maxHp = mon and (mon.maxHp or (mon.stats and mon.stats.hp)) or nil
-    local foe = st.enemy and st.enemy.mon
-    local foeTypes = foe and H.typesOf(foe.species) or {}
-    local names = {}
-    for _, t in ipairs(foeTypes) do
-      -- Gen 3 hands back GBA type indices; 11 is Water
-      if t == H.WATER_TYPE_INDEX then names[#names + 1] = "WATER" else names[#names + 1] = tostring(t) end
-    end
-    return {
-      damaged = mon ~= nil and maxHp ~= nil and (mon.hp or maxHp) < maxHp,
-      wild = st.wild == true,
-      grass = st.wild == true,
-      water = false,
-      rain = false,
-      foeTypes = names,
-      result = ev and ev.result,
-    }
-  end
-
   function H.activeMon(ev)
     local st = ev and ev.battle
     local mon = st and st.player and st.player.mon
@@ -276,7 +243,6 @@ return function(mod)
 
   -- the number 11 keeps a Water-type foe honest when types come back as
   -- GBA indices rather than names
-  H.WATER_TYPE_INDEX = 11
 
   -- true while a Gen 3 battle is running (the care prompt must never open
   -- over a live battle)

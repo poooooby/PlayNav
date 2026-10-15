@@ -81,7 +81,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -102,10 +102,20 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local ARROWS = { { x = 0, y = -BLEED, w = 34, h = 21 }, { x = 256 - 34, y = -BLEED, w = 34, h = 21 } }
   app.CLOSE = CLOSE
 
+  -- the party list once a frame: T.party asks the engine for every member's key, name and
+  -- icon, and the screen wanted it eight times a frame (each slot, the active icon, the row)
+  local partyAt, partyList = nil, nil
+  local function party()
+    if partyList and partyAt == app.clock then return partyList end
+    partyList, partyAt = T.party and T.party() or {}, app.clock
+    return partyList
+  end
+  app.partyNow = party
+
   -- the party: the active Pokemon stands in the room; the others take the layout's icon
   -- slots in party order. partySlot(i) is where party member i can be tapped.
   local function slotOf(i)
-    local party = T.party and T.party() or {}
+    local party = party()
     local n = 0
     for j, p in ipairs(party) do
       if j == i then
@@ -166,7 +176,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
       return
     end
     if inRect(x, y, BAGS) then T.enterBags(); return end
-    for i, p in ipairs(T.party()) do
+    for i, p in ipairs(party()) do
       local r = slotOf(i)
       if r and not p.active and inRect(x, y, r) then
         T.switchTo(p.mon)
@@ -440,7 +450,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     lastHit = hit
     if s and s.anim and s.anim.finish then
       local icon
-      for _, p in ipairs(T.party and T.party() or {}) do
+      for _, p in ipairs(party()) do
         if p.active then icon = p.icon end
       end
       local img = icon and icon.image
@@ -634,7 +644,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   local function activeIcon()
-    for _, p in ipairs(T.party and T.party() or {}) do
+    for _, p in ipairs(party()) do
       if p.active then return p.icon end
     end
   end
@@ -643,7 +653,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local f = sinceHit()
     local tr, at
     local woke = app.wakeAt and (app.clock - app.wakeAt) or nil
-    local fainted = T.state and T.state().fainted
+    local fainted = T.fainted and T.fainted() or false
     local fin, ff = finishing()
     if fin then
       if ff < 70 then
@@ -839,7 +849,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   local function drawParty(G)
-    for i, p in ipairs(T.party()) do
+    for i, p in ipairs(party()) do
       if not p.active then
         local r = slotOf(i)
         if r then

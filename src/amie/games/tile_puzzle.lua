@@ -21,7 +21,9 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   local W, H = 256, 178
   local PIC_W, PIC_H = 200, 150
-  local BOARD = { x = 28, y = 12 }
+  local BOARD = { x = 28, y = 9 }
+  local FRAME = 5              -- the board's frame around the picture
+  local SPRITE_K = 1.5         -- the three Pokemon in the picture
   local GRID = { easy = { 5, 4 }, normal = { 6, 5 }, hard = { 8, 6 } }
 
   local st = nil
@@ -30,7 +32,7 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   local function art(id)
     local A = app.assets
-    if not A or mod.options:get("use_rom_art") == false then return nil end
+    if not A or A.enabled == false then return nil end
     return A.image(id)
   end
 
@@ -78,7 +80,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     sprites = {}
     for i = 1, 3 do
       local mon = participants[i] and participants[i].mon
-      sprites[i] = { pic = host.frontPic and host.frontPic(mon) or nil, x = 40 + (i - 1) * 60, y = 120,
+      sprites[i] = { pic = host.frontPic and host.frontPic(mon) or nil, x = 44 + (i - 1) * 56, y = 134,
         vx = 18 + i * 6, phase = i * 1.7, facing = (i == 3) and -1 or 1 }
     end
   end
@@ -178,7 +180,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.t = st.t + dt
     for _, sp in ipairs(sprites) do
       sp.x = sp.x + sp.vx * dt * sp.facing
-      if sp.x > PIC_W - 32 then sp.facing = -1 elseif sp.x < 32 then sp.facing = 1 end
+      if sp.x > PIC_W - 44 then sp.facing = -1 elseif sp.x < 44 then sp.facing = 1 end
       sp.phase = sp.phase + dt * 5
     end
     if st.pz.flash then st.pz.flash.t = st.pz.flash.t - dt; if st.pz.flash.t <= 0 then st.pz.flash = nil end end
@@ -238,10 +240,10 @@ return function(mod, Pointer, G, Games, Rules, host)
       local bounce = math.abs(math.sin(sp.phase)) * 8
       if sp.pic and sp.pic.image then
         G2.setColor(1, 1, 1, 1)
-        drawPixel(sp.pic.image, sp.x, sp.y - bounce, 0, -sp.facing, 1, (sp.pic.w or 64) / 2, sp.pic.h or 64)
+        drawPixel(sp.pic.image, sp.x, sp.y - bounce, 0, -sp.facing * SPRITE_K, SPRITE_K, (sp.pic.w or 64) / 2, sp.pic.h or 64)
       else
         G2.setColor(0.9, 0.75, 0.3, 1)
-        G2.circle("fill", sp.x, sp.y - 20 - bounce, 16, 20)
+        G2.circle("fill", sp.x, sp.y - 30 - bounce, 24, 20)
       end
     end
     G2.setCanvas(prev)
@@ -268,8 +270,21 @@ return function(mod, Pointer, G, Games, Rules, host)
     if not st then return end
     local pz = st.pz
     local pic = renderPicture(G2)
-    G2.setColor(0.1, 0.1, 0.12, 0.8)
-    G2.rectangle("fill", BOARD.x - 2, BOARD.y - 2, PIC_W + 4, PIC_H + 4, 3, 3)
+    -- the board: the game's dark board under a frame
+    local board = art("game/tile_board")
+    local fx, fy, fw, fh = BOARD.x - FRAME, BOARD.y - FRAME, PIC_W + 2 * FRAME, PIC_H + 2 * FRAME
+    if board then
+      G2.setColor(1, 1, 1, 1)
+      local bw, bh = board:getDimensions()
+      G2.draw(board, fx, fy, 0, fw / bw, fh / bh)
+    else
+      G2.setColor(0.1, 0.1, 0.12, 0.85)
+      G2.rectangle("fill", fx, fy, fw, fh, 5, 5)
+    end
+    G2.setColor(1, 0.92, 0.6, 0.9)
+    G2.setLineWidth(2)
+    G2.rectangle("line", fx + 1, fy + 1, fw - 2, fh - 2, 5, 5)
+    G2.setLineWidth(1)
     for pos = 1, pz.n do
       local src = pz.tiles[pos]
       local px = BOARD.x + ((pos - 1) % pz.cols) * pz.tw
@@ -286,8 +301,16 @@ return function(mod, Pointer, G, Games, Rules, host)
         G2.setColor(0.3 + v * 0.5, 0.5, 0.9 - v * 0.5, 1)
         G2.rectangle("fill", px, py, pz.tw, pz.th)
       end
-      G2.setColor(0, 0, 0, 0.35)
-      G2.rectangle("line", px + 0.5, py + 0.5, pz.tw - 1, pz.th - 1)
+      if src == pos then
+        -- in its place: a light edge and no dimming, so the right parts read as one picture
+        G2.setColor(1, 1, 1, 0.35)
+        G2.rectangle("line", px + 0.5, py + 0.5, pz.tw - 1, pz.th - 1)
+      else
+        G2.setColor(0, 0, 0, 0.14)
+        G2.rectangle("fill", px, py, pz.tw, pz.th)
+        G2.setColor(0, 0, 0, 0.55)
+        G2.rectangle("line", px + 0.5, py + 0.5, pz.tw - 1, pz.th - 1)
+      end
       if pz.sel == pos or (pz.flash and (pz.flash.a == pos or pz.flash.b == pos)) then
         local frame = art(pz.sel == pos and "game/tile_frame_red" or "game/tile_frame_blue")
         if frame then
