@@ -564,16 +564,91 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- the pic entry: image plus its logical size (HD sprite mods hand back a larger canvas
   -- with w/h still the GBA size, so draws scale by w/h, never by the image)
   local playerPics = {}
+  -- the opaque extent of a picture, or of one `quad` of it (x0, y0, x1, y1 exclusive, in the
+  -- image's own units, from the image's top left), read back once; nil when it cannot be read
+  -- or is empty
+  local function opaqueBox(image, quad)
+    local G = love and love.graphics
+    if not (G and G.newCanvas and image) then return nil end
+    local iw, ih = image:getDimensions()
+    local qx, qy, qw, qh = 0, 0, iw, ih
+    if quad then qx, qy, qw, qh = quad:getViewport() end
+    local ok, data = pcall(function()
+      local c = G.newCanvas(qw, qh, { dpiscale = 1 })
+      G.push("all")
+      G.setCanvas(c)
+      G.origin()
+      G.setShader()
+      G.setBlendMode("alpha")
+      G.clear(0, 0, 0, 0)
+      G.setColor(1, 1, 1, 1)
+      if quad then G.draw(image, quad, 0, 0) else G.draw(image, 0, 0) end
+      G.pop()
+      local d = c:newImageData()
+      c:release()
+      return d
+    end)
+    if not (ok and data) then return nil end
+    local pw, ph = data:getDimensions()
+    local x0, y0, x1, y1 = pw, ph, -1, -1
+    for y = 0, ph - 1 do
+      for x = 0, pw - 1 do
+        local _, _, _, a = data:getPixel(x, y)
+        if a > 0.1 then
+          if x < x0 then x0 = x end
+          if x > x1 then x1 = x end
+          if y < y0 then y0 = y end
+          if y > y1 then y1 = y end
+        end
+      end
+    end
+    data:release()
+    if x1 < x0 then return nil end
+    -- in the image's own units (a canvas with a dpiscale reports fewer units than pixels)
+    local kx, ky = qw / pw, qh / ph
+    return qx + x0 * kx, qy + y0 * ky, qx + (x1 + 1) * kx, qy + (y1 + 1) * ky
+  end
+
+  -- gen3-hd-sprites (optional): the spec a pic was tagged with by its provider, holding the
+  -- full-resolution texture the battle would draw in its place (`texture`, `quad`, `scale`:
+  -- texture px times scale = the pic's px); nil without the library or a tag
+  local function hdTagOf(image)
+    local ok, spec = pcall(function()
+      local lib = mod.find and mod:find("gen3-hd-sprites")
+      local ex = lib and lib.exports
+      if not (type(ex) == "table" and type(ex.tagOf) == "function") then return nil end
+      return ex.tagOf(image)
+    end)
+    if ok and type(spec) == "table" and spec.texture then return spec end
+    return nil
+  end
+
+  -- The trainee's picture: the back pic, else the front. Drawn whole, measured once by its
+  -- opaque pixels and drawn by that box with the feet at its bottom: a provider may paint a
+  -- big Pokemon on a canvas larger than the 64x64 box it reports (g9-battle-sprites-gen3's back
+  -- pics: Rapidash 76x78), or hand out a 64x64 stand-in cropped for the battle's overdraw and
+  -- tagged (gen3-hd-sprites) with the full-resolution frame, which is then drawn instead
+  -- (`k`: its px to the stand-in's). `sx, sy`: per-axis stretch of the art (not used).
   local function playerPic(s)
     if playerPics[s.key] == nil then
       local entry = host.backPic and host.backPic(s.mon) or nil
       if not (entry and entry.image) then entry = s.pic end
       if entry and entry.image then
-        -- the pic sits in the top-left w x h of its canvas (padded textures are larger)
-        local iw, ih = entry.image:getDimensions()
-        local w, h = entry.w or iw, entry.h or ih
-        local quad = (love and love.graphics and (w < iw or h < ih)) and love.graphics.newQuad(0, 0, w, h, iw, ih) or nil
-        playerPics[s.key] = { image = entry.image, w = w, h = h, quad = quad }
+        local image, quad, k, hd = entry.image, nil, 1, false
+        local tag = hdTagOf(image)
+        if tag then
+          image, quad, k, hd = tag.texture, tag.quad, tag.scale or 1, true
+        end
+        local iw, ih = image:getDimensions()
+        local x0, y0, x1, y1 = opaqueBox(image, quad)
+        if not x0 then
+          if quad then x0, y0, x1, y1 = quad:getViewport(); x1, y1 = x0 + x1, y0 + y1
+          else x0, y0, x1, y1 = 0, 0, entry.w or iw, entry.h or ih end
+        end
+        local w, h = x1 - x0, y1 - y0
+        local q = (love and love.graphics and (x0 > 0 or y0 > 0 or w < iw or h < ih))
+          and love.graphics.newQuad(x0, y0, w, h, iw, ih) or nil
+        playerPics[s.key] = { image = image, w = w, h = h, quad = q, x0 = x0, y0 = y0, k = k, hd = hd }
       else
         playerPics[s.key] = false
       end
@@ -581,12 +656,21 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return playerPics[s.key] or nil
   end
 
+  -- for the driver: the player sprite's image, the part of it drawn (x0, y0, w, h) and its
+  -- scale to the pic's px
+  function D.debugPlayerPic(s)
+    local pic = playerPic(s)
+    if not pic then return nil end
+    return pic.image, pic.x0 or 0, pic.y0 or 0, pic.w, pic.h, pic.k or 1
+  end
+
   -- for the driver: what the player sprite resolved to
   function D.debugPlayer(s)
     local pic = playerPic(s)
     if not pic then return "nil" end
     local ok, w, h = pcall(pic.image.getDimensions, pic.image)
-    return ("%s %sx%s as %dx%d"):format(type(pic.image), tostring(w), tostring(h), pic.w, pic.h)
+    return ("%s %sx%s as %dx%d%s"):format(type(pic.image), tostring(w), tostring(h), pic.w, pic.h,
+      pic.hd and (" (gen3-hd-sprites frame, x%.3f)"):format(pic.k or 1) or "")
   end
 
   -- the player's Pokemon on the move: little hops with a squash on each landing and a
@@ -721,12 +805,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if pic then
       local flash = p.stun > 0 and (math.floor(sim.t * 20) % 2 == 0)
       G2.setColor(1, 1, 1, flash and 0.4 or 1)
-      -- scaled about its feet, so a squash flattens it onto the ground
+      -- scaled about its feet, so a squash flattens it onto the ground; a full-resolution
+      -- frame (pic.k) at the size the pic would have had
       local y = feetY
+      local ak = k * (pic.k or 1)
       if pic.quad then
-        drawPixel(pic.image, pic.quad, px, y, lean, k * hsx * face, k * hsy, pic.w / 2, pic.h)
+        drawPixel(pic.image, pic.quad, px, y, lean, ak * hsx * face, ak * hsy, pic.w / 2, pic.h)
       else
-        drawPixel(pic.image, px, y, lean, k * hsx * face, k * hsy, pic.w / 2, pic.h)
+        drawPixel(pic.image, px, y, lean, ak * hsx * face, ak * hsy, pic.w / 2, pic.h)
       end
     else
       G2.setColor(0.95, 0.6, 0.2, 1)

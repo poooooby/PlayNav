@@ -256,6 +256,36 @@ local function body(game, log)
   shot("t04_switch")
 
   -- ------- a regimen: REGIMENS, pick Lv1 HP, play with the pad and the touch screen
+  -- gen3-hd-sprites, when it is there: is it installed and on for battle pics (its tagged
+  -- stand-ins are what PlayNav draws the full frame from)
+  do
+    local ex = loader and loader.exports and loader.exports["gen3-hd-sprites"]
+    log("gen3-hd-sprites:", ex and "loaded" or "absent", ex and ("active " .. tostring(ex.isActive()) ..
+      " battle " .. tostring(ex.enabled("battle")) .. " tagOf " .. tostring(ex.tagOf ~= nil)) or "")
+    -- PROBE_FAKE_TAG=1: tag the lead's back pic with a 2x copy at scale 0.5 (draws the same, but
+    -- through the tag path), to check that path when the sprite mod gave an untagged pic
+    if os.getenv("PROBE_FAKE_TAG") == "1" and ex and ex.tag then
+      local entry = TR.host.backPic(lead)
+      if entry and entry.image then
+        local iw, ih = entry.image:getDimensions()
+        local big = love.graphics.newCanvas(iw * 2, ih * 2, { dpiscale = 1 })
+        love.graphics.push("all")
+        love.graphics.setCanvas(big)
+        love.graphics.origin()
+        love.graphics.clear(0, 0, 0, 0)
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(entry.image, 0, 0, 0, 2, 2)
+        love.graphics.pop()
+        ex.tag(entry.image, { texture = big, quad = love.graphics.newQuad(0, 0, iw * 2, ih * 2, iw * 2, ih * 2), scale = 0.5 })
+        log("fake tag: on the back pic, 2x copy at scale 0.5")
+      end
+    end
+  end
+  -- PROBE_NO_BOARD=1: no hover board under the trainee (the sprite on its own)
+  if os.getenv("PROBE_NO_BOARD") == "1" and TR.session.arenaDraw then
+    TR.session.arenaDraw.board = false
+    log("board: off for this run")
+  end
   tapAt("party1", geo.partySlot(1).x + 9, geo.partySlot(1).y + 12)
   U.wait(5)
   tapAt("regimens", geo.REGIMENS.x + geo.REGIMENS.w / 2, geo.REGIMENS.y + geo.REGIMENS.h / 2)
@@ -302,6 +332,28 @@ local function body(game, log)
   end
   waitUntil(function() return sim and sim.phase == "play" end, 15)
   log("play: phase", sim and sim.phase, "goals", sim and #sim.goals, "remaining", sim and sim.remaining)
+  -- the player sprite as the arena has it, saved for a look (player_sprite.png)
+  do
+    local AD = TR.session.arenaDraw
+    local img, px0, py0, pw, ph, pk
+    if AD and AD.debugPlayerPic then img, px0, py0, pw, ph, pk = AD.debugPlayerPic(TR.session.session) end
+    if img then
+      -- the part drawn (an atlas page is far larger than its frame)
+      local iw, ih = img:getDimensions()
+      local cw, ch = math.ceil(pw or iw), math.ceil(ph or ih)
+      local cv = love.graphics.newCanvas(cw, ch, { dpiscale = 1 })
+      love.graphics.push("all")
+      love.graphics.setCanvas(cv)
+      love.graphics.origin()
+      love.graphics.clear(0.24, 0.24, 0.24, 1)
+      love.graphics.setColor(1, 1, 1, 1)
+      love.graphics.draw(img, love.graphics.newQuad(px0 or 0, py0 or 0, cw, ch, iw, ih), 0, 0)
+      love.graphics.pop()
+      local ok = pcall(function() cv:newImageData():encode("png", "probe_player_sprite.png") end)
+      log(("player sprite image: %dx%d, drawn %sx%s from %s,%s at x%.3f; %s"):format(iw, ih, tostring(pw), tostring(ph),
+        tostring(px0), tostring(py0), pk or 1, ok and "saved" or "not saved"))
+    end
+  end
   log("player sprite:", TR.session.arenaDraw and TR.session.arenaDraw.debugPlayer(TR.session.session),
     "backPic", tostring(TR.host.backPic(lead)), "frontPic", tostring(TR.host.frontPic(lead)),
     "player", sim.player.x, sim.player.z)

@@ -10,7 +10,8 @@
   "priority": 100,
   "dependencies": [],
   "optional_dependencies": [
-    "national_dex_gen3"
+    "national_dex_gen3",
+    "gen3-hd-sprites"
   ],
   "conflicts": [],
   "incompatible": [],

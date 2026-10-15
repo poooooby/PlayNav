@@ -42,6 +42,9 @@ All notable changes to this mod are documented here. The format follows
 
 ### Fixed
 
+- Super Training: a big Pokémon on the hover board (Rapidash, for one) lost its head and hooves.
+  PlayNav cut a 64x64 square out of the picture a sprite mod hands it, which can be larger than
+  that; the rider is now drawn whole, measured by its own pixels, feet on the board.
 - Walking 50 steps still raises enjoyment at exactly 70; it stopped one point early.
 
 ## [0.3.0] - 2026-10-14 (pre-alpha)
