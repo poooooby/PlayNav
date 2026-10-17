@@ -11,7 +11,8 @@
   "dependencies": [],
   "optional_dependencies": [
     "national_dex_gen3",
-    "gen3-hd-sprites"
+    "gen3-hd-sprites",
+    "kanto_gear"
   ],
   "conflicts": [],
   "incompatible": [],

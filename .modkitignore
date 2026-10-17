@@ -20,6 +20,7 @@ tests/drivers/import_gate_probe.lua
 tests/fixtures/expected.lua
 tests/fixtures/mini.cci
 tests/games_test.lua
+tests/gear_module_test.lua
 tests/hd_test.lua
 tests/import_fixtures_test.lua
 tests/layout_test.lua

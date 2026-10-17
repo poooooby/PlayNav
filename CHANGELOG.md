@@ -7,6 +7,12 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- With Kanto Gear 4.3+ installed, Super Training appears in the Silph Store as a
+  third-party app (the Gear's `exports.modules` hook): PlayNav's own engine-drawn
+  boxing glove, words and translations, installed and moved like any Gear module.
+  Pressing it opens Super Training (or the PlayNav import screen first); the Gear
+  steps aside while PlayNav's screens are up and returns to its home screen after.
+
 - A proper PlayNav screen for the art import, in the banner's own look: **Begin extraction**
   (or Resume) when the import hasn't run, a modern progress bar while it does, a slow-flashing
   warning when the Alpha Sapphire card image is missing, and a brief READY card when it's done.

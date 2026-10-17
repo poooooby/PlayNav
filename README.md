@@ -101,6 +101,8 @@ on a touch screen below the game or on a device's second display.
 - 😄 **Second wind:** Woken from a rest, after some cleared bags, from a rare find or the Team
   Flare Bag, it gets a happy bubble and punches with double strength: the next bag takes half
   the taps, or the next regimen scores double. It lasts one bag or one regimen.
+- 🏪 **In Kanto Gear's Silph Store:** with Kanto Gear installed, Super Training is also a
+  store app — get it, put it on the Gear's home screen, and open it from there.
 - 🎁 **The blank bag:** With no training bag set, every punch (yours or your Pokémon's) has a 5%
   chance of digging up a bag, 10% for a Pokémon with all 510 EVs; any bag but the Team Flare
   Bag can turn up, each as likely as the next. A find plays the game's presentation: the new

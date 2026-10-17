@@ -703,6 +703,36 @@ return function(mod)
     end
     return false
   end
+  -- Kanto Gear's Silph Store: PlayNav registers Super Training as a third-party
+  -- module through the Gear's hook (exports.modules, api 1). Without Kanto Gear,
+  -- or on a Gear without the hook, this is a no-op; the START menu entry remains.
+  if Training then
+    local gear = mod.find and mod:find("kanto_gear")
+    local modules = gear and gear.exports and gear.exports.modules
+    local makeGearModule = modules and loadSibling(mod, "src/gear_module.lua")
+    if makeGearModule and type(modules.register) == "function" then
+      local okSpec, spec = pcall(makeGearModule, {
+        -- the press: Super Training opens, or the PLAYNAV import screen takes
+        -- over first; both count as taking the bottom screen
+        open = function()
+          if importGate() then return true end
+          local ok = Training.open()
+          return ok == true
+        end,
+        -- true while PlayNav's surface is up: the Gear stands down meanwhile
+        shown = function() return state.mode ~= nil and state.mode ~= "off" end,
+      })
+      if okSpec and spec then
+        local okReg, registered, why = pcall(modules.register, spec)
+        if okReg and registered == true then
+          mod.log:info("registered in Kanto Gear's store")
+        else
+          mod.log:warn("Kanto Gear store registration refused: %s", tostring(okReg and why or registered))
+        end
+      end
+    end
+  end
+
   do
     -- the PLAYNAV screen's x button steps aside (the surface goes dormant without a session)
     local gateApp = Apps:get("import")
