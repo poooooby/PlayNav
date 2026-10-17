@@ -186,6 +186,7 @@ end
 -- move after a cleared bag (its own test below turns it back on)
 S.HIT_LOCK = 0
 S.FINISH_MOVE = false
+S.GIFT_SHOW = false
 S.REGIMEN_SHOW = false
 
 -- ------- the black bag
@@ -207,6 +208,36 @@ do
   T.eq(S.state().blackTaps, 0, "...and the count starts over")
   S.rng = rngOf(0.99)
   S.session.rec.secondWind = nil
+end
+
+-- ------- a found bag's presentation (the game's sand_bag_get clip)
+
+do
+  S.GIFT_SHOW = true
+  S.session.message, S.session.messageUntil = nil, nil   -- the earlier find's words
+  S.rng = rngOf(0.01)
+  local bagsBefore = S.state().bags
+  T.check(S.hitBag("tap"), "a lucky tap digs up a bag")
+  S.rng = rngOf(0.99)
+  T.eq(S.state().bags, bagsBefore + 1, "...into the rack at once")
+  T.check(S.state().gift ~= nil, "...and the presentation starts")
+  T.eq(S.state().message, nil, "...with no words yet")
+  S.session.anim.lock = 0
+  local ok, why = S.hitBag("tap")
+  T.eq(why, "busy", "taps wait while the bag is shown")
+  S.tick((S.GIFT.WORDS_AT + 1) / 30)
+  T.check(S.state().message ~= nil, "the words come up once the bag has risen away")
+  S.session.anim.lock = 0
+  ok, why = S.hitBag("tap")
+  T.eq(why, "busy", "...taps still wait under the words")
+  S.tick((S.GIFT.UNLOCK - S.GIFT.WORDS_AT + 1) / 30)
+  S.session.anim.lock = 0
+  T.check(S.hitBag("tap"), "taps are taken again after the clip")
+  S.tick(S.GIFT.DONE / 30)
+  T.eq(S.state().gift, nil, "the presentation ends on its own")
+  S.GIFT_SHOW = false
+  table.remove(Store.bags())   -- the found bag out again: the next tests' racks as before
+  S.session.message, S.session.messageUntil = nil, nil
 end
 
 -- ------- a stat bag: ten hits, +1 HP EV, HP moved with max HP

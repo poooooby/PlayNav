@@ -102,7 +102,8 @@ on a touch screen below the game or on a device's second display.
   the taps, or the next regimen scores double. It lasts one bag or one regimen.
 - 🎁 **The blank bag:** With no training bag set, every punch (yours or your Pokémon's) has a 5%
   chance of digging up a bag, 10% for a Pokémon with all 510 EVs; any bag but the Team Flare
-  Bag can turn up, each as likely as the next.
+  Bag can turn up, each as likely as the next. A find plays the game's presentation: the new
+  bag drops down for a look while your Pokémon celebrates, then it's announced and racked.
 - 👜 **26 training bags:** Stat bags in three sizes (+1, +4 and +12 EVs), the Reset Bag, the
   Soothing Bag, and six bags that power up your next regimen. Tap a bag to read about it, then
   use or discard it.

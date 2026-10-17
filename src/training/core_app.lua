@@ -235,6 +235,21 @@ return function(mod, Pointer, T, Rules, Radar, host)
       s = { { 2, 1, 0.125 }, { 6, 1.5, 0.125 } },
       a = { { 0, 0, 0 }, { 2, 0, 0 }, { 2, 255, 0 }, { 6, 0, 0 } },
     },
+    -- sand_bag_get, pic 4e (x 90): the found bag drops from behind the top frame to hang at
+    -- ty 20, bounces, and rises away at 67..80 (121-frame clip)
+    giftBag = {
+      ty = { { 0, 120, -5.9 }, { 17, 20, 0 }, { 17, 20, 2.5 }, { 19, 25, 0 }, { 21, 20, 0 },
+        { 67, 20, 0 }, { 67, 20, 7.7 }, { 80, 120, 7.7 } },
+    },
+    -- sand_bag_get, pane 43: two lunges at the bag, then a spinning leap past the drop and back
+    giftMon = {
+      frames = 55,
+      tx = { { 0, -50, -19 }, { 2, -88, 0 }, { 4, -50, 19 }, { 6, -88, 0 }, { 8, -50, 0 }, { 15, -50, 0 },
+        { 15, -88, 0 }, { 40, 12, 4 }, { 44, 12, 0 }, { 44, 12, 0 }, { 55, -50, 0 } },
+      ty = { { 0, -18, 4 }, { 2, -10, 0 }, { 4, -18, -4 }, { 6, -10, 0 }, { 8, -18, 0 }, { 15, -18, 0 },
+        { 28, 60, 0 }, { 40, -18, 0 }, { 44, -18, 0 }, { 50, 11, 0 }, { 55, -18, 0 } },
+      rz = { { 0, 0, 0 }, { 15, 0, 0 }, { 15, 0, -28.8 }, { 40, -720, 0 }, { 55, -720, 0 } },
+    },
     -- pane 4y (pic 18): the second mark, a burst then a smaller one lower right, frames 1..12
     mark2 = {
       show = { 1, 12 },
@@ -655,12 +670,16 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local woke = app.wakeAt and (app.clock - app.wakeAt) or nil
     local fainted = T.fainted and T.fainted() or false
     local fin, ff = finishing()
+    local gift = s.anim and s.anim.gift
     if fin then
       if ff < 70 then
         tr, at = FINISH[fin.clip].mon, ff
       else
         tr, at = TRACK.punch, 6   -- back at its spot (-50, -18), still under the glow
       end
+    elseif gift and gift.t * 30 < TRACK.giftMon.frames then
+      -- the found bag's presentation: the lunges and the spinning leap (sand_bag_get)
+      tr, at = TRACK.giftMon, gift.t * 30
     elseif s.rec.resting or fainted then
       tr, at = TRACK.rest, app.clock % TRACK.rest.loop
     elseif not f and T.refreshed() then
@@ -730,6 +749,21 @@ return function(mod, Pointer, T, Rules, Radar, host)
         G.draw(burst, PANE.hit[1], PANE.hit[2], 0, k, k, 32, 32)
       end
     end
+  end
+
+  -- the found bag's presentation (sand_bag_get, pic 4e): the bag drops down at x 90 showing
+  -- its own art, hangs, and rises back behind the top frame (drawn after this, covering it)
+  local function drawGift(G, s)
+    local gift = s.anim and s.anim.gift
+    if not gift then return end
+    local f = gift.t * 30
+    if f >= 80 then return end
+    local ty = eval(TRACK.giftBag.ty, f)
+    local img = bagArt(Rules.bag(gift.id))
+    if not img then return end
+    local iw, ih = img:getDimensions()
+    G.setColor(1, 1, 1, 1)
+    G.draw(img, 90, 120 - ty, 0, 40 / iw, 100 / ih, iw / 2, ih / 2)
   end
 
   local function drawFrame(G)
@@ -943,6 +977,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     drawRoom(G)
     drawBag(G, s, small)
     drawMon(G, s, small, font)
+    drawGift(G, s)
     drawFrame(G)
     drawMeter(G, s, small)
     drawBanner(G, s, font)
@@ -958,6 +993,11 @@ return function(mod, Pointer, T, Rules, Radar, host)
       G.rectangle("fill", 0, 0, 320, 21 / L)
       G.setColor(0, 0, 0, 136 / 255)
       G.rectangle("fill", 0, 240 - BOTTOM_STRIP_H, 320, BOTTOM_STRIP_H)
+    end
+    -- the found bag's words come up over a dimmed room (Wooble's capture, 2026-10-17)
+    if s.anim and s.anim.gift and s.anim.gift.worded then
+      G.setColor(0, 0, 0, 128 / 255)
+      G.rectangle("fill", 0, 0, 320, 240)
     end
     -- the session's words, in the game's two-line message window
     local words = s.message or s.cheerText

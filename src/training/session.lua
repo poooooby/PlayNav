@@ -653,8 +653,15 @@ return function(mod, deps)
     if Rules.isRareBag(id) then t.rec.secondWind = true end
     if t == T.session then
       local def = Rules.bag(id)
-      say(T.gameLine("training_bags", T.CORE_LINE.found, { BAG = T.bagName(id) }) or ("A %s dropped down!"):format(def and def.label or id), 3)
-      host.playSe("SE_SUCCESS")
+      local line = T.gameLine("training_bags", T.CORE_LINE.found, { BAG = T.bagName(id) }) or ("A %s dropped down!"):format(def and def.label or id)
+      if T.GIFT_SHOW then
+        -- the game shows the find first: the bag drops down for a look (sand_bag_get)
+        T.session.anim.gift = { t = 0, id = id, line = line }
+        onChange()
+      else
+        say(line, 3)
+        host.playSe("SE_SUCCESS")
+      end
     end
     return id
   end
@@ -669,6 +676,20 @@ return function(mod, deps)
   T.FINISH = { CLIP = 70, GLOW = 100, WORDS_AT = 170, DONE = 200, BAG_RETURN = 22 }
   T.FINISH_CLIPS = { "a", "b", "c" }
   T.FINISH_MOVE = true   -- the flow test's bulk loops turn it off, as they do HIT_LOCK
+
+  -- a found bag's presentation (the game's training_lower_sand_bag_get clip, 121 frames,
+  -- Wooble's capture 2026-10-17): punching stops, the found bag drops down in front (to
+  -- frame 17, a small bounce), hangs for a look, rises away behind the frame at 67..80,
+  -- and the words come up over a dimmed room at 105. Taps are taken again from UNLOCK;
+  -- the dim and the words stay until DONE.
+  T.GIFT = { HUNG = 17, RISE = 67, GONE = 80, WORDS_AT = 105, UNLOCK = 121, DONE = 195 }
+  T.GIFT_SHOW = true   -- the flow test's bulk loops turn it off, as they do FINISH_MOVE
+  -- the presentation is holding the room (input and punches wait)
+  function T.gifting()
+    local s = T.session
+    local g = s ~= nil and s.anim ~= nil and s.anim.gift or nil
+    return g ~= nil and g.t * 30 < T.GIFT.UNLOCK
+  end
   function T.finishing()
     local s = T.session
     return s ~= nil and s.anim ~= nil and s.anim.finish ~= nil
@@ -696,7 +717,7 @@ return function(mod, deps)
       return false, "resting"
     end
     if source == "tap" then
-      if (s.anim.lock or 0) > 0 or s.anim.finish then return false, "busy" end
+      if (s.anim.lock or 0) > 0 or s.anim.finish or T.gifting() then return false, "busy" end
       s.anim.lock = T.HIT_LOCK
       T.touch()
     end
@@ -982,6 +1003,21 @@ return function(mod, deps)
         onChange()
       end
     end
+    -- a found bag's presentation: the words and the jingle once the bag has risen away
+    local gift = s.anim.gift
+    if gift then
+      gift.t = gift.t + dt
+      local gf = gift.t * 30
+      if gf >= T.GIFT.WORDS_AT and not gift.worded then
+        gift.worded = true
+        say(gift.line, (T.GIFT.DONE - T.GIFT.WORDS_AT) / 30)
+        host.playSe("SE_SUCCESS")
+      end
+      if gf >= T.GIFT.DONE then
+        s.anim.gift = nil
+        onChange()
+      end
+    end
     -- the stat's +N stays (pulsing) until the next hit or tap
     if s.anim.statUp then s.anim.statUp.t = s.anim.statUp.t + dt end
     if s.anim.bagReturn then
@@ -1008,6 +1044,11 @@ return function(mod, deps)
       if s.rec.nextAutoAt then s.rec.nextAutoAt = wall() + autoInterval() end
       return
     end
+    if T.gifting() then
+      -- the presentation holds the room: the automatic punches wait too
+      if s.rec.nextAutoAt then s.rec.nextAutoAt = wall() + autoInterval() end
+      return
+    end
     T.stepCore(s, wall())
   end
 
@@ -1026,7 +1067,7 @@ return function(mod, deps)
     local C = N.CORE.CHEER
     local rec = s.rec
     local bag = rec.bag
-    if not (bag and bag.hits < bag.needed and not rec.resting and s.mode == "core" and not s.anim.finish) then
+    if not (bag and bag.hits < bag.needed and not rec.resting and s.mode == "core" and not s.anim.finish and not s.anim.gift) then
       s.cheer, s.cheerText = nil, nil
       return
     end
@@ -1160,6 +1201,7 @@ return function(mod, deps)
       awakeAt = rec.awakeAt, restAfter = rec.restAfter, fainted = host.isFainted(s.mon),
       fully = rec.fully == true, supremely = rec.supremely == true,
       bags = #Store.bags(), message = s.message, blackTaps = Store.meta().blackTaps,
+      gift = s.anim.gift and s.anim.gift.t or nil,
       regimen = T.sim and T.sim.state and T.sim:state() or nil,
     }
   end

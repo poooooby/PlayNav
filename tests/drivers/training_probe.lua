@@ -200,8 +200,34 @@ local function body(game, log)
     shot("t02i_statup")
     TR.session.session.anim.statUp = nil   -- the next hit would clear it
   end
+  -- the found bag's presentation (sand_bag_get): a forced find, shot at its key frames
+  do
+    TR.session.takeDownBag()
+    local oldRng = TR.session.rng
+    TR.session.rng = function() return 0.01 end
+    TR.session.hitBag("tap")
+    TR.session.rng = oldRng
+    local gift = TR.session.session.anim.gift
+    local _, why = TR.session.hitBag("tap")
+    log("gift after the find:", gift and "on" or "OFF", "tap meanwhile:", tostring(why))
+    if gift then
+      local function at(f, name) gift.t = f / 30; U.wait(1); shot(name) end
+      at(8, "t02j_gift_drop")
+      at(30, "t02k_gift_hung")
+      at(74, "t02l_gift_rise")
+      gift.t = 104 / 30
+      U.wait(3)   -- past WORDS_AT: the words and the dim come up
+      shot("t02m_gift_words")
+      log("gift words:", tostring(TR.state().message))
+      gift.t = 200 / 30
+      U.wait(3)
+      log("after the gift:", tostring(TR.state().gift), "bags", TR.state().bags)
+      TR.session.session.message, TR.session.session.messageUntil = nil, nil
+    end
+  end
   -- the rest of the probe punches in bulk: no finishing moves in between
   TR.session.FINISH_MOVE = false
+  TR.session.GIFT_SHOW = false
   -- an L bag through the session for the radar
   TR.store.bags()[1] = "atk_l"
   TR.session.attachBag(1)

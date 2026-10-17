@@ -5,6 +5,13 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Core Training plays the game's presentation when a punch digs up a new bag (from Wooble's
+  capture and the game's own `sand_bag_get` animation): punching pauses, the found bag drops
+  down in front for a look with your Pokémon celebrating, rises back behind the top frame,
+  and the announcement comes up over the dimmed room.
+
 ## [0.3.5] - 2026-10-15 (pre-alpha)
 
 ### Added
