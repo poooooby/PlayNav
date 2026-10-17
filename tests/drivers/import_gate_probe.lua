@@ -121,6 +121,31 @@ local function body(game, log)
   shot("g08_training_home")
   Extract.state = state0
   if X.training.session then X.training.finish() end
+
+  -- CLEAR EXTRACTED ART through the real option event, with Super Training open: the
+  -- session closes, the cache empties, the gate shows BEGIN EXTRACTION; then a fresh
+  -- extraction restores the art (the probe never leaves the player's cache empty)
+  -- destructive: only when the card image is there to rebuild from (PROBE_CLEAR=1 too)
+  if not (os.getenv("PROBE_CLEAR") == "1" and Extract.importPresent()) then
+    log("clear stage skipped: PROBE_CLEAR", tostring(os.getenv("PROBE_CLEAR")),
+      "import present", tostring(Extract.importPresent()))
+    log("DONE")
+    return
+  end
+  X.training.open()
+  U.wait(20)
+  loader.events:emit("mod.options_changed", { mod = "play_nav", key = "clear_rom_art", value = true })
+  U.wait(10)
+  log("after clear: state", tostring(Extract.state), "complete", tostring(Extract.cacheComplete()),
+    "manifest", tostring(Extract.cacheManifest() ~= nil), "active", Apps:active().id,
+    "training open", tostring(X.training.session ~= nil and X.training.session.session ~= nil),
+    "option back off", tostring(loader.modOptions["play_nav"].clear_rom_art ~= true))
+  shot("g09_after_clear")
+  local okS = Extract.start()
+  log("re-extract started:", tostring(okS))
+  waitFor(function() return Extract.state ~= "running" and Extract.state ~= "finishing" end, 60 * 300)
+  U.wait(10)
+  log("re-extract done: state", tostring(Extract.state), "complete", tostring(Extract.cacheComplete()))
   log("DONE")
 end
 

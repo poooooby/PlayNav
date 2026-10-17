@@ -11,6 +11,8 @@ local run = T.sdk.loadMod("mods/play_nav", { generation = 3, data = T.sdk.gen3Da
 T.eq(#run.errors, 0, "the mod loads clean on gen 3 (" .. tostring(run.errors[1]) .. ")")
 
 local X = run.loader.exports.play_nav
+-- fake hosts, not the player's cache: the import gate stands aside
+if X and X._test and X._test.setImportGate then X._test.setImportGate(false) end
 local A = X.amie
 T.check(type(A) == "table" and type(A.onBattleEnded) == "function", "amie is exported")
 T.eq(X.refresh, A, "...and under the old refresh name too")

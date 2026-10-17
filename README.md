@@ -161,6 +161,7 @@ Open **OPTIONS → MODS → PlayNav**.
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
 | **EXTRACT AMIE ART ON BOOT** | On / Off | On | Unpack the art from your card image automatically on the first start after you add it. |
 | **USE EXTRACTED ART** | On / Off | On | Draw with your game's art and text. Off: simple shapes and PlayNav's own wording. |
+| **CLEAR EXTRACTED ART** | Switch on to run | Off | Deletes the unpacked art, music, sound and text, then shows the PlayNav screen: **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. Switches itself back off. |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
 | **DEV: SCRATCH APP** | On / Off | Off | A touch test screen for mod makers. |
 

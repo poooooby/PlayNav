@@ -19,6 +19,7 @@ tests/drivers/training_probe.lua
 tests/drivers/import_gate_probe.lua
 tests/fixtures/expected.lua
 tests/fixtures/mini.cci
+tests/extract_clear_test.lua
 tests/games_test.lua
 tests/gear_module_test.lua
 tests/hd_test.lua

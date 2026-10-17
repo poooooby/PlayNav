@@ -158,14 +158,21 @@ for _, key in ipairs(order) do
           fail(item, "darc: " .. tostring(why))
         else
           local pack = item.id:gsub("^lyt/", "")
-          local n, werr = 0, nil
+          local n, werr, written = 0, nil, {}
           for _, name in ipairs(files.order) do
             if name:match(item.match or "%.bcl[ya][tn]$") then
               local r = files[name]
               local okW, e = job.cache:write("oras/lyt/" .. pack .. "/" .. name, blob:sub(r.start, r.stop))
               if okW == false or (okW == nil and e) then werr = e; break end
               n = n + 1
+              written[#written + 1] = ("%q"):format(name)
             end
+          end
+          -- the names, so CLEAR EXTRACTED ART can find them (the cache has no listing)
+          if not werr then
+            local okI, e = job.cache:write("oras/lyt/" .. pack .. "/index.lua",
+              "return { " .. table.concat(written, ", ") .. " }\n")
+            if okI == false or (okI == nil and e) then werr = e end
           end
           if werr then fail(item, "cache write: " .. tostring(werr))
           elseif item.count and n < item.count then fail(item, ("darc holds %d files, recipe says %d"):format(n, item.count))

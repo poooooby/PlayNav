@@ -15,7 +15,10 @@ return function(mod)
   function A.refresh()
     local src = cacheRead("oras/manifest.lua")
     if not src then
+      -- no art (never extracted, or just cleared): nothing loaded earlier may still draw
       A.manifest = nil
+      A.images, A.missing, A.texts, A.tracks, A.sounds = {}, {}, {}, {}, {}
+      A.loadedAt = os.time()
       return nil
     end
     local chunk = load(src, "=oras/manifest.lua")

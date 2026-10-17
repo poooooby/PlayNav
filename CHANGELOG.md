@@ -7,6 +7,10 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- **CLEAR EXTRACTED ART** option: deletes everything PlayNav unpacked from your card image
+  and returns to the PlayNav screen (Begin extraction, or the missing-card warning when the
+  image is no longer imported). It switches itself back off afterwards.
+
 - With Kanto Gear 4.3+ installed, Super Training appears in the Silph Store as a
   third-party app (the Gear's `exports.modules` hook): PlayNav's own engine-drawn
   boxing glove, words and translations, installed and moved like any Gear module.

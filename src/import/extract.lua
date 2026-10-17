@@ -128,6 +128,54 @@ return function(mod, deps)
     onChange()
   end
 
+  -- CLEAR EXTRACTED ART: every file the import wrote goes. The manifest first, so the
+  -- cache counts as incomplete from that instant even if a later delete fails; then each
+  -- recipe row's outputs, by kind, as the job names them (mod.cache has no listing, so
+  -- the layout packs are found through the index the job writes beside them). Returns
+  -- the number of files removed.
+  function E.clear()
+    E.cancel()
+    local function del(rel)
+      local ok, done = pcall(mod.cache.delete, mod.cache, rel)
+      return ok and done ~= false and done ~= nil
+    end
+    local removed = del("oras/manifest.lua") and 1 or 0
+    for _, item in ipairs(Recipe.assets or {}) do
+      local id, kind = item.id, item.kind
+      if kind == "text" then
+        if del("oras/text/" .. id:gsub("^text/", "") .. ".lua") then removed = removed + 1 end
+      elseif kind == "stream" then
+        local name = id:gsub("^bgm/", "")
+        if del("oras/bgm/" .. name .. ".wav") then removed = removed + 1 end
+        if del("oras/bgm/" .. name .. ".lua") then removed = removed + 1 end
+      elseif kind == "sfx" then
+        if del("oras/se/" .. id:gsub("^se/", "") .. ".wav") then removed = removed + 1 end
+      elseif kind == "files" then
+        local pack = id:gsub("^lyt/", "")
+        local okI, src = pcall(mod.cache.read, mod.cache, "oras/lyt/" .. pack .. "/index.lua")
+        local chunk = okI and type(src) == "string" and load(src, "=index", "t", {}) or nil
+        local okN, names = pcall(chunk or error)
+        for _, name in ipairs(okN and type(names) == "table" and names or {}) do
+          if type(name) == "string" and del("oras/lyt/" .. pack .. "/" .. name) then removed = removed + 1 end
+        end
+        if del("oras/lyt/" .. pack .. "/index.lua") then removed = removed + 1 end
+      else
+        -- an image (CLIM or BCH texture): the PNG, and any raw pixels left mid-run
+        if del("oras/png/" .. id .. ".png") then removed = removed + 1 end
+        if del("oras/raw/" .. id .. ".rgba") then removed = removed + 1 end
+      end
+    end
+    E.results, E.pending, E.archives = {}, {}, {}
+    E.total, E.done, E.failed = 0, 0, 0
+    E.cancelled, E.message = false, nil
+    E.state = "idle"
+    if Assets and Assets.refresh then Assets.refresh() end
+    E.check()
+    onChange()
+    mod.log:info("extracted art cleared: %d files removed", removed)
+    return removed
+  end
+
   local function launch(group)
     local arg = {
       importId = IMPORT, archive = group.archive, items = {},

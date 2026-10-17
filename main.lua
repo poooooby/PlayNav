@@ -71,6 +71,8 @@ return function(mod)
     { key = "dev_scratch", label = "DEV: SCRATCH APP", type = "toggle", default = false },
     { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
     { key = "use_rom_art", label = "USE EXTRACTED ART", type = "toggle", default = true },
+    -- an action: switching it on clears the cache, then it switches itself back off
+    { key = "clear_rom_art", label = "CLEAR EXTRACTED ART", type = "toggle", default = false },
     { key = "hd_render", label = "HD RENDERING", type = "toggle", default = true },
   })
 
@@ -700,8 +702,9 @@ return function(mod)
   -- PlayNav needs its extracted art: any attempt to open Pokemon-Amie or Super Training
   -- with the cache missing or stale lands on the PLAYNAV screen instead (Begin extraction,
   -- the progress bar, or the missing-card-image warning). True = gated, the screen is up.
+  local gateDisabled = false   -- the flow tests run on fake hosts, not the player's cache
   local function importGate()
-    if not Extract then return false end
+    if not Extract or gateDisabled then return false end
     if Extract.state == "running" or Extract.state == "finishing" or not Extract.cacheComplete() then
       Extract.check()
       Apps:setActive("import", state.game)
@@ -757,6 +760,23 @@ return function(mod)
       end
     end
   end
+
+  -- CLEAR EXTRACTED ART: wipe the cache, close any session that was drawing from it, and
+  -- land on the PLAYNAV screen (BEGIN EXTRACTION, or the missing-card warning). Never
+  -- starts an extraction by itself.
+  local function clearExtractedArt()
+    if not Extract then return end
+    if Training and Training.session then pcall(Training.finish) end
+    if Amie and Amie.session then pcall(Amie.finish) end
+    local ok, err = pcall(Extract.clear)
+    if not ok then mod.log:warn("clearing the extracted art failed: %s", tostring(err)) end
+    Apps:setActive("import", state.game)
+  end
+  mod.events:on("mod.options_changed", function(ev)
+    if type(ev) ~= "table" or ev.mod ~= "play_nav" or ev.key ~= "clear_rom_art" or ev.value ~= true then return end
+    clearExtractedArt()
+    pcall(mod.options.set, mod.options, "clear_rom_art", false)
+  end)
 
   -- While a mouse pointer is down on the surface, follow the real cursor
   -- every frame. Event routing for a held mouse differs per generation and
@@ -1233,6 +1253,7 @@ return function(mod)
     padHide = PadHide,
     cutout = Cutout,
     extract = function() return Extract end,
+    setImportGate = function(on) gateDisabled = on == false end,
   }
 
   mod.log:info("PlayNav ready (gen %s, touch screen %s, shown %s)", tostring(mod.generation),
