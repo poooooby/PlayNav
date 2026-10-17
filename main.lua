@@ -62,6 +62,8 @@ return function(mod)
       min = 0, max = 3, step = 1 },
     { key = "affection_benefits", label = "AFFECTION BENEFITS", type = "toggle", default = true },
     { key = "training", label = "SUPER TRAINING", type = "toggle", default = true },
+    { key = "screen_shape", label = "TOUCH SCREEN SHAPE", type = "choice", default = "gear",
+      choices = { { "KANTO GEAR", "gear" }, { "3DS", "3ds" } } },
     { key = "display", label = "TOUCH SCREEN", type = "choice", default = "auto",
       choices = { { "AUTO", "auto" }, { "SECOND SCREEN", "second_screen" },
         { "SPLIT SCREEN", "split" }, { "OFF", "off" } } },
@@ -81,6 +83,8 @@ return function(mod)
   if makeRename then makeRename(mod, "ds_touch").install() end
 
   local Layout = loadSibling(mod, "src/layout.lua")
+  -- the touch screen's shape: Kanto Gear's 10:9 by default, or the 3DS's 4:3
+  if Layout and Layout.setShape then Layout.setShape(mod.options:get("screen_shape") or "gear") end
   local makePointer = loadSibling(mod, "src/pointer.lua")
   local makeSurface = loadSibling(mod, "src/surface.lua")
   -- PlayNav draws its own screens at the output's pixel density (src/hd.lua); shared with
@@ -637,12 +641,12 @@ return function(mod)
     if Cutout and Cutout.pf then
       local c, now, dpi = layoutCache, Pointer.now(), windowDpi()
       local fill = topFills()
-      local moved = c.ww ~= ww or c.wh ~= wh or c.dpi ~= dpi or c.fill ~= fill
+      local moved = c.ww ~= ww or c.wh ~= wh or c.dpi ~= dpi or c.fill ~= fill or c.H ~= Layout.H
       if moved or now >= (c.padAt or 0) then
         local reserve = padReserve(ww, wh)
         c.padAt = now + 1
         if moved or c.reserve ~= reserve or c.lay == nil then
-          c.ww, c.wh, c.dpi, c.reserve, c.fill = ww, wh, dpi, reserve, fill
+          c.ww, c.wh, c.dpi, c.reserve, c.fill, c.H = ww, wh, dpi, reserve, fill, Layout.H
           c.lay = Layout.dual(ww, wh, { dpi = dpi, reserveBottom = reserve, fill = fill }) or false
         end
       end
@@ -1164,6 +1168,15 @@ return function(mod)
   mod.exports.hdTop = HdTop   -- the top-screen overlay (drivers read .why)
   mod.exports.layout = Layout
   mod.exports.W, mod.exports.H = Layout.W, Layout.H
+  -- the shape can change in play: the exports, the surface and every app follow
+  mod.events:on("mod.options_changed", function(ev)
+    if type(ev) ~= "table" or ev.mod ~= "play_nav" or ev.key ~= "screen_shape" then return end
+    if Layout.setShape(ev.value) then
+      mod.exports.W, mod.exports.H = Layout.W, Layout.H
+      if Surface then Surface.dirty = true end
+      mod.log:info("touch screen shape: %s (%dx%d)", Layout.shape, Layout.W, Layout.H)
+    end
+  end)
   mod.exports.state = function()
     return { mode = state.mode, rect = state.rect, tabHeight = Apps.TAB_H, pushK = state.pushK }
   end

@@ -70,6 +70,30 @@ return function(mod, Pointer, T, Rules, Store)
   -- a layout rect (centre, size) in app space
   local function rect(p) return { x = (p[1] - p[3] / 2) * L, y = (p[2] - p[4] / 2) * L - BLEED, w = p[3] * L, h = p[4] * L } end
 
+  -- The screen's shape (as core_app): LH layout units tall, D = LH - 240 more than the
+  -- game's. The drawer (window, pattern, bags) keeps its size and centres in the taller
+  -- room (D/2 lower); so do the message windows; the return buttons and the bottom strip's
+  -- dim follow the bottom (D). On the 3DS shape D = 0. K stays in the transform (1).
+  local LH, D, K = 240, 0, 1
+  local function setShape(lh)
+    LH = math.max(240, lh)
+    D = LH - 240
+    K = 1
+  end
+  local function drawerPt(x, y) return (x - 30) * K + 30, (y - 120) * K + 120 + D / 2 end
+  local function drawerRect(p)
+    local x, y = drawerPt(p[1], p[2])
+    return rect({ x, y, p[3] * K, p[4] * K })
+  end
+  local function midRect(p) return rect({ p[1], p[2] + D / 2, p[3], p[4] }) end
+  local function lowRect(p) return rect({ p[1], p[2] + D, p[3], p[4] }) end
+  local function pushDrawer(G)
+    G.push()
+    G.translate(30, 120 + D / 2)
+    G.scale(K, K)
+    G.translate(-30, -120)
+  end
+
   local function drawerX()
     if closeAt then return 160 + eval(SLIDE_OUT, clock - closeAt) end
     if openAt then return 160 + eval(SLIDE_IN, clock - openAt) end
@@ -84,18 +108,18 @@ return function(mod, Pointer, T, Rules, Store)
   end
   local function slotRect(i)
     local x, y = slotCentre(i)
-    return rect({ x, y, 28, 30 })
+    return drawerRect({ x, y, 28, 30 })
   end
 
   function app.geometry()
     return {
       slotRect = slotRect,
-      BACK = rect(RETURN),
-      LEAVE = rect({ LEAVE[1], LEAVE[2], 36, 36 }),
-      DRAWER = rect({ 30, DRAWER.y, DRAWER.w, DRAWER.h }),
+      BACK = lowRect(RETURN),
+      LEAVE = lowRect({ LEAVE[1], LEAVE[2], 36, 36 }),
+      DRAWER = drawerRect({ 30, DRAWER.y, DRAWER.w, DRAWER.h }),
       button = function(i, n)
-        if n == 2 then return rect(ASK_BARS[i]) end
-        return rect(DESC_BARS[i])
+        if n == 2 then return midRect(ASK_BARS[i]) end
+        return midRect(DESC_BARS[i])
       end,
     }
   end
@@ -267,12 +291,15 @@ return function(mod, Pointer, T, Rules, Store)
     local k = math.min(18 / math.max(1, small:getHeight()), 200 / math.max(1, small:getWidth("Trains Speed stat a fair amount.")))
     -- the room under the window darkens a little more
     G.setColor(0, 0, 0.08, 0.35)
-    G.rectangle("fill", 0, 0, 320, 240)
+    G.rectangle("fill", 0, 0, 320, LH)
+    G.push()
+    G.translate(0, D / 2)
     if view.ask then
       if winImg then window(G, winImg, ASK[1], ASK[2], ASK[3], ASK[4], 1) else plainWindow(G, ASK[1], ASK[2], ASK[3], ASK[4]) end
       text(G, T.uiText(view.question or (view.ask == "use" and "askUse" or "askDiscard"), id), ASK[1] - ASK[3] / 2 + 12, ASK[2] - ASK[4] / 2 + 8, ASK[3] - 24, small, k)
       bar(G, ASK_BARS[1], T.uiText("yes"), small)
       bar(G, ASK_BARS[2], T.uiText("no"), small)
+      G.pop()
       return
     end
     if winImg then window(G, winImg, DESC[1], DESC[2], DESC[3], DESC[4], 1) else plainWindow(G, DESC[1], DESC[2], DESC[3], DESC[4]) end
@@ -285,6 +312,7 @@ return function(mod, Pointer, T, Rules, Store)
     text(G, T.bagDescription(id), x0, y0 + 20, DESC[3] - 16, small, k)
     local labels = { T.uiText("use"), T.uiText("discard"), (T.uiText("back")) }
     for i = 1, 3 do bar(G, DESC_BARS[i], labels[i], small) end
+    G.pop()
   end
 
   function app:draw(G, w, h)
@@ -293,15 +321,18 @@ return function(mod, Pointer, T, Rules, Store)
     -- the room as it stands, under everything
     if app.core and app.core.draw then app.core:draw(G, w, h) end
     if not s then return end
+    setShape(((h or 178) + (app.bleed or BLEED)) / L)
     G.push()
     G.translate(0, -(app.bleed or BLEED))
     G.scale(L, L)
     -- the room dims (pic 2w: black at half alpha) and so do the bottom icons (black_mask_c)
     G.setColor(0, 0, 0, 0.5)
-    G.rectangle("fill", 0, 20, 320, 192)
+    G.rectangle("fill", 0, 20, 320, 192 + D)
     local mask = art("training/black_mask")
     G.setColor(0, 0, 0, mask and 136 / 255 or 0.5)
-    G.rectangle("fill", 0, 212, 320, 28)   -- the bottom strip (28 tall, see core_app)
+    G.rectangle("fill", 0, 212 + D, 320, 28)   -- the bottom strip (28 tall, see core_app)
+    G.push()
+    G.translate(0, D)
     local leave = art("training/home_return")
     if leave then
       local iw, ih = leave:getDimensions()
@@ -315,7 +346,9 @@ return function(mod, Pointer, T, Rules, Store)
       G.setColor(1, 1, 1, 1)
       G.draw(ret, RETURN[1] - RETURN[3] / 2, RETURN[2] - RETURN[4] / 2, 0, RETURN[3] / iw, RETURN[4] / ih)
     end
+    G.pop()
     -- the drawer
+    pushDrawer(G)
     local cx = drawerX()
     local winImg = art("training/list_win")
     if winImg then window(G, winImg, cx, DRAWER.y, DRAWER.w, DRAWER.h, 1) else plainWindow(G, cx, DRAWER.y, DRAWER.w, DRAWER.h) end
@@ -338,6 +371,7 @@ return function(mod, Pointer, T, Rules, Store)
         drawBag(G, id, x, y, scale)
       end
     end
+    G.pop()
     drawMessage(G, small)
     G.pop()
     G.setColor(1, 1, 1, 1)

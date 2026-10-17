@@ -30,6 +30,20 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   local PUT_AWAY = { y = H - 14, h = 14 } -- the strip that takes an item back while the drawer is away
   local drawerT = 1                        -- 1 the drawer is up, 0 slid away (while an item is held)
   local PLATE = { x = 212, y = 72 }       -- where the set-out puff sits
+  -- The screen's shape (as home.lua): items live in the room's 178-row coordinates; on a
+  -- taller screen the room scene draws DH/2 lower (RO, the same as the room screen, so an
+  -- item lands where it was put) and the drawer, its tabs, row, arrows, DONE and the
+  -- put-away strip go to the bottom (DH). DH = 0 on the 3DS shape.
+  local DH, RO = 0, 0
+  local function setShape(h)
+    local dh = math.max(0, (h or H) - H)
+    if dh == DH then return end
+    DH, RO = dh, dh / 2
+    DRAWER.y, TAB.y, ROW.y = 126 + DH, 126 + DH, 142 + DH
+    ARROW_L.y, ARROW_R.y, DONE.y = 144 + DH, 144 + DH, 128 + DH
+    PUT_AWAY.y = H - 14 + DH
+  end
+  app.setShape = setShape
 
   local tab = "cushion"
   local page = { wall = 1, cushion = 1, object = 1, puff = 1 }
@@ -115,10 +129,10 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
         end
       end
       -- a placed item anywhere, the drawer's empty parts included (items may stand under it)
-      local idx = Decor.itemAt(room, ev.x, ev.y, 4)
+      local idx = Decor.itemAt(room, ev.x, ev.y - RO, 4)
       if idx then
         local it = room.items[idx]
-        drag = { id = it.id, x = ev.x, y = ev.y, pointer = ev.id, fromRoom = idx, ox = it.x - ev.x, oy = it.y - ev.y }
+        drag = { id = it.id, x = ev.x, y = ev.y, pointer = ev.id, fromRoom = idx, ox = it.x - ev.x, oy = it.y - (ev.y - RO) }
       end
     elseif ev.phase == "moved" then
       if drag and drag.pointer == ev.id then drag.x, drag.y = ev.x, ev.y end
@@ -133,10 +147,10 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
             host.playSe("SE_SELECT")
             G.say(("Put the %s away."):format(Decor.name(d.id)), 1.5)
           else
-            Decor.move(room, d.fromRoom, ev.x + (d.ox or 0), floorY(ev.y + (d.oy or 0)))
+            Decor.move(room, d.fromRoom, ev.x + (d.ox or 0), floorY(ev.y - RO + (d.oy or 0)))
           end
         elseif ev.y < PUT_AWAY.y then
-          local ok, why = Decor.place(room, decor, d.id, ev.x, floorY(ev.y))
+          local ok, why = Decor.place(room, decor, d.id, ev.x, floorY(ev.y - RO))
           if ok then host.playSe("SE_PIN")
           elseif why == "full" then G.say(G.tx("roomFull", nil, "The room is full (30 items)."), 2) end
         end
@@ -206,6 +220,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
 
   function app:draw(G2, w, h)
     local s = G.session
+    setShape(h)
     local font, small
     if app.fontsFn then font, small = app.fontsFn() end
     app.font, app.smallFont = font, small
@@ -222,6 +237,9 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       G2.rectangle("fill", 0, -(app.bleed or 0), w, h + (app.bleed or 0))
     end
     if not s then return end
+    -- the room scene, RO lower (as on the room screen)
+    G2.push()
+    G2.translate(0, RO)
     -- placed items by depth
     local order = {}
     for i, it in ipairs(room.items or {}) do order[#order + 1] = { i = i, it = it } end
@@ -237,6 +255,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       if img then G2.setColor(1, 1, 1, 1); G2.draw(img, PLATE.x, PLATE.y - 8, 0, 0.5, 0.5, 20, 20)
       else G2.setColor(0.95, 0.55, 0.2, 1); G2.ellipse("fill", PLATE.x, PLATE.y - 6, 8, 6) end
     end
+    G2.pop()
     -- the drawer (slid down out of view while an item is held)
     G2.push()
     G2.translate(0, (1 - drawerT) * (DRAWER.h + 2))
@@ -316,7 +335,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       G2.printf(drag and drag.fromRoom and "PUT AWAY" or "DROP HERE TO CANCEL", 0, PUT_AWAY.y + 2, w, "center")
       if app.font then G2.setFont(app.font) end
     end
-    if drag then drawItem(G2, drag.id, drag.x + (drag.ox or 0), floorY(drag.y + (drag.oy or 0)), 1, 0.85) end
+    if drag then drawItem(G2, drag.id, drag.x + (drag.ox or 0), floorY(drag.y - RO + (drag.oy or 0)) + RO, 1, 0.85) end
     if s.message then
       G2.setColor(0, 0, 0, 0.6)
       G2.rectangle("fill", 4, DRAWER.y - 18, 192, 14, 4, 4)

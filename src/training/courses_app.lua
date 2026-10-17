@@ -76,6 +76,29 @@ return function(mod, Pointer, T, Rules)
   local function rect(cx, cy, w, h)
     return { x = (cx - w / 2) * K, y = (cy - h / 2) * K - BLEED, w = w * K, h = h * K }
   end
+
+  -- The screen's shape (as core_app): LH layout units tall, D = LH - 240 more than the
+  -- game's. The medal tab and level band stay at the top; the six slots and the meter
+  -- behind them keep their size and centre in the taller area (D/2 lower); the rule, the
+  -- band, the page, the arrows and the return button follow the bottom (D). On the 3DS
+  -- shape D = 0. S stays in the transform (1).
+  local LH, D, S = 240, 0, 1
+  local MID = { 160, 138.5 }
+  local function setShape(lh)
+    LH = math.max(240, lh)
+    D = LH - 240
+    S = 1
+  end
+  local function midRect(cx, cy, w, h)
+    return rect((cx - MID[1]) * S + MID[1], (cy - MID[2]) * S + MID[2] + D / 2, w * S, h * S)
+  end
+  local function lowRect(cx, cy, w, h) return rect(cx, cy + D, w, h) end
+  local function pushMid(G)
+    G.push()
+    G.translate(MID[1], MID[2] + D / 2)
+    G.scale(S, S)
+    G.translate(-MID[1], -MID[2])
+  end
   local function inRect(x, y, r) return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h end
 
   -- ------- pages: the open levels, then the secret courses (six to a page)
@@ -149,9 +172,9 @@ return function(mod, Pointer, T, Rules)
   -- where things are, in app space, for taps and the drivers
   function app.geometry()
     local slots = {}
-    for i, sl in ipairs(SLOTS) do slots[i] = rect(sl[1], sl[2], 64, 64) end
-    return { slots = slots, RETURN = rect(RETURN[1], RETURN[2], 34, 30), ARROW_L = rect(ARROW_L[1], ARROW_L[2], 30, 30),
-      ARROW_R = rect(ARROW_R[1], ARROW_R[2], 30, 30),
+    for i, sl in ipairs(SLOTS) do slots[i] = midRect(sl[1], sl[2], 64, 64) end
+    return { slots = slots, RETURN = lowRect(RETURN[1], RETURN[2], 34, 30), ARROW_L = lowRect(ARROW_L[1], ARROW_L[2], 30, 30),
+      ARROW_R = lowRect(ARROW_R[1], ARROW_R[2], 30, 30),
       slotOf = function(id)
         local p = current()
         for i, c in pairs(p and p.slots or {}) do if c and c.id == id then return slots[i] end end
@@ -331,13 +354,19 @@ return function(mod, Pointer, T, Rules)
   function app:draw(G, w, h)
     local s = T.session
     local font, small = fonts()
+    setShape(((h or 178) + (app.bleed or BLEED)) / K)
     G.push()
     G.translate(0, -(app.bleed or BLEED))
     G.scale(K, K)
-    drawBackground(G, 320, 210, COLS, 150, { 8, 5 })
+    -- the background to the rule, one more pattern row's worth for each extra 42 units
+    drawBackground(G, 320, 210 + D, COLS, 150, { 8, 5 * (210 + D) / 210 })
     if not s then G.pop(); return end
     local meter = art("training/ss_meter_bg")
-    if meter and L then L.mirror4(G, meter, 160, 140, 220, 130, { colors = COLS.meter, alpha = 150 }) end
+    if meter and L then
+      pushMid(G)
+      L.mirror4(G, meter, 160, 140, 220, 130, { colors = COLS.meter, alpha = 150 })
+      G.pop()
+    end
     -- the medal tab: medals won, the Pokemon's icon, Fully / Supremely Trained
     local tab = art("training/ss_pokename_bg")
     if tab and L then L.quad(G, tab, 95, 20, 190, 40, { colors = COLS.tab }) end
@@ -356,11 +385,15 @@ return function(mod, Pointer, T, Rules)
     end
     -- the courses
     local sel = selected()
+    pushMid(G)
     for i, sl in ipairs(SLOTS) do
       local c = p and p.slots[i]
       if c then drawSlot(G, c, sl, sel == c.id) end
     end
-    -- the bar: a white rule, the teal band, the page, the return button
+    G.pop()
+    -- the bar: a white rule, the teal band, the page, the return button (at the bottom)
+    G.push()
+    G.translate(0, D)
     G.setColor(0.96, 0.99, 0.98, 1)
     G.rectangle("fill", 0, 210, 320, 2)
     if L then
@@ -374,6 +407,7 @@ return function(mod, Pointer, T, Rules)
       if page < count then fit(G, arrow, ARROW_R[1], ARROW_R[2], ARROW_R[3], ARROW_R[4], 255, true) end
     end
     fit(G, art("training/ss_return"), RETURN[1], RETURN[2], RETURN[3], RETURN[4])
+    G.pop()
     -- the words: what was said, else the picked course's blurb
     local words = s.message
     if not words and sel then
@@ -383,10 +417,10 @@ return function(mod, Pointer, T, Rules)
     if words then drawWords(G, words, small) end
     -- a screen change: the shutters, or the black before the fade
     local v = T.transView and T.transView("bottom")
-    if v and v.shutter and L then L.shutters(G, art, 320, 240, v.shutter, v.f) end
+    if v and v.shutter and L then L.shutters(G, art, 320, LH, v.shutter, v.f) end
     if v and v.black and v.black > 0 then
       G.setColor(0, 0, 0, v.black)
-      G.rectangle("fill", -10, -20, 340, 280)
+      G.rectangle("fill", -10, -20, 340, LH + 40)
     end
     G.pop()
     G.setColor(1, 1, 1, 1)

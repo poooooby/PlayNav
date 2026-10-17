@@ -22,6 +22,14 @@ return function(mod, Pointer, G, Games, Rules, host)
   local LANE_X = { 64, 128, 192 }
   local MON_Y = 158
   local SWEET_Y = 108          -- the top of the head at 2x
+  -- the screen's shape: the Pokemon and the sweet spot move to the bottom of a taller
+  -- screen (Kanto Gear's); balls still enter from the top at the same speed, so they fall
+  -- a little longer, the rhythm and the windows unchanged. 158 / 108 on the 3DS shape.
+  local function setShape(h)
+    local dh = math.max(0, (h or H) - H)
+    MON_Y, SWEET_Y = 158 + dh, 108 + dh
+  end
+  app.setShape = setShape
   local SWEET, OK = 10, 26
   local SPEED = { easy = 55, normal = 70, hard = 85, unlimited = 85 }
   local BASE_GAP = { easy = 1.5, normal = 1.2, hard = 1.0, unlimited = 1.0 }
@@ -259,6 +267,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
 
   function app:draw(G2, w, h)
+    setShape(h)
     local s = G.session
     local font, small
     if app.fontsFn then font, small = app.fontsFn() end

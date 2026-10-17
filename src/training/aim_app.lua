@@ -78,6 +78,41 @@ return function(mod, Pointer, T, Rules, Sim)
 
   function app.geometry() return { PAD = PAD, BLOCK = BLOCK, EXIT = EXIT } end
 
+  -- The screen's shape (as core_app): LH layout units tall, D = LH - 240 more than the
+  -- game's 320x240 lower.bclyt. Its mask stretches to the new height (lytplayer's backdrop
+  -- mode); the lower frames, the best-time lines, the rails and the return button follow
+  -- the bottom (D); the brackets and the aim field sit D/2 lower, centred, and the touch
+  -- mapping (PADBOX, PAD, EXIT) moves with them. On the 3DS shape D = 0: the game's layout.
+  local LH, D = 240, 0
+  local BOTTOM_PANES = { "18", "1a", "1c", "w", "y", "1i", "1k", "1q" }
+  local MID_PANES = { "1e", "1g" }
+  local function setShape(lh)
+    lh = math.max(240, lh)
+    if lh == LH then return end
+    LH, D = lh, lh - 240
+    AIM.cy = 94 + D / 2
+    PAD.cy = AIM.cy * K - BLEED
+    PADBOX.y0, PADBOX.y1 = AIM.cy - 45, AIM.cy + 45
+    EXIT.y = (212 + D - 26) * K - BLEED
+    BLOCK.y = 128 + D * K / 2
+    app.shapeDirty = true
+  end
+  app.setShape = setShape
+  local function applyShape(P)
+    if not P or (P.shapeLH == LH and not app.shapeDirty) then return end
+    P.shapeLH, app.shapeDirty = LH, false
+    if D <= 0 then
+      P.stretchY, P.stretchMode, P.adjust = nil, nil, nil
+      return
+    end
+    P.stretchY, P.stretchMode = LH / 240, "backdrop"
+    local adj = {}
+    -- y is up in the layout: down the screen is a negative dy
+    for _, name in ipairs(BOTTOM_PANES) do adj[name] = { dy = -D } end
+    for _, name in ipairs(MID_PANES) do adj[name] = { dy = -D / 2 } end
+    P.adjust = adj
+  end
+
   -- the app point for a goal in arena space (drivers aim with it)
   function app.padPointFor(gx, gy)
     local lx, ly = layoutPointFor(T.sim, gx, gy)
@@ -236,6 +271,7 @@ return function(mod, Pointer, T, Rules, Sim)
       P:set("12", "tx", lx - 160)
       P:set("12", "ty", 120 - ly)
     end
+    applyShape(P)
     G.push()
     G.translate(0, -(app.bleed or BLEED))
     G.scale(K, K)
@@ -246,6 +282,7 @@ return function(mod, Pointer, T, Rules, Sim)
   function app:draw(G, w, h)
     local s = T.session
     local font, small = fonts()
+    setShape(((h or 178) + (app.bleed or BLEED)) / K)
     if not s then return end
     if s.mode == "result" then
       local Rs = T.results
@@ -253,11 +290,11 @@ return function(mod, Pointer, T, Rules, Sim)
         G.push()
         G.translate(0, -(app.bleed or BLEED))
         G.scale(K, K)
-        Rs.drawBottom(G)
+        Rs.drawBottom(G, LH)
         local v = T.transView and T.transView("bottom")
         if v and v.black and v.black > 0 then
           G.setColor(0, 0, 0, v.black)
-          G.rectangle("fill", -10, -20, 340, 280)
+          G.rectangle("fill", -10, -20, 340, LH + 40)
         end
         G.pop()
         G.setColor(1, 1, 1, 1)

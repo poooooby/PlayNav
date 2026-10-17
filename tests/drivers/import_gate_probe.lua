@@ -43,6 +43,12 @@ local function body(game, log)
   loader.modOptions["play_nav"].display = "split"
   local Apps = X.apps
   local Extract = X._test.extract and X._test.extract()
+  -- PROBE_SHAPE=gear|3ds: the touch screen's shape for this run (the option event only;
+  -- nothing is written to the player's options)
+  if os.getenv("PROBE_SHAPE") then
+    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
+    log("shape:", os.getenv("PROBE_SHAPE"), "W x H", tostring(X.W) .. "x" .. tostring(X.H))
+  end
   if not Extract then log("FAIL no Extract"); return end
   -- a real run may have started on boot; let it finish so the cache stays complete
   waitFor(function() return Extract.state ~= "running" and Extract.state ~= "finishing" end, 60 * 120)

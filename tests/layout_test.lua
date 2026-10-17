@@ -13,6 +13,23 @@ local function loadFile(path)
 end
 
 local Layout = loadFile("mods/play_nav/src/layout.lua")
+
+-- the shapes: Kanto Gear's 10:9 by default, the 3DS's 4:3 on request
+T.eq(Layout.shape, "gear", "the default shape is Kanto Gear's")
+T.eq(Layout.W .. "x" .. Layout.H, "256x230", "...256x230, about 10:9 like the Gear's 160x144")
+T.eq(Layout.LH, 287.5, "...287.5 tall in the 320-wide training layout space")
+T.eq(Layout.setShape("3ds"), true, "switching to 3DS changes the shape")
+T.eq(Layout.W .. "x" .. Layout.H, "256x192", "...to 256x192")
+T.eq(Layout.LH, 240, "...and the training layout's own 320x240")
+T.eq(Layout.setShape("3ds"), false, "the same shape again is no change")
+T.eq(Layout.setShape("nonsense"), true, "an unknown shape falls back to the Gear's")
+T.eq(Layout.H, 230, "...230 tall")
+do
+  local lay = Layout.dual(603, 1294, { dpi = 1, reserveBottom = 0, fill = true })
+  T.check(math.abs(lay.surface.w / lay.surface.h - 256 / 230) < 1e-6, "the split's touch screen keeps the Gear shape")
+end
+-- the geometry checks below were written for the 4:3 surface
+Layout.setShape("3ds")
 local Pointer = loadFile("mods/play_nav/src/pointer.lua")({
   log = { warn = function() end, info = function() end, error = function() end },
 })

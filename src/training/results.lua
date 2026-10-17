@@ -392,9 +392,33 @@ return function(mod, T, Rules, Radar)
     return R.fonts[size] or nil, k
   end
 
-  function R.drawBottom(G)
+  -- The lower screen on a taller shape (as core_app): lh layout units, D = lh - 240 more.
+  -- The background (3b gradient, 3h + pattern, which repeats rather than stretches) reaches
+  -- the new bottom; the low glow (3d) and the stage band (3j: course, time, medal) follow
+  -- the bottom; the result windows (3w) centre D/2 lower; the word window's feet move with
+  -- them. On the 3DS shape D = 0: the game's layout.
+  local shapeD = nil
+  local function fitBottom(B, lh)
+    local D = math.max(0, (lh or 240) - 240)
+    if shapeD == D and B.shapeD == D then return D end
+    shapeD, B.shapeD = D, D
+    if D <= 0 then B.adjust = nil; return 0 end
+    local grow = (210 + D) / 210
+    B.adjust = {
+      ["3b"] = { qy = grow, dy = -D / 2 },
+      ["3h"] = { qy = grow, tileY = grow, dy = -D / 2 },
+      ["3d"] = { dy = -D / 2 },          -- with 3b's -D/2: at the bottom
+      ["3f"] = { dy = D / 2 },           -- with 3b's -D/2: where it was
+      ["3j"] = { dy = -D },
+      ["3w"] = { dy = -D / 2 },
+    }
+    return D
+  end
+
+  function R.drawBottom(G, lh)
     local B = R.bottom
     if not B then return false end
+    local D = fitBottom(B, lh)
     B:draw(G)
     -- the course's badge in its frame (the game renders it into stage_icon01's place)
     if R.badge and R.shown == "time" then
@@ -428,7 +452,7 @@ return function(mod, T, Rules, Radar)
         local lines = wrapLines(font, p.text, (MSG.w - 2 * MSG.pad) * k)
         local n = math.max(2, #lines)
         local h = n * MSG.line + 18
-        local foot = p.band and MSG.footBand or MSG.foot
+        local foot = (p.band and MSG.footBand or MSG.foot) + D
         local y0 = foot - h
         drawWindow(G, MSG.x, y0, MSG.w, h)
         G.setFont(font)

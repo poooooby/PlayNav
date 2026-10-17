@@ -70,14 +70,67 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local function rect(cx, cy, w, h)
     return { x = (cx - w / 2) * L, y = (cy - h / 2) * L - BLEED, w = w * L, h = h * L }
   end
-  local PIC = rect(110, 128, 80, 80)
-  local BAG = rect(50, 106, 40, 100)
-  local REGIMENS = rect(32, 186, 64, 64)
-  local BAGS = rect(292, 193, 48, 48)
-  local TOTAL = rect(308, 102, 10, 130)
-  -- the room between the name frame and the tray (the layout's 320x240: y 60..165)
-  local ROOM = rect(160, 112.5, 320, 105)
-  local RADAR = { cx = PANE.hex[1] * L, cy = PANE.hex[2] * L - BLEED, r = PANE.hex.r * L }
+
+  -- The screen's shape (Layout.setShape): the layout space is 320 wide and LH tall, 240 on
+  -- the 3DS shape, 287.5 on Kanto Gear's. Three bands: the name frame stays at the top; the
+  -- tray, buttons, party row, return button and bottom strip move down by D = LH - 240;
+  -- the room between grows, and its content keeps the game's size (Wooble's choice,
+  -- 2026-10-17: everything 1.0x, spread). The bag and the Pokemon (and their effects, the
+  -- found bag, the hit marks) stay exactly where the game has them, so the bag's hook stays
+  -- hidden under the name frame (BAG_SHIFT 0, Wooble: moved down it showed); the meter and
+  -- its labels sit D/2 lower, centred in the taller room. K stays in the transform (1).
+  -- On the 3DS shape D = 0: exactly the game's layout.
+  local LH = 240
+  local SHAPE = { D = 0, K = 1, px = 172.5, tx = 172.5, py = 112.5, ty = 112.5, bagTy = 112.5 }
+  local BAG_SHIFT = 0   -- of D: how far the bag and the Pokemon move down
+  local function setShape(lh)
+    if lh == LH then return end
+    LH = lh
+    local D = math.max(0, lh - 240)
+    SHAPE.D, SHAPE.K = D, 1
+    SHAPE.tx = SHAPE.px
+    SHAPE.ty = SHAPE.py + D / 2
+    SHAPE.bagTy = SHAPE.py + D * BAG_SHIFT
+    app.geo = nil
+  end
+  app.setShape = setShape
+  -- a room point in layout units, where it now draws (bag = the bag and Pokemon group)
+  local function roomPt(x, y, bag)
+    return (x - SHAPE.px) * SHAPE.K + SHAPE.tx, (y - SHAPE.py) * SHAPE.K + (bag and SHAPE.bagTy or SHAPE.ty)
+  end
+  -- the room's transform for drawing (inside the L scale): the meter's, or the bag group's
+  local function pushRoom(G, bag)
+    G.push()
+    G.translate(SHAPE.tx, bag and SHAPE.bagTy or SHAPE.ty)
+    G.scale(SHAPE.K, SHAPE.K)
+    G.translate(-SHAPE.px, -SHAPE.py)
+  end
+  local function roomRect(cx, cy, w, h, bag)
+    local x, y = roomPt(cx, cy, bag)
+    return rect(x, y, w * SHAPE.K, h * SHAPE.K)
+  end
+  local function lowRect(cx, cy, w, h) return rect(cx, cy + SHAPE.D, w, h) end
+
+  -- the hit areas for the current shape (rebuilt when it changes)
+  local PIC, BAG, REGIMENS, BAGS, TOTAL, ROOM, RADAR, CLOSE
+  local function geo()
+    if app.geo then return app.geo end
+    PIC = roomRect(110, 128, 80, 80, true)
+    BAG = roomRect(50, 106, 40, 100, true)
+    REGIMENS = lowRect(32, 186, 64, 64)
+    BAGS = lowRect(292, 193, 48, 48)
+    TOTAL = roomRect(308, 102, 10, 130)
+    -- the room between the name frame and the tray (y 60 .. 165 + D)
+    ROOM = rect(160, 112.5 + SHAPE.D / 2, 320, 105 + SHAPE.D)
+    local hx, hy = roomPt(PANE.hex[1], PANE.hex[2])
+    RADAR = { cx = hx * L, cy = hy * L - BLEED, r = PANE.hex.r * SHAPE.K * L }
+    -- PlayNav's return button (message layout pane ab, 27x27 at 305,224)
+    CLOSE = { x = (305 - 18) * L, y = (224 + SHAPE.D - 18) * L - BLEED, w = 36 * L, h = 36 * L }
+    app.CLOSE = CLOSE
+    app.geo = true
+    return app.geo
+  end
+  geo()
 
   local function art(id)
     local A = app.assets
@@ -98,9 +151,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   -- PlayNav's return button (message layout pane ab, 27x27 at 305,224) leaves Super Training;
   -- the strip's arrows switch to Pokemon-Amie (T.onSwitch, set by main)
   local RETURN_PANE = { 305, 224, 27, 27 }
-  local CLOSE = { x = (305 - 18) * L, y = (224 - 18) * L - BLEED, w = 36 * L, h = 36 * L }
   local ARROWS = { { x = 0, y = -BLEED, w = 34, h = 21 }, { x = 256 - 34, y = -BLEED, w = 34, h = 21 } }
-  app.CLOSE = CLOSE
 
   -- the party list once a frame: T.party asks the engine for every member's key, name and
   -- icon, and the screen wanted it eight times a frame (each slot, the active icon, the row)
@@ -119,10 +170,11 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local n = 0
     for j, p in ipairs(party) do
       if j == i then
+        geo()
         if p.active then return PIC end
         local at = PANE.icons[n + 1]
         if not at then return nil end
-        return rect(at[1], at[2], PANE.iconSize[1], PANE.iconSize[2])
+        return lowRect(at[1], at[2], PANE.iconSize[1], PANE.iconSize[2])
       end
       if not p.active then n = n + 1 end
     end
@@ -130,6 +182,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   function app.geometry()
+    geo()
     return { PIC = PIC, BAG = BAG, RADAR = RADAR, TOTAL = TOTAL, REGIMENS = REGIMENS, BAGS = BAGS, ROOM = ROOM, CLOSE = CLOSE, partySlot = slotOf }
   end
 
@@ -142,6 +195,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   function app:pointer(ev, rec)
     local s = T.session
     if not (s and s.mode == "core") or s.trans then return end
+    geo()
     if ev.phase == "pressed" then
       for key, r in pairs({ regimens = REGIMENS, bags = BAGS }) do
         if inRect(ev.x, ev.y, r) then app.press[key] = { held = true } end
@@ -551,21 +605,31 @@ return function(mod, Pointer, T, Rules, Radar, host)
     G.setColor(1, 1, 1, 1)
     G.push()
     G.translate(shakeX, -shake)
+    -- the backdrop's gradient runs the whole (taller) screen
+    G.push()
+    G.scale(1, LH / 240)
     pane(G, "bg", nil, PANE.bg)
+    G.pop()
     if bg01 then
+      G.push()
+      G.translate(0, SHAPE.D)
       pane(G, "glowLow", bg01, PANE.glowLow)
+      G.pop()
       pane(G, "glowHigh", bg01, PANE.glowHigh)
     end
     G.pop()
     if ptn then
+      -- the + pattern: the same tile size, more rows on the taller room
       local p, c = PANE.ptn, PANE.ptn.colors[1]
+      local ph = p[4] + SHAPE.D
+      local rv = p.repeatV * ph / p[4]
       local tw, th = ptn:getDimensions()
       ptn:setWrap("repeat", "repeat")
       local t = app.clock % 200
-      app.ptnQuad = app.ptnQuad or G.newQuad(0, 0, tw * p.repeatU, th * p.repeatV, tw, th)
-      app.ptnQuad:setViewport(-PTN_SCROLL.u * t * tw, -PTN_SCROLL.v * t * th, tw * p.repeatU, th * p.repeatV, tw, th)
+      app.ptnQuad = app.ptnQuad or G.newQuad(0, 0, tw * p.repeatU, th * rv, tw, th)
+      app.ptnQuad:setViewport(-PTN_SCROLL.u * t * tw, -PTN_SCROLL.v * t * th, tw * p.repeatU, th * rv, tw, th)
       G.setColor(c[1] / 255, c[2] / 255, c[3] / 255, c[4] / 255)
-      G.draw(ptn, app.ptnQuad, p[1] - p[3] / 2, p[2] - p[4] / 2, 0, p[3] / (tw * p.repeatU), p[4] / (th * p.repeatV))
+      G.draw(ptn, app.ptnQuad, p[1] - p[3] / 2, p[2] - p[4] / 2, 0, p[3] / (tw * p.repeatU), ph / (th * rv))
     end
   end
 
@@ -774,8 +838,11 @@ return function(mod, Pointer, T, Rules, Radar, host)
       pane(G, "frameR", top, PANE.frameR)
     end
     if tray then
+      G.push()
+      G.translate(0, SHAPE.D)
       pane(G, "trayL", tray, PANE.trayL)
       pane(G, "trayR", tray, PANE.trayR)
+      G.pop()
     end
     return top ~= nil
   end
@@ -950,8 +1017,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
     G.draw(strip, 0, 0, 0, (w / 2) / sw, hgt / sh)
     G.draw(strip, w, 0, 0, -(w / 2) / sw, hgt / sh)
     -- upside down along the bottom, its recessed middle on the buttons' flat edge
-    G.draw(strip, 0, 240, 0, (w / 2) / sw, -BOTTOM_STRIP_H / sh)
-    G.draw(strip, w, 240, 0, -(w / 2) / sw, -BOTTOM_STRIP_H / sh)
+    G.draw(strip, 0, LH, 0, (w / 2) / sw, -BOTTOM_STRIP_H / sh)
+    G.draw(strip, w, LH, 0, -(w / 2) / sw, -BOTTOM_STRIP_H / sh)
     local arrow = art("training/home_arrow")
     if arrow then
       fit(G, arrow, { 14, 11, 18, 18 })
@@ -962,12 +1029,15 @@ return function(mod, Pointer, T, Rules, Radar, host)
   function app:draw(G, w, h)
     local s = T.session
     local font, small = fonts()
+    -- the shape follows the height the surface hands us
+    setShape(math.max(240, ((h or 178) + (app.bleed or BLEED)) / L))
+    geo()
     G.push()
     G.translate(0, -(app.bleed or BLEED))
     G.scale(L, L)
     if not s then
       G.setColor(0.09, 0.11, 0.16, 1)
-      G.rectangle("fill", 0, 0, 320, 240)
+      G.rectangle("fill", 0, 0, 320, LH)
       G.setFont(font)
       G.setColor(1, 1, 1, 0.8)
       G.printf("No session", 0, 110, 320 * L, "center", 0, 1 / L, 1 / L)
@@ -975,29 +1045,43 @@ return function(mod, Pointer, T, Rules, Radar, host)
       return
     end
     drawRoom(G)
+    pushRoom(G, true)
     drawBag(G, s, small)
     drawMon(G, s, small, font)
     drawGift(G, s)
+    G.pop()
     drawFrame(G)
+    pushRoom(G)
     drawMeter(G, s, small)
+    G.pop()
     drawBanner(G, s, font)
+    pushRoom(G)
     drawStatUp(G, s, small)
+    G.pop()
+    G.push()
+    G.translate(0, SHAPE.D)
     drawButtons(G, small)
+    G.pop()
     drawParty(G)
     drawStrip(G, 320)
     local ret = art("training/home_return")
-    if ret then fit(G, ret, RETURN_PANE) end
+    if ret then
+      G.push()
+      G.translate(0, SHAPE.D)
+      fit(G, ret, RETURN_PANE)
+      G.pop()
+    end
     if finishing() then
       -- the strip gives way to the night-blue band and the icon row dims, as in the game
       G.setColor(0.07, 0.11, 0.27, 1)
       G.rectangle("fill", 0, 0, 320, 21 / L)
       G.setColor(0, 0, 0, 136 / 255)
-      G.rectangle("fill", 0, 240 - BOTTOM_STRIP_H, 320, BOTTOM_STRIP_H)
+      G.rectangle("fill", 0, LH - BOTTOM_STRIP_H, 320, BOTTOM_STRIP_H)
     end
     -- the found bag's words come up over a dimmed room (Wooble's capture, 2026-10-17)
     if s.anim and s.anim.gift and s.anim.gift.worded then
       G.setColor(0, 0, 0, 128 / 255)
-      G.rectangle("fill", 0, 0, 320, 240)
+      G.rectangle("fill", 0, 0, 320, LH)
     end
     -- the session's words, in the game's two-line message window
     local words = s.message or s.cheerText
@@ -1030,7 +1114,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     end
     -- a screen change: the shutters close over the home screen, or open on it
     local tv = T.transView and T.transView("bottom")
-    if tv and tv.shutter and app.lyt then app.lyt.shutters(G, art, 320, 240, tv.shutter, tv.f) end
+    if tv and tv.shutter and app.lyt then app.lyt.shutters(G, art, 320, LH, tv.shutter, tv.f) end
     G.pop()
     G.setColor(1, 1, 1, 1)
   end

@@ -13,6 +13,10 @@ return function(mod, Pointer, Extract, Assets)
 
   -- app space is 256 x 178 (the tab strip's 14 rows above are reached with -bleed)
   local W, H = 256, 178
+  -- The screen's shape: laid out for the 3DS shape's 178 rows; on a taller screen (Kanto
+  -- Gear's) the backdrop and the shutters fill it all, the banner and the x stay at the
+  -- top, and the content (texts, buttons, bar, warning) centres DH/2 lower.
+  local SH, DH = H, 0
   app.BEGIN = { x = 46, y = 92, w = 164, h = 30 }
   app.PAUSE = { x = 88, y = 150, w = 80, h = 18 }
   app.CLOSE = { x = 236, y = -8, r = 10 }   -- centre and tap radius, up in the strip's rows
@@ -63,6 +67,8 @@ return function(mod, Pointer, Extract, Assets)
       if app.close then app.close() end
       return
     end
+    -- the content sits DH/2 lower on a taller screen
+    ev = { x = ev.x, y = ev.y - DH / 2, phase = ev.phase }
     if s == "running" then
       if inRect(ev, app.PAUSE) then Extract.cancel() end
     elseif s == "idle" or s == "failed" then
@@ -148,15 +154,17 @@ return function(mod, Pointer, Extract, Assets)
   local function backdrop(G)
     local b = app.bleed or 0
     col(G, INK.bg)
-    G.rectangle("fill", 0, -b, W, H + b)
+    G.rectangle("fill", 0, -b, W, SH + b)
     for i, r in ipairs({ 100, 72, 48 }) do
       col(G, INK.glow, 0.028 * i)
-      G.circle("fill", W / 2, 96, r)
+      G.circle("fill", W / 2, 96 + DH / 2, r)
     end
     banner(G)
   end
 
   local function closeButton(G)
+    G.push()
+    G.translate(0, -DH / 2)   -- drawn inside the content's shift; it belongs in the strip
     local c = app.CLOSE
     col(G, INK.track)
     G.circle("fill", c.x, c.y, 7)
@@ -164,6 +172,7 @@ return function(mod, Pointer, Extract, Assets)
     G.circle("line", c.x, c.y, 7)
     col(G, INK.text)
     G.printf("x", c.x - 10, c.y - 5.5, 20 / 0.7, "center", 0, 0.7, 0.7)
+    G.pop()
   end
 
   local function button(G, r, label, filled)
@@ -288,15 +297,16 @@ return function(mod, Pointer, Extract, Assets)
     if shutterAt then
       local f = (Pointer.now() - shutterAt) * 30
       local b = app.bleed or 0
+      -- the whole screen, not the shifted content
+      G.push()
+      G.translate(0, -b - DH / 2)
       if app.lyt then
-        G.push()
-        G.translate(0, -b)
-        app.lyt.shutters(G, art, W, H + b, "close", math.min(f, 10))
-        G.pop()
+        app.lyt.shutters(G, art, W, SH + b, "close", math.min(f, 10))
       else
         col(G, { 0, 0, 0 }, math.min(1, f / 10))
-        G.rectangle("fill", 0, -b, W, H + b)
+        G.rectangle("fill", 0, 0, W, SH + b)
       end
+      G.pop()
     end
   end
 
@@ -315,7 +325,11 @@ return function(mod, Pointer, Extract, Assets)
   end
 
   function app:draw(G, w, h)
+    SH = h or H
+    DH = math.max(0, SH - H)
     backdrop(G)
+    G.push()
+    G.translate(0, DH / 2)
     local s = Extract.state
     if s == "running" or s == "finishing" then
       doneAt = nil
@@ -328,6 +342,7 @@ return function(mod, Pointer, Extract, Assets)
       doneAt = nil
       drawReady(G)
     end
+    G.pop()
     G.setColor(1, 1, 1, 1)
   end
 

@@ -17,10 +17,14 @@ return function(mod, Layout, HD)
     dirty = true,
   }
 
-  -- the canvas for density k (rebuilt only when k changes)
+  -- the canvas for density k (rebuilt when k or the surface's shape changes)
   function S:ensure(k)
     if not G then return nil end
     k = k or self.k or 1
+    if self.W ~= Layout.W or self.H ~= Layout.H then
+      self.W, self.H = Layout.W, Layout.H
+      self.canvas, self.pushCanvas, self.pushK = nil, nil, nil
+    end
     if not self.canvas or self.k ~= k then
       local pw, ph = math.floor(self.W * k + 0.5), math.floor(self.H * k + 0.5)
       local ok, canvas = pcall(G.newCanvas, pw, ph, { dpiscale = 1 })
@@ -117,11 +121,11 @@ return function(mod, Layout, HD)
     local want = (HD and HD.enabled) and math.min(k, HD.MAX_K) or 1
     if drawFn then self:render(drawFn, want) end
     if not self.canvas then return nil end
-    local pw, ph = self.W * k, self.H * k
+    local pw, ph = math.floor(self.W * k + 0.5), math.floor(self.H * k + 0.5)
     local src = self.canvas
     if src:getPixelWidth() ~= pw then
       -- the canvas is at a lower density (HD off, or k above the cap): scale it up once
-      if not self.pushCanvas or self.pushK ~= k then
+      if not self.pushCanvas or self.pushK ~= k or self.pushCanvas:getPixelHeight() ~= ph then
         local ok, c = pcall(G.newCanvas, pw, ph, { dpiscale = 1 })
         if not ok then return nil end
         c:setFilter("nearest", "nearest")

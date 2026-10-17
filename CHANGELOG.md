@@ -7,6 +7,11 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- **TOUCH SCREEN SHAPE** option, Kanto Gear by default: the touch screen takes the Gear
+  phone's proportions (10:9, 256x230), since Super Training and Pokémon-Amie are headed
+  into the Gear as modules. Every bottom screen is laid out for it with the art at its own
+  size: top bars stay at the top, bottom bars and buttons go to the new bottom, and the
+  room in between grows. **3DS** keeps the original 4:3 layout exactly.
 - **CLEAR EXTRACTED ART** option: deletes everything PlayNav unpacked from your card image
   and returns to the PlayNav screen (Begin extraction, or the missing-card warning when the
   image is no longer imported). It switches itself back off afterwards.

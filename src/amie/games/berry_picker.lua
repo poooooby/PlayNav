@@ -21,6 +21,10 @@ return function(mod, Pointer, G, Games, Rules, host)
   local W, H = 256, 178
   local SLOT_X = { 60, 128, 196 }
   local SLOT_Y = 150
+  -- the screen's shape: the Pokemon stand at the bottom of a taller screen (Kanto Gear's);
+  -- the pile stays at the top. 150 on the 3DS shape's 178 rows.
+  local function setShape(h) SLOT_Y = 150 + math.max(0, (h or H) - H) end
+  app.setShape = setShape
   local PILE = { y = 34 }   -- the pile sits high enough that a want bubble under it stays clear
   local BERRY_KINDS = { -- recipe ids in difficulty order: Razz, Bluk, Pinap, Wepear, Magost, Durin, Nomel
     "berry/01", "berry/02", "berry/03", "berry/04", "berry/05", "berry/06", "berry/07" }
@@ -268,6 +272,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
 
   function app:draw(G2, w, h)
+    setShape(h)
     local s = G.session
     local font, small
     if app.fontsFn then font, small = app.fontsFn() end

@@ -13,11 +13,13 @@
 --   inherit = true passes the pane's alpha to its children)
 -- P.stretchY = k: every pane's position (not its size) spread by k about the layout's middle,
 --   full-height panes stretched with it: the layout fits a screen of another shape)
--- P.adjust = { [name] = { mx, my, dx, dy, sx, sy, qx, qy } }: per pane, on top of its clips:
+-- P.adjust = { [name] = { mx, my, dx, dy, sx, sy, qx, qy, tileY } }: per pane, on top of its clips:
 --   its position times mx / my plus dx / dy (layout units, in its parent's space, y up; mx
 --   scales a clip's slide with the pane), a scale of the pane and its children, and a
 --   scale of its own picture alone (about its origin); fits a layout to a wider / taller screen
---   while chosen panes keep their place (src/training/hud.lua); `parked = true` applies it only
+--   while chosen panes keep their place (src/training/hud.lua); `tileY` repeats a wrapping
+--   texture that many times more down a taller qy (a pattern grows, not stretches);
+--   `parked = true` applies it only
 --   while no tx / ty is set on the pane from outside
 -- P.stretchMode = "backdrop" (with stretchY): the panes stay where the layout has them (top
 --   aligned); only full-height pictures stretch down to fill the taller screen
@@ -291,7 +293,7 @@ local SEND_B, SEND_W = { 0, 0, 0, 0 }, { 1, 1, 1, 1 }
 local function setVert(v, x, y, u, vv, c)
   v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8] = x, y, u, vv, c[1], c[2], c[3], c[4]
 end
-local function quad(G, img, x0, y0, w, h, uv, cols, mat, mp, sh, wrapS, wrapT)
+local function quad(G, img, x0, y0, w, h, uv, cols, mat, mp, sh, wrapS, wrapT, tileY)
   -- texture coordinates: the pane's own, through the material's texture SRT (about the
   -- centre: (uv - 0.5) * scale + 0.5 + translate)
   local u = uv or DEFAULT_UV
@@ -300,6 +302,11 @@ local function quad(G, img, x0, y0, w, h, uv, cols, mat, mp, sh, wrapS, wrapT)
   if srt then tx, ty, sx, sy = srt[1], srt[2], srt[4], srt[5] end
   if mp then
     tx = mp["ts0.0"] or tx; ty = mp["ts0.1"] or ty; sx = mp["ts0.3"] or sx; sy = mp["ts0.4"] or sy
+  end
+  if tileY and tileY ~= 1 then
+    -- a repeating texture made taller: more rows of it, the top row where it was
+    ty = ty + 0.5 * sy * (tileY - 1)
+    sy = sy * tileY
   end
   local u1, v1 = (u[1] - 0.5) * sx + 0.5 + tx, (u[2] - 0.5) * sy + 0.5 + ty
   local u2, v2 = (u[3] - 0.5) * sx + 0.5 + tx, (u[4] - 0.5) * sy + 0.5 + ty
@@ -519,7 +526,8 @@ local function drawPane(self, G, pane, parentAlpha, sh, ctx)
         local qw, qh = st.w * (adj and adj.qx or 1), st.h * (adj and adj.qy or 1)
         local x0, y0 = rectOf(pane, qw, qh)
         local ws, wt = map and WRAP[map.wrapS], map and WRAP[map.wrapT]
-        quad(G, img, x0, y0, qw, qh, pane.uv, cols, self.images[pane.name] and PLAIN_MAT or mat, mp, sh, ws, wt)
+        quad(G, img, x0, y0, qw, qh, pane.uv, cols, self.images[pane.name] and PLAIN_MAT or mat, mp, sh, ws, wt,
+          adj and adj.tileY)
       end
     elseif pane.kind == "txt" then
       drawText(self, G, pane, st, alpha)

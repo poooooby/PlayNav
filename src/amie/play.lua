@@ -33,6 +33,21 @@ return function(mod, Pointer, G, Rules, Petting)
   local PLAY = { x = 0, y = TRAY_BOTTOM, w = 256, h = 110 }
   local PIC = { cx = 128, bottom = 150, scale = 2 }
   local DONE = { x = 200, y = 158, w = 50, h = 16 }
+  -- The screen's shape: laid out in the 3DS shape's 178 rows. On a taller screen (Kanto
+  -- Gear's) the tray, the puff row and the games picker stay at the top, the Pokemon and
+  -- its petting area sit DH/2 lower at their own size (the area grows to meet both), and
+  -- the hearts, the message and DONE go to the bottom (DH). DH = 0 on the 3DS shape.
+  local DH = 0
+  local function setShape(h)
+    local dh = math.max(0, (h or H) - H)
+    if dh == DH then return end
+    DH = dh
+    BODY.cy = 102 + DH / 2
+    PIC.bottom = 150 + DH / 2
+    PLAY.h = 110 + DH
+    DONE.y = 158 + DH
+  end
+  app.setShape = setShape
   -- the games picker over the Pokemon's head: the three badges, their names, the four ranks
   -- with their best stars
   local GAMES = { x = 8, y = 38, w = 240, h = 88, badge = 34, gap = 22, badgeY = 42, diffY = 92, diffW = 50, diffH = 13, diffGap = 5 }
@@ -429,6 +444,7 @@ return function(mod, Pointer, G, Rules, Petting)
 
   function app:draw(G2, w, h)
     local s = G.session
+    setShape(h)
     local font, small
     if app.fontsFn then font, small = app.fontsFn() end
     app.font, app.smallFont = font, small
@@ -635,7 +651,7 @@ return function(mod, Pointer, G, Rules, Petting)
     local lv = Rules.level(s.meters.affection)
     local heartImg = art("ui/icon_heart")
     for i = 1, 5 do
-      local hx, hy, r = 10 + (i - 1) * 12, 152, 4
+      local hx, hy, r = 10 + (i - 1) * 12, 152 + DH, 4
       if heartImg then
         G2.setColor(1, 1, 1, i <= lv and 1 or 0.3)
         G2.draw(heartImg, hx, hy, 0, 10 / heartImg:getWidth(), 10 / heartImg:getHeight(), heartImg:getWidth() / 2, heartImg:getHeight() / 2)
@@ -648,10 +664,10 @@ return function(mod, Pointer, G, Rules, Petting)
     end
     if s.message then
       G2.setColor(0, 0, 0, 0.6)
-      G2.rectangle("fill", 4, 160, 192, 14, 4, 4)
+      G2.rectangle("fill", 4, 160 + DH, 192, 14, 4, 4)
       G2.setColor(1, 1, 1, 1)
       if app.smallFont then G2.setFont(app.smallFont) end
-      fitText(G2, s.message, 6, 160, 188, 14, "center")
+      fitText(G2, s.message, 6, 160 + DH, 188, 14, "center")
       if app.font then G2.setFont(app.font) end
     end
     drawButton(G2, DONE, s.fromHome and "BACK" or "DONE", { 0.3, 0.3, 0.36 })

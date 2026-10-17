@@ -27,6 +27,11 @@ return function(mod, Pointer, G, Rules, Store, host)
   function app:wantsSurface() return G.session ~= nil and G.session.mode == "home" end
 
   local W, H = 256, 178
+  -- The screen's shape: the room is laid out in the 3DS shape's 178 rows; on a taller
+  -- screen (Kanto Gear's) the wallpaper covers it all, the room scene (Pokemon, decor,
+  -- visitors, gifts, menus) sits DH/2 lower at its own size, and the hearts, the message and
+  -- CLOSE stay at the bottom (DH). DH = 0 on the 3DS shape.
+  local DH = 0
   local FLOOR = { x = 28, y = 78, w = 200, h = 78 }     -- where the Pokemon may walk
   local CLOSE = { x = 200, y = 158, w = 50, h = 16 }
   local SPEED = 38                                     -- px/s
@@ -110,6 +115,9 @@ return function(mod, Pointer, G, Rules, Store, host)
   -- ------- geometry the driver and tests can ask for
 
   function app.petPos() return pet.x, pet.y end
+  -- where the room scene draws on screen: petPos / buttonPos / giftPos are scene points,
+  -- add this to y to tap them (DH/2 on a taller screen, 0 on the 3DS shape)
+  function app.sceneOffset() return DH / 2 end
   function app.giftPos(i) return 22 + (i - 1) * 16, 150 end
 
   local BUTTONS = { "decorate", "play", "switch" }
@@ -133,7 +141,9 @@ return function(mod, Pointer, G, Rules, Store, host)
     if not (s and s.mode == "home") then return end
     if ev.phase ~= "released" or not Pointer.isTap(rec, 16, 1.0) then return end
     local x, y = ev.x, ev.y
-    if inRect(x, y, CLOSE) then G.finish(); return end
+    if inRect(x, y - DH, CLOSE) then G.finish(); return end
+    -- everything else lives in the room scene
+    y = y - DH / 2
     if switchOpen then
       local party = host.party and host.party() or {}
       local n = math.min(6, #party)
@@ -391,6 +401,7 @@ return function(mod, Pointer, G, Rules, Store, host)
   end
 
   function app:draw(G2, w, h)
+    DH = math.max(0, (h or H) - H)
     local s = G.session
     local font, small
     if app.fontsFn then font, small = app.fontsFn() end
@@ -411,6 +422,9 @@ return function(mod, Pointer, G, Rules, Store, host)
     end
     if not s then return end
 
+    -- the room scene, DH/2 lower on a taller screen
+    G2.push()
+    G2.translate(0, DH / 2)
     -- placed decor, visitors and the Pokemon, all sorted by their feet
     local drawables = {}
     for _, it in ipairs(room.items or {}) do drawables[#drawables + 1] = { y = it.y or 0, item = it } end
@@ -562,7 +576,10 @@ return function(mod, Pointer, G, Rules, Store, host)
       end
     end
 
-    -- hearts, message, CLOSE
+    G2.pop()
+    -- hearts, message, CLOSE: at the bottom
+    G2.push()
+    G2.translate(0, DH)
     local lv = Rules.level(s.meters.affection)
     for i = 1, 5 do
       G2.setColor(i <= lv and 0.95 or 0.6, i <= lv and 0.35 or 0.6, i <= lv and 0.5 or 0.65, 1)
@@ -583,6 +600,7 @@ return function(mod, Pointer, G, Rules, Store, host)
     G2.rectangle("fill", CLOSE.x, CLOSE.y, CLOSE.w, CLOSE.h, 6, 6)
     G2.setColor(1, 1, 1, 0.95)
     G2.printf("CLOSE", CLOSE.x, CLOSE.y + CLOSE.h / 2 - 7, CLOSE.w, "center")
+    G2.pop()
   end
 
   function app:releaseAll()

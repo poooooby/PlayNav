@@ -121,6 +121,9 @@ local function body(game, log)
     end
   end
   local function tapAt(id, ax, ay) press(id, ax, ay); U.wait(2); release(id, ax, ay); U.wait(4) end
+  -- the touch screen's extra rows over the 3DS shape (TOUCH SCREEN SHAPE): bottom buttons
+  -- sit DH lower, the Pokemon and the boards DH/2
+  local function DH() return math.max(0, (X and X.H or 192) - 192) end
 
   -- ------- Alpha Sapphire art extraction (when the dump is linked into baseroms)
   if X.import then
@@ -188,7 +191,7 @@ local function body(game, log)
       local function openMenu(tag)
         for attempt = 1, 3 do
           local px, py = home.petPos()
-          tapAt(tag .. attempt, px, py - 16)
+          tapAt(tag .. attempt, px, py - 16 + (home.sceneOffset and home.sceneOffset() or 0))
           U.wait(8)
           if home.menuOpen() then return true end
         end
@@ -198,15 +201,15 @@ local function body(game, log)
       openMenu("hpet")
       shot("02c_home_menu")
       local bx, by = home.buttonPos("play")
-      tapAt("hplay", bx, by)
+      tapAt("hplay", bx, by + (home.sceneOffset and home.sceneOffset() or 0))
       U.wait(10)
       log("home PLAY: mode", R.state() and R.state().mode, "app", Apps:active().id)
-      tapAt("hback", 225, 166)
+      tapAt("hback", 225, 166 + DH())
       U.wait(10)
       log("play BACK: mode", R.state() and R.state().mode, "app", Apps:active().id)
       openMenu("hpet2")
       bx, by = home.buttonPos("switch")
-      tapAt("hswitch", bx, by)
+      tapAt("hswitch", bx, by + (home.sceneOffset and home.sceneOffset() or 0))
       U.wait(8)
       shot("02d_home_switch")
       tapAt("hswitchclose", 20, 60)
@@ -214,7 +217,7 @@ local function body(game, log)
       -- DECORATE: a cushion into the room, a wallpaper, a puff set out
       openMenu("hpet3")
       bx, by = home.buttonPos("decorate")
-      tapAt("hdeco", bx, by)
+      tapAt("hdeco", bx, by + (home.sceneOffset and home.sceneOffset() or 0))
       U.wait(8)
       log("decorate: mode", R.state() and R.state().mode, "app", Apps:active().id)
       local deco = Apps:get("decorate")
@@ -244,13 +247,13 @@ local function body(game, log)
       log("visitors: gift set", tostring(reqV.set), "category", tostring(reqV.category), "pending", #Vs.pending())
       shot("02f_home_gift")
       local gx, gy = home.giftPos(#Vs.pending())
-      tapAt("hgift", gx, gy)
+      tapAt("hgift", gx, gy + (home.sceneOffset and home.sceneOffset() or 0))
       U.wait(8)
       log("gift claimed: message", tostring(R.state() and R.state().message), "pending", #Vs.pending(),
         "owned decor", R.decor.ownedCount(R.store.decor()))
       U.wait(60 * 3)
       shot("02g_home_decorated")
-      tapAt("hclose", 225, 166)
+      tapAt("hclose", 225, 166 + DH())
       U.wait(10)
       log("after CLOSE from the room: top", topId(), "session", tostring(R.state()), "mode", state().mode)
     end
@@ -380,7 +383,7 @@ local function body(game, log)
     -- a hit: two quick taps on the same place
     m.enjoyment = 50
     local enjHit = m.enjoyment
-    tapAt("hit1", 120, 110); tapAt("hit2", 120, 110)
+    tapAt("hit1", 120, 110 + DH() / 2); tapAt("hit2", 120, 110 + DH() / 2)
     U.wait(5)
     log("hit: enjoyment", enjHit, "->", m.enjoyment)
     -- ------- the minigames: picker, then each game for a few seconds
@@ -449,15 +452,15 @@ local function body(game, log)
       end
     end)
     playGame(3, "game_tile", 25, "08g_tile_puzzle", function()
-      tapAt("tile1", 28 + 20, 12 + 18)
-      tapAt("tile2", 28 + 60, 12 + 18)
+      tapAt("tile1", 28 + 20, 12 + 18 + DH() / 2)
+      tapAt("tile2", 28 + 60, 12 + 18 + DH() / 2)
     end)
     shot("08h_games_picker_after")
-    tapAt("gback", 225, 166)
+    tapAt("gback", 225, 166 + DH())
     U.wait(8)
     log("back from the picker: mode", R.state() and R.state().mode, "app", Apps:active().id)
     shot("09_refresh_fed")
-    tapAt("rdone", 225, 166)
+    tapAt("rdone", 225, 166 + DH())
     U.wait(10)
     local mons = loader.modSave.play_nav and loader.modSave.play_nav.mons
     local n = 0

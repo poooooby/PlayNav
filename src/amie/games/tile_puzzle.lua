@@ -22,6 +22,10 @@ return function(mod, Pointer, G, Games, Rules, host)
   local W, H = 256, 178
   local PIC_W, PIC_H = 200, 150
   local BOARD = { x = 28, y = 9 }
+  -- the screen's shape: the board centres in the room above the status bar on a taller
+  -- screen (Kanto Gear's). y 9 on the 3DS shape's 178 rows.
+  local function setShape(h) BOARD.y = 9 + math.max(0, (h or H) - H) / 2 end
+  app.setShape = setShape
   local FRAME = 5              -- the board's frame around the picture
   local SPRITE_K = 1.5         -- the three Pokemon in the picture
   local GRID = { easy = { 5, 4 }, normal = { 6, 5 }, hard = { 8, 6 } }
@@ -346,6 +350,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
 
   function app:draw(G2, w, h)
+    setShape(h)
     local s = G.session
     local font, small
     if app.fontsFn then font, small = app.fontsFn() end

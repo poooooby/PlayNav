@@ -44,7 +44,7 @@ for _, generation in ipairs({ 3 }) do
     T.check(type(exports.refresh) == "table", "refresh is exported under its old name")
     T.eq(exports._test.surfaceWanted(), false, "the surface is dormant with no session")
     T.eq(exports.W, 256, "the surface is 256 wide")
-    T.eq(exports.H, 192, "...and 192 tall")
+    T.eq(exports.H, 230, "...and 230 tall (Kanto Gear's shape, the default)")
     T.eq(exports.state().mode, "off", "before the first frame nothing is active")
   end
   run.release()

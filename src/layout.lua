@@ -1,13 +1,28 @@
 -- Pure geometry for the DS-style surface. No love access, so every function
 -- here runs headless in the tests.
 --
--- The surface is a logical 256x192 space (the real DS bottom screen). The
--- layout decides where that space sits in the OS window and at what scale,
--- and converts window coordinates back into logical ones.
+-- The surface is a logical 256-wide space: 256x230 by default, Kanto Gear's phone shape
+-- (its 160x144 screen, 10:9), or 256x192, the 3DS / DS bottom screen (option TOUCH SCREEN
+-- SHAPE; Layout.setShape). The layout decides where that space sits in the OS window and
+-- at what scale, and converts window coordinates back into logical ones. Every app draws
+-- to the height it is handed; the training screens' 320-wide layout space is
+-- Layout.H / 0.8 tall (Layout.LH: 287.5 or 240).
 
 local Layout = {}
 
-Layout.W, Layout.H = 256, 192
+Layout.SHAPES = { gear = 230, ["3ds"] = 192 }
+Layout.W, Layout.H = 256, Layout.SHAPES.gear
+Layout.shape = "gear"
+Layout.LH = Layout.H / 0.8
+
+-- switch the surface's shape; returns true when it changed
+function Layout.setShape(shape)
+  local h = Layout.SHAPES[shape] or Layout.SHAPES.gear
+  if not Layout.SHAPES[shape] then shape = "gear" end
+  if Layout.H == h and Layout.shape == shape then return false end
+  Layout.shape, Layout.H, Layout.LH = shape, h, h / 0.8
+  return true
+end
 
 local function floor(v) return math.floor(v + 0.0001) end
 

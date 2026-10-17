@@ -59,6 +59,12 @@ local function body(game, log)
   local X = loader and loader.exports and loader.exports[MOD_ID]
   if not X then log("FAIL no exports"); return end
   local TR = X.training
+  -- PROBE_SHAPE=gear|3ds: the touch screen's shape for this run (the option event only;
+  -- nothing is written to the player's options)
+  if os.getenv("PROBE_SHAPE") then
+    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
+    log("shape:", os.getenv("PROBE_SHAPE"), "W x H", tostring(X.W) .. "x" .. tostring(X.H))
+  end
   if not TR then log("FAIL training not exported"); return end
   local Apps = X.apps
   loader.modOptions[MOD_ID] = loader.modOptions[MOD_ID] or {}
