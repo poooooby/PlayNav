@@ -7,8 +7,9 @@ Archive a/1/4/5 of Alpha Sapphire holds the whole Pokemon-Amie decor
 catalogue in blocks per category, in Bulbapedia's order:
   18 type blocks of 8:  thumbnail, wallpaper, cushion 1a, 1b, cushion 2a, 2b, object 1, object 2
   16 blocks of 6:       thumbnail, wallpaper, cushion 1, cushion 2, object 1, object 2
-                        (9 colours, 3 clouds, 3 patterns, Classy; Classy's block starts one
-                         entry late and ends with the Wooden Bed at entry 240)
+                        (9 colours, 3 clouds, 3 patterns, Classy; the colours start at 145,
+                         entry 144 holding an unnamed 26x26 texture, and Classy ends with the
+                         Wooden Bed at entry 240)
 Item names come from Bulbapedia, "List of Pokemon-Amie Decor items" (CC BY-NC-SA 2.5), with
 three pairs put in the game's own order (text archive a/0/7/3 file 110 lists every item in
 archive order): Blue before Red Circle Cushion, Iron before Cast-Iron Cushion, and the
@@ -132,6 +133,11 @@ def main(argv):
     for category, set_id, entries in blocks():
         if category == "Classy":
             entry = 235
+        elif set_id == "A" and entry == 144:
+            # the colour sets start one entry late: 144 holds an unnamed 26x26 texture
+            # (found 2026-10-17: every label from here to 233 sat one entry early, so the
+            # colour wallpapers drew their 40x40 thumbnails and each item its neighbour's art)
+            entry = 145
         for kind, name in entries:
             r = by_entry.get(entry)
             if r is None:

@@ -12,6 +12,10 @@ All notable changes to this mod are documented here. The format follows
   into the Gear as modules. Every bottom screen is laid out for it with the art at its own
   size: top bars stay at the top, bottom bars and buttons go to the new bottom, and the
   room in between grows. **3DS** keeps the original 4:3 layout exactly.
+- The 15 colour, cloud and pattern wallpapers (Pink through Checkered) show their real
+  room pictures instead of a blown-up thumbnail, and those sets' cushions, stars, cubes and
+  cloud items show their own pictures: the import had labelled them one archive entry early.
+  The art is unpacked again once, automatically.
 - **CLEAR EXTRACTED ART** option: deletes everything PlayNav unpacked from your card image
   and returns to the PlayNav screen (Begin extraction, or the missing-card warning when the
   image is no longer imported). It switches itself back off afterwards.
