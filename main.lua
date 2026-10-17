@@ -765,13 +765,33 @@ return function(mod)
   -- already delivered is a zero-length step here and changes nothing.
   local function pollMouse()
     if not (love and love.mouse and love.mouse.getPosition) then return end
+    if state.mode ~= "split" then
+      state.polledX, state.polledY, state.mouseWasDown = nil, nil, nil
+      return
+    end
     local rec = Pointer:get("mouse")
-    if not rec or state.mode ~= "split" then state.polledX, state.polledY = nil, nil; return end
     local mx, my = love.mouse.getPosition()
+    local down = love.mouse.isDown ~= nil and love.mouse.isDown(1) or false
+    if not rec then
+      state.polledX, state.polledY = nil, nil
+      -- Desktop Gen 3 never delivers the mouse to mods as events (the game
+      -- instance keeps its own handler, found 2026-10-17), so the poll starts
+      -- the pointer itself the frame the button goes down on the surface.
+      if down and not state.mouseWasDown then
+        feedWindow("pressed", "mouse", mx, my, nil, "mouse")
+      end
+      state.mouseWasDown = down
+      return
+    end
+    state.mouseWasDown = down
     if mx ~= state.polledX or my ~= state.polledY then
       state.polledX, state.polledY = mx, my
       local lx, ly = Layout.toLogical(state.rect or { x = 0, y = 0, scale = 1 }, mx, my)
       if lx ~= rec.x or ly ~= rec.y then Pointer:move("mouse", lx, ly) end
+    end
+    if not down then
+      local lx, ly = Layout.toLogical(state.rect or { x = 0, y = 0, scale = 1 }, mx, my)
+      Pointer:finish("mouse", lx, ly)
     end
   end
 
@@ -983,6 +1003,14 @@ return function(mod)
   mod.hooks:wrap("input.pointer", function(next, game, ev)
     state.game = game
     if state.mode == "split" and mod.generation ~= 3
+        and feedWindow(ev.phase, ev.id, ev.x, ev.y, ev.pressure, ev.source) then
+      return true
+    end
+    -- Gen 3 on a desktop: a real mouse reaches gameplay only as these pointer
+    -- events (the engine's #807 path; Game3 never dispatches the old mouse
+    -- method wrap), so the surface claims its own clicks here. Touches keep
+    -- the TouchControls route, which never emits a pointer event it consumed.
+    if state.mode == "split" and mod.generation == 3 and ev.source == "mouse"
         and feedWindow(ev.phase, ev.id, ev.x, ev.y, ev.pressure, ev.source) then
       return true
     end
