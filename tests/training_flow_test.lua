@@ -232,11 +232,17 @@ do
   S.session.anim.lock = 0
   ok, why = S.hitBag("tap")
   T.eq(why, "busy", "...taps still wait under the words")
-  S.tick((S.GIFT.UNLOCK - S.GIFT.WORDS_AT + 1) / 30)
+  T.eq(S.GIFT.DONE / 30, 6, "the whole hold is 6 seconds, the words' end included")
+  S.tick((S.GIFT.DONE - S.GIFT.WORDS_AT - 2) / 30)
   S.session.anim.lock = 0
-  T.check(S.hitBag("tap"), "taps are taken again after the clip")
-  S.tick(S.GIFT.DONE / 30)
-  T.eq(S.state().gift, nil, "the presentation ends on its own")
+  ok, why = S.hitBag("tap")
+  T.eq(why, "busy", "...taps wait until the words clear")
+  T.check(S.state().message ~= nil, "...which are still up")
+  S.tick(3 / 30)
+  T.eq(S.state().gift, nil, "at 6 seconds the presentation ends")
+  T.eq(S.state().message, nil, "...the words clear with it")
+  S.session.anim.lock = 0
+  T.check(S.hitBag("tap"), "...and taps are taken again")
   S.GIFT_SHOW = false
   table.remove(Store.bags())   -- the found bag out again: the next tests' racks as before
   S.session.message, S.session.messageUntil = nil, nil

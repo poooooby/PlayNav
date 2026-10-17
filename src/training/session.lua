@@ -680,9 +680,10 @@ return function(mod, deps)
   -- a found bag's presentation (the game's training_lower_sand_bag_get clip, 121 frames,
   -- Wooble's capture 2026-10-17): punching stops, the found bag drops down in front (to
   -- frame 17, a small bounce), hangs for a look, rises away behind the frame at 67..80,
-  -- and the words come up over a dimmed room at 105. Taps are taken again from UNLOCK;
-  -- the dim and the words stay until DONE.
-  T.GIFT = { HUNG = 17, RISE = 67, GONE = 80, WORDS_AT = 105, UNLOCK = 121, DONE = 195 }
+  -- and the words come up over a dimmed room at 105. The whole presentation is one hold
+  -- of 6 seconds (Wooble, 2026-10-17): taps and the automatic punches wait from the find
+  -- until the words clear at DONE (180 frames), and the words clear exactly then.
+  T.GIFT = { HUNG = 17, RISE = 67, GONE = 80, WORDS_AT = 105, UNLOCK = 180, DONE = 180 }
   T.GIFT_SHOW = true   -- the flow test's bulk loops turn it off, as they do FINISH_MOVE
   -- the presentation is holding the room (input and punches wait)
   function T.gifting()
@@ -1015,6 +1016,8 @@ return function(mod, deps)
       end
       if gf >= T.GIFT.DONE then
         s.anim.gift = nil
+        -- the words go with the hold, to the frame
+        if s.message == gift.line then s.message, s.messageUntil = nil, nil end
         onChange()
       end
     end
