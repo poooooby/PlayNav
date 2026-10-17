@@ -574,8 +574,14 @@ return function(mod)
   -- layout does not jump when a PlayNav screen hides the pad.
   local okTC, TC = pcall(require, "src.core.TouchControls")
   if not (okTC and type(TC) == "table") then TC = nil end
+  local gearPresent = nil
   local function padReserve(ww, wh)
     if wh < ww or not TC then return 0 end
+    -- Kanto Gear owns the controls when it is installed: the engine pad never
+    -- shows, so no room is held for it and the touch screen sits at the window's
+    -- bottom, where the Gear's phone sat (feature/KantoGearAdd)
+    if gearPresent == nil then gearPresent = (mod.find and mod:find("kanto_gear")) ~= nil end
+    if gearPresent then return 0 end
     local game = state.game
     local opts = game and type(game.options) == "table" and game.options or nil
     if opts and TC.normalizeConfig then
@@ -782,7 +788,10 @@ return function(mod)
     -- an app the player can walk around with (Super Training's home) keeps the engine's pad
     local active = Apps:active()
     local walking = active ~= nil and active.fieldPlay == true
-    PadHide:apply(mode ~= "off" and not walking and mod.options:get("hide_virtual_pad") ~= false, game)
+    -- with Kanto Gear installed the engine pad is redundant (the Gear owns the
+    -- controls), so it hides under the surface even on the walking screens
+    if gearPresent == nil then gearPresent = (mod.find and mod:find("kanto_gear")) ~= nil end
+    PadHide:apply(mode ~= "off" and (gearPresent == true or not walking) and mod.options:get("hide_virtual_pad") ~= false, game)
     -- apps keep ticking while dormant so a session can wake the surface
     Apps:update(dt, game)
     -- Super Training's home screen runs with the overworld live: its session ticks here
