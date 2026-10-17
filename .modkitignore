@@ -16,6 +16,7 @@ tests/drivers/games_probe.lua
 tests/drivers/second_priority_probe.lua
 tests/drivers/split_probe.lua
 tests/drivers/training_probe.lua
+tests/drivers/import_gate_probe.lua
 tests/fixtures/expected.lua
 tests/fixtures/mini.cci
 tests/games_test.lua

@@ -48,9 +48,10 @@ on a touch screen below the game or on a device's second display.
 - 🧸 **Pokémon-Amie:** Spend time with your Pokémon to raise its affection, and it fights better
   for you.
 - 🏋️ **Super Training:** Raise your Pokémon's EVs with training bags and shooting regimens.
-- 🖼️ **The real 3DS look and sound, from your own game:** Give PlayNav your own Alpha Sapphire
-  card image and it uses that game's art, music, sound effects and English text throughout. Without it, simple drawn shapes and
-  PlayNav's own wording stand in.
+- 🖼️ **The real 3DS look and sound, from your own game:** PlayNav builds its art, music, sound
+  effects and English text from your own Alpha Sapphire card image. The import is required:
+  until it has run, opening Pokémon-Amie or Super Training shows the PlayNav screen with a
+  **Begin extraction** button — or a warning that the card image is missing.
 - 🔍 **Sharp at any size:** Both screens are drawn at your display's full resolution. The 3DS
   art stays smooth at any size, Pokémon sprites keep their square pixels, and text stays crisp.
   A line too long for its box shrinks to fit. The overworld, battles and the rest of the game
@@ -177,8 +178,11 @@ Open **OPTIONS → MODS → PlayNav**.
    | **Size** | 2,147,483,648 bytes (2 GiB) |
    | **MD5** | `0563f9dee1b95de32d579e40c20e2bfc` |
 
-   The launcher checks it and keeps a private copy. On the next start PlayNav unpacks the art,
-   music, sound effects and text in a few seconds, then tells you the copy can be removed under Imported files.
+   The launcher checks it and keeps a private copy. On the next start the PlayNav screen
+   unpacks the art, music, sound effects and text with a progress bar — a few seconds, in the
+   background while you play — then tells you the copy can be removed under Imported files.
+   If the automatic start is off, the same screen offers **Begin extraction** whenever you
+   open Pokémon-Amie or Super Training.
 
 ## 🔗 Works With
 

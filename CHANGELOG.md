@@ -7,10 +7,19 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- A proper PlayNav screen for the art import, in the banner's own look: **Begin extraction**
+  (or Resume) when the import hasn't run, a modern progress bar while it does, a slow-flashing
+  warning when the Alpha Sapphire card image is missing, and a brief READY card when it's done.
 - Core Training plays the game's presentation when a punch digs up a new bag (from Wooble's
   capture and the game's own `sand_bag_get` animation): punching pauses, the found bag drops
   down in front for a look with your Pokémon celebrating, rises back behind the top frame,
   and the announcement comes up over the dimmed room.
+
+### Changed
+
+- Pokémon-Amie and Super Training now require the extracted art: opening them before the
+  import has run lands on the PlayNav screen instead of a stand-in-art version. Other mods
+  calling the exports get `false, "import_needed"` meanwhile.
 
 ## [0.3.5] - 2026-10-15 (pre-alpha)
 

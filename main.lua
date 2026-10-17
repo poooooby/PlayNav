@@ -348,7 +348,7 @@ return function(mod)
     if makeExtract and Recipe and Assets then
       Extract = makeExtract(mod, { recipe = Recipe, assets = Assets, onChange = dirty })
       if makeImportApp then
-        local ok, app = pcall(makeImportApp, mod, Pointer, Extract)
+        local ok, app = pcall(makeImportApp, mod, Pointer, Extract, Assets)
         if ok and type(app) == "table" then Apps:register(app) end
       end
     else
@@ -691,6 +691,37 @@ return function(mod)
     end
   end
 
+  -- PlayNav needs its extracted art: any attempt to open Pokemon-Amie or Super Training
+  -- with the cache missing or stale lands on the PLAYNAV screen instead (Begin extraction,
+  -- the progress bar, or the missing-card-image warning). True = gated, the screen is up.
+  local function importGate()
+    if not Extract then return false end
+    if Extract.state == "running" or Extract.state == "finishing" or not Extract.cacheComplete() then
+      Extract.check()
+      Apps:setActive("import", state.game)
+      return true
+    end
+    return false
+  end
+  do
+    -- the PLAYNAV screen's x button steps aside (the surface goes dormant without a session)
+    local gateApp = Apps:get("import")
+    if gateApp then
+      gateApp.close = function() Apps:setActive("play", state.game) end
+      -- its play button: Super Training's home screen opens behind the closed shutters
+      gateApp.openTraining = function()
+        if not Training then return false, "training off" end
+        if Assets then Assets.refresh() end
+        local ok, why = Training.open()
+        if ok and Training.session then
+          local X = Training.TRANS or { CLOSE = 20, OPEN = 10 }
+          Training.session.trans = { to = "core", from = "gate", t = X.CLOSE + 2, switched = true }
+        end
+        return ok, why
+      end
+    end
+  end
+
   -- While a mouse pointer is down on the surface, follow the real cursor
   -- every frame. Event routing for a held mouse differs per generation and
   -- per touch flag (see love.mousemoved in the engine's main.lua); polling
@@ -948,6 +979,7 @@ return function(mod)
           onSelect = function()
             local ok, StartMenu = pcall(require, "src.ui.game3.start_menu")
             if ok and StartMenu and StartMenu.close then pcall(StartMenu.close, true) end
+            if importGate() then return end
             local okO, why = Amie.open()
             if not okO then mod.log:info("amie from the menu: %s", tostring(why)) end
           end,
@@ -975,6 +1007,7 @@ return function(mod)
     local Strip = makeStrip and makeStrip(function() return Assets end)
     Training.onSwitch = function()
       if Training.session then Training.finish() end
+      if importGate() then return end
       local ok, why = Amie.open()
       if not ok then mod.log:info("switch to Amie: %s", tostring(why)) end
     end
@@ -989,6 +1022,7 @@ return function(mod)
         if Amie.session and Amie.session.mode == "home" and ev.phase == "released"
             and Pointer.isTap(rec, 16, 1.0) and Strip.hit(ev.x, ev.y, 256, self.bleed or 14) then
           Amie.finish()
+          if importGate() then return end
           local ok, why = Training.open()
           if not ok then mod.log:info("switch to Super Training: %s", tostring(why)) end
           return
@@ -1017,6 +1051,7 @@ return function(mod)
           if ok and StartMenu and StartMenu.close then pcall(StartMenu.close, true) end
           -- the entry toggles: Super Training stays open while the player walks
           if Training.session then Training.finish(); return end
+          if importGate() then return end
           local okO, why = Training.open()
           if not okO then mod.log:info("training from the menu: %s", tostring(why)) end
         end,
@@ -1060,8 +1095,14 @@ return function(mod)
   end
   if Amie then
     mod.exports.amie = {
-      open = function(mon) return Amie.open(mon) end,
-      openPlay = function(mon) return Amie.openPlay(mon) end,
+      open = function(mon)
+        if importGate() then return false, "import_needed" end
+        return Amie.open(mon)
+      end,
+      openPlay = function(mon)
+        if importGate() then return false, "import_needed" end
+        return Amie.openPlay(mon)
+      end,
       state = function() return Amie.state() end,
       onBattleEnded = function(ev) return Amie.onBattleEnded(ev) end,
       puffs = function() return Store.puffs() end,
@@ -1080,7 +1121,10 @@ return function(mod)
   end
   if Training then
     mod.exports.training = {
-      open = function(mon) return Training.open(mon) end,
+      open = function(mon)
+        if importGate() then return false, "import_needed" end
+        return Training.open(mon)
+      end,
       finish = function() return Training.finish() end,
       state = function() return Training.state() end,
       session = Training,
@@ -1121,6 +1165,7 @@ return function(mod)
     surface = Surface,
     padHide = PadHide,
     cutout = Cutout,
+    extract = function() return Extract end,
   }
 
   mod.log:info("PlayNav ready (gen %s, touch screen %s, shown %s)", tostring(mod.generation),
