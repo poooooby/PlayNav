@@ -37,7 +37,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local WHITE4 = { { 255, 255, 255, 255 }, { 255, 255, 255, 255 }, { 255, 255, 255, 255 }, { 255, 255, 255, 255 } }
   local FADE_L = { { 124, 167, 196, 255 }, { 255, 255, 255, 255 }, { 124, 167, 196, 255 }, { 255, 255, 255, 255 } }
   local FADE_R = { { 255, 255, 255, 255 }, { 124, 167, 196, 255 }, { 255, 255, 255, 255 }, { 124, 167, 196, 255 } }
-  local MON_ALPHA = 225   -- the Pokemon: a little less see-through than the bags' 200
+  local MON_ALPHA = 200
   local PANE = {
     bg = { 160, 120, 330, 250, colors = { { 0, 111, 209, 255 }, { 0, 111, 209, 255 }, { 84, 200, 255, 255 }, { 84, 200, 255, 255 } } },
     glowLow = { 160, 167, 320, 50, colors = { { 168, 226, 255, 30 }, { 168, 226, 255, 30 }, { 168, 226, 255, 255 }, { 168, 226, 255, 255 } } },
@@ -797,7 +797,11 @@ return function(mod, Pointer, T, Rules, Radar, host)
       drawFinishFx(G, fin, ff)
       return
     end
-    local mood = (fainted and "sad") or (s.rec.resting and "silence") or (T.refreshed() and "smile")
+    -- the smile hides while it strikes (a punch, the found bag's lunges) and shows again
+    -- once it is back at its spot (Wooble's capture, 2026-10-17); the finish returned above
+    local striking = f or (gift and gift.t * 30 < TRACK.giftMon.frames)
+    local mood = (fainted and "sad") or (s.rec.resting and "silence")
+      or (T.refreshed() and not striking and "smile")
       or ((s.anim.burst or 0) > 0 and "surprise") or nil
     local bubble = mood and art("training/mood_" .. mood)
     if bubble then
