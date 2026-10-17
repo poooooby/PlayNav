@@ -37,6 +37,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local WHITE4 = { { 255, 255, 255, 255 }, { 255, 255, 255, 255 }, { 255, 255, 255, 255 }, { 255, 255, 255, 255 } }
   local FADE_L = { { 124, 167, 196, 255 }, { 255, 255, 255, 255 }, { 124, 167, 196, 255 }, { 255, 255, 255, 255 } }
   local FADE_R = { { 255, 255, 255, 255 }, { 124, 167, 196, 255 }, { 255, 255, 255, 255 }, { 124, 167, 196, 255 } }
+  local MON_ALPHA = 225   -- the Pokemon: a little less see-through than the bags' 200
   local PANE = {
     bg = { 160, 120, 330, 250, colors = { { 0, 111, 209, 255 }, { 0, 111, 209, 255 }, { 84, 200, 255, 255 }, { 84, 200, 255, 255 } } },
     glowLow = { 160, 167, 320, 50, colors = { { 168, 226, 255, 30 }, { 168, 226, 255, 30 }, { 168, 226, 255, 255 }, { 168, 226, 255, 255 } } },
@@ -760,7 +761,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local y = 120 - (eval(tr.ty, at) or -18)
     local r = math.rad(-(eval(tr.rz, at) or 0))
     local icon = activeIcon()
-    G.setColor(1, 1, 1, 200 / 255)
+    -- a touch less see-through than the bags (Wooble, 2026-10-17)
+    G.setColor(1, 1, 1, MON_ALPHA / 255)
     if icon and icon.image then
       local q = icon.quads and (icon.quads[0] or icon.quads[1])
       local fw, fh = icon.w or 32, icon.h or 32
@@ -826,7 +828,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local img = bagArt(Rules.bag(gift.id))
     if not img then return end
     local iw, ih = img:getDimensions()
-    G.setColor(1, 1, 1, 1)
+    -- see-through like the hanging bag (pane 4e takes the bag's alpha, 200)
+    G.setColor(1, 1, 1, (PANE.bag.alpha or 255) / 255)
     G.draw(img, 90, 120 - ty, 0, 40 / iw, 100 / ih, iw / 2, ih / 2)
   end
 
