@@ -7,6 +7,18 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- Berry Picker, closer to the game: each Pokémon rises from the bottom of the screen to ask
+  for its berry and drops back out of sight once served; a berry let go anywhere but on an
+  asking Pokémon falls to the ground and is lost, back on the tree once it has fallen off
+  the screen; the end-of-game rain shows only falling berries (none bunched at the top);
+  the RESULTS card sits in the middle of the top screen with its frame's corners matching
+  (window frames now honour the game's texture rotation), gold stars over all five faint
+  ones, and the berry count centred on its tan box; the thought bubbles sit lower and the
+  Pokémon a size larger, as in the game; "Time Left" is larger and in from the corner,
+  turning red at 5 seconds with a beat each second; the HIGH SCORE bar is larger and off
+  the edges; the heap at the end is every berry you picked, stacked, each the kind you
+  delivered at the tree berries' size; which Pokémon asks next is random, and different
+  every game.
 - Berry Picker is the game's own (from Wooble's capture): the demo where the hand feeds each
   Pokémon, READY and START!, Pokémon under the tree thinking of the berry they want, a yellow
   note for the right berry and an orange one with stars for a quick one, an X for the wrong

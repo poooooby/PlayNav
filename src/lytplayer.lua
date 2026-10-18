@@ -24,7 +24,8 @@
 -- P.stretchMode = "backdrop" (with stretchY): the panes stay where the layout has them (top
 --   aligned); only full-height pictures stretch down to fill the taller screen
 -- P:setText(pane, s, opts) (opts.align "left" | "center" | "right", opts.valign, opts.color,
---   opts.outline: a colour drawn one screen pixel all round first) ;
+--   opts.outline: a colour drawn one screen pixel all round first, opts.scale: the font
+--   size times this) ;
 -- P:setImage(pane, img) ; P:box(pane) -> x, y, w, h in layout units (rotation ignored)
 
 local Player = {}
@@ -198,7 +199,7 @@ end
 
 function Player:setText(pane, s, o)
   self.texts[pane] = s and { s = s, align = o and o.align, color = o and o.color, valign = o and o.valign,
-    outline = o and o.outline } or nil
+    outline = o and o.outline, scale = o and o.scale } or nil
 end
 
 function Player:setImage(pane, img) self.images[pane] = img end
@@ -397,7 +398,7 @@ end
 local function drawText(self, G, pane, st, alpha)
   local t = self.texts[pane.name]
   if not t then return end
-  local font, k = fontFor(G, pane.fontH, self.opts)
+  local font, k = fontFor(G, pane.fontH * (t.scale or 1), self.opts)
   if not font or k <= 0 then return end
   local w, h = st.w, st.h
   local x0, y0 = rectOf(pane, w, h)
@@ -470,18 +471,36 @@ end
 
 -- a frame's texture coordinates: texel sized (the texture at its own size, the wrap mode
 -- stretching or tiling past it), from the outer edges it is anchored to, mirrored where the
--- frame's material scales its texture by -1 (how the game flips a shared corner texture)
-local FRAME_UV = { 0, 0, 1, 0, 0, 1, 1, 1 }
-function Player.frameUV(r, iw, ih, sx, sy, out)
+-- frame's material scales its texture by -1 (how the game flips a shared corner texture),
+-- turned where it rotates it (rot, degrees: the other way the game shares one corner and
+-- one edge texture round a window - Berry Picker's RESULTS card 3o: corners 0 / -90 / 90 /
+-- 180, edges L 90, R -90, T 0, B 180; -90 turns the picture clockwise on screen). Out: the
+-- quad's TL, TR, BL, BR (u, v).
+function Player.frameUV(r, iw, ih, sx, sy, out, rot)
   out = out or {}
-  local su, sv = r.w / iw, r.h / ih
+  local turn = math.floor(((rot or 0) % 360) / 90 + 0.5) % 4   -- 0, 1 (90), 2 (180), 3 (-90)
+  -- the rect as the texture sees it (a quarter turn swaps its sides); a turned frame is
+  -- anchored from its texture's own top left
+  local rw, rh = r.w, r.h
+  if turn == 1 or turn == 3 then rw, rh = r.h, r.w end
+  local su, sv = rw / iw, rh / ih
   local u0, u1 = 0, su
-  if r.ax == "r" then u0, u1 = 1 - su, 1 end
   local v0, v1 = 0, sv
-  if r.ay == "b" then v0, v1 = 1 - sv, 1 end
+  if turn == 0 then
+    if r.ax == "r" then u0, u1 = 1 - su, 1 end
+    if r.ay == "b" then v0, v1 = 1 - sv, 1 end
+  end
   if (sx or 1) < 0 then u0, u1 = 1 - u0, 1 - u1 end
   if (sy or 1) < 0 then v0, v1 = 1 - v0, 1 - v1 end
-  out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] = u0, v0, u1, v0, u0, v1, u1, v1
+  if turn == 0 then
+    out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] = u0, v0, u1, v0, u0, v1, u1, v1
+  elseif turn == 3 then   -- clockwise: the texture's top left lands top right
+    out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] = u0, v1, u0, v0, u1, v1, u1, v0
+  elseif turn == 1 then   -- anticlockwise: its top left lands bottom left
+    out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] = u1, v0, u1, v1, u0, v0, u0, v1
+  else                    -- half a turn
+    out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] = u1, v1, u0, v1, u1, v0, u0, v0
+  end
   return out
 end
 
@@ -513,7 +532,7 @@ local function drawFrames(self, G, pane, w, h, x0, y0, alpha, sh, cols, cm, cimg
     if img and m and r.w > 0 and r.h > 0 then
       local iw, ih = img:getDimensions()
       local srt = m.srt and m.srt[1]
-      local uv = Player.frameUV(r, iw, ih, srt and srt[4], srt and srt[5], self.fuv)
+      local uv = Player.frameUV(r, iw, ih, srt and srt[4], srt and srt[5], self.fuv, srt and srt[3])
       local map = m.maps[1]
       FRAME_MAT.black, FRAME_MAT.white = m.black, m.white
       quad(G, img, x0 + r.x, y0 + r.y, r.w, r.h, uv, white, FRAME_MAT, nil, sh,

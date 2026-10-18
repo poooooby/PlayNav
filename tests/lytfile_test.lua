@@ -46,6 +46,19 @@ do
   local P4 = Player.windowRects(230, 50, 4, { { 16, 24 }, { 16, 24 }, { 16, 24 }, { 16, 24 } })
   local uvRB = Player.frameUV(P4[4], 16, 24, 1, -1)
   T.check(P4[4].w == 214 and uvRB[3] == 1 and uvRB[1] < 0, "a stretched corner is anchored at its outer edge")
+  -- one corner and one edge texture turned round a window (Berry Picker's RESULTS card 3o):
+  -- out = TL, TR, BL, BR (u, v); the texture's top left (0, 0) must land at the turned corner
+  local C = { x = 0, y = 0, w = 16, h = 16, ax = "l", ay = "t" }
+  local function at(uv, corner) return uv[corner * 2 - 1], uv[corner * 2] end
+  local u, v = at(Player.frameUV(C, 16, 16, 1, 1, nil, -90), 2)
+  T.check(u == 0 and v == 0, "-90 turns clockwise: the texture's top left lands top right")
+  u, v = at(Player.frameUV(C, 16, 16, 1, 1, nil, 90), 3)
+  T.check(u == 0 and v == 0, "90 turns anticlockwise: it lands bottom left")
+  u, v = at(Player.frameUV(C, 16, 16, 1, 1, nil, 180), 4)
+  T.check(u == 0 and v == 0, "180: it lands bottom right")
+  local side = Player.frameUV({ x = 0, y = 16, w = 16, h = 176, ax = "l", ay = "t" }, 16, 16, 1, 1, nil, 90)
+  T.check(math.abs(side[1] - 11) < 1e-9 and side[2] == 0 and side[5] == 0 and side[6] == 0,
+    "a turned edge tiles along the screen's height (176 / 16 = 11 repeats)")
 end
 
 local dir = os.getenv("PLAYNAV_CACHE") or "mod_cache/play_nav/oras/lyt/"
