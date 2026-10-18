@@ -112,18 +112,41 @@ local function sameGroups(a, b)
   return true
 end
 
--- start a clip from its first frame; a clip already running on the same groups gives way
+-- a pane a clip carries tracks for (callers name the sample pane with o.sample when the clip
+-- also carries other panes' tracks: reward get_item has the smoke's too)
+local function samplePane(clip)
+  for name in pairs(clip.panes) do return name end
+  return nil
+end
+
+-- start a clip from its first frame; a clip already running on the same groups gives way.
+-- o.as = paneName plays a clip the game made on one sample pane (its tracks on a pane
+-- outside its groups: nuts kinomi_catch on pane 3, reward get_item on pane 0) on that pane
+-- instead; such plays are kept per pane, so one clip can run on several at once.
 function Player:play(name, o)
   local c = self:clip(name)
   if not c then return false end
   o = o or {}
   for i = #self.active, 1, -1 do
     local a = self.active[i]
-    if a.name == name or sameGroups(a.clip.groups, c.groups) then table.remove(self.active, i) end
+    if o.as then
+      if a.name == name and a.as == o.as then table.remove(self.active, i) end
+    elseif not a.as and (a.name == name or sameGroups(a.clip.groups, c.groups)) then
+      table.remove(self.active, i)
+    end
   end
   self.active[#self.active + 1] = { name = name, clip = c, frame = o.from or 0,
-    loop = o.loop == nil and c.loop or o.loop, speed = o.speed or 1 }
+    loop = o.loop == nil and c.loop or o.loop, speed = o.speed or 1,
+    as = o.as, src = o.as and (o.sample or samplePane(c)) or nil }
   return true
+end
+
+-- stop a clip (o.as: only its play on that pane)
+function Player:stopOn(name, pane)
+  for i = #self.active, 1, -1 do
+    local a = self.active[i]
+    if a.name == name and a.as == pane then table.remove(self.active, i) end
+  end
 end
 
 function Player:stop(name)
@@ -198,8 +221,13 @@ local function paneProps(self, pane)
   st.alpha, st.visible, st.colorAnim = pane.alpha, pane.visible, nil
   local colors
   for _, a in ipairs(self.active) do
-    if self.bound[a.name][pane.name] then
-      local props = a.clip.panes[pane.name]
+    local props
+    if a.as then
+      if a.as == pane.name then props = a.clip.panes[a.src] end
+    elseif self.bound[a.name][pane.name] then
+      props = a.clip.panes[pane.name]
+    end
+    do
       if props then
         for key, track in pairs(props) do
           local v = F.eval(track, a.frame)

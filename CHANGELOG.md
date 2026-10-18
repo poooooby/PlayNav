@@ -7,6 +7,15 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- Berry Picker is the game's own (from Wooble's capture): the demo where the hand feeds each
+  Pokémon, READY and START!, Pokémon under the tree thinking of the berry they want, a yellow
+  note for the right berry and an orange one with stars for a quick one, an X for the wrong
+  one, "Time Left" turning red at the end, TIME'S UP, the view rising into the canopy as the
+  berries rain onto the heap, a puff of smoke revealing the Poké Puffs you won, and Play Again
+  or Quit (Quit goes back to petting, as in the game). The top screen shows HIGH SCORE and
+  then the RESULTS card counting up, with stars, your rank and the HIGH SCORE stamp. Your
+  Pokémon stand in with their battle sprites. The art is unpacked again once, automatically.
+
 - Pokémon-Amie's room and **DECORATE** screen are now the game's own, played from its layout
   files (from Wooble's capture). The room has its scalloped frame; tapping your Pokémon dims
   the room for **DECORATE / PLAY / SWITCH**, with bubbles that show how much it wants Poké

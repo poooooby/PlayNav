@@ -244,6 +244,12 @@ return function(mod, deps)
     if not s then return end
     local e = Layer.extent or { x = 0, y = 0, w = 240, h = 160 }
     G2.push("all")
+    -- a game with its own top screen (Berry Picker's score.bclyt)
+    if s.mode == "game" and G.gameApp and G.gameApp.drawTop then
+      local ok, drew = pcall(G.gameApp.drawTop, G2, e)
+      if not ok then mod.log:warn("game top screen failed: %s", tostring(drew)) end
+      if ok and drew then G2.pop(); return end
+    end
     if s.mode == "decorate" then
       local img = cottageImage() or topIcon("lyt/amie_deco/bg_upper")
       if img then
@@ -465,14 +471,15 @@ return function(mod, deps)
     return G.leaveGame(), result
   end
 
-  -- back to the play screen with the picker still open; the result stays as a line
-  function G.leaveGame()
+  -- back to the play screen with the picker still open; the result stays as a line.
+  -- opts.toPetting: the picker closed, back to petting (a game's Quit, as the game does)
+  function G.leaveGame(opts)
     local s = G.session
     if not s then return false end
     s.game = nil
     G.gameApp = nil
     s.mode = "play"
-    s.tool = "games"
+    if opts and opts.toPetting then s.tool = nil else s.tool = "games" end
     Apps:setActive("play", mod.game)
     local r = s.lastResult
     if r and G.Games then

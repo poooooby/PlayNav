@@ -59,6 +59,7 @@ return function(G)
       howTo = { 48, "Pick Berries for your Pokémon!" }, missThree = { 49, "Miss three times, and it's game over!" },
       puffReceived = { 50, "Poké Puff Received!" }, puffsReceived = { 51, "Poké Puffs Received!" },
       nextRank = { 52, "You can now access the next rank!" }, jarFull = { 53, "You can't carry any more Poké Puffs!" },
+      stamp = { 47, "HIGH SCORE" },
       titles = { easy = { 26, 32 }, normal = { 17, 23 }, hard = { 33, 39 }, unlimited = { 40, 46 } },
     },
     head = {

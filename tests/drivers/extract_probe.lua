@@ -34,13 +34,18 @@ local function body(game, log)
   U.wait(10)
   log("state after boot:", Extract.state, "complete:", tostring(Extract.cacheComplete()),
     "import present:", tostring(Extract.importPresent()))
-  if not Extract.cacheComplete() then
+  -- PROBE_FORCE=1: extract again even though the cache reads complete
+  if not Extract.cacheComplete() or os.getenv("PROBE_FORCE") == "1" then
     if not Extract.importPresent() then log("FAIL the card image is not imported"); return end
     log("extract started:", tostring(Extract.start()))
     waitFor(function() return Extract.state ~= "running" and Extract.state ~= "finishing" end, 60 * 300)
     U.wait(10)
   end
   log("state:", Extract.state, "complete:", tostring(Extract.cacheComplete()))
+  local m = Extract.cacheManifest and Extract.cacheManifest()
+  local n = 0
+  for id, why in pairs(m and m.missing or {}) do n = n + 1; if n <= 5 then log("missing", id, why) end end
+  log("missing total", n)
   local A = X._test.assets and X._test.assets()
   for _, id in ipairs({ "lyt/amie_deco/bar_title", "lyt/amie_room/gift", "lyt/amie_room/frame" }) do
     local ok, img = pcall(function() return A and A.image(id) end)

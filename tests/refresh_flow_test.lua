@@ -262,8 +262,10 @@ T.eq(X.apps:active().id, "game_berry", "...on the Berry Picker app")
 T.eq(A.state().game.id, "berry", "...with the game recorded")
 T.eq(#A.state().game.participants, 3, "...and three participants")
 local gapp = X.apps:get("game_berry")
-for _ = 1, 40 do gapp:update(0.1) end
-T.eq(A.state().mode, "game", "the countdown ran and the game is on")
+-- the opening demo (10 s with the game's art, a 3 s count without) then play
+for _ = 1, 200 do gapp:update(0.1); if gapp.debugState().phase == "play" then break end end
+T.eq(gapp.debugState().phase, "play", "the opening ran and the game is on")
+T.eq(A.state().mode, "game", "...in mode game")
 local jarBefore = #A.puffs()
 gapp.forceEnd(20)
 T.eq(A.state().mode, "game", "the result shows on the game app first")

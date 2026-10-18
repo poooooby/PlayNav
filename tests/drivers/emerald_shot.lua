@@ -429,7 +429,8 @@ local function body(game, log)
       local st0 = R.state()
       log(appId, "started: mode", st0 and st0.mode, "game", st0 and st0.game and st0.game.id, "app", Apps:active().id)
       local gapp = Apps:get(appId)
-      local playing = waitFor(function() local g = gapp.debugState and gapp.debugState(); return g and g.phase == "play" end, 60 * 10)
+      -- (Berry Picker opens with the game's demo: about ten seconds)
+      local playing = waitFor(function() local g = gapp.debugState and gapp.debugState(); return g and g.phase == "play" end, 60 * 60)
       log(appId, "play phase reached:", playing)
       waitSecs(2)
       if midAction then midAction() end
@@ -443,17 +444,38 @@ local function body(game, log)
       local res = R.state() and R.state().lastResult
       log(appId, "result: stars", res and res.stars, "title", res and res.title, "puffs", res and #res.puffs,
         "unlocked", tostring(res and res.unlockedNew))
-      shot(shotName .. "_result")
-      waitSecs(1.2)
-      tapAt("gcont", 128, 100)
-      U.wait(8)
+      if gapp.tapPoint then
+        -- Berry Picker plays its ending, then Play Again / Quit; Quit goes back to petting,
+        -- so the picker opens again for the next game
+        waitFor(function() local g2 = gapp.debugState(); return g2 and g2.phase == "buttons" end, 60 * 60)
+        U.wait(10)
+        shot(shotName .. "_result")
+        tapAt("gquit", gapp.tapPoint("quit"))
+        U.wait(8)
+        R.session.showGames()
+        U.wait(5)
+      else
+        shot(shotName .. "_result")
+        waitSecs(1.2)
+        tapAt("gcont", 128, 100)
+        U.wait(8)
+      end
       log(appId, "after result: mode", R.state() and R.state().mode, "app", Apps:active().id)
     end
     playGame(1, "game_berry", 20, "08e_berry_picker", function()
-      -- drag the first pile berry onto the middle Pokemon
-      press("berry", 128 - 30, 40)
-      for i = 1, 10 do move("berry", 128 - 30 + i * 3, 40 + i * 9); U.wait(1) end
-      release("berry", 128, 130)
+      -- drag the berry the asking Pokemon wants from the tree to it
+      local bapp = Apps:get("game_berry")
+      for i = 1, 3 do
+        local want = bapp.wanted(i)
+        if want then
+          local bx, by = bapp.tapPoint("berry", want)
+          local sx, sy = bapp.tapPoint("slot", i)
+          press("berry", bx, by)
+          for k = 1, 10 do move("berry", bx + (sx - bx) * k / 10, by + (sy - by) * k / 10); U.wait(1) end
+          release("berry", sx, sy)
+          break
+        end
+      end
     end)
     playGame(2, "game_head", 45, "08f_head_it", function()
       -- tap the lane whenever a ball nears the sweet spot

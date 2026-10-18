@@ -180,3 +180,9 @@ The in-game decoders are tested against the same data with
   `python tools/lyt_rows.py romfs amie_deco=a/1/4/4:0:0 amie_room=a/0/2/6:0:0 --
   amie_deco:customize.bclyt:amie_deco amie_deco:customize_upper.bclyt:amie_deco
   amie_room:kawaii_lower.bclyt:amie_room amie_room:kawaii_windows.bclyt:amie_room`.
+- Berry Picker's screens: `a/0/1/6` entries 0-7 (NOT LZ-compressed: a name table, then the
+  darc; `Darc.find` handles it) - demoanimation02, nuts, nuts_animation, balloon,
+  background_rear, background_front, score (upper, 400x240), reward; the RESULTS ribbon
+  `result_title` is in the English pack `a/2/1/6` entry 0 sub 2. Rows from `lyt_rows.py` with
+  packs berry_demo / nuts / nutsanim / balloon / rear / front / score (+ berry_lang) / reward.
+  Clip keys sit on one long master timeline (some at -760 or 400); `F.eval` holds the ends.

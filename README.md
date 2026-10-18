@@ -73,7 +73,9 @@ on a touch screen below the game or on a device's second display.
   twice too fast and it feels hit. It dances as its affection grows and leaves you a present
   each time it gains a heart.
 - 🎯 **Three minigames,** picked with the GAMES button on the Play screen:
-  - **Berry Picker:** hand each Pokémon the berry it asks for.
+  - **Berry Picker:** hand each Pokémon the berry it asks for, on the game's own screens: the opening
+    demo, the tree and the thought bubbles, TIME'S UP and the berries raining onto the heap, the Poké
+    Puffs you won, Play Again or Quit, and the RESULTS card on the top screen.
   - **Head It:** tap Pokémon to bounce yarn, with combos and FEVER.
   - **Tile Puzzle:** swap tiles to rebuild a moving picture. A two-colour border and scattered
     stars and petals show where each tile goes.

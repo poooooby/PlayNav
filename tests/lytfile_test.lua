@@ -126,6 +126,18 @@ if cz then
   Cp:play("bg_move_left")
   Cp:advance(8)
   T.check(math.abs((Cp:box("72")) + 320) < 0.5, "bg_move_left slides the wallpaper a screen to the left")
+  -- a clip the game made on one sample pane, played on another (Berry Picker's pick-up pop)
+  local nb = read("berry_nuts/nuts.bclyt")
+  if nb then
+    local Np = Player.new(assert(F.layout(nb)), { clip = function(n) local b = read("berry_nuts/nuts_" .. n .. ".bclan"); return b and F.clip(b) end })
+    local _, _, w0 = Np:box("5")
+    Np:play("kinomi_catch", { as = "5" })
+    Np:advance(2)
+    local _, _, w1 = Np:box("5")
+    local _, _, w3 = Np:box("3")
+    T.check(w1 > w0 * 1.15, ("kinomi_catch played on berry 5 grows it (%.1f -> %.1f)"):format(w0, w1))
+    T.check(math.abs(w3 - 32) < 0.5, "...not its sample pane 3")
+  end
   local kl = read("amie_room/kawaii_lower.bclyt")
   local K = kl and F.layout(kl)
   T.check(K and K.byName["1t"] and K.byName["5z"], "kawaii_lower has the puff (1t) and the frame (5z)")
