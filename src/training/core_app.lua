@@ -761,7 +761,6 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local y = 120 - (eval(tr.ty, at) or -18)
     local r = math.rad(-(eval(tr.rz, at) or 0))
     local icon = activeIcon()
-    -- a touch less see-through than the bags (Wooble, 2026-10-17)
     G.setColor(1, 1, 1, MON_ALPHA / 255)
     if icon and icon.image then
       local q = icon.quads and (icon.quads[0] or icon.quads[1])

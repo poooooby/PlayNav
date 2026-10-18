@@ -60,8 +60,9 @@ on a touch screen below the game or on a device's second display.
 ### Pokémon-Amie 💕
 
 - 🏠 **The Amie room:** **AMIE** on the START menu opens a room where your Pokémon wanders,
-  plays, naps and asks for food when it's hungry. Tap it for **PLAY**, **DECORATE** or
-  **SWITCH** (another party member).
+  plays, naps and asks for food when it's hungry. It's laid out from the game's own screen,
+  scalloped frame and all. Tap your Pokémon for **PLAY**, **DECORATE** or **SWITCH** (another
+  party member); bubbles over it show how much it wants Poké Puffs and play.
 - 🤚 **Petting:** Stroke your Pokémon with your finger. Every species has a spot it loves and
   one it dislikes, and some have spots you shouldn't touch at all: Charmander's tail burns,
   Pikachu's cheeks shock, Regice freezes. Hearts show how much it enjoyed it.
@@ -79,7 +80,11 @@ on a touch screen below the game or on a device's second display.
 
   Each game has Easy, Normal, Hard and Unlimited ranks, star ratings and Poké Puff prizes.
 - 🛋️ **Décor and visitors:** Decorate the room with any of 34 wallpapers and 172 cushions and
-  objects. Set out a Poké Puff and visiting Pokémon from your Pokédex drop by. Three that stay
+  objects, on the game's own DECORATE screen: slide through your wallpapers with the arrows at
+  the top, open **Interior Items** or **Poké Puffs**, and drag what you pick into the room. Let
+  it go near one of the spots around the middle and it settles exactly on it; tap a placed item
+  to move it again, or drop it in the tray to put it back. Set out a Poké Puff on the middle spot
+  (it falls into place when you're back in the room) and visiting Pokémon from your Pokédex drop by. Three that stay
   chat together and leave you a present. Once you've entered the Hall of Fame, they bring you a
   Supreme Honor Poké Puff.
 - ⚔️ **Affection in battle:** The fonder your Pokémon, the more it does for you. At two hearts
@@ -162,7 +167,7 @@ Open **OPTIONS → MODS → PlayNav**.
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
 | **EXTRACT AMIE ART ON BOOT** | On / Off | On | Unpack the art from your card image automatically on the first start after you add it. |
 | **USE EXTRACTED ART** | On / Off | On | Draw with your game's art and text. Off: simple shapes and PlayNav's own wording. |
-| **CLEAR EXTRACTED ART** | Switch on to run | Off | Deletes the unpacked art, music, sound and text, then shows the PlayNav screen: **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. Switches itself back off. |
+| **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
 | **DEV: SCRATCH APP** | On / Off | Off | A touch test screen for mod makers. |
 

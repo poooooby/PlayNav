@@ -28,6 +28,11 @@ local function body(game, log)
     log("FAIL boot phase not reached; phase:", game.phase)
     return
   end
+  -- CLEAR EXTRACTED ART may be on in the player's options: a driver run never acts on it
+  do
+    local Xk = game.mods and game.mods.exports and game.mods.exports.play_nav
+    if Xk and Xk._test and Xk._test.keepArt then Xk._test.keepArt() end
+  end
   game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
   U.wait(30)
 
@@ -191,7 +196,7 @@ local function body(game, log)
       local function openMenu(tag)
         for attempt = 1, 3 do
           local px, py = home.petPos()
-          tapAt(tag .. attempt, px, py - 16 + (home.sceneOffset and home.sceneOffset() or 0))
+          tapAt(tag .. attempt, px, py)
           U.wait(8)
           if home.menuOpen() then return true end
         end
@@ -201,7 +206,8 @@ local function body(game, log)
       openMenu("hpet")
       shot("02c_home_menu")
       local bx, by = home.buttonPos("play")
-      tapAt("hplay", bx, by + (home.sceneOffset and home.sceneOffset() or 0))
+      tapAt("hplay", bx, by)
+      U.wait(3); waitFor(function() return not home.busy() end, 3600)
       U.wait(10)
       log("home PLAY: mode", R.state() and R.state().mode, "app", Apps:active().id)
       tapAt("hback", 225, 166 + DH())
@@ -209,7 +215,8 @@ local function body(game, log)
       log("play BACK: mode", R.state() and R.state().mode, "app", Apps:active().id)
       openMenu("hpet2")
       bx, by = home.buttonPos("switch")
-      tapAt("hswitch", bx, by + (home.sceneOffset and home.sceneOffset() or 0))
+      tapAt("hswitch", bx, by)
+      U.wait(3); waitFor(function() return not home.busy() end, 3600)
       U.wait(8)
       shot("02d_home_switch")
       tapAt("hswitchclose", 20, 60)
@@ -217,28 +224,42 @@ local function body(game, log)
       -- DECORATE: a cushion into the room, a wallpaper, a puff set out
       openMenu("hpet3")
       bx, by = home.buttonPos("decorate")
-      tapAt("hdeco", bx, by + (home.sceneOffset and home.sceneOffset() or 0))
+      tapAt("hdeco", bx, by)
+      U.wait(3); waitFor(function() return not home.busy() end, 3600)
       U.wait(8)
       log("decorate: mode", R.state() and R.state().mode, "app", Apps:active().id)
       local deco = Apps:get("decorate")
-      local dg = deco.geometry()
-      press("dcush", dg.slotX(1) + 17, dg.ROW.y + 20)
-      for i = 1, 10 do move("dcush", dg.slotX(1) + 17 - i * 4, dg.ROW.y + 20 - i * 6); U.wait(1) end
-      release("dcush", 60, 104)
-      U.wait(5)
-      tapAt("dtabwall", dg.tabX(1) + 20, dg.TAB.y + 6)
-      U.wait(3)
-      tapAt("dwall2", dg.slotX(2) + 17, dg.ROW.y + 16)
-      U.wait(3)
-      tapAt("dtabpuff", dg.tabX(4) + 20, dg.TAB.y + 6)
-      U.wait(3)
-      tapAt("dpuff", dg.slotX(1) + 17, dg.ROW.y + 16)
-      U.wait(5)
+      local function settled(app) U.wait(3); waitFor(function() return not app.busy() end, 3600); U.wait(3) end
+      settled(deco)
+      -- the game's flow (src/amie/decorate.lua): a cushion from the drawer onto a seat, the
+      -- next wallpaper, a puff onto its spot, the check
+      tapAt("dint", deco.tapPoint("interior")); settled(deco)
+      tapAt("dcell", deco.tapPoint("cell", 1)); settled(deco)
+      local hx, hy = deco.tapPoint("held")
+      local sx, sy = deco.tapPoint("seat", 3)
+      if hx and sx then
+        press("dcush", hx, hy)
+        for i = 1, 10 do move("dcush", hx + (sx - hx) * i / 10, hy + (sy - hy) * i / 10); U.wait(1) end
+        release("dcush", sx, sy)
+      end
+      settled(deco)
+      tapAt("dwallR", deco.tapPoint("wallRight")); settled(deco)
+      tapAt("dpuffs", deco.tapPoint("puffs")); settled(deco)
+      tapAt("dpuff", deco.tapPoint("cell", 1)); settled(deco)
+      hx, hy = deco.tapPoint("held")
+      local px, py = deco.tapPoint("puffSpot")
+      if hx and px then
+        press("dpf", hx, hy)
+        for i = 1, 10 do move("dpf", hx + (px - hx) * i / 10, hy + (py - hy) * i / 10); U.wait(1) end
+        release("dpf", px, py)
+      end
+      settled(deco)
       local room = R.store.room()
       log("decorate: items", #(room.items or {}), "wallpaper", room.wallpaper, "puff out", tostring(room.puffOut))
       shot("02e_decorate")
-      tapAt("ddone", dg.DONE.x + 20, dg.DONE.y + 6)
-      U.wait(8)
+      tapAt("ddone", deco.tapPoint("corner"))
+      waitFor(function() return Apps:active().id == "home" end, 3600)
+      settled(home)
       log("decorate DONE: mode", R.state() and R.state().mode)
       -- visitors: a forced group leaves a gift; claim it
       local Vs = R.visitors
@@ -247,13 +268,13 @@ local function body(game, log)
       log("visitors: gift set", tostring(reqV.set), "category", tostring(reqV.category), "pending", #Vs.pending())
       shot("02f_home_gift")
       local gx, gy = home.giftPos(#Vs.pending())
-      tapAt("hgift", gx, gy + (home.sceneOffset and home.sceneOffset() or 0))
+      tapAt("hgift", gx, gy)
       U.wait(8)
       log("gift claimed: message", tostring(R.state() and R.state().message), "pending", #Vs.pending(),
         "owned decor", R.decor.ownedCount(R.store.decor()))
       U.wait(60 * 3)
       shot("02g_home_decorated")
-      tapAt("hclose", 225, 166 + DH())
+      tapAt("hclose", home.closePos())
       U.wait(10)
       log("after CLOSE from the room: top", topId(), "session", tostring(R.state()), "mode", state().mode)
     end

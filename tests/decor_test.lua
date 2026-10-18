@@ -70,6 +70,26 @@ T.eq(D.own(decor, "wall/nope"), false, "unknown ids are refused")
 T.eq(#D.owned(decor, "wall"), 4, "four wallpapers owned")
 T.eq(#D.owned(decor, "cushion"), 6, "six cushions owned")
 
+-- the drawer's categories (Bulbapedia's 22, the game's order)
+T.eq(#D.CATEGORY_ORDER, 22, "22 Décor categories")
+T.eq(D.drawerCategory(D.get("cushion/pink_egg_cushion")), "Color", "set A is Color")
+T.eq(D.drawerCategory(D.get("cushion/polka_dot_candy_cushion")), "Pattern", "set B is Pattern")
+T.eq(D.drawerCategory(D.get("cushion/orange_cloud_cushion")), "Cloud", "set C is Cloud")
+T.eq(D.drawerCategory(D.get("object/wooden_bed")), "Classy", "set F is Classy")
+T.eq(D.drawerCategory(D.get("cushion/leaf_cushion")), "Grass", "a type set goes by its type")
+do
+  local seen = {}
+  for _, r in ipairs(D.ITEMS) do seen[D.drawerCategory(r)] = true end
+  local n, unknown = 0, nil
+  for c in pairs(seen) do n = n + 1; if not D.CATEGORY_RANK[c] then unknown = c end end
+  T.eq(n, 22, "every item falls in one of the 22")
+  T.eq(unknown, nil, "...and nothing outside them")
+  local groups = D.ownedByCategory(D.ensure({}))
+  local names = {}
+  for _, g in ipairs(groups) do names[#names + 1] = g.category .. #g.rows end
+  T.eq(table.concat(names, " "), "Grass1 Color4 Cloud3", "the starting items: Leaf (Grass), four Egg cushions (Color), three Cloud items")
+end
+
 -- the room
 local room = D.ensureRoom({}, decor)
 T.eq(room.wallpaper, "wall/pink", "the room starts with pink")
@@ -79,9 +99,17 @@ T.eq(whyW, "not owned", "an unowned one does not")
 T.eq(D.place(room, decor, "cushion/leaf_cushion", 100, 120), true, "an owned cushion is placed")
 local okP, whyP = D.place(room, decor, "object/campfire_object", 50, 100)
 T.eq(whyP, "not owned", "an unowned object is refused")
-for i = 1, 40 do D.place(room, decor, "cushion/pink_egg_cushion", 20 + i, 100) end
+-- one of each: placing takes it out of the drawer (the capture's 0, faded)
+T.eq(D.inDrawer(room, decor, "cushion/leaf_cushion"), 0, "a placed cushion leaves the drawer")
+T.eq(D.inDrawer(room, decor, "cushion/pink_egg_cushion"), 1, "...another is still there")
+T.eq(D.inDrawer(room, decor, "object/campfire_object"), 0, "...and an unowned one never was")
+local again, whyA = D.place(room, decor, "cushion/leaf_cushion", 140, 120)
+T.eq(whyA, "placed", "the same cushion cannot go down twice")
+local big = { owned = {} }
+for _, r in ipairs(D.ITEMS) do big.owned[r.id] = true end
+for i = 2, 41 do D.place(room, big, D.ITEMS[i].id, 20 + i, 100) end
 T.eq(#room.items, 30, "the room holds thirty items at most")
-local full, whyF = D.place(room, decor, "cushion/leaf_cushion", 1, 1)
+local full, whyF = D.place(room, big, D.ITEMS[50].id, 1, 1)
 T.eq(whyF, "full", "...and says so")
 T.eq(D.remove(room, 30), true, "an item can be removed")
 T.eq(#room.items, 29, "...leaving 29")
@@ -90,6 +118,42 @@ T.eq(idx, 1, "the leaf cushion is found under its point")
 T.eq(D.move(room, 1, 60, 130), true, "...and moved")
 T.eq(room.items[1].x, 60, "...to the new spot")
 T.eq(D.nearestCushion(room, 60, 130).id, "cushion/leaf_cushion", "the nearest cushion is the leaf one")
+
+-- the game's units and spots (customize.bclyt: seats 6t / 6v / 6x, the puff's ad)
+do
+  local old = { items = { { id = "cushion/leaf_cushion", x = 128, y = 106 } } }
+  D.ensureRoom(old, decor)
+  T.eq(old.units, "lyt", "an old room moves to the game's units")
+  T.eq(old.items[1].x, 160, "...x / 0.8")
+  T.eq(old.items[1].y, 150, "...(y + 14) / 0.8")
+  D.ensureRoom(old, decor)
+  T.eq(old.items[1].y, 150, "...once")
+  local r2 = D.ensureRoom({}, decor)
+  T.eq(#D.freeSeats(r2), 3, "three seats around the puff")
+  local sx, sy, seat = D.snap(r2, 190, 125)
+  T.eq(seat, 2, "let go near the right-hand seat, it settles there")
+  T.eq(sx, 195, "...exactly on it")
+  T.eq(sy, 119, "...")
+  D.place(r2, decor, "cushion/leaf_cushion", sx, sy)
+  T.eq(#D.freeSeats(r2), 2, "a seat with a cushion on it is taken")
+  T.eq(#D.freeSeats(r2, 1), 3, "...unless that cushion is the one being moved")
+  local fx, fy, none = D.snap(r2, 190, 125)
+  T.eq(none, nil, "a taken seat does not pull another item")
+  T.eq(fx, 190, "...it stays where it was let go")
+  local ox, oy = D.snap(r2, 60, 200)
+  T.eq(ox + oy, 260, "far from any seat: where it was let go")
+  -- the wallpaper under the spots: its Poke Ball's middle (the picture's 160, 116) on the
+  -- puff's spot, covering the screen
+  local sc, ox, oy = D.wallPlace(240, 0)
+  T.check(sc == 1 and ox == 0 and oy == 0, "3DS shape: the wallpaper 1:1, as the game draws it")
+  local LHg = 230 / 0.8
+  sc, ox, oy = D.wallPlace(LHg, (LHg - 240) / 2)
+  T.check(math.abs(oy + 116 * sc - (116 + (LHg - 240) / 2)) < 1e-9, "Kanto Gear shape: the ring's middle on the spot")
+  T.check(math.abs(ox + 160 * sc - 160) < 1e-9, "...centred across")
+  T.check(oy <= 0 and oy + 240 * sc >= LHg and ox <= 0, ("...and the screen covered (scale %.3f)"):format(sc))
+  T.eq(D.onPuffSpot(165, 112), true, "a puff let go near its spot lands there")
+  T.eq(D.onPuffSpot(60, 200), false, "...not far away")
+end
 
 -- the puff set out
 local jar = { "puff/sweet_deluxe", "puff/mint_basic" }

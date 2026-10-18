@@ -97,6 +97,37 @@ return function(CATALOG, Rules)
     return true
   end
 
+  -- the drawer's categories (Bulbapedia "List of Pokémon-Amie Décor items", the game's order):
+  -- the type sets go by type, set A is Color, B Pattern, C Cloud, F Classy
+  D.CATEGORY_ORDER = { "Normal", "Fire", "Water", "Electric", "Grass", "Ice", "Fighting", "Poison",
+    "Ground", "Flying", "Psychic", "Bug", "Rock", "Ghost", "Dragon", "Dark", "Steel", "Fairy",
+    "Color", "Cloud", "Pattern", "Classy" }
+  D.CATEGORY_RANK = {}
+  for i, c in ipairs(D.CATEGORY_ORDER) do D.CATEGORY_RANK[c] = i end
+  local SET_CATEGORY = { A = "Color", B = "Pattern", C = "Cloud", F = "Classy" }
+  function D.drawerCategory(row)
+    if not row then return nil end
+    return SET_CATEGORY[row.set] or row.category
+  end
+
+  -- owned cushions and objects as the drawer shows them: { category, rows } in the game's
+  -- category order, catalogue order within each, categories with nothing owned left out
+  function D.ownedByCategory(decor)
+    local by = {}
+    for _, row in ipairs(D.CATALOG) do
+      if (row.kind == "cushion" or row.kind == "object") and decor.owned and decor.owned[row.id] then
+        local c = D.drawerCategory(row)
+        by[c] = by[c] or {}
+        table.insert(by[c], row)
+      end
+    end
+    local out = {}
+    for _, c in ipairs(D.CATEGORY_ORDER) do
+      if by[c] then out[#out + 1] = { category = c, rows = by[c] } end
+    end
+    return out
+  end
+
   -- owned rows of a kind ("wall" | "cushion" | "object"), catalogue order
   function D.owned(decor, kind)
     local out = {}
@@ -116,8 +147,83 @@ return function(CATALOG, Rules)
 
   -- ------- the room
 
+  -- The room is in the game's own units (2026-10-17): its 320x240 lower screen, y down, as
+  -- kawaii_lower.bclyt (a/0/2/6) and customize.bclyt (a/1/4/4) lay it out. An item's (x, y)
+  -- is the point on the floor it stands on (its art's foot is FOOT below). Saves before then
+  -- held the touch screen's 256-wide units under its 14-row title strip: x / 0.8, (y + 14) / 0.8.
+  D.UNITS = "lyt"
+  D.FOOT = 11   -- measured on the capture: a cushion's 38-row art centred 8 above its seat
+  -- the game's placement spots (customize 6z): three cushion seats around the puff's spot
+  -- (area_seat 6t / 6v / 6x) and the puff's own (area_okashi ad); kawaii_lower draws the
+  -- set-out puff 20 above its spot (okashi_00 1t at 160,96 over 6a at 160,116)
+  D.SEATS = { { x = 160, y = 94 }, { x = 195, y = 119 }, { x = 125, y = 119 } }
+  D.PUFF_SPOT = { x = 160, y = 116 }
+  D.PUFF_LIFT = 20
+  -- released this close to a free spot, an item settles exactly on it (the game's "perfect fit")
+  D.SNAP = 22
+
+  -- where a 320x240 wallpaper goes on a screen LH layout units tall whose room sits roomDy
+  -- lower (the Kanto Gear shape's D / 2): the picture's own point under the puff's spot (its
+  -- Poke Ball's middle, as the game draws it 1:1) lands on the spot, at the least scale that
+  -- still covers the screen. Returns the scale and the picture's top left. On the 3DS shape:
+  -- 1, 0, 0, the game's own placement.
+  function D.wallPlace(LH, roomDy)
+    local sy = D.PUFF_SPOT.y
+    local A = sy + (roomDy or 0)
+    local sc = math.max(1, A / sy, ((LH or 240) - A) / (240 - sy))
+    return sc, 160 - 160 * sc, A - sy * sc
+  end
+
+  function D.migrateRoom(room)
+    if room.units == D.UNITS then return false end
+    for _, it in ipairs(room.items or {}) do
+      it.x, it.y = (it.x or 128) / 0.8, ((it.y or 120) + 14) / 0.8
+    end
+    room.units = D.UNITS
+    return true
+  end
+
+  -- the seat an item sits on, if any (index into D.SEATS)
+  function D.seatOf(it)
+    for i, sp in ipairs(D.SEATS) do
+      if it and it.x == sp.x and it.y == sp.y then return i end
+    end
+    return nil
+  end
+
+  -- seats no other item takes (skip: the index of the item being moved)
+  function D.freeSeats(room, skip)
+    local taken = {}
+    for i, it in ipairs(room.items or {}) do
+      if i ~= skip then
+        local s = D.seatOf(it)
+        if s then taken[s] = true end
+      end
+    end
+    local out = {}
+    for i, sp in ipairs(D.SEATS) do if not taken[i] then out[#out + 1] = { i = i, x = sp.x, y = sp.y } end end
+    return out
+  end
+
+  -- where an item released at (x, y) settles: a free seat within D.SNAP, else where it was let go
+  function D.snap(room, x, y, skip)
+    local best, bd
+    for _, sp in ipairs(D.freeSeats(room, skip)) do
+      local d = math.sqrt((x - sp.x) ^ 2 + (y - sp.y) ^ 2)
+      if d <= D.SNAP and (not bd or d < bd) then best, bd = sp, d end
+    end
+    if best then return best.x, best.y, best.i end
+    return x, y, nil
+  end
+
+  -- whether a puff let go at (x, y) lands on its spot
+  function D.onPuffSpot(x, y)
+    return math.sqrt((x - D.PUFF_SPOT.x) ^ 2 + (y - D.PUFF_SPOT.y) ^ 2) <= D.SNAP
+  end
+
   function D.ensureRoom(room, decor)
     room.items = room.items or {}
+    D.migrateRoom(room)
     if (room.names or 1) < D.NAMES_VERSION then
       for _, it in ipairs(room.items) do it.id = D.RENAMED[it.id] or it.id end
       room.names = D.NAMES_VERSION
@@ -136,12 +242,21 @@ return function(CATALOG, Rules)
     return true
   end
 
-  -- place a copy of an owned item; false, reason when the room is full
+  -- how many of an item are still in the drawer: the game keeps one of each, and placing it
+  -- takes it out (Wooble's capture: the drawer shows the placed cushion at 0, faded)
+  function D.inDrawer(room, decor, id)
+    if decor and not D.owns(decor, id) then return 0 end
+    for _, it in ipairs(room.items or {}) do if it.id == id then return 0 end end
+    return 1
+  end
+
+  -- place an owned item that is still in the drawer; false, reason when the room is full
   function D.place(room, decor, id, x, y)
     local r = D.BY_ID[id]
     if not (r and (r.kind == "cushion" or r.kind == "object")) then return false, "not an item" end
     if decor and not D.owns(decor, id) then return false, "not owned" end
     room.items = room.items or {}
+    if D.inDrawer(room, nil, id) == 0 then return false, "placed" end
     if #room.items >= D.MAX_ITEMS then return false, "full" end
     room.items[#room.items + 1] = { id = id, x = x, y = y }
     return true, #room.items
@@ -168,7 +283,8 @@ return function(CATALOG, Rules)
       local it = items[i]
       local r = D.BY_ID[it.id]
       local w, h = (r and r.w or 40) / 2 + slack, (r and r.h or 40) + slack
-      if math.abs(x - it.x) <= w and y <= it.y + slack and y >= it.y - h then return i, it end
+      local foot = it.y + D.FOOT
+      if math.abs(x - it.x) <= w and y <= foot + slack and y >= foot - h then return i, it end
     end
     return nil
   end

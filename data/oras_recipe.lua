@@ -794,6 +794,71 @@ add("a/1/1/4", 0, 0, 17, "lyt/st_hud/big_target_break", 32, 32, "ETC1A4")
 add("a/1/1/4", 0, 0, 18, "lyt/st_hud/big_target_c", 32, 32, "ETC1A4")
 add("a/1/1/4", 0, 0, 67, "lyt/st_hud/target02_c", 48, 48, "ETC1A4")
 
+-- Pokemon-Amie's room (a/0/2/6 entry 0: kawaii_lower, the room and its menu; kawaii_windows,
+-- the Switch list) and its DECORATE screen (a/1/4/4 entry 0: customize, customize_upper).
+-- The game fills theme*_bg (the wallpaper), okashi_00 (the puff), poke_icon_2 and
+-- kwg_button01..03 (ui/btn_*) at run time; src/amie/home.lua and decorate.lua set them.
+files("a/1/4/4", 0, 0, "lyt/amie_deco", 36, "customize / customize_upper and their 34 clips: the DECORATE screen")
+files("a/0/2/6", 0, 0, "lyt/amie_room", 147, "kawaii_lower / kawaii_windows and their clips: the Amie room")
+add("a/1/4/4", 0, 0, 0, "lyt/amie_deco/area_ng", 8, 8, "RGB565")
+add("a/1/4/4", 0, 0, 1, "lyt/amie_deco/area_okashi", 28, 18, "RGBA8")
+add("a/1/4/4", 0, 0, 2, "lyt/amie_deco/area_seat", 28, 18, "RGBA8")
+add("a/1/4/4", 0, 0, 3, "lyt/amie_deco/bar_title", 32, 36, "ETC1A4")
+add("a/1/4/4", 0, 0, 4, "lyt/amie_deco/bgbutton_L", 30, 30, "RGBA8")
+add("a/1/4/4", 0, 0, 6, "lyt/amie_deco/bgbutton_R", 30, 30, "RGBA8")
+add("a/1/4/4", 0, 0, 8, "lyt/amie_deco/bg_tab", 140, 18, "RGBA8")
+add("a/1/4/4", 0, 0, 9, "lyt/amie_deco/bg_upper", 400, 240, "RGB565")
+add("a/1/4/4", 0, 0, 10, "lyt/amie_deco/button_back", 30, 30, "RGBA8")
+add("a/1/4/4", 0, 0, 11, "lyt/amie_deco/button_exit", 30, 30, "RGBA8")
+add("a/1/4/4", 0, 0, 12, "lyt/amie_deco/button_itemreturn", 30, 30, "RGBA8")
+add("a/1/4/4", 0, 0, 13, "lyt/amie_deco/button_system", 110, 32, "RGBA8")
+add("a/1/4/4", 0, 0, 14, "lyt/amie_deco/button_system_02", 110, 32, "RGBA8")
+add("a/1/4/4", 0, 0, 15, "lyt/amie_deco/goods_icon", 60, 60, "ETC1A4")
+add("a/1/4/4", 0, 0, 16, "lyt/amie_deco/goods_win_c", 2, 2, "ETC1A4")
+add("a/1/4/4", 0, 0, 17, "lyt/amie_deco/goods_win_line_dw", 320, 24, "ETC1A4")
+add("a/1/4/4", 0, 0, 18, "lyt/amie_deco/goods_win_line_up", 320, 24, "ETC1A4")
+add("a/1/4/4", 0, 0, 21, "lyt/amie_deco/msg_win_c", 32, 32, "RGB8")
+add("a/1/4/4", 0, 0, 22, "lyt/amie_deco/msg_win_u", 16, 16, "RGBA8")
+add("a/1/4/4", 0, 0, 23, "lyt/amie_deco/msg_win_ul", 16, 16, "RGBA8")
+add("a/1/4/4", 0, 0, 24, "lyt/amie_deco/tab_arrow", 16, 22, "RGBA8")
+add("a/1/4/4", 0, 0, 25, "lyt/amie_deco/tab_goods", 136, 32, "RGBA8")
+add("a/0/2/6", 0, 0, 0, "lyt/amie_room/bar_title", 32, 36, "ETC1A4")
+add("a/0/2/6", 0, 0, 1, "lyt/amie_room/bg_tab", 140, 18, "RGBA8")
+add("a/0/2/6", 0, 0, 2, "lyt/amie_room/button_back", 30, 30, "RGBA8")
+add("a/0/2/6", 0, 0, 3, "lyt/amie_room/button_change", 278, 52, "ETC1A4")
+add("a/0/2/6", 0, 0, 4, "lyt/amie_room/button_exit", 30, 30, "RGBA8")
+add("a/0/2/6", 0, 0, 5, "lyt/amie_room/button_pokemon", 42, 42, "RGBA4")
+add("a/0/2/6", 0, 0, 7, "lyt/amie_room/frame", 128, 128, "ETC1A4")
+add("a/0/2/6", 0, 0, 8, "lyt/amie_room/gift", 32, 40, "ETC1A4")
+add("a/0/2/6", 0, 0, 9, "lyt/amie_room/goodsget_bg", 40, 30, "ETC1A4")
+add("a/0/2/6", 0, 0, 10, "lyt/amie_room/goods_win_c", 16, 16, "ETC1A4")
+add("a/0/2/6", 0, 0, 11, "lyt/amie_room/goods_win_line_dw", 320, 24, "ETC1A4")
+add("a/0/2/6", 0, 0, 12, "lyt/amie_room/goods_win_line_up", 320, 24, "ETC1A4")
+add("a/0/2/6", 0, 0, 13, "lyt/amie_room/heart_00", 16, 16, "ETC1A4")
+add("a/0/2/6", 0, 0, 14, "lyt/amie_room/heart_01", 16, 16, "ETC1A4")
+add("a/0/2/6", 0, 0, 15, "lyt/amie_room/icon_asobi", 48, 48, "ETC1A4")
+add("a/0/2/6", 0, 0, 16, "lyt/amie_room/icon_okashi", 48, 48, "ETC1A4")
+add("a/0/2/6", 0, 0, 17, "lyt/amie_room/ic_asobu", 18, 18, "ETC1A4")
+add("a/0/2/6", 0, 0, 18, "lyt/amie_room/ic_asobu_black", 18, 18, "ETC1A4")
+add("a/0/2/6", 0, 0, 19, "lyt/amie_room/ic_hungry", 16, 18, "RGBA8")
+add("a/0/2/6", 0, 0, 20, "lyt/amie_room/ic_hungry_black", 16, 18, "ETC1A4")
+add("a/0/2/6", 0, 0, 31, "lyt/amie_room/msg_win_c", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 32, "lyt/amie_room/msg_win_u", 16, 16, "ETC1A4")
+add("a/0/2/6", 0, 0, 33, "lyt/amie_room/msg_win_ul", 16, 16, "ETC1A4")
+add("a/0/2/6", 0, 0, 34, "lyt/amie_room/particle_00", 30, 30, "ETC1A4")
+add("a/0/2/6", 0, 0, 35, "lyt/amie_room/particle_01", 30, 30, "ETC1A4")
+add("a/0/2/6", 0, 0, 37, "lyt/amie_room/shadow", 40, 20, "RGBA4")
+add("a/0/2/6", 0, 0, 54, "lyt/amie_room/talk_bubble_L", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 55, "lyt/amie_room/talk_exc1", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 56, "lyt/amie_room/talk_exc2", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 57, "lyt/amie_room/talk_exc3", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 58, "lyt/amie_room/talk_heart", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 59, "lyt/amie_room/talk_onpu", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 60, "lyt/amie_room/talk_question", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 61, "lyt/amie_room/talk_silent", 32, 32, "ETC1A4")
+add("a/0/2/6", 0, 0, 62, "lyt/amie_room/win_pokelist", 298, 80, "ETC1A4")
+add("a/0/2/6", 0, 0, 63, "lyt/amie_room/yaruki", 64, 64, "ETC1A4")
+
 -- Super Training's music: the game's streams (sound/, BCSTM, DSP-ADPCM), decoded by the extract
 -- job into oras/bgm/<name>.wav with their loop points beside them (src/training/music.lua plays
 -- them). Matched against a capture of a Lv. 1 regimen: menu on the regimen picker, gamestart with
@@ -884,7 +949,7 @@ bchtex("a/0/3/2", 240, "etxm_circle01m", "fx/circle01m", 64, 64)
 bchtex("a/0/3/2", 155, "etxm_kumo01m", "fx/kumo01m", 128, 128)
 
 return {
-  version = 25,
+  version = 26,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

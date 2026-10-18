@@ -11,7 +11,10 @@ return function(mod, deps)
   local G, Rules, Decor, Store, host = deps.session, deps.Rules, deps.Decor, deps.Store, deps.host
   local V = { present = {}, group = nil, nextArrival = 6, pool = nil, rng = math.random }
 
-  V.SPOTS = { { x = 70, y = 112 }, { x = 128, y = 120 }, { x = 186, y = 112 } }
+  -- in the game's 320x240 room units (src/amie/decor.lua): the guests take the three seats
+  -- around the puff, as kawaii_lower's guestA / B / C_seat do (anchors 5d, 5b, 5c)
+  V.SPOTS = { { x = 125, y = 123 }, { x = 160, y = 98 }, { x = 195, y = 123 } }
+  V.MID = 160
   V.CHAT_SECS = 30
   V.MAX_PENDING = 6
   V.CONVERSATION = {
@@ -64,7 +67,7 @@ return function(mod, deps)
     return { species = sp, name = host.speciesName and host.speciesName(sp) or tostring(sp),
       affection = aff, types = host.typesOf and host.typesOf(sp) or {}, root = host.evoRoot and host.evoRoot(sp) or sp,
       icon = host.iconSpecies and host.iconSpecies(sp) or nil,
-      x = side < 0 and -20 or 276, y = V.SPOTS[spot].y, tx = V.SPOTS[spot].x, ty = V.SPOTS[spot].y,
+      x = side < 0 and -25 or 345, y = V.SPOTS[spot].y, tx = V.SPOTS[spot].x, ty = V.SPOTS[spot].y,
       side = side, state = "enter", timer = 0, facing = side < 0 and 1 or -1, frame = 0, frameT = 0 }
   end
 
@@ -137,7 +140,7 @@ return function(mod, deps)
       if v.frameT >= 0.2 then v.frameT = 0; v.frame = 1 - v.frame end
       if v.state == "enter" then
         local dx = v.tx - v.x
-        local step = 40 * dt
+        local step = 50 * dt
         if math.abs(dx) <= step then
           v.x = v.tx
           v.state, v.timer = "decide", 0
@@ -150,7 +153,7 @@ return function(mod, deps)
         if v.timer >= 2 then
           if V.rng() < stayChance then
             v.state = "stay"
-            v.facing = v.x < 128 and 1 or -1
+            v.facing = v.x < V.MID and 1 or -1
           else
             v.state, v.timer = "leave", 0
           end
@@ -158,14 +161,14 @@ return function(mod, deps)
       elseif v.state == "leave" then
         v.timer = v.timer + dt
         local dir = v.side
-        v.x = v.x + dir * 45 * dt
+        v.x = v.x + dir * 56 * dt
         v.facing = dir
       end
     end
     -- those who left are gone
     for i = #V.present, 1, -1 do
       local v = V.present[i]
-      if v.state == "leave" and (v.x < -30 or v.x > 290) then table.remove(V.present, i) end
+      if v.state == "leave" and (v.x < -40 or v.x > 360) then table.remove(V.present, i) end
     end
     -- re-seat whoever is staying so the spots fill from the first
     local staying = 0

@@ -46,6 +46,28 @@ for _, generation in ipairs({ 3 }) do
     T.eq(exports.W, 256, "the surface is 256 wide")
     T.eq(exports.H, 230, "...and 230 tall (Kanto Gear's shape, the default)")
     T.eq(exports.state().mode, "off", "before the first frame nothing is active")
+
+    -- CLEAR EXTRACTED ART pressed: it clears, then reads PRESS TO CLEAR again, saved (mods get
+    -- no options setter; main writes where the Mod Manager does and has the engine save).
+    -- The clear itself is a counter here: never the real cache.
+    local Ex = exports._test.extract()
+    local clear0, clears = Ex.clear, 0
+    Ex.clear = function() clears = clears + 1 end
+    local loader = run.loader
+    local written = 0
+    local savedOpts = { modOptions = { play_nav = { clear_rom_art = true } } }
+    exports._test.setGame({ mods = loader, save = { options = savedOpts },
+      writeOptions = function() written = written + 1 end })
+    loader.modOptions.play_nav = loader.modOptions.play_nav or {}
+    local before = loader.modOptions.play_nav.clear_rom_art
+    loader.modOptions.play_nav.clear_rom_art = true
+    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "clear_rom_art", value = true })
+    T.eq(clears, 1, "CLEAR EXTRACTED ART pressed: the art is cleared")
+    T.eq(loader.modOptions.play_nav.clear_rom_art, false, "...the option reads PRESS TO CLEAR again")
+    T.eq(savedOpts.modOptions.play_nav.clear_rom_art, false, "...in the saved options too")
+    T.eq(written, 1, "...and the engine writes them")
+    Ex.clear = clear0
+    loader.modOptions.play_nav.clear_rom_art = before
   end
   run.release()
 end

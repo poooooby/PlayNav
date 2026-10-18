@@ -7,6 +7,20 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- Pokémon-Amie's room and **DECORATE** screen are now the game's own, played from its layout
+  files (from Wooble's capture). The room has its scalloped frame; tapping your Pokémon dims
+  the room for **DECORATE / PLAY / SWITCH**, with bubbles that show how much it wants Poké
+  Puffs and play (and hearts for its affection). DECORATE fades in on the wallpaper with its
+  name between gold arrows that slide to the next one; **Interior Items** and **Poké Puffs**
+  open the drawer (pages of fifteen, with counts); the item you pick waits in the room for you
+  to drag. Near one of the spots around the middle it settles exactly on it (a Poké Puff dims
+  the room and goes only on its spot); tap a placed item to move it, or use the tray to put it
+  back. The check returns to the room, where a Poké Puff you set out falls into place. The top
+  screen shows the game's Decorate picture meanwhile. Visitors now sit on the seats around the
+  puff, chat in the game's speech bubbles, and gifts use the game's gift box.
+- Pokémon-Amie is laid out like Super Training: the top screen fills the whole space above
+  the touch screen, and the touch screen sits across the bottom at the same size. While you
+  decorate, the top screen shows Wooble's own cottage art.
 - **TOUCH SCREEN SHAPE** option, Kanto Gear by default: the touch screen takes the Gear
   phone's proportions (10:9, 256x230), since Super Training and Pokémon-Amie are headed
   into the Gear as modules. Every bottom screen is laid out for it with the art at its own
@@ -16,9 +30,10 @@ All notable changes to this mod are documented here. The format follows
   room pictures instead of a blown-up thumbnail, and those sets' cushions, stars, cubes and
   cloud items show their own pictures: the import had labelled them one archive entry early.
   The art is unpacked again once, automatically.
-- **CLEAR EXTRACTED ART** option: deletes everything PlayNav unpacked from your card image
-  and returns to the PlayNav screen (Begin extraction, or the missing-card warning when the
-  image is no longer imported). It switches itself back off afterwards.
+- **CLEAR EXTRACTED ART** option, a press-to-clear button: deletes everything PlayNav unpacked
+  from your card image and returns to the PlayNav screen (Begin extraction, or the missing-card
+  warning when the image is no longer imported), then reads PRESS TO CLEAR again. Pressed in
+  the launcher, it reads CLEARS AT NEXT START and clears once you're in the game.
 
 - With Kanto Gear 4.3+ installed, Super Training appears in the Silph Store as a
   third-party app (the Gear's `exports.modules` hook): PlayNav's own engine-drawn
@@ -36,9 +51,36 @@ All notable changes to this mod are documented here. The format follows
 
 ### Changed
 
+- DECORATE's Interior Items drawer is sorted by the game's Décor categories (Normal through
+  Fairy, then Color, Cloud, Pattern and Classy): each category gets its own page, named on the
+  drawer's tab, and the arrows step through them. Only categories you own something from show.
+
+- The Super Training stadium is Wooble's updated art (`stadiumlarge.png`).
+
+- Décor works the game's way: you have one of each item, and placing it takes it out of the
+  drawer (shown faded at 0) until you put it back. Rooms you decorated before keep everything
+  where it was. The art is unpacked again once, automatically, for the new screens.
+- The room's Pokémon is drawn at the game's size, and the room's CLOSE is the blue return button
+  in the corner, as on Super Training's home screen.
+
 - Pokémon-Amie and Super Training now require the extracted art: opening them before the
   import has run lands on the PlayNav screen instead of a stand-in-art version. Other mods
   calling the exports get `false, "import_needed"` meanwhile.
+
+### Fixed
+
+- The Amie room's wallpaper lines up with its spots again: the middle of the floor's Poké
+  Ball is where the Poké Puff and the seats are (it used to sit above them).
+
+- DECORATE's drawer and header draw whole: the drawer has its white sides and striped bands
+  (no wallpaper showing through at the edges or by the torn lines), the header's name bar is
+  mirrored on its right half instead of cut in the middle, the pill labels are centred, and
+  the item counts are white with a black outline so they read on any item.
+
+
+- The PlayNav strip's arrows over Pokémon-Amie's room (and anything else on a screen's top
+  rows) now take taps: the hidden tab strip was still swallowing them.
+
 
 ## [0.3.5] - 2026-10-15 (pre-alpha)
 

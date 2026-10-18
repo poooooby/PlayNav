@@ -250,11 +250,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   D.drawBalloon = drawBalloon
 
-  -- the stadium (assets/stadiumlarge.jpg, Wooble's own recreation of the scene, square so it
+  -- the stadium (assets/stadiumlarge.png, Wooble's own recreation of the scene, square so it
   -- reaches past the frame when the top screen fills the playfield): read once, drawn `w` units
   -- across with its grass line (`grassFrac` of its height) at `grassY`, where the trainee's
   -- stand floats; past its edges the edge texels stretch (clamp)
-  D.BG = { file = "assets/stadiumlarge.jpg", w = 302.2, grassFrac = 1270 / 1920, grassY = 118.4,
+  D.BG = { file = "assets/stadiumlarge.png", w = 302.2, grassFrac = 1270 / 1920, grassY = 118.4,
     -- where the beaten balloon leaves the stadium and twinkles out: just above the roof's edge
     -- on the right (the edge is at y 470 of 1920 at x 1600), as fractions of the art
     exit = { x = 1600 / 1920, y = 425 / 1920 } }

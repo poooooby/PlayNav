@@ -74,7 +74,11 @@ return function(mod)
     { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
     { key = "use_rom_art", label = "USE EXTRACTED ART", type = "toggle", default = true },
     -- an action: switching it on clears the cache, then it switches itself back off
-    { key = "clear_rom_art", label = "CLEAR EXTRACTED ART", type = "toggle", default = false },
+    -- a button as far as the options screen allows (it has no button row): a two-way choice
+    -- that reads PRESS TO CLEAR; pressed in the game it clears at once and reads PRESS TO CLEAR
+    -- again, pressed in the launcher it waits for the next start (pressed again, it is undone)
+    { key = "clear_rom_art", label = "CLEAR EXTRACTED ART", type = "choice", default = false,
+      choices = { { "PRESS TO CLEAR", false }, { "CLEARS AT NEXT START", true } } },
     { key = "hd_render", label = "HD RENDERING", type = "toggle", default = true },
   })
 
@@ -776,10 +780,28 @@ return function(mod)
     if not ok then mod.log:warn("clearing the extracted art failed: %s", tostring(err)) end
     Apps:setActive("import", state.game)
   end
+  -- the option back to PRESS TO CLEAR, saved: mods get no options setter, so this writes
+  -- where the Mod Manager's own setOption does (the loader's table, the save's options) and
+  -- has the engine write options.lua
+  local function resetClearOption()
+    local game = state.game
+    local loader = game and game.mods
+    if loader then
+      loader.modOptions = loader.modOptions or {}
+      loader.modOptions[mod.id] = loader.modOptions[mod.id] or {}
+      loader.modOptions[mod.id].clear_rom_art = false
+    end
+    local saved = game and game.save and game.save.options and game.save.options.modOptions
+    if saved and saved[mod.id] then saved[mod.id].clear_rom_art = false end
+    if game and game.writeOptions then
+      local ok, err = pcall(game.writeOptions, game)
+      if not ok then mod.log:warn("saving CLEAR EXTRACTED ART back off failed: %s", tostring(err)) end
+    end
+  end
   mod.events:on("mod.options_changed", function(ev)
     if type(ev) ~= "table" or ev.mod ~= "play_nav" or ev.key ~= "clear_rom_art" or ev.value ~= true then return end
     clearExtractedArt()
-    pcall(mod.options.set, mod.options, "clear_rom_art", false)
+    resetClearOption()
   end)
 
   -- While a mouse pointer is down on the surface, follow the real cursor
@@ -826,6 +848,17 @@ return function(mod)
     -- walks the schema; the screens ask for art dozens of times a frame)
     if Assets then Assets.enabled = mod.options:get("use_rom_art") ~= false end
     tickExtract()
+    -- CLEAR EXTRACTED ART switched on in the launcher, before PlayNav loaded: no change event
+    -- reaches us then, so it is honoured once, on the first frame in the field
+    -- (drivers call _test.keepArt() before the field so a run on a machine whose options have
+    -- it on leaves the player's art alone; the sandbox has no os.getenv)
+    if extractChecked and not state.clearChecked then
+      state.clearChecked = true
+      if mod.options:get("clear_rom_art") == true and not state.keepArt then
+        clearExtractedArt()
+        resetClearOption()
+      end
+    end
     setMode(wantedMode())
     pollMouse()
     local mode = state.mode
@@ -1266,7 +1299,9 @@ return function(mod)
     padHide = PadHide,
     cutout = Cutout,
     extract = function() return Extract end,
+    assets = function() return Assets end,
     setImportGate = function(on) gateDisabled = on == false end,
+    keepArt = function() state.keepArt = true end,
   }
 
   mod.log:info("PlayNav ready (gen %s, touch screen %s, shown %s)", tostring(mod.generation),

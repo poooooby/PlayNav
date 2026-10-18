@@ -20,6 +20,11 @@ local function body(game, log)
     log("FAIL boot phase not reached; phase:", game.phase)
     return
   end
+  -- CLEAR EXTRACTED ART may be on in the player's options: a driver run never acts on it
+  do
+    local Xk = game.mods and game.mods.exports and game.mods.exports.play_nav
+    if Xk and Xk._test and Xk._test.keepArt then Xk._test.keepArt() end
+  end
   game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
   U.wait(30)
   local Runtime = require("src.core.game3.runtime")

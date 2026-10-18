@@ -129,12 +129,12 @@ return function(mod, Pointer, Layout)
 
   -- ev: { phase, id, x, y, dx, dy, pressure, source } in surface space
   function Apps:pointer(ev, rec, game)
-    if ev.phase == "pressed" and ev.y < self.TAB_H then
-      local current = self:active()
-      if not (current and current.hideTabs) then
-        local i = self:tabAt(ev.x, ev.y, Layout.W)
-        if i then self:setActive(self.list[i].id, game) end
-      end
+    -- the tab strip takes presses on its rows; a screen without it (hideTabs: Amie, the
+    -- PLAYNAV gate) draws its own things there (header arrows, the PlayNav strip) and gets them
+    local current = self:active()
+    if ev.phase == "pressed" and ev.y < self.TAB_H and not (current and current.hideTabs) then
+      local i = self:tabAt(ev.x, ev.y, Layout.W)
+      if i then self:setActive(self.list[i].id, game) end
       rec.onTab = true
       return
     end

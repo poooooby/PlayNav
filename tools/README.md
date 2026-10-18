@@ -170,3 +170,13 @@ The in-game decoders are tested against the same data with
   white HUD box, entry 7 CLIMs 31-35 the five puff tier rings and 36 the Amie wreath; `a/0/1/7`
   entry 1 CLIMs 10-12 the yarn "Chances" markers, entry 3 CLIM 25 the result box (CLIM 15 is a
   Japanese-only results banner); `a/0/1/8` entry 1 CLIM 0 the orange pill button.
+- Amie's own screens (found 2026-10-17 by a scan of every GARC's darc packs; no other pack is
+  Amie's): `a/0/2/6` entry 0 is a darc with `kawaii_lower.bclyt` (the room: frame, menu,
+  bubbles, guests, gifts, puff) and `kawaii_windows.bclyt` (the Switch list and dialogs) and
+  145 clips; `a/1/4/4` entry 0 holds `customize.bclyt` (DECORATE) and `customize_upper.bclyt`
+  (its top screen) and 34 clips. Some a/0/2/6 textures were imported under first-pass names
+  by CLIM index (`ui/gift` is really the room's `frame`, `check` = button_exit, `coin` =
+  button_pokemon); the layout rows carry the darc names. Rows from
+  `python tools/lyt_rows.py romfs amie_deco=a/1/4/4:0:0 amie_room=a/0/2/6:0:0 --
+  amie_deco:customize.bclyt:amie_deco amie_deco:customize_upper.bclyt:amie_deco
+  amie_room:kawaii_lower.bclyt:amie_room amie_room:kawaii_windows.bclyt:amie_room`.

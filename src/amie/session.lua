@@ -113,7 +113,10 @@ return function(mod, deps)
       if input:wasPressed("a") then G.enterPlay()
       elseif input:wasPressed("b") or input:wasPressed("start") then G.finish() end
     elseif s.mode == "decorate" then
-      if input:wasPressed("b") then G.enterHome(false) end
+      -- the drawer folds, a held item goes back, else the room (src/amie/decorate.lua)
+      if input:wasPressed("b") then
+        if G.decorateBack then G.decorateBack() else G.enterHome(false) end
+      end
     elseif s.mode == "game" then
       if input:wasPressed("b") and G.gameApp and G.gameApp.quit then G.gameApp:quit() end
     else
@@ -200,12 +203,59 @@ return function(mod, deps)
     G2.rectangle("fill", 0, 96, 240, 64)
   end
 
-  -- the top screen in 240x160 units (drawn by Layer.draw or, at window resolution, hd_top)
+  -- Amie paints the whole playfield, as Super Training does (src/hd_top.lua hands the
+  -- playfield in as Layer.extent, 240x160 units): main then lays the screens out the same way
+  -- for both, the touch screen across the bottom at Super Training's size (Wooble, 2026-10-17)
+  function Layer.fillTop() return G.session ~= nil end
+
+  -- Wooble's own DECORATE top screen (1920 square, drawn to cover whatever the playfield is);
+  -- the game's bg_upper stands in without it
+  local cottage = nil
+  local function cottageImage()
+    if cottage == nil then
+      cottage = false
+      local bytes = mod.read and mod:read("assets/amie_cottage.png")
+      local LI, LF = love and love.image, love and love.filesystem
+      if bytes and LI and LF and love.graphics then
+        local ok, im = pcall(function()
+          local img = love.graphics.newImage(LI.newImageData(LF.newFileData(bytes, "amie_cottage.png")), { mipmaps = true })
+          img:setFilter("linear", "linear")
+          img:setMipmapFilter("linear")
+          return img
+        end)
+        cottage = ok and im or false
+      end
+    end
+    return cottage or nil
+  end
+
+  local function cover(G2, img, e)
+    local iw, ih = img:getDimensions()
+    local k = math.max(e.w / iw, e.h / ih)
+    G2.setColor(1, 1, 1, 1)
+    G2.draw(img, e.x + (e.w - iw * k) / 2, e.y + (e.h - ih * k) / 2, 0, k, k)
+  end
+
+  -- the top screen in 240x160 units (drawn by Layer.draw or, at window resolution, hd_top);
+  -- e is the playfield (the 240x160 frame when not filling): the sky and grass cover it, the
+  -- name and meters sit at its top left, the words at its foot, the Pokemon in the frame
   function Layer.drawScene(G2)
     local s = G.session
     if not s then return end
+    local e = Layer.extent or { x = 0, y = 0, w = 240, h = 160 }
     G2.push("all")
-    Layer.backdrop(G2)
+    if s.mode == "decorate" then
+      local img = cottageImage() or topIcon("lyt/amie_deco/bg_upper")
+      if img then
+        cover(G2, img, e)
+        G2.pop()
+        return
+      end
+    end
+    G2.setColor(0.55, 0.78, 0.98, 1)
+    G2.rectangle("fill", e.x, e.y, e.w, e.h)
+    G2.setColor(0.42, 0.75, 0.42, 1)
+    G2.rectangle("fill", e.x, 96, e.w, e.y + e.h - 96)
     G2.setColor(0.95, 0.9, 0.55, 0.55)
     G2.ellipse("fill", 120, 98, 60, 10)
     local pic = s.pic
@@ -217,17 +267,23 @@ return function(mod, deps)
       G2.setColor(1, 1, 1, 1)
       drawPixel(pic.image, 120, 100 - bounce, 0, scale * sx, scale * sy, (pic.w or 64) / 2, (pic.h or 64))
     end
+    -- the name and the meters from the playfield's top left
+    G2.push()
+    G2.translate(e.x, e.y)
     G2.setColor(1, 1, 1, 0.85)
-    G2.rectangle("fill", 4, 4, 232, 16, 3, 3)
+    G2.rectangle("fill", 4, 4, math.max(232, e.w - 8), 16, 3, 3)
     drawText(s.name, 8, 6, { maxWidth = 224 })
     drawMeters(G2, s)
+    G2.pop()
     local hint = "B: DONE"
     if s.mode == "home" then hint = "A: PLAY   B: CLOSE"
-    elseif s.mode == "decorate" then hint = "Decorate the room.  B: DONE"
     elseif s.mode == "game" then hint = (s.game and s.game.hud) or "B: QUIT"
     elseif s.tool == "games" then hint = "Pick a game.  B: BACK"
     elseif s.fromHome then hint = "B: BACK" end
     local msg = s.message or hint
+    -- the words at the playfield's foot, centred across it
+    G2.push()
+    G2.translate(e.x + (e.w - 240) / 2, e.y + e.h - 160)
     if host.Chrome and host.Chrome.stdFrame then
       pcall(host.Chrome.stdFrame, 2, 16, 26, 3)
     else
@@ -235,6 +291,7 @@ return function(mod, deps)
       G2.rectangle("fill", 12, 124, 216, 30, 3, 3)
     end
     drawBoxText(msg)
+    G2.pop()
     G2.pop()
   end
 

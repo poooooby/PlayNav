@@ -23,7 +23,8 @@
 --   while no tx / ty is set on the pane from outside
 -- P.stretchMode = "backdrop" (with stretchY): the panes stay where the layout has them (top
 --   aligned); only full-height pictures stretch down to fill the taller screen
--- P:setText(pane, s, opts) (opts.align "left" | "center" | "right", opts.color) ;
+-- P:setText(pane, s, opts) (opts.align "left" | "center" | "right", opts.valign, opts.color,
+--   opts.outline: a colour drawn one screen pixel all round first) ;
 -- P:setImage(pane, img) ; P:box(pane) -> x, y, w, h in layout units (rotation ignored)
 
 local Player = {}
@@ -173,7 +174,8 @@ function Player:clear(pane, key)
 end
 
 function Player:setText(pane, s, o)
-  self.texts[pane] = s and { s = s, align = o and o.align, color = o and o.color, valign = o and o.valign } or nil
+  self.texts[pane] = s and { s = s, align = o and o.align, color = o and o.color, valign = o and o.valign,
+    outline = o and o.outline } or nil
 end
 
 function Player:setImage(pane, img) self.images[pane] = img end
@@ -392,14 +394,109 @@ local function drawText(self, G, pane, st, alpha)
     -- a line wider than its box is squeezed to fit, as the game's text panes do
     local sx = lw > w and w / lw or 1
     local x = align == "left" and x0 or (align == "center" and x0 + (w - lw * sx) / 2 or x0 + w - lw * sx)
+    -- an outline (setText opts.outline): the line at the eight one-pixel offsets first
+    local ol = t.outline
+    if ol then
+      G.setColor(ol[1] / 255, ol[2] / 255, ol[3] / 255, (ol[4] or 255) / 255 * alpha)
+      for ox = -1, 1 do
+        for oy = -1, 1 do
+          if ox ~= 0 or oy ~= 0 then G.print(line, x + ox * inv, y + oy * inv, 0, inv * sx, inv) end
+        end
+      end
+    end
     G.setColor(c[1] / 255, c[2] / 255, c[3] / 255, (c[4] or 255) / 255 * alpha)
     G.print(line, x, y, 0, inv * sx, inv)
     y = y + lh
   end
 end
 
+-- Where a 4- or 8-frame window's frames go (NW4C), in the window's own space (0, 0 its top
+-- left): sizes[i] = { w, h } of frame i's texture; frames are LT, RT, LB, RB (then L, R, T,
+-- B). Four frames make a pinwheel (each corner reaches along one edge); eight put the
+-- corners at their own sizes and the edges between. Each rect says which outer edges its
+-- texture is anchored to (ax "l" | "r", ay "t" | "b"). Returns rects, content rect.
+function Player.windowRects(w, h, n, sizes)
+  local function sz(i) local s = sizes[i] or sizes[1] or { 0, 0 }; return s[1], s[2] end
+  local ltw, lth = sz(1)
+  local rtw, rth = sz(2)
+  local lbw, lbh = sz(3)
+  local rbw, rbh = sz(4)
+  local R = {}
+  if n == 4 then
+    R[1] = { x = 0, y = 0, w = w - rtw, h = lth, ax = "l", ay = "t" }
+    R[2] = { x = w - rtw, y = 0, w = rtw, h = h - rbh, ax = "r", ay = "t" }
+    R[3] = { x = 0, y = lth, w = lbw, h = h - lth, ax = "l", ay = "b" }
+    R[4] = { x = lbw, y = h - rbh, w = w - lbw, h = rbh, ax = "r", ay = "b" }
+    return R, { x = 0, y = 0, w = w, h = h }
+  end
+  R[1] = { x = 0, y = 0, w = ltw, h = lth, ax = "l", ay = "t" }
+  R[2] = { x = w - rtw, y = 0, w = rtw, h = rth, ax = "r", ay = "t" }
+  R[3] = { x = 0, y = h - lbh, w = lbw, h = lbh, ax = "l", ay = "b" }
+  R[4] = { x = w - rbw, y = h - rbh, w = rbw, h = rbh, ax = "r", ay = "b" }
+  R[5] = { x = 0, y = lth, w = ltw, h = h - lth - lbh, ax = "l", ay = "t" }        -- L
+  R[6] = { x = w - rtw, y = rth, w = rtw, h = h - rth - rbh, ax = "r", ay = "t" }  -- R
+  R[7] = { x = ltw, y = 0, w = w - ltw - rtw, h = lth, ax = "l", ay = "t" }        -- T
+  R[8] = { x = lbw, y = h - lbh, w = w - lbw - rbw, h = lbh, ax = "l", ay = "b" }  -- B
+  return R, { x = ltw, y = lth, w = w - ltw - rbw, h = h - lth - rbh }
+end
+
+-- a frame's texture coordinates: texel sized (the texture at its own size, the wrap mode
+-- stretching or tiling past it), from the outer edges it is anchored to, mirrored where the
+-- frame's material scales its texture by -1 (how the game flips a shared corner texture)
+local FRAME_UV = { 0, 0, 1, 0, 0, 1, 1, 1 }
+function Player.frameUV(r, iw, ih, sx, sy, out)
+  out = out or {}
+  local su, sv = r.w / iw, r.h / ih
+  local u0, u1 = 0, su
+  if r.ax == "r" then u0, u1 = 1 - su, 1 end
+  local v0, v1 = 0, sv
+  if r.ay == "b" then v0, v1 = 1 - sv, 1 end
+  if (sx or 1) < 0 then u0, u1 = 1 - u0, 1 - u1 end
+  if (sy or 1) < 0 then v0, v1 = 1 - v0, 1 - v1 end
+  out[1], out[2], out[3], out[4], out[5], out[6], out[7], out[8] = u0, v0, u1, v0, u0, v1, u1, v1
+  return out
+end
+
+local FRAME_MAT = { srt = {}, black = nil, white = nil }
+local function drawFrames(self, G, pane, w, h, x0, y0, alpha, sh, cols, cm, cimg)
+  local L = self.L
+  local frames = pane.frames
+  local n = #frames
+  local imgs, sizes, mats = {}, {}, {}
+  for i, fr in ipairs(frames) do
+    local m = L.materials[fr.mat]
+    mats[i] = m
+    imgs[i] = m and m.maps[1] and self:image(L.textures[m.maps[1].tex]) or nil
+    if imgs[i] then
+      local iw, ih = imgs[i]:getDimensions()
+      sizes[i] = { iw, ih }
+    else
+      sizes[i] = sizes[1] or { 0, 0 }
+    end
+  end
+  local rects, inner = Player.windowRects(w, h, n, sizes)
+  if cimg and inner.w > 0 and inner.h > 0 then
+    quad(G, cimg, x0 + inner.x, y0 + inner.y, inner.w, inner.h, pane.content.uv, cols, cm, nil, sh)
+  end
+  local white = fillCols(nil, nil, alpha)
+  self.fuv = self.fuv or {}
+  for i, r in ipairs(rects) do
+    local img, m = imgs[i], mats[i]
+    if img and m and r.w > 0 and r.h > 0 then
+      local iw, ih = img:getDimensions()
+      local srt = m.srt and m.srt[1]
+      local uv = Player.frameUV(r, iw, ih, srt and srt[4], srt and srt[5], self.fuv)
+      local map = m.maps[1]
+      FRAME_MAT.black, FRAME_MAT.white = m.black, m.white
+      quad(G, img, x0 + r.x, y0 + r.y, r.w, r.h, uv, white, FRAME_MAT, nil, sh,
+        map and WRAP[map.wrapS], map and WRAP[map.wrapT])
+    end
+  end
+end
+
 -- a window: the content quad, then the four corner frames (each its material's texture at its
--- own size; the edges stretch the corners' inner row / column)
+-- own size; the edges stretch the corners' inner row / column). Windows of four or eight
+-- frames go by the game's own frame layout (drawFrames).
 local function drawWindow(self, G, pane, st, alpha, sh)
   local L = self.L
   local w, h = st.w, st.h
@@ -408,6 +505,9 @@ local function drawWindow(self, G, pane, st, alpha, sh)
   local cm = L.materials[pane.content.mat]
   local cimg = cm and cm.maps[1] and self:image(L.textures[cm.maps[1].tex]) or plainImage(G)
   local frames = pane.frames or {}
+  if #frames == 4 or #frames == 8 then
+    return drawFrames(self, G, pane, w, h, x0, y0, alpha, sh, cols, cm, cimg)
+  end
   local imgs = {}
   for i, fr in ipairs(frames) do
     local m = L.materials[fr.mat]
