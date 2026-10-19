@@ -31,6 +31,11 @@ Pokemon-Amie cottage (assets/amie_cottage.png)
 The top screen while you decorate the Amie room: Wooble's own art, made for PlayNav
 (1920x1920, so it covers the whole top screen).
 
+Pokemon-Amie play sky (assets/amie-play-bg.png)
+-----------------------------------------------
+The top screen while you play with your Pokemon: a deep blue dotted sky with the rainbow in the
+lower right, Wooble's own art, made for PlayNav (1920x1920, so it covers the whole top screen).
+
 Hover board (assets/hoverboard.png)
 -----------------------------------
 The board your Pokemon rides during a Super-Training Regimen: Wooble's own pixel art, made for

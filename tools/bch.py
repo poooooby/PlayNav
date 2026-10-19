@@ -1,8 +1,13 @@
 """List and extract the textures in a 3DS BCH model / effect file, stdlib only.
 
 Usage:
-  python tools/bch.py list <garc> [entry]              # every BCH in a GARC: its textures (name, size, format)
-  python tools/bch.py extract <garc> <entry> <outdir>  # one entry's textures as PNGs
+  python tools/bch.py list <garc> [entry] [--deep]              # every BCH in a GARC: its textures (name, size, format)
+  python tools/bch.py extract <garc> <entry> <outdir> [--deep]  # one entry's textures as PNGs
+  python tools/bch.py find <romfs-dir> <regex>                  # textures named like regex, in every GARC (deep)
+
+--deep also opens LZ entries and Game Freak's packages ('PC', 'GR', 'MM', 'AD' ...: a two-letter
+tag, a u16 count, count + 1 u32 offsets) and the packages inside them, where most of the 3D
+scenery lives; a sub entry is then printed as its path through them ('0/3/1').
 
 A BCH (version 0x21 in X / Y / OR / AS) has a main header of (pointer table, count, name tree)
 triples per content type; the fourth is the textures. Each texture holds a GPU command list
@@ -116,45 +121,119 @@ def decode_raw(fmt, width, height, tex):
     return bytes(out)
 
 
-def garc_bchs(path):
+def package(b):
+    """Game Freak's package (X / Y / OR / AS: 'PC' Pokemon, 'GR' field, 'MM', 'AD', 'PT' ...):
+    a two-letter tag, a u16 count, then count + 1 u32 offsets (the last is the end) -> the
+    files, or None when b is not one"""
+    if len(b) < 8 or not (65 <= b[0] <= 90 and 65 <= b[1] <= 90):
+        return None
+    n = struct.unpack_from('<H', b, 2)[0]
+    if n == 0 or n > 4096 or 4 + 4 * (n + 1) > len(b):
+        return None
+    offs = [u32(b, 4 + 4 * i) for i in range(n + 1)]
+    if offs[0] < 4 + 4 * (n + 1) or any(offs[i] > offs[i + 1] for i in range(n)) or offs[-1] > len(b):
+        return None
+    return [b[offs[i]:offs[i + 1]] for i in range(n)]
+
+
+def unwrap(b):
+    """an LZ entry's contents (LZ10 / LZ11), else b"""
+    if b[:1] in (b'\x10', b'\x11') and len(b) > 4:
+        try:
+            d = g.lz_decode(b)
+            if d:
+                return d
+        except Exception:
+            pass
+    return b
+
+
+def walk(b, path, depth=0):
+    """every BCH inside b, opening LZ and packages on the way: (path, bch)"""
+    b = unwrap(b)
+    if b[:4] == b'BCH\x00':
+        yield path, b
+        return
+    if depth > 6:
+        return
+    files = package(b)
+    if files:
+        for i, f in enumerate(files):
+            if f:
+                yield from walk(f, '%s/%d' % (path, i), depth + 1)
+
+
+def garc_bchs(path, deep=False):
+    """every BCH in a GARC: (entry, sub, bch) - with deep, also those inside packages
+    (sub then names the path through them, as 'j/i/...')"""
     data = open(path, 'rb').read()
     ver, off, entries = g.parse_garc(data)
     for k, subs in enumerate(entries):
         for j, s, e, l in subs:
             raw = data[off + s: off + e]
-            blob = (g.lz_decode(raw) if raw[:1] in (b'\x10', b'\x11') else None) or raw
-            if blob[:4] == b'BCH\x00':
-                yield k, j, blob
+            if not deep:
+                blob = unwrap(raw)
+                if blob[:4] == b'BCH\x00':
+                    yield k, j, blob
+                continue
+            for p, blob in walk(raw, str(j)):
+                yield k, p, blob
 
 
 def main(argv):
     if len(argv) < 2:
         print(__doc__)
         return 2
+    deep = '--deep' in argv
+    argv = [a for a in argv if a != '--deep']
     if argv[0] == 'list':
         only = int(argv[2]) if len(argv) > 2 else None
-        for k, j, b in garc_bchs(argv[1]):
+        for k, j, b in garc_bchs(argv[1], deep):
             if only is not None and k != only:
                 continue
             try:
                 ts = textures(b)
             except Exception as ex:
-                print('%3d.%d: %s' % (k, j, ex))
+                print('%3d.%s: %s' % (k, j, ex))
                 continue
             if ts:
-                print('%3d.%d: %s' % (k, j, '  '.join('%s %dx%d %s' % (t['name'], t['w'], t['h'], t['fmt']) for t in ts)))
+                print('%3d.%s: %s' % (k, j, '  '.join('%s %dx%d %s' % (t['name'], t['w'], t['h'], t['fmt']) for t in ts)))
+        return 0
+    if argv[0] == 'find':
+        # every texture whose name matches, in every GARC under a folder (always deep)
+        import re
+        root, pat = argv[1], re.compile(argv[2], re.I)
+        for dirpath, _, files in os.walk(root):
+            for fn in sorted(files):
+                p = os.path.join(dirpath, fn)
+                try:
+                    with open(p, 'rb') as fh:
+                        if fh.read(4) != b'CRAG':
+                            continue
+                    for k, j, b in garc_bchs(p, True):
+                        try:
+                            ts = textures(b)
+                        except Exception:
+                            continue
+                        hits = [t for t in ts if t['name'] and pat.search(t['name'])]
+                        if hits:
+                            rel = os.path.relpath(p, root).replace(os.sep, '/')
+                            print('%s %d.%s: %s' % (rel, k, j, '  '.join('%s %dx%d %s' % (t['name'], t['w'], t['h'], t['fmt']) for t in hits)))
+                except Exception as ex:
+                    print('%s: %s' % (p, ex), file=sys.stderr)
         return 0
     if argv[0] == 'extract':
         entry, outdir = int(argv[2]), argv[3]
         os.makedirs(outdir, exist_ok=True)
-        for k, j, b in garc_bchs(argv[1]):
+        for k, j, b in garc_bchs(argv[1], deep):
             if k != entry:
                 continue
             for t in textures(b):
                 if not (t['w'] and t['h']) or not isinstance(t['fmt'], str):
                     continue
                 rgba = decode_raw(t['fmt'], t['w'], t['h'], b[t['data']:])
-                path = os.path.join(outdir, '%d_%s.png' % (k, t['name'] or 'tex'))
+                tag = str(j).replace('/', '-')
+                path = os.path.join(outdir, '%d_%s_%s.png' % (k, tag, t['name'] or 'tex'))
                 bclim.write_png(path, t['w'], t['h'], rgba)
                 print('wrote', path, t['w'], t['h'], t['fmt'])
         return 0
