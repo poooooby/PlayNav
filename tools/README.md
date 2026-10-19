@@ -196,6 +196,19 @@ The in-game decoders are tested against the same data with
   `python tools/lyt_rows.py romfs amie_deco=a/1/4/4:0:0 amie_room=a/0/2/6:0:0 --
   amie_deco:customize.bclyt:amie_deco amie_deco:customize_upper.bclyt:amie_deco
   amie_room:kawaii_lower.bclyt:amie_room amie_room:kawaii_windows.bclyt:amie_room`.
+- Tile Puzzle's screens (2026-10-19): `a/0/1/8` entry 0 (easy / normal / hard_bound: the tiles'
+  corner marks, frame = blue, cursol = red; effect: the star burst), entry 1 (bg_down: the touch
+  screen), entry 2 (bg_up: the top screen; RESULTS' ribbon is Berry Picker's `a/2/1/6` e0 s2).
+  Rows from `python tools/lyt_rows.py romfs tile_bound=a/0/1/8:0:0 tile_down=a/0/1/8:1:0
+  tile_up=a/0/1/8:2:0 -- tile_bound:easy_bound.bclyt:tile_bound ... tile_down:bg_down.bclyt:tile_down
+  tile_up:bg_up.bclyt:tile_up`. Entries 3-8 are CGFX (NintendoWare 3D scenes): the six stages,
+  each with a photo frame (`pzl_mask` / `pzl_mask1` / `pzl_mask2`, ETC1A4 128 square, the frame
+  in its top 128 x 104 with a clear inside), `pzl_pmask`, debug `pzl_size` / `pzl_othr`; their
+  scenery is referenced, not held. `bch.py list` reads CGFX too (every 'TXOB' with pixels:
+  name +8, height / width +20 / +24, format +48, image +52, all self-relative). Scenery found
+  for the 2D picture: a/1/5/2 (the soaring overworld) e318 `sky` (64x128: four columns, day /
+  deep blue / sunset / night), e317 / e323 / e320 `sea_b` / `sea_b_yuugata` / `sea_b_yoru`,
+  e317 / e320 `skytrip_alpha_a` / `_yoru` (trees, bushes, rocks), e321 `star`.
 - Berry Picker's screens: `a/0/1/6` entries 0-7 (NOT LZ-compressed: a name table, then the
   darc; `Darc.find` handles it) - demoanimation02, nuts, nuts_animation, balloon,
   background_rear, background_front, score (upper, 400x240), reward; the RESULTS ribbon

@@ -63,7 +63,40 @@ def commands(b, at, words):
     return regs
 
 
+def cgfx_textures(b):
+    """the image textures in a CGFX (NintendoWare 3D scene; Amie's Tile Puzzle stages a/0/1/8
+    entries 3-8): every 'TXOB' holding pixels (a material's references hold none). After the
+    magic: name (self-relative) +8, height / width +20 / +24, format +48, the image +52
+    (self-relative): height, width, size, data (self-relative at +12). Twin of bch.lua."""
+    out, seen, p = [], set(), 0
+    while True:
+        o = b.find(b'TXOB', p)
+        if o < 0:
+            return out
+        p = o + 4
+        if o + 68 > len(b):
+            continue
+        hh, w = u32(b, o + 20), u32(b, o + 24)
+        fmt = PICA_FORMATS.get(u32(b, o + 48))
+        ip = o + 52 + struct.unpack_from('<i', b, o + 52)[0]
+        if not fmt or not (8 <= w <= 2048 and 8 <= hh <= 2048) or ip <= o or ip + 16 > len(b):
+            continue
+        if (u32(b, ip), u32(b, ip + 4)) != (hh, w):
+            continue
+        try:
+            name = cstring(b, o + 8 + struct.unpack_from('<i', b, o + 8)[0])
+        except (ValueError, IndexError):
+            continue
+        if name in seen:
+            continue
+        seen.add(name)
+        out.append({'name': name, 'w': w, 'h': hh, 'addr': None, 'fmt': fmt,
+                    'data': ip + 12 + struct.unpack_from('<i', b, ip + 12)[0]})
+
+
 def textures(b):
+    if b[:4] == b'CGFX':
+        return cgfx_textures(b)
     h = header(b)
     m = h['main']
     table, count = u32(b, m + 0x24), u32(b, m + 0x28)
@@ -151,7 +184,7 @@ def unwrap(b):
 def walk(b, path, depth=0):
     """every BCH inside b, opening LZ and packages on the way: (path, bch)"""
     b = unwrap(b)
-    if b[:4] == b'BCH\x00':
+    if b[:4] in (b'BCH\x00', b'CGFX'):
         yield path, b
         return
     if depth > 6:
@@ -173,7 +206,7 @@ def garc_bchs(path, deep=False):
             raw = data[off + s: off + e]
             if not deep:
                 blob = unwrap(raw)
-                if blob[:4] == b'BCH\x00':
+                if blob[:4] in (b'BCH\x00', b'CGFX'):
                     yield k, j, blob
                 continue
             for p, blob in walk(raw, str(j)):

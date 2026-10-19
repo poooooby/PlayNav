@@ -999,6 +999,86 @@ add("a/0/1/6", 7, 0, 35, "lyt/berry_reward/wappen_05", 60, 60, "RGBA4")
 add("a/0/1/6", 7, 0, 36, "lyt/berry_reward/wappen_special", 60, 60, "RGBA4")
 add("a/2/1/6", 0, 2, 1, "lyt/berry_lang/result_title", 230, 44, "RGBA4")
 
+-- Pokemon-Amie's Tile Puzzle (Wooble's capture 2026-10-19): a/0/1/8 entry 0 the tiles' marks
+-- for the three grids (easy / normal / hard_bound: frame = the blue corners of a tile out of
+-- place, cursol = the red ones of the chosen tile) and the star burst (effect); entry 1 the
+-- touch screen (bg_down: the rule window, Begin, START!, the smoke and medallions); entry 2 the
+-- top screen (bg_up: How to Play, the time, RESULTS with the three best times, HIGH SCORE).
+-- RESULTS' ribbon is Berry Picker's (lyt/berry_lang). The picture itself is a 3D stage in the
+-- game (entries 3-8, CGFX); ours is drawn in 2D from the rows below (src/amie/games/tile_puzzle.lua).
+files("a/0/1/8", 0, 0, "lyt/tile_bound", 9, "easy / normal / hard_bound, effect and the star clips")
+files("a/0/1/8", 1, 0, "lyt/tile_down", 19, "bg_down: the touch screen and its clips")
+files("a/0/1/8", 2, 0, "lyt/tile_up", 5, "bg_up: the top screen and its clips")
+add("a/0/1/8", 0, 0, 0, "lyt/tile_bound/cursol", 46, 46, "ETC1A4")
+add("a/0/1/8", 0, 0, 1, "lyt/tile_bound/frame", 46, 46, "ETC1A4")
+add("a/0/1/8", 0, 0, 2, "lyt/tile_bound/star", 20, 20, "ETC1A4")
+add("a/0/1/8", 1, 0, 0, "lyt/tile_down/button_system", 110, 32, "RGBA8")
+add("a/0/1/8", 1, 0, 1, "lyt/tile_down/door_L", 180, 240, "ETC1A4")
+add("a/0/1/8", 1, 0, 2, "lyt/tile_down/door_R", 180, 240, "ETC1A4")
+add("a/0/1/8", 1, 0, 3, "lyt/tile_down/get00", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 4, "lyt/tile_down/get01", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 5, "lyt/tile_down/get02", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 6, "lyt/tile_down/get03", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 7, "lyt/tile_down/get04", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 8, "lyt/tile_down/get05", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 9, "lyt/tile_down/get06", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 10, "lyt/tile_down/get07", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 11, "lyt/tile_down/get08", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 12, "lyt/tile_down/get09", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 13, "lyt/tile_down/get10", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 14, "lyt/tile_down/get11", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 15, "lyt/tile_down/get12", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 16, "lyt/tile_down/get13", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 17, "lyt/tile_down/get14", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 18, "lyt/tile_down/get15", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 19, "lyt/tile_down/get16", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 20, "lyt/tile_down/get17", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 21, "lyt/tile_down/get18", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 22, "lyt/tile_down/get19", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 23, "lyt/tile_down/get20", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 24, "lyt/tile_down/get21", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 25, "lyt/tile_down/get22", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 26, "lyt/tile_down/get23", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 27, "lyt/tile_down/get24", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 28, "lyt/tile_down/get25", 40, 40, "RGBA4")
+add("a/0/1/8", 1, 0, 29, "lyt/tile_down/msg_win_c", 32, 32, "RGB8")
+add("a/0/1/8", 1, 0, 30, "lyt/tile_down/msg_win_u", 16, 16, "RGBA8")
+add("a/0/1/8", 1, 0, 31, "lyt/tile_down/msg_win_ul", 16, 16, "RGBA8")
+add("a/0/1/8", 1, 0, 32, "lyt/tile_down/play_left", 42, 42, "RGBA8")
+add("a/0/1/8", 1, 0, 33, "lyt/tile_down/smoke0", 54, 46, "ETC1A4")
+add("a/0/1/8", 1, 0, 34, "lyt/tile_down/smoke1", 117, 93, "ETC1A4")
+add("a/0/1/8", 1, 0, 35, "lyt/tile_down/smoke2", 80, 73, "ETC1A4")
+add("a/0/1/8", 1, 0, 36, "lyt/tile_down/twinkle0", 20, 20, "ETC1A4")
+add("a/0/1/8", 1, 0, 37, "lyt/tile_down/twinkle1", 10, 10, "ETC1A4")
+add("a/0/1/8", 1, 0, 39, "lyt/tile_down/wappen_01", 60, 60, "RGBA4")
+add("a/0/1/8", 1, 0, 40, "lyt/tile_down/wappen_02", 60, 60, "RGBA4")
+add("a/0/1/8", 1, 0, 41, "lyt/tile_down/wappen_03", 60, 60, "RGBA4")
+add("a/0/1/8", 1, 0, 42, "lyt/tile_down/wappen_04", 60, 60, "RGBA4")
+add("a/0/1/8", 1, 0, 43, "lyt/tile_down/wappen_05", 60, 60, "RGBA4")
+add("a/0/1/8", 1, 0, 44, "lyt/tile_down/wappen_special", 60, 60, "RGBA4")
+add("a/0/1/8", 2, 0, 0, "lyt/tile_up/bg_up", 400, 240, "ETC1A4")
+add("a/0/1/8", 2, 0, 1, "lyt/tile_up/line_wool", 352, 8, "ETC1A4")
+add("a/0/1/8", 2, 0, 2, "lyt/tile_up/msg_win_c", 32, 32, "RGB8")
+add("a/0/1/8", 2, 0, 3, "lyt/tile_up/msg_win_u", 16, 16, "RGBA8")
+add("a/0/1/8", 2, 0, 4, "lyt/tile_up/msg_win_ul", 16, 16, "RGBA8")
+add("a/0/1/8", 2, 0, 5, "lyt/tile_up/stamp", 100, 30, "ETC1A4")
+add("a/0/1/8", 2, 0, 6, "lyt/tile_up/star_easy", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 7, "lyt/tile_up/star_easyh", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 8, "lyt/tile_up/star_hard", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 9, "lyt/tile_up/star_hardh", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 10, "lyt/tile_up/star_infinite", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 11, "lyt/tile_up/star_infiniteh", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 12, "lyt/tile_up/star_normal", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 13, "lyt/tile_up/star_normalh", 20, 20, "ETC1A4")
+add("a/0/1/8", 2, 0, 14, "lyt/tile_up/win_number_dw", 8, 10, "RGBA8")
+add("a/0/1/8", 2, 0, 15, "lyt/tile_up/win_number_L", 10, 8, "RGBA8")
+add("a/0/1/8", 2, 0, 16, "lyt/tile_up/win_number_Ld", 10, 10, "RGBA8")
+add("a/0/1/8", 2, 0, 17, "lyt/tile_up/win_number_Lu", 10, 10, "RGBA8")
+add("a/0/1/8", 2, 0, 18, "lyt/tile_up/win_number_R", 10, 8, "RGBA8")
+add("a/0/1/8", 2, 0, 19, "lyt/tile_up/win_number_Rd", 10, 10, "RGBA8")
+add("a/0/1/8", 2, 0, 20, "lyt/tile_up/win_number_Ru", 10, 10, "RGBA8")
+add("a/0/1/8", 2, 0, 21, "lyt/tile_up/win_number_up", 8, 10, "RGBA8")
+
 -- Super Training's music: the game's streams (sound/, BCSTM, DSP-ADPCM), decoded by the extract
 -- job into oras/bgm/<name>.wav with their loop points beside them (src/training/music.lua plays
 -- them). Matched against a capture of a Lv. 1 regimen: menu on the regimen picker, gamestart with
@@ -1197,9 +1277,23 @@ bchtex("a/0/1/0", 1, "kumo_yoko_a2", "scene/cumulus", 256, 128, "3")
 bchtex("a/0/1/0", 1, "kumo_yoko_a1", "scene/cloud", 256, 128, "2")
 bchtex("a/0/1/0", 1, "hare_kumo_yoko", "scene/cloud_far", 512, 256, "1")
 bchtex("a/0/6/4", 0, "awa_spring01", "scene/bubbles", 128, 64, "26")
+-- Tile Puzzle's picture (2026-10-19; the game's is a 3D stage, ours 2D from its art): the photo
+-- frames from the stages' CGFX (a/0/1/8; the same reader, by the file's magic), and the sea,
+-- sky, trees and night stars of the soaring scenery in a/1/5/2 (day, sunset "yuugata" and
+-- night "yoru" sets: the scene's light cycles while a puzzle is played)
+bchtex("a/0/1/8", 4, "pzl_mask", "tile/frame_easy", 128, 128)
+bchtex("a/0/1/8", 6, "pzl_mask2", "tile/frame_normal", 128, 128)
+bchtex("a/0/1/8", 7, "pzl_mask1", "tile/frame_hard", 128, 128)
+bchtex("a/1/5/2", 318, "sky", "tile/sky", 64, 128)
+bchtex("a/1/5/2", 317, "sea_b", "tile/sea_day", 128, 128)
+bchtex("a/1/5/2", 323, "sea_b_yuugata", "tile/sea_dusk", 128, 128)
+bchtex("a/1/5/2", 320, "sea_b_yoru", "tile/sea_night", 128, 128)
+bchtex("a/1/5/2", 317, "skytrip_alpha_a", "tile/trees_day", 256, 256)
+bchtex("a/1/5/2", 320, "skytrip_alpha_a_yoru", "tile/trees_night", 256, 256)
+bchtex("a/1/5/2", 321, "star", "tile/night_star", 32, 32)
 
 return {
-  version = 28,
+  version = 29,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

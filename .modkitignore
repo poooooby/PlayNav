@@ -47,6 +47,7 @@ tests/drivers/perf_parts.lua
 tests/drivers/amie_decor_probe.lua
 tests/drivers/amie_play_probe.lua
 tests/drivers/berry_probe.lua
+tests/drivers/tile_probe.lua
 tests/drivers/extract_probe.lua
 tools/README.md
 tools/bclim.py

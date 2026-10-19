@@ -451,6 +451,11 @@ local function body(game, log)
       local st0 = R.state()
       log(appId, "started: mode", st0 and st0.mode, "game", st0 and st0.game and st0.game.id, "app", Apps:active().id)
       local gapp = Apps:get(appId)
+      -- (Tile Puzzle waits on its Begin button)
+      if gapp.tapPoint and gapp.tapPoint("begin") then
+        U.wait(20)
+        tapAt("gbegin", gapp.tapPoint("begin"))
+      end
       -- (Berry Picker opens with the game's demo: about ten seconds)
       local playing = waitFor(function() local g = gapp.debugState and gapp.debugState(); return g and g.phase == "play" end, 60 * 60)
       log(appId, "play phase reached:", playing)
@@ -517,8 +522,13 @@ local function body(game, log)
       end
     end)
     playGame(3, "game_tile", 25, "08g_tile_puzzle", function()
-      tapAt("tile1", 28 + 20, 12 + 18 + DH() / 2)
-      tapAt("tile2", 28 + 60, 12 + 18 + DH() / 2)
+      -- one tile home: its picture's place, then its own
+      local tapp = Apps:get("game_tile")
+      local home, at = tapp.nextMove()
+      if home then
+        tapAt("tile1", tapp.tapPoint("tile", at))
+        tapAt("tile2", tapp.tapPoint("tile", home))
+      end
     end)
     U.wait(20)
     shot("08h_games_picker_after")

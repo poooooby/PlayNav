@@ -5,6 +5,25 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Tile Puzzle rebuilt from the game's own screens (from Wooble's capture): the picture shows
+  whole with the rules and a Begin button, then the tiles fly to their shuffled places and
+  START! shows. Tiles out of place have blue corners, the one you pick red ones; picking a
+  second swaps them, both lifting across the board. A tile that lands home bursts into stars,
+  loses its corners and is locked. The clock counts up until the picture is whole (no time
+  limit, except on Unlimited). The top screen shows How to Play and your time, then the RESULTS
+  card with your three best times for that rank, your new one, HIGH SCORE and your rank's stars;
+  below, a puff of smoke reveals the Poké Puffs you won, then View Picture, Play Again or Quit.
+  - The picture is your three Pokémon in the sea, drawn from the game's own art: its sky, sea,
+    clouds and trees, and the stage's photo frame (a different one per rank). Its light turns
+    from day to sunset to night and back while you play.
+  - The Pokémon bob and sway in place on Easy, swim about the scene on Normal, and on Hard
+    roam further while the view drifts and leans in.
+  - Unlimited shows NEXT! between puzzles and TIME'S UP! at the end, with the time left, puzzle
+    number and points on the top screen.
+- Needs the art extracted again (recipe 29): the extraction runs by itself on the next start.
+
 ## [0.4.0] - 2026-10-18 (pre-alpha)
 
 ### Added

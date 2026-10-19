@@ -210,6 +210,29 @@ return function(mod, deps)
     return C.record(game).best[diff] or 0
   end
 
+  -- Tile Puzzle's RESULTS card lists the three best of a difficulty (Wooble's capture
+  -- 2026-10-19: "1. 00:48 / 2. 00:00 / 3. 00:00 / NEW 00:48"): the fewest seconds, or on
+  -- Unlimited the most puzzles; a tie goes below the older one
+  C.KEEP_TIMES = 3
+  function C.times(game, diff)
+    local rec = C.record(game)
+    return (rec.times and rec.times[diff]) or {}
+  end
+  local function noteTime(rec, game, diff, value)
+    rec.times = rec.times or {}
+    local list = rec.times[diff] or {}
+    local lower = game == "tile" and diff ~= "unlimited"
+    local at = #list + 1
+    for i, v in ipairs(list) do
+      if (lower and value < v) or (not lower and value > v) then at = i; break end
+    end
+    if at > C.KEEP_TIMES then return nil end
+    table.insert(list, at, value)
+    while #list > C.KEEP_TIMES do table.remove(list) end
+    rec.times[diff] = list
+    return at
+  end
+
   -- once per save load, opening a minigame cheers the active Pokemon up
   C.openedThisLoad = {}
   function C.noteOpened(key)
@@ -232,6 +255,12 @@ return function(mod, deps)
     Store.savePuffs()
     local rec = C.record(game)
     if stars > (rec.best[diff] or 0) then rec.best[diff] = stars end
+    if game == "tile" then
+      -- whole seconds, as the card shows them
+      result.rank = noteTime(rec, game, diff, math.floor(tonumber(value) or 0))
+      result.times = {}
+      for i, v in ipairs(rec.times[diff] or {}) do result.times[i] = v end
+    end
     local idx = C.DIFF_INDEX[diff] or 1
     if stars >= 3 and idx < 4 and (rec.unlocked or 1) <= idx then
       rec.unlocked = idx + 1

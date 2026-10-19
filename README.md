@@ -77,8 +77,12 @@ on a touch screen below the game or on a device's second display.
     demo, the tree and the thought bubbles, TIME'S UP and the berries raining onto the heap, the Poké
     Puffs you won, Play Again or Quit, and the RESULTS card on the top screen.
   - **Head It:** tap Pokémon to bounce yarn, with combos and FEVER.
-  - **Tile Puzzle:** swap tiles to rebuild a moving picture. A two-colour border and scattered
-    stars and petals show where each tile goes.
+  - **Tile Puzzle:** swap tiles to rebuild a moving picture of your Pokémon in the sea, on the game's
+    own screens: the whole picture and Begin, the tiles flying apart, START!, blue corners on the
+    tiles out of place and red on the one you pick, stars as a tile lands home (it locks there),
+    then the RESULTS card with your three best times, the Poké Puffs you won, and View Picture,
+    Play Again or Quit. The picture turns from day to sunset to night and back as you play; on
+    Easy the Pokémon bob in place, on Normal they move about, and on Hard the view drifts too.
 
   Each game has Easy, Normal, Hard and Unlimited ranks, star ratings and Poké Puff prizes.
 - 🛋️ **Décor and visitors:** Decorate the room with any of 34 wallpapers and 172 cushions and

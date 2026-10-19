@@ -65,8 +65,46 @@ function M.textures(blob)
   return out
 end
 
+local function s32(s, p)
+  local v = u32(s, p)
+  return v >= 2147483648 and v - 4294967296 or v
+end
+
+-- The textures in a CGFX (NintendoWare's 3D scene format; Amie's Tile Puzzle stages, a/0/1/8
+-- entries 3-8): every image texture object ("TXOB" with its pixels; the references a
+-- material holds carry none) -> the same rows as M.textures. Fields after the magic: name
+-- (self-relative), height, width at +20 / +24, the format at +48, the image at +52 (self-
+-- relative) holding height, width, size, data (self-relative at +12). Twin of tools/bch.py.
+function M.cgfxTextures(blob)
+  if type(blob) ~= "string" or blob:sub(1, 4) ~= "CGFX" then return nil, "not a CGFX" end
+  local out, seen = {}, {}
+  local p = 1
+  while true do
+    local at = blob:find("TXOB", p, true)
+    if not at then break end
+    p = at + 4
+    local o = at - 1
+    if o + 68 <= #blob then
+      local h, w = u32(blob, o + 20), u32(blob, o + 24)
+      local fmt = M.FORMATS[u32(blob, o + 48)]
+      local ip = o + 52 + s32(blob, o + 52)
+      if fmt and w >= 8 and w <= 2048 and h >= 8 and h <= 2048 and ip > o and ip + 16 <= #blob
+        and u32(blob, ip) == h and u32(blob, ip + 4) == w then
+        local name = cstring(blob, o + 8 + s32(blob, o + 8))
+        if name and not seen[name] then
+          seen[name] = true
+          out[#out + 1] = { name = name, w = w, h = h, format = fmt, data = ip + 12 + s32(blob, ip + 12) }
+        end
+      end
+    end
+  end
+  return out
+end
+
 function M.texture(blob, name)
-  local list, why = M.textures(blob)
+  local list, why
+  if type(blob) == "string" and blob:sub(1, 4) == "CGFX" then list, why = M.cgfxTextures(blob)
+  else list, why = M.textures(blob) end
   if not list then return nil, why end
   for _, t in ipairs(list) do
     if t.name == name then return t end

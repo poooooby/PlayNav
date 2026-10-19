@@ -56,4 +56,26 @@ for _, c in ipairs({ { "a010_1.entry", "3", "kumo_yoko_a2", 256, 128 }, { "a064_
     T.eq(Bch.descend(entry, "999", unlz), nil, c[3] .. ": a missing index is nil")
   end
 end
+
+-- a CGFX (Tile Puzzle's stage a/0/1/8 entry 4, LZ): the photo frame and the picture mask
+do
+  local entry = slurp(ref .. "a018_4.entry")
+  if not entry then
+    print("bch_test: SKIP cgfx (no reference dump)")
+  else
+    local blob = unlz(entry)
+    T.check(blob:sub(1, 4) == "CGFX", "a/0/1/8 4 is a CGFX")
+    local list = Bch.cgfxTextures(blob)
+    T.eq(list and #list, 4, "...four image textures (the materials' references skipped)")
+    for _, c in ipairs({ { "pzl_mask", 128, 128 }, { "pzl_pmask", 64, 64 } }) do
+      local t = Bch.texture(blob, c[1])
+      T.check(t ~= nil and t.w == c[2] and t.h == c[3], c[1] .. ": found by name, " .. c[2] .. "x" .. c[3])
+      if t then
+        local img = Bclim.decodeRaw(t.format, t.w, t.h, blob:sub(t.data + 1), #blob - t.data)
+        T.check(img and img.rgba == slurp(ref .. c[1] .. ".rgba"), c[1] .. ": pixels identical to tools/bch.py (" .. tostring(t.format) .. ")")
+      end
+    end
+    T.eq(Bch.cgfxTextures("BCH\0"), nil, "a BCH is not a CGFX")
+  end
+end
 T.finish()
