@@ -269,7 +269,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     st = { diff = game.diff, participants = game.participants, phase = "countdown", t = 0, pt = 0, count = 3,
       timer = 60, score = 0, misses = 0, lives = (game.diff == "unlimited") and 3 or nil,
       kinds = KINDS_FOR[game.diff] or 3, rotation = rotationFor(game.diff), rotIndex = 1, servedInRot = 0,
-      served = 0, slots = {}, result = nil, best = Games.best and Games.best("berry", game.diff) or 0,
+      served = 0, slots = {}, result = nil, best = Games.highScore and Games.highScore("berry", game.diff) or 0,
       viewY = 0, shown = 0 }
     st.rot = st.rotation[1]
     for i = 1, 3 do

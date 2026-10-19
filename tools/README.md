@@ -196,6 +196,16 @@ The in-game decoders are tested against the same data with
   `python tools/lyt_rows.py romfs amie_deco=a/1/4/4:0:0 amie_room=a/0/2/6:0:0 --
   amie_deco:customize.bclyt:amie_deco amie_deco:customize_upper.bclyt:amie_deco
   amie_room:kawaii_lower.bclyt:amie_room amie_room:kawaii_windows.bclyt:amie_room`.
+- Head It's screens and rules (2026-10-19): `a/0/1/7` entries 0-8 are darcs of BCLIM only (ball,
+  bg_down, bg_up_rear, bg_up_front, effect, reward_heading, headingDemo, priorObj, background;
+  the Pokemon are 3D models). Rows from `python tools/lyt_rows.py romfs head_ball=a/0/1/7:0:0
+  head_down=a/0/1/7:1:0 ... head_bg=a/0/1/7:8:0 -- head_ball:ball.bclyt:head_ball ...`. The rules
+  are in `romfs/DllHeading.cro` (not a script): Process state at +0x34, scoring 0x6868, stage
+  records .rodata 0xb038 + diff * 2520, flight patterns 0xd920 + diff * 6000 + idx * 200 (8 groups
+  of v0, g, vGood, decelGood, vJust, decelJust), Unlimited 0xcdc0 / order 0xd798 / patterns
+  0x136e0, ranks 0x13ee8 + diff * 792; read with capstone over the CRO's relocations
+  (`cro_rel.py` / `annot.py` in a research scratchpad). ball.bclyt's bounding panes are the hit
+  windows and touch columns.
 - Tile Puzzle's screens (2026-10-19): `a/0/1/8` entry 0 (easy / normal / hard_bound: the tiles'
   corner marks, frame = blue, cursol = red; effect: the star burst), entry 1 (bg_down: the touch
   screen), entry 2 (bg_up: the top screen; RESULTS' ribbon is Berry Picker's `a/2/1/6` e0 s2).

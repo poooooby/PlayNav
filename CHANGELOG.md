@@ -7,6 +7,23 @@ All notable changes to this mod are documented here. The format follows
 
 ### Changed
 
+- Head It, rebuilt from the game's own screens and rules (read from its code). Balls of yarn
+  fall from the top screen straight down onto the Pokémon they are meant for; where a ball is on
+  the top screen tells you which one. Tap that Pokémon when the ball reaches the star over its
+  head and it heads the ball back up: 3 points at the star, 1 a little early or late.
+  - One Pokémon at first, a second joins on the left after 20 seconds and a third on the right
+    after 40; the yarn turns from pink to yellow to blue.
+  - Balls come faster as you keep heading them, and several can be in the air at once; a miss
+    slows them again. Every 10th, 50th and 100th hit in a row adds a bonus.
+  - The rainbow on the top screen grows with your combo; at 5 in a row (Easy) or 15 (the other
+    ranks) comes FEVER: points double until you miss.
+  - When time runs out, the balls still up are played out, the other two leave and a giant ball
+    of yarn drops on the middle Pokémon: 50 points at the star, 10 near it.
+  - RESULTS on the top screen (Heading Points, Last Combo Record, Big Yarn Bonus, TOTAL, a
+    HIGH SCORE stamp on a new best), then the smoke and the Poké Puffs, Play Again / Quit.
+  - Unlimited follows the game's own steps, one to three Pokémon and back, faster as it goes,
+    until you miss three balls.
+- Berry Picker's HIGH SCORE shows your best number of berries (it showed the star rating).
 - Petting in Pokémon-Amie follows the game's own rules (read from its Amie script): what counts
   is the time your finger keeps moving on the Pokémon. About two seconds on one kind of spot
   (more for each reward in a row on the same spot), or five seconds anywhere, earns its reward:

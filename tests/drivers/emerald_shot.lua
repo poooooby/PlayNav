@@ -505,20 +505,12 @@ local function body(game, log)
       end
     end)
     playGame(2, "game_head", 45, "08f_head_it", function()
-      -- tap the lane whenever a ball nears the sweet spot
+      -- tap a Pokemon whenever a ball falling on it is at the star
       local happ = Apps:get("game_head")
       local t0 = love.timer.getTime()
       while love.timer.getTime() - t0 < 6 do
-        local g = happ.debugState()
-        local tapped = false
-        for _, b in ipairs(g and g.balls or {}) do
-          if not b.hit and b.y >= 96 and b.y <= 118 then
-            tapAt("lane", 64 + (b.lane - 1) * 64, 140)
-            tapped = true
-            break
-          end
-        end
-        if not tapped then U.wait(1) end
+        local slot = happ.nextTap("just")
+        if slot then tapAt("head", happ.tapPoint("slot", slot)) else U.wait(1) end
       end
     end)
     playGame(3, "game_tile", 25, "08g_tile_puzzle", function()

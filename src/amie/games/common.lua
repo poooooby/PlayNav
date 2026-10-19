@@ -210,6 +210,12 @@ return function(mod, deps)
     return C.record(game).best[diff] or 0
   end
 
+  -- the best score of a difficulty (the HIGH SCORE bars): berries, points, puzzles
+  function C.highScore(game, diff)
+    local rec = C.record(game)
+    return (rec.high and rec.high[diff]) or 0
+  end
+
   -- Tile Puzzle's RESULTS card lists the three best of a difficulty: the fewest seconds, or
   -- on Unlimited the most puzzles; a tie goes below the older one
   C.KEEP_TIMES = 3
@@ -254,6 +260,12 @@ return function(mod, deps)
     Store.savePuffs()
     local rec = C.record(game)
     if stars > (rec.best[diff] or 0) then rec.best[diff] = stars end
+    if not (game == "tile" and diff ~= "unlimited") then
+      local v = math.floor(tonumber(value) or 0)
+      rec.high = rec.high or {}
+      result.newHigh = v > 0 and v > (rec.high[diff] or 0)
+      if result.newHigh then rec.high[diff] = v end
+    end
     if game == "tile" then
       -- whole seconds, as the card shows them
       result.rank = noteTime(rec, game, diff, math.floor(tonumber(value) or 0))
