@@ -4,7 +4,6 @@
 -- buttons, the top screen's RESULTS card, then Quit back to petting. Shots at each step.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/berry_probe.lua love .
--- PROBE_SHAPE=gear|3ds picks the touch screen's shape (the option event only).
 
 local function body(game, log)
   local U = require("tests.drivers.util")
@@ -50,10 +49,6 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   loader.modOptions.play_nav.display = "split"
-  if os.getenv("PROBE_SHAPE") then
-    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
-    log("shape:", os.getenv("PROBE_SHAPE"), "W x H", tostring(X.W) .. "x" .. tostring(X.H))
-  end
   local R, Apps, S = X.amie, X.apps, X.amie.session
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function win(ax, ay)

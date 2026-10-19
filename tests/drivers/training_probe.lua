@@ -64,12 +64,6 @@ local function body(game, log)
   local X = loader and loader.exports and loader.exports[MOD_ID]
   if not X then log("FAIL no exports"); return end
   local TR = X.training
-  -- PROBE_SHAPE=gear|3ds: the touch screen's shape for this run (the option event only;
-  -- nothing is written to the player's options)
-  if os.getenv("PROBE_SHAPE") then
-    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
-    log("shape:", os.getenv("PROBE_SHAPE"), "W x H", tostring(X.W) .. "x" .. tostring(X.H))
-  end
   if not TR then log("FAIL training not exported"); return end
   local Apps = X.apps
   loader.modOptions[MOD_ID] = loader.modOptions[MOD_ID] or {}
@@ -325,6 +319,18 @@ local function body(game, log)
   end
   tapAt("party1", geo.partySlot(1).x + 9, geo.partySlot(1).y + 12)
   U.wait(5)
+  -- a record on Lv1 HP held by another party member: the picker shows it cleared, with the
+  -- best time and its holder's icon, for the trainee too
+  do
+    local party = Runtime.getSession().party
+    local other = party[2]
+    if other and TR.store.records then
+      TR.store.cleared().lv1_hp = true
+      TR.store.records().lv1_hp = { best = 141.5, key = TR.host.monKey(other),
+        species = TR.host.speciesOf and TR.host.speciesOf(other) or nil, name = "ZIGZAGOON" }
+      log("seeded a record on lv1_hp held by", TR.host.monKey(other))
+    end
+  end
   tapAt("regimens", geo.REGIMENS.x + geo.REGIMENS.w / 2, geo.REGIMENS.y + geo.REGIMENS.h / 2)
   -- the change on the game's frames: the shutters, the black, the fade
   waitFor(function() local t = TR.session.session.trans; return t and t.t >= 7 + 12 end, 2000)

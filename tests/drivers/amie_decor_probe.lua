@@ -5,7 +5,6 @@
 -- the check, and the puff falling in back in the room. Shots at each step.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/amie_decor_probe.lua love .
--- PROBE_SHAPE=gear|3ds picks the touch screen's shape for the run (the option event only).
 
 local function body(game, log)
   local U = require("tests.drivers.util")
@@ -51,10 +50,6 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   loader.modOptions.play_nav.display = "split"
-  if os.getenv("PROBE_SHAPE") then
-    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
-    log("shape:", os.getenv("PROBE_SHAPE"), "W x H", tostring(X.W) .. "x" .. tostring(X.H))
-  end
   local Extract = X._test.extract and X._test.extract()
   if Extract then
     waitFor(function() return Extract.state ~= "running" and Extract.state ~= "finishing" end, 60 * 300)

@@ -166,7 +166,6 @@ Open **OPTIONS → MODS → PlayNav**.
 | **POKEMON-AMIE** | On / Off | On | Pokémon-Amie: the AMIE menu entry, and the stat changes from walking and battling. Poké Puffs come from the Amie minigames only, as in the game. |
 | **AFFECTION BENEFITS** | On / Off | On | Affection's bonuses in battle. Off for vanilla battles. |
 | **SUPER TRAINING** | On / Off | On | Super Training: the TRAINING menu entry. |
-| **TOUCH SCREEN SHAPE** | Kanto Gear / 3DS | Kanto Gear | The touch screen's proportions: Kanto Gear's phone (10:9, a little taller), or the 3DS bottom screen (4:3). Every screen keeps the game's art at its own size; on the taller shape the extra room goes to the middle. |
 | **TOUCH SCREEN** | Auto / Second Screen / Split Screen / Off | Auto | Where the touch screen goes. Auto uses a second display when there is one, otherwise splits the window. |
 | **SHOW TOUCH SCREEN** | When Needed / Always | When Needed | Only while Amie or Super Training is open, or all the time. |
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |

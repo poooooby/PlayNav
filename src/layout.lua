@@ -1,9 +1,9 @@
 -- Pure geometry for the DS-style surface. No love access, so every function
 -- here runs headless in the tests.
 --
--- The surface is a logical 256-wide space: 256x230 by default, Kanto Gear's phone shape
--- (its 160x144 screen, 10:9), or 256x192, the 3DS / DS bottom screen (option TOUCH SCREEN
--- SHAPE; Layout.setShape). The layout decides where that space sits in the OS window and
+-- The surface is a logical 256-wide space, 256x230: Kanto Gear's phone shape (its 160x144
+-- screen, 10:9). Layout.setShape("3ds") (256x192, the 3DS bottom screen) remains for the
+-- geometry tests only; the mod always runs the Gear's shape. The layout decides where that space sits in the OS window and
 -- at what scale, and converts window coordinates back into logical ones. Every app draws
 -- to the height it is handed; the training screens' 320-wide layout space is
 -- Layout.H / 0.8 tall (Layout.LH: 287.5 or 240).

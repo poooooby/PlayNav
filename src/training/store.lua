@@ -11,6 +11,7 @@
 --                      bagsToRest = n, fully = bool,
 --                      supremely = bool, courses = { [id] = { best, medal, clears } }, hits = n } },
 --   cleared = { [courseId] = true },       -- any Pokemon; the unlock ladder
+--   records = { [courseId] = { best, key, species, name } },  -- the course record, any Pokemon
 --   meta = { blackTaps (taps since the last find), lastAutoHitAt, activeKey (the Pokemon training in the background),
 --            pendingItems = { { index, qty } } },
 -- }
@@ -19,7 +20,7 @@ return function(mod, Rules)
   local S = { SCHEMA = 1 }
 
   local function fresh()
-    return { schema = S.SCHEMA, bags = {}, mons = {}, cleared = {},
+    return { schema = S.SCHEMA, bags = {}, mons = {}, cleared = {}, records = {},
       meta = { blackTaps = 0, lastAutoHitAt = nil, pendingItems = {} } }
   end
 
@@ -48,6 +49,24 @@ return function(mod, Rules)
 
   function S.bags() return S.data().bags end
   function S.cleared() return S.data().cleared end
+
+  -- each course's record across the party; a save from before records begins with every
+  -- Pokemon's own best (the holder known by its key only)
+  function S.records()
+    local d = S.data()
+    if not d.recordsSeeded then
+      for key, m in pairs(d.mons) do
+        for id, c in pairs(type(m) == "table" and m.courses or {}) do
+          local cur = d.records[id]
+          if type(c) == "table" and c.best and (not cur or c.best > cur.best) then
+            d.records[id] = { best = c.best, key = key }
+          end
+        end
+      end
+      d.recordsSeeded = true
+    end
+    return d.records
+  end
   function S.meta() return S.data().meta end
 
   function S.mon(key)

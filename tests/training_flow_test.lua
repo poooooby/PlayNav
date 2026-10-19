@@ -731,6 +731,32 @@ do
   S.enterCore()
 end
 
+-- ------- the course record and the cleared tags are the save's, across the party
+
+do
+  local keyA = fake.monKey(party[1])
+  T.eq(S.courseBest("lv1_hp").best, 160, "the course record is the first clear's")
+  T.eq(S.courseBest("lv1_hp").key, keyA, "...held by the Pokemon that set it")
+  S.switchTo(party[3])
+  T.check(S.isCleared("lv1_hp"), "another Pokemon sees the course cleared")
+  T.eq(S.courseBest("lv1_hp").best, 160, "...and the record with its holder")
+  T.eq(S.courseRecord("lv1_hp"), nil, "...having no clear of its own")
+  S.session.rec.pending = nil
+  T.check(S.startCourse("lv1_hp"), "it runs the course")
+  S.forceEnd({ clear = true, remaining = 120 })
+  T.check(not S.session.result.newBest, "a slower time is not a new record")
+  T.eq(S.courseBest("lv1_hp").key, keyA, "...the holder stays")
+  T.eq(S.courseRecord("lv1_hp").best, 120, "...though it keeps its own best")
+  S.leaveResult()
+  T.check(S.startCourse("lv1_hp"), "again")
+  S.forceEnd({ clear = true, remaining = 175 })
+  T.check(S.session.result.newBest, "a faster time is a new record")
+  T.eq(S.courseBest("lv1_hp").key, fake.monKey(party[3]), "...and the holder changes")
+  S.leaveResult()
+  S.enterCore()
+  S.switchTo(party[1])
+end
+
 -- ------- modes and closing
 
 T.check(S.enterBags(), "BAGS mode")

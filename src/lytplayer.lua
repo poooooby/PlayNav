@@ -582,10 +582,18 @@ local function drawWindow(self, G, pane, st, alpha, sh)
       ltSide = q(lt, 0, th - 1, tw, 1), rtSide = q(rt, 0, th - 1, rw, 1), mid = q(lt, tw - 1, th - 1, 1, 1) }
     self.wq[pane.name] = Q
   end
+  -- one frame: its corner serves all four, mirrored for the right side (the ragged left end
+  -- of amie_room's bar_title makes the right end); two frames: each side its own
+  local mirrorR = #frames == 1
   G.draw(lt, Q.lt, x0, y0)
   G.draw(lt, Q.lt, x0, y0 + h, 0, 1, -1)
-  G.draw(rt, Q.rt, x0 + w - rw, y0)
-  G.draw(rt, Q.rt, x0 + w - rw, y0 + h, 0, 1, -1)
+  if mirrorR then
+    G.draw(rt, Q.rt, x0 + w, y0, 0, -1, 1)
+    G.draw(rt, Q.rt, x0 + w, y0 + h, 0, -1, -1)
+  else
+    G.draw(rt, Q.rt, x0 + w - rw, y0)
+    G.draw(rt, Q.rt, x0 + w - rw, y0 + h, 0, 1, -1)
+  end
   local midW, midH = w - tw - rw, h - 2 * half
   if midW > 0 then
     G.draw(lt, Q.ltEdge, x0 + tw, y0, 0, midW, 1)
@@ -593,7 +601,8 @@ local function drawWindow(self, G, pane, st, alpha, sh)
   end
   if midH > 0 then
     G.draw(lt, Q.ltSide, x0, y0 + half, 0, 1, midH)
-    G.draw(rt, Q.rtSide, x0 + w - rw, y0 + half, 0, 1, midH)
+    if mirrorR then G.draw(rt, Q.rtSide, x0 + w, y0 + half, 0, -1, midH)
+    else G.draw(rt, Q.rtSide, x0 + w - rw, y0 + half, 0, 1, midH) end
     if midW > 0 then G.draw(lt, Q.mid, x0 + tw, y0 + half, 0, midW, midH) end
   end
 end

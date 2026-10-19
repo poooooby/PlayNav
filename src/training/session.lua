@@ -168,9 +168,10 @@ return function(mod, deps)
     -- what it gives and the times, under the badge
     local target = Rules.medalTarget(c)
     local rec = T.courseRecord(c.id)
+    local best = T.courseBest and T.courseBest(c.id)
     local gain = c.stat and ("+%d %s"):format(Rules.courseEv(c, s.rec.pending), Rules.STAT_LABEL[c.stat] or c.stat) or "Items"
     local lines = { gain, ("Target %d:%02d"):format(math.floor(target / 60), target % 60) }
-    if rec and rec.best then lines[#lines + 1] = ("Best %s"):format(T.Draw and T.Draw.clock(rec.best) or tostring(rec.best)) end
+    if best and best.best then lines[#lines + 1] = ("Best %s"):format(T.Draw and T.Draw.clock(best.best) or tostring(best.best)) end
     if rec and rec.medal then lines[#lines + 1] = "Award!" end
     G2.setColor(1, 1, 1, 0.85)
     G2.rectangle("fill", 4, 102, 232, 18, 3, 3)

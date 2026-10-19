@@ -314,6 +314,21 @@ return function(mod, Pointer, T, Rules)
     return iconCache or nil
   end
 
+  -- the record holder's icon: from the party when it is there, else by its species (once a
+  -- frame per course)
+  local holderCache = {}
+  local function holderIcon(rec)
+    local h = holderCache[rec]
+    if h and h.at == app.clock then return h.icon or nil end
+    local icon = false
+    for _, p in ipairs(T.party and T.party() or {}) do
+      if p.key == rec.key then icon = p.icon or false end
+    end
+    if not icon and rec.species and T.speciesIcon then icon = T.speciesIcon(rec.species) or false end
+    holderCache[rec] = { at = app.clock, icon = icon }
+    return icon or nil
+  end
+
   local function drawIcon(G, icon, cx, cy, w)
     if not (icon and icon.image) then return end
     local q = icon.quads and (icon.quads[0] or icon.quads[1])
@@ -341,7 +356,8 @@ return function(mod, Pointer, T, Rules)
     else
       fit(G, art("training/ss_stage_icon00"), x, y, 64, 64)
     end
-    if rec and rec.clears and rec.clears > 0 then fit(G, art("training/tag_cleared"), x, y + 15, 60, 20) end
+    -- cleared by any Pokemon (the ladder is the save's)
+    if T.isCleared and T.isCleared(c.id) then fit(G, art("training/tag_cleared"), x, y + 15, 60, 20) end
     if rec and rec.medal then fit(G, art("training/medal"), x + 25, y - 19, 32, 32) end
     if c.stat then fit(G, art("training/label_" .. c.stat), x, y - 22, 64, 20) end
     if sel then
@@ -473,25 +489,30 @@ return function(mod, Pointer, T, Rules)
   -- 400x240 as the game has it). Boxes, y down: the rows x 0..180, y 55..235; the picture with
   -- its turning brackets about x 303..395, y 21..111 (scaled from its top right); the target
   -- window 190..400 x 99..161, the best 180..400 x 161..241.
-  -- A tall area puts the two windows side by side under the rows (`under`, at `underY`, scale
-  -- `win`, a little under 1 when the width is short of 442); the rows grow to fill the height
-  -- left, the picture into the width beside them. Otherwise everything stays as it is.
+  -- A larger area keeps the game's arrangement: the rows on the left, the picture and the two
+  -- windows in a column pinned to the right edge. The picture grows (from its top right) as far
+  -- as leaves the windows their own size under it; the windows grow (scale `win`, from the
+  -- right edge) into the height left; the rows into the height and the width left of the column.
+  -- `winTop` is the target window's top (99 as the game has it, lower under a larger picture).
   local CARD = { ROWS_TOP = 55, ROWS_W = 180, ROWS_H = 180, PIC_X = 395, PIC_TOP = 21, PIC_W = 92,
     TARGET = { x = 190, y = 99, w = 210, h = 62 }, BEST = { x = 180, y = 161, w = 220, h = 80 },
-    GAP = 12, EDGE = 8, ROWS_MAX = 1.5, PIC_MAX = 1.6, WIN_MAX = 1.3, WIN_MIN = 0.9 }
+    GAP = 12, EDGE = 8, ROWS_MAX = 1.5, PIC_MAX = 1.6, WIN_MAX = 1.3 }
   app.CARD = CARD
+  local PIC_STEP = CARD.TARGET.y - CARD.PIC_TOP                 -- the target's top under the picture
+  local STACK = CARD.BEST.y + CARD.BEST.h - CARD.TARGET.y       -- the two windows, as stacked
   function app.cardFit(Wl, Hl)
-    local F = { rows = 1, pic = 1, win = 1, under = false }
+    local F = { rows = 1, pic = 1, win = 1, winTop = CARD.TARGET.y }
     if Wl < 401 and Hl < 241 then return F end
-    local winW = CARD.TARGET.w + CARD.GAP + CARD.BEST.w
-    local win = math.min(CARD.WIN_MAX, (Wl - 2 * CARD.EDGE) / winW)
-    local rowsRoom = Hl - CARD.EDGE - CARD.BEST.h * win - CARD.GAP - CARD.ROWS_TOP
-    local rows = math.min(CARD.ROWS_MAX, rowsRoom / CARD.ROWS_H,
-      (Wl - 2 * CARD.EDGE - CARD.GAP - CARD.PIC_W) / CARD.ROWS_W)
-    if win < CARD.WIN_MIN or rows < 1.1 then return F end
-    F.under, F.win, F.rows = true, win, rows
-    F.underY = CARD.ROWS_TOP + CARD.ROWS_H * rows + CARD.GAP
-    F.pic = math.max(1, math.min(CARD.PIC_MAX, (Wl - CARD.EDGE - (CARD.ROWS_W * rows + CARD.GAP)) / CARD.PIC_W))
+    local function winFor(p) return (Hl - CARD.EDGE - (CARD.PIC_TOP + PIC_STEP * p)) / STACK end
+    local pic = CARD.PIC_MAX
+    if winFor(pic) < 1 then pic = math.max(1, (Hl - CARD.EDGE - STACK - CARD.PIC_TOP) / PIC_STEP) end
+    -- the column no wider than leaves the rows their own width (they meet at 180, as the game's)
+    local colW = math.max(CARD.TARGET.w, CARD.BEST.w)
+    local win = math.max(1, math.min(CARD.WIN_MAX, winFor(pic), (Wl - CARD.ROWS_W) / colW))
+    local rows = math.min(CARD.ROWS_MAX, (Hl - CARD.EDGE - CARD.ROWS_TOP) / CARD.ROWS_H,
+      (Wl - colW * win) / CARD.ROWS_W)
+    F.pic, F.win, F.rows = pic, win, math.max(1, rows)
+    F.winTop = CARD.PIC_TOP + PIC_STEP * pic
     return F
   end
 
@@ -574,33 +595,31 @@ return function(mod, Pointer, T, Rules)
         G2.pop()
       end
     end)
-    -- the target time and, once there is one, the best time: on the right as the game has
-    -- them, or side by side under the rows when the area is tall (F.under)
+    -- the target time and, once there is one, the best time with its holder: the right-hand
+    -- column, pinned to the right edge under the picture (scaled from the edge, F.win)
     local lt, rt = art("training/ss_stage_win_lt"), art("training/ss_stage_win_rt")
-    local function window(box, at, fn)
-      if F.under then
-        G2.push()
-        G2.translate(at - off, F.underY)
-        G2.scale(F.win, F.win)
-        G2.translate(-box.x, -box.y)
-        fn(cardFont(G2))
-        G2.pop()
-      else
-        fn(small)
-      end
+    local function window(box, fn)
+      if F.win == 1 and F.winTop == CARD.TARGET.y then fn(small); return end
+      G2.push()
+      G2.translate(400, F.winTop + (box.y - CARD.TARGET.y) * F.win)
+      G2.scale(F.win, F.win)
+      G2.translate(-(box.x + box.w), -box.y)
+      fn(cardFont(G2))
+      G2.pop()
     end
-    window(CARD.TARGET, CARD.EDGE, function(font)
+    window(CARD.TARGET, function(font)
       L.window(G2, lt, rt, 295, 130, 210, 62)
       L.text(G2, font, T.resultText("targetRemaining"), 202, 109, 180, 20)
       fit(G2, art("training/medal"), 218, 141, 20, 20, 180)
       L.text(G2, font, clock(Rules.medalTarget(c)), 235, 131, 150, 20)
     end)
-    local rec = T.courseRecord(c.id)
+    -- the course's record, any Pokemon's: the time and the holder's icon
+    local rec = T.courseBest and T.courseBest(c.id)
     if rec and rec.best then
-      window(CARD.BEST, CARD.EDGE + (CARD.TARGET.w + CARD.GAP) * F.win, function(font)
+      window(CARD.BEST, function(font)
         L.window(G2, lt, rt, 290, 201, 220, 80)
         L.text(G2, font, T.resultText("bestTime"), 197, 174, 180, 20)
-        drawIcon(G2, activeIcon(), 210, 212, 40)
+        drawIcon(G2, holderIcon(rec), 210, 212, 40)
         L.text(G2, font, clock(rec.best), 233, 202, 150, 20)
       end)
     end

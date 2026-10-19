@@ -5,7 +5,6 @@
 -- the difficulty ribbons, Easy starts Berry Picker), and the top screen's sky. Shots each step.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/amie_play_probe.lua love .
--- PROBE_SHAPE=gear|3ds picks the touch screen's shape (the option event only).
 
 local function body(game, log)
   local U = require("tests.drivers.util")
@@ -53,10 +52,7 @@ local function body(game, log)
   local opts = loader.modOptions.play_nav
   local savedDisplay = opts.display
   opts.display = "split"
-  if os.getenv("PROBE_SHAPE") then
-    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
-  end
-  log("shape:", os.getenv("PROBE_SHAPE") or "(saved)", "W x H", tostring(X.W) .. "x" .. tostring(X.H))
+  log("touch screen:", tostring(X.W) .. "x" .. tostring(X.H))
   local R, Apps = X.amie, X.apps
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function win(ax, ay)

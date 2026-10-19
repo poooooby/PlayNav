@@ -45,12 +45,6 @@ local function body(game, log)
   U.wait(60)
   local loader = game.mods
   local X = loader and loader.exports and loader.exports.play_nav
-  -- PROBE_SHAPE=gear|3ds: the touch screen's shape for this run (the option event only;
-  -- nothing is written to the player's options)
-  if os.getenv("PROBE_SHAPE") then
-    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
-    log("shape:", os.getenv("PROBE_SHAPE"), "W x H", tostring(X.W) .. "x" .. tostring(X.H))
-  end
   if not X then log("FAIL no exports"); return end
   local R, Apps, S = X.amie, X.apps, X.amie.session
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}

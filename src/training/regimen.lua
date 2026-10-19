@@ -27,6 +27,13 @@ return function(mod, T, deps)
     return m.courses and m.courses[id] or nil
   end
 
+  -- the course's record, any Pokemon's: { best, key, species, name } | nil
+  function T.courseBest(id) return Store.records()[id] end
+  -- cleared by any Pokemon
+  function T.isCleared(id) return Store.cleared()[id] == true end
+  -- a species' party icon (a record holder no longer in the party)
+  function T.speciesIcon(species) return host.iconSpecies and host.iconSpecies(species) or nil end
+
   -- ------- start
 
   -- the game's show around a regimen: the fade in, the intro on the top screen (the sim's
@@ -289,8 +296,15 @@ return function(mod, T, deps)
       end
       local crec = Store.courseRecord(s.key, course.id)
       res.medal = Rules.medal(course, res.remaining)
-      res.newBest = crec.best == nil or res.remaining > crec.best
-      if res.newBest then crec.best = res.remaining end
+      -- the course record is the save's, across the party; each Pokemon keeps its own best too
+      local records = Store.records()
+      local cur = records[course.id]
+      res.newBest = cur == nil or cur.best == nil or res.remaining > cur.best
+      if res.newBest then
+        records[course.id] = { best = res.remaining, key = s.key, name = s.name,
+          species = host.speciesOf and host.speciesOf(s.mon) or nil }
+      end
+      if crec.best == nil or res.remaining > crec.best then crec.best = res.remaining end
       if res.medal then crec.medal = true end
       crec.clears = (crec.clears or 0) + 1
       res.firstClear = not Store.cleared()[course.id]

@@ -5,7 +5,23 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Removed
+
+- The TOUCH SCREEN SHAPE option: the touch screen is always Kanto Gear's shape (10:9).
+
 ### Changed
+
+- Super Training's records and clears are shared by your whole party: a course cleared by
+  any Pokémon shows CLEARED on every Pokémon's regimen picker, and the Best Time is the course
+  record, shown with the icon of the Pokémon that set it. Older saves start each record from
+  the best of any Pokémon's times.
+- Super Training's regimen picker on a tall top screen keeps the target time and best time on
+  the right-hand side, under the course's picture, instead of moving them to the middle.
+- Pokémon-Amie's SWITCH is now the game's own party list (from Wooble's capture): it slides in
+  over the room with your party in gold medallions, a heart on the Pokémon in the room, and
+  the chosen one's icon, name, Affection, Fullness and Enjoyment. Choosing another Pokémon
+  shows the green Switch Pokémon! button; pressing it moves the heart, the list slides away
+  and the new Pokémon comes into the room. The return button closes the list.
 
 - Tile Puzzle rebuilt from the game's own screens (from Wooble's capture): the picture shows
   whole with the rules and a Begin button, then the tiles fly to their shuffled places and
@@ -30,6 +46,11 @@ All notable changes to this mod are documented here. The format follows
   - The RESULTS card's times and rank title are larger and bold, as in the game, and stay
     sharp at any screen size.
 - Needs the art extracted again (recipe 29): the extraction runs by itself on the next start.
+
+### Fixed
+
+- In the Amie room, visitors and your Pokémon always draw over the decorations; they could
+  slip behind an item placed lower in the room.
 
 ## [0.4.0] - 2026-10-18 (pre-alpha)
 
