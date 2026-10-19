@@ -204,7 +204,7 @@ do
   end
   T.eq(#bad, 0, "rows carry a class and a source (" .. table.concat(bad, ", ") .. ")")
   T.eq(R.evidenceFor("GAME.PARTICIPANTS").class, "verified", "three participants: the game's text")
-  T.eq(R.evidenceFor("PET.STEP_PX").class, "placeholder", "stroke length on this screen is ours")
+  T.eq(R.evidenceFor("PET.SPOT_TICKS").class, "verified", "the petting counts come from the game's script")
   T.eq(R.evidenceFor("PET.normal").class, "verified", "a nested path inherits its group's row")
 end
 

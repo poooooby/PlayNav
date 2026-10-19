@@ -5,6 +5,20 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Petting in Pokémon-Amie follows the game's own rules (read from its Amie script): what counts
+  is the time your finger keeps moving on the Pokémon. About two seconds on one kind of spot
+  (more for each reward in a row on the same spot), or five seconds anywhere, earns its reward:
+  hearts of affection paid for with enjoyment, as before. Then petting stops while it bounces
+  and gives off music notes, and you can pet again. A single tap no longer counts as petting.
+  - A disliked spot makes it angry after a second; a burning, shocking, sharp or freezing spot
+    jolts it on contact, and the fifth jolt of a visit makes it pull away.
+  - Left alone for about 30 seconds, it dozes off, sleeps a moment, goes back into its ball and
+    you return to the room. Tap it while it dozes to wake it. A Pokémon that is already happy
+    and full when you start playing dozes off at once, as in the game.
+- Pokémon in Amie move more gently: no more rapid bouncing in the room or jittering in Play.
+
 ### Removed
 
 - The TOUCH SCREEN SHAPE option: the touch screen is always Kanto Gear's shape (10:9).

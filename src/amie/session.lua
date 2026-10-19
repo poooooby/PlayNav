@@ -540,6 +540,16 @@ return function(mod, deps)
     end
   end
 
+  -- PLAY left alone: the Pokemon has dozed off; back to the room (opened from the START menu's
+  -- PLAY too)
+  function G.idleToRoom()
+    local s = G.session
+    if not (s and s.mode == "play") then return end
+    s.tool = nil
+    persist()
+    G.enterHome(false)
+  end
+
   -- GAMES: the picker, on the play screen itself (its tray button; three badges and the four
   -- ranks under the chosen one). Needs three healthy party members.
   function G.showGames()
@@ -697,24 +707,85 @@ return function(mod, deps)
   end
   G.bump = function(squash, bounce) local s = G.session; if s then bump(s, squash, bounce) end end
 
-  -- `travelPx` more stroke at `speed` px/s over a spot kind ("normal",
-  -- "favored", "disfavored"). Returns hearts gained, the spot kind, and
-  -- whether the stroke produced a petting event at all.
-  function G.petStroke(travelPx, speed, spot)
+  -- Petting as the game's script counts it (data PET): while a finger is on the body, the time
+  -- it moves (more than MOVE_PX a tick) on the current spot class and anywhere on the body. A
+  -- reward once either is long enough (a spot class needs more for each reward in a row on
+  -- it); the petting then ends until the finger is lifted (G.petLift). `cls` is the spot class
+  -- (the zone for a normal spot, else the spot kind). -> { hearts, spot } on a reward, else nil
+  function G.petTouch(dt, moving, spot, cls)
     local s = inPlay()
-    if not s then return 0, spot, false end
-    if not Rules.canPet(s.national) then return 0, "effect", false end
-    if (speed or 0) > Rules.PET_FAST then
-      s.petAccum = 0
-      return 0, "fast", false
+    if not s then return nil end
+    if not Rules.canPet(s.national) then return nil end
+    local P, tk = Rules.PET, Rules.ticks
+    local t = s.petT
+    if not t then t = { clsT = 0, anyT = 0, pendT = 0 }; s.petT = t end
+    -- another class takes over once it has lasted SWITCH_TICKS
+    if cls ~= t.cls then
+      if t.pend ~= cls then t.pend, t.pendT = cls, 0 end
+      t.pendT = t.pendT + dt
+      if t.cls == nil or t.pendT >= tk(P.SWITCH_TICKS) - 1e-6 then t.cls, t.clsT, t.pend = cls, 0, nil end
+    else
+      t.pend = nil
     end
-    s.petAccum = (s.petAccum or 0) + (travelPx or 0)
-    if s.petAccum < Rules.PET_STEP then return 0, spot, false end
-    s.petAccum = s.petAccum - Rules.PET_STEP
-    return G.petEvent(spot)
+    if not moving then return nil end
+    if t.cls == cls then t.clsT = t.clsT + dt end
+    if spot ~= "disfavored" then t.anyT = t.anyT + dt end
+    local need
+    if spot == "disfavored" then
+      need = P.DISLIKED_TICKS
+    else
+      local rep = s.petRepeat
+      need = P.SPOT_TICKS + P.REPEAT_TICKS * ((rep and rep.cls == cls) and rep.n or 0)
+    end
+    -- (a hair under, for the frames' sums of 1/30 s)
+    local onSpot = t.cls == cls and t.clsT >= tk(need) - 1e-6
+    local onBody = spot ~= "disfavored" and t.anyT >= tk(P.BODY_TICKS) - 1e-6
+    if not (onSpot or onBody) then return nil end
+    s.petT = nil
+    -- the body-wide path pays as a normal spot
+    local paid = onSpot and spot or "normal"
+    if paid ~= "disfavored" then
+      local rep = s.petRepeat
+      if rep and rep.cls == cls then rep.n = rep.n + 1 else s.petRepeat = { cls = cls, n = 1 } end
+    end
+    local hearts, kind = G.petEvent(paid)
+    return { hearts = hearts, spot = kind }
   end
 
-  -- one petting event (a tap, or 60 px of stroke)
+  -- a fresh visit to PLAY: the script starts again (the reward streak, the jolt count)
+  function G.resetPetting()
+    local s = G.session
+    if s then s.petT, s.effectT, s.petRepeat, s.effectJolts = nil, nil, nil, 0 end
+  end
+
+  -- the finger lifted (or petting ended): the counts start again next touch
+  function G.petLift()
+    local s = G.session
+    if s then s.petT, s.effectT = nil, nil end
+  end
+
+  -- a finger on an interrupting spot (burning, paralyzing, cutting, freezing): a jolt at once and
+  -- every JOLT_TICKS while it stays; the EFFECT_JOLTS-th of the visit makes the Pokemon recoil.
+  -- -> "jolt" | "recoil" | nil
+  function G.petEffect(dt, kind)
+    local s = inPlay()
+    if not s then return nil end
+    local P = Rules.PET
+    if s.petT then s.petT.clsT, s.petT.anyT = 0, 0 end
+    s.effectT = (s.effectT or 0) - dt
+    if s.effectT > 1e-6 then return nil end
+    s.effectT = Rules.ticks(P.JOLT_TICKS[kind] or 30)
+    s.effectJolts = (s.effectJolts or 0) + 1
+    host.playSe("SE_NOT_EFFECTIVE")
+    if s.effectJolts >= P.EFFECT_JOLTS then
+      s.effectJolts = 0
+      s.effectT = nil
+      return "recoil"
+    end
+    return "jolt"
+  end
+
+  -- one petting reward: affection by spot and enjoyment band (Rules.pet)
   function G.petEvent(spot)
     local s = inPlay()
     if not s then return 0, spot, false end

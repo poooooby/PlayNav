@@ -109,12 +109,27 @@ local function body(game, log)
     shot("p04c_hungry")
     log("hungry: frames hopping", lowHops)
     m.affection, m.enjoyment, m.fullness = saved[1], saved[2], saved[3]
-    -- stroking: the hand, the view easing in
+    -- stroking: the hand, the view easing in; on until the game's reward (60 moving ticks on
+    -- one spot class: about 2 s), then petting locks while it bounces with music notes
     local px, py = app.tapPoint("zone", "chest")
+    local aff0 = R.state().meters.affection
+    R.state().meters.enjoyment = 120
     press("pet", px, py); U.wait(2)
-    for k = 1, 60 do move("pet", px + math.sin(k / 5) * 18, py + math.cos(k / 7) * 10); U.wait(1) end
-    log("stroking: zoom", ("%.2f"):format(st().zoom), "hand", st().hand, "calm", ("%.2f"):format(st().calm), "hopping", tostring(st().hopping))
-    shot("p05_stroke")
+    local t0, k, rewarded = love.timer.getTime(), 0, false
+    while love.timer.getTime() - t0 < 5 do
+      k = k + 1
+      move("pet", px + math.sin(k / 3) * 22, py + math.cos(k / 4) * 10)
+      U.wait(1)
+      if k == 30 then
+        log("stroking: zoom", ("%.2f"):format(st().zoom), "hand", st().hand, "calm", ("%.2f"):format(st().calm))
+        shot("p05_stroke")
+      end
+      if st().locked then rewarded = true; break end
+    end
+    log(("petting reward after %.2f s: %s; affection %d -> %d; hopping %s"):format(love.timer.getTime() - t0,
+      tostring(rewarded), aff0, R.state().meters.affection, tostring(st().hopping)))
+    U.wait(3)
+    shot("p05b_reward")
     release("pet", px, py)
     settle()
     -- a tap on each zone: the reaction
@@ -172,6 +187,23 @@ local function body(game, log)
     tapAt("diff", app.tapPoint("diff", 1)); U.wait(30)
     log("after Easy: mode", R.state().mode, "app", Apps:active().id)
     shot("p17_berry_started")
+    R.session.finish()
+    U.wait(5)
+    -- left alone: it dozes off after the game's 900 ticks (30 s), sleeps, and goes back to the room
+    log("open play again:", R.openPlay())
+    U.wait(10)
+    tapAt("wake2", app.tapPoint("pet"))
+    waitFor(function() return st().wake == "awake" end, 2400)
+    local tIdle = love.timer.getTime()
+    waitFor(function() return st().wake == "dozing" or R.state().mode ~= "play" end, 60 * 60 * 3)
+    log(("dozing after %.1f s idle"):format(love.timer.getTime() - tIdle))
+    U.wait(30)
+    shot("p18_dozing")
+    waitFor(function() return R.state() == nil or R.state().mode ~= "play" end, 60 * 60 * 3)
+    log(("idle end: mode %s after %.1f s; app %s"):format(tostring(R.state() and R.state().mode),
+      love.timer.getTime() - tIdle, Apps:active() and Apps:active().id))
+    U.wait(20)
+    shot("p19_back_in_room")
     R.session.finish()
     U.wait(5)
   end)

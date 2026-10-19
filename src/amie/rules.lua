@@ -60,9 +60,10 @@ return function(N)
     return 0, 0
   end
 
-  -- how many px of stroke make the next petting event
-  R.PET_STEP = N.PET.STEP_PX
-  R.PET_FAST = N.PET.FAST_PX_PER_S
+  -- the petting and idle numbers (data PET / IDLE), and the script's ticks in seconds
+  R.PET = N.PET
+  R.IDLE = N.IDLE
+  function R.ticks(n) return n / N.PET.TICK_HZ end
 
   -- ------- other play events
 

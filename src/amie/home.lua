@@ -679,7 +679,8 @@ return function(mod, Pointer, G, Rules, Store, host)
     elseif pet.state == "play" then
       pet.frameT = pet.frameT + dt
       if pet.frameT >= 0.12 then pet.frameT = 0; pet.frame = 1 - pet.frame end
-      pet.bounce = math.abs(math.sin(pet.timer * 9)) * 12
+      -- a hop about every 0.6 s
+      pet.bounce = math.abs(math.sin(pet.timer * 5)) * 8
       if pet.timer <= 0 then pet.bounce = 0; pet.state, pet.timer = "idle", 1 end
     else
       pet.frameT = pet.frameT + dt

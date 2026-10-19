@@ -102,18 +102,53 @@ T.eq(#X.apps:get("play").geometry.tools(S.session), 2, "the tray holds the puffs
 st.meters.affection = 5
 st.meters.enjoyment = 100
 local aff = st.meters.affection
-local hearts, kind, event = S.petStroke(30, 100, "favored")
-T.eq(event, false, "30 px is not a petting event yet")
-hearts, kind, event = S.petStroke(40, 100, "favored")
-T.eq(event, true, "70 px makes one")
-T.eq(hearts, 3, "...a favored spot at 100 enjoyment is three hearts")
+-- the game's script counts moving ticks (30 a second): 60 on one spot class for a reward
+local function stroke(secs, spot, cls, moving)
+  local res
+  for _ = 1, math.floor(secs * 30 + 0.5) do
+    res = S.petTouch(1 / 30, moving ~= false, spot, cls or spot)
+    if res then return res end
+  end
+  return res
+end
+S.resetPetting()
+T.eq(stroke(1.9, "favored"), nil, "under 60 moving ticks on a spot is no reward yet")
+S.petLift()
+T.eq(stroke(1.9, "favored"), nil, "...and lifting the finger starts the count again")
+S.petLift()
+T.eq(stroke(3, "favored", nil, false), nil, "a finger held still counts nothing")
+S.petLift()
+local res = stroke(2.0, "favored")
+T.check(res ~= nil, "60 moving ticks on the favored spot: a reward")
+T.eq(res and res.hearts, 3, "...a favored spot at 100 enjoyment is three hearts")
 T.eq(st.meters.affection, aff + 3, "...and three affection")
 T.eq(st.meters.enjoyment, 58, "...for 42 enjoyment")
-hearts = S.petEvent("disfavored")
-T.eq(hearts, 0, "a disfavored spot gives nothing")
-T.eq(st.meters.enjoyment, 38, "...and costs 20 enjoyment")
-hearts, kind = S.petStroke(100, 2000, "normal")
-T.eq(kind, "fast", "scrubbing fast is not petting")
+T.eq(stroke(3.9, "favored"), nil, "the same spot again needs 120 ticks")
+S.petLift()
+T.check(stroke(4.0, "favored") ~= nil, "...and pays at 120")
+st.meters.enjoyment = 58
+S.petLift()
+res = stroke(1.0, "disfavored")
+T.eq(res and res.hearts, 0, "30 ticks on a disliked spot: no hearts")
+T.eq(st.meters.enjoyment, 38, "...and 20 enjoyment spent")
+S.petLift()
+st.meters.enjoyment = 100
+-- moving about the body, never 60 ticks on one class, pays as normal at 150
+local body
+for i = 1, 160 do
+  body = S.petTouch(1 / 30, true, "normal", (math.floor(i / 40) % 2 == 0) and "head" or "chest")
+  if body then break end
+end
+T.check(body ~= nil and body.spot == "normal", "150 moving ticks about the body: a normal reward")
+-- an interrupting spot: a jolt at once and every 30 ticks; the fifth recoils
+S.resetPetting()
+local jolts, recoil = 0, false
+for _ = 1, 30 * 6 do
+  local r = S.petEffect(1 / 30, "burning")
+  if r == "jolt" then jolts = jolts + 1 elseif r == "recoil" then recoil = true; break end
+end
+T.eq(jolts, 4, "four jolts on a burning spot")
+T.check(recoil, "...and the fifth makes it recoil")
 T.eq(A.petting.spotAt(25, 0, 0.05), "favored", "the zone under Pikachu's chin is favored")
 T.eq(A.petting.spotAt(25, 0, 0.45), "disfavored", "its stomach is not")
 

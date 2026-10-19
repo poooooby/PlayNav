@@ -81,7 +81,15 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local particles = {}
   local view = { z = 1, fx = 160, fy = 120, px = 160, py = 120 }   -- screen = p + (scene - f) * z
   local want = { z = 1, fx = 160, fy = 120, px = 160, py = 120 }
-  local wake = nil        -- { session, stage = "asleep" | "exclaim" | "flash" | "awake", t }
+  local wake = nil        -- { session, stage = "asleep" | "exclaim" | "flash" | "awake" | "dozing", t }
+  -- left alone awake for the game's IDLE ticks, it dozes off (still, drooping, "z"s) for its
+  -- sleep cycles, shrinks back into its ball and the screen goes back to the room; a tap while
+  -- it dozes wakes it again (data IDLE)
+  local IDLE = { Z_EVERY = 0.7 }
+  local function idleS() return Rules.ticks(Rules.IDLE.TICKS) end
+  local function dozeS() return Rules.ticks(Rules.IDLE.CYCLES * Rules.IDLE.CYCLE_TICKS) end
+  local lastActive = 0
+  local petLock = 0       -- after a reward or a recoil: petting waits until then
   local lastMode = nil
   local touch = nil       -- { id, x, y (layout), sx, sy (scene), onBody, t } a finger on the Pokemon
   local hand = nil        -- { kind, t, x, y } the hand's flipbook at a screen point
@@ -118,13 +126,13 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local free = 1 - life.calm                    -- petted / eating: almost still
     local ex = math.max(0, life.excite)
     local energy = math.min(1.4, lively + 0.6 * ex)
-    -- breathing: faster and fuller the livelier it is
-    local w = (1.1 + 1.4 * energy) * 2 * math.pi * 0.5
+    -- breathing: a little faster and fuller the livelier it is (about 0.4 to 1 a second)
+    local w = (0.8 + 0.85 * energy) * math.pi
     local breath = math.sin(t * w) * (0.012 + 0.018 * energy)
     -- a sway side to side, a bob
     local tilt = math.sin(t * w * 0.5 + 0.7) * (0.015 + 0.05 * energy) * free
     local dx = math.sin(t * w * 0.25) * (2 + 6 * energy) * free
-    local lift = (0.5 + 0.5 * math.sin(t * w)) * (1 + 4 * energy) * free
+    local lift = (0.5 + 0.5 * math.sin(t * w)) * (1 + 2.5 * energy) * free
     local sx, sy = 1 - breath * 0.6, 1 + breath
     -- a hop: up, a squash on landing
     if life.hop then
@@ -136,12 +144,23 @@ return function(mod, Pointer, G, Rules, Petting, host)
     end
     -- hungry: a little droop; unwell: a shiver now and then
     if hungry then sy = sy - 0.03; sx = sx + 0.02 end
+    -- back into its ball: it shrinks away
+    if wake and wake.stage == "ball" then
+      local f = math.min(1, wake.t / Rules.IDLE.BALL_S)
+      sx, sy = sx * (1 - f), sy * (1 - f)
+    end
+    -- dozing off: it sinks a little and nods
+    if wake and wake.stage == "dozing" then
+      local d = math.min(1, wake.t / 1.2)
+      sy, sx = sy - 0.05 * d, sx + 0.03 * d
+      tilt = tilt + math.sin(t * 1.6) * 0.03 * d
+    end
     if (status == "PSN" or status == "BRN" or status == "FRZ") and math.sin(t * 0.9) > 0.6 then
-      dx = dx + math.sin(t * 60) * 1.5
+      dx = dx + math.sin(t * 18) * 1
     end
     if status == "PAR" and life.twitch > 0 then
-      dx = dx + math.sin(t * 80) * 2.5
-      tilt = tilt + math.sin(t * 50) * 0.04
+      dx = dx + math.sin(t * 24) * 1.5
+      tilt = tilt + math.sin(t * 16) * 0.03
     end
     -- leaning into the hand while petted
     tilt = tilt + life.lean * 0.05 * life.calm
@@ -150,7 +169,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   local function stepLife(s, dt, pl)
     life.t = life.t + dt
-    local still = (touch ~= nil) or (feed ~= nil) or (drag ~= nil)
+    local still = (touch ~= nil) or (feed ~= nil) or (drag ~= nil) or (wake ~= nil and (wake.stage == "dozing" or wake.stage == "ball"))
     life.calm = life.calm + ((still and 1 or 0) - life.calm) * (1 - math.exp(-6 * dt))
     life.excite = math.max(0, life.excite - dt / 1.6)
     if life.twitch > 0 then life.twitch = life.twitch - dt end
@@ -339,6 +358,36 @@ return function(mod, Pointer, G, Rules, Petting, host)
     end
   end
 
+  -- the touch ends (a reward, a recoil, or off the body too long): the view eases out and
+  -- petting waits lockS for the motion to play
+  local function endTouch(lockS)
+    touch = nil
+    want.z = 1
+    petLock = now() + (lockS or 0)
+    if G.petLift then G.petLift() end
+  end
+
+  -- a petting reward (G.petTouch): the hearts gained, then the happy motion - a bounce and music
+  -- notes - with petting locked until it ends; a disliked spot's reward is an angry turn
+  local function reward(s, pl, res, lx, ly)
+    if res.spot == "disfavored" then
+      showEmote("emote/angry", 1.0)
+      setHand("dislike", lx, ly)
+      G.bump(-0.08, 0)
+      endTouch(0.8)
+      return
+    end
+    if res.hearts > 0 then
+      spawn("heart", pl.headX, pl.headY - 10, math.min(5, res.hearts))
+      showEmote(res.spot == "favored" and "emote/love" or "emote/happy", 1.2)
+    end
+    life.hop = { t = 0, dur = 0.32, h = 14, again = true }
+    life.excite = 1
+    spawn("note", pl.headX - 26, pl.headY, 2)
+    spawn("note", pl.headX + 26, pl.headY, 2)
+    endTouch(Rules.PET.LOCK_S)
+  end
+
   local function hitEffect(kind, lx, ly)
     setHand(kind, lx, ly)
     showEmote(kind == "burning" and "emote/furious" or "emote/nervous", 0.8)
@@ -448,6 +497,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local sx, sy = toScene(lx, ly)
     rec.amieBody = true
     rec.lastX, rec.lastY = lx, ly
+    if onBody(pl, sx, sy, 1.2) and now() < petLock then return end
     if onBody(pl, sx, sy, 1.2) then
       touch = { id = ev.id, x = lx, y = ly, sx = sx, sy = sy, t = now() }
       want.z, want.fx, want.fy, want.px, want.py = ZOOM_TOUCH, sx, sy, lx, ly
@@ -466,30 +516,10 @@ return function(mod, Pointer, G, Rules, Petting, host)
       if hand then hand.x, hand.y = lx, ly end
     end
     if not rec.amieBody or not touch then return end
-    local dx, dy = lx - (rec.lastX or lx), ly - (rec.lastY or ly)
     rec.lastX, rec.lastY = lx, ly
+    -- where the finger is; the petting itself is counted each frame (update)
+    touch.lx, touch.ly = lx, ly
     if hand then hand.x, hand.y = lx, ly end
-    local dist = math.sqrt(dx * dx + dy * dy) * L     -- in app pixels, as the rules count
-    if dist <= 0 then return end
-    local pl = placement(s)
-    local sx, sy = toScene(lx, ly)
-    if not onBody(pl, sx, sy, 1.2) then return end
-    local bx, by = toBody(pl, sx, sy)
-    local spot, effect = Petting.spotAt(s.national, bx, by)
-    if spot == "effect" then
-      rec.amieBody = nil
-      hitEffect(effect, lx, ly)
-      return
-    end
-    local hearts, kind, event = G.petStroke(dist, Pointer.speed(rec), spot)
-    if kind == "fast" then
-      if (app.fastAt or 0) + 1 < now() then
-        app.fastAt = now()
-        showEmote("emote/dizzy", 0.6)
-      end
-    elseif event then
-      if react(pl, hearts, kind, sx, sy) == "dislike" then setHand("dislike", lx, ly) end
-    end
     if hand and hand.kind ~= "pet" and not hand.untilT then setHand("pet", lx, ly) end
   end
 
@@ -520,6 +550,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       touch = nil
       want.z = 1
     end
+    if rec.amieBody and G.petLift then G.petLift() end
     if holdFive and holdFive.id == ev.id then holdFive = nil; hand = nil end
     if ev.phase == "released" and Pointer.isTap(rec, 16, 1.0) then
       local GA = Games()
@@ -573,16 +604,9 @@ return function(mod, Pointer, G, Rules, Petting, host)
           setHand("hit", lx, ly)
           showEmote("emote/angry", 1.0)
         else
+          -- a tap is not petting (the game counts only a moving finger): the hand's sparkle
           lastTap = { x = lx, y = ly, t = t }
-          local bx, by = toBody(pl, sx, sy)
-          local spot, effect = Petting.spotAt(s.national, bx, by)
-          if spot == "effect" then
-            hitEffect(effect, lx, ly)
-          else
-            local hearts, kind = G.petEvent(spot)
-            if react(pl, hearts, kind, sx, sy) == "dislike" then setHand("dislike", lx, ly)
-            else setHand("tap", lx, ly) end
-          end
+          setHand("tap", lx, ly)
         end
       end
     end
@@ -595,6 +619,12 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local s = G.session
     if not (s and s.mode == "play") then return end
     screen()
+    lastActive = now()
+    if wake and wake.stage == "dozing" then
+      -- woken from its doze: it faces you again, no other work for this touch
+      if ev.phase == "pressed" then wake.stage, wake.t = "awake", 0; showEmote("emote/smile", 0.8) end
+      return
+    end
     local lx, ly = toLyt(ev.x, ev.y)
     if ev.phase == "pressed" then handlePress(ev, rec, s, lx, ly)
     elseif ev.phase == "moved" then handleMove(ev, rec, s, lx, ly)
@@ -614,7 +644,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       p.age = p.age + dt
       p.x = p.x + p.vx * dt
       p.y = p.y + p.vy * dt
-      p.vy = p.vy + ((p.kind == "heart" or p.kind == "note") and -10 or 60) * dt
+      p.vy = p.vy + ((p.kind == "heart" or p.kind == "note" or p.kind == "zzz") and -10 or 60) * dt
       if p.age >= p.life then table.remove(particles, i) end
     end
     if hand then
@@ -629,6 +659,12 @@ return function(mod, Pointer, G, Rules, Petting, host)
     if s.mode == "play" and (not wake or wake.session ~= s or (lastMode ~= "play" and lastMode ~= "game")) then
       local back = host.backPic and host.backPic(s.mon) or nil
       wake = { session = s, stage = back and "asleep" or "awake", t = 0, back = back }
+      lastActive = now()
+      petLock = 0
+      if G.resetPetting then G.resetPetting() end
+      -- content and full on entering: it dozes off at once (once a visit)
+      local m = s.meters or {}
+      wake.sated = (m.enjoyment or 0) >= Rules.IDLE.SATED and (m.fullness or 0) >= Rules.IDLE.SATED
       view.z, want.z = 1, 1
       particles, feed, drag, touch, hand, picker = {}, nil, nil, nil, nil, nil
       strip.open, strip.page = 0, 1
@@ -647,10 +683,67 @@ return function(mod, Pointer, G, Rules, Petting, host)
       wake.t = wake.t + dt
       if wake.t >= 0.25 then
         wake.stage, wake.t = "awake", 0
+        if wake.sated then wake.sated = nil; lastActive = now() - idleS() end
         local pl = placement(s)
         spawn("note", pl.headX - 30, pl.headY, 2)
         spawn("note", pl.headX + 30, pl.headY, 1)
         if host.playCry then pcall(host.playCry, s.mon) end
+      end
+    end
+
+    -- left alone: it dozes off, then the room (anything under way keeps it awake)
+    if wake.stage == "awake" then
+      if touch or drag or feed or picker or (s.tool ~= nil) then lastActive = now() end
+      if now() - lastActive >= idleS() then wake.stage, wake.t, wake.zAt = "dozing", 0, 0 end
+    elseif wake.stage == "dozing" then
+      wake.t = wake.t + dt
+      wake.zAt = wake.zAt - dt
+      if wake.zAt <= 0 then
+        wake.zAt = IDLE.Z_EVERY
+        local pl = placement(s)
+        particles[#particles + 1] = { kind = "zzz", x = pl.headX + 18, y = pl.headY - 6, vx = 10, vy = -18,
+          life = 1.6, age = 0, size = 7 + math.random() * 3 }
+      end
+      if wake.t >= dozeS() then wake.stage, wake.t = "ball", 0 end
+    elseif wake.stage == "ball" then
+      -- back into its ball, then the room
+      wake.t = wake.t + dt
+      if wake.t >= Rules.IDLE.BALL_S then
+        wake = nil
+        if G.idleToRoom then G.idleToRoom() end
+        return
+      end
+    end
+
+    -- petting, counted each frame a finger is on it (G.petTouch / G.petEffect, the game's ticks)
+    if touch and wake.stage == "awake" then
+      local pl = placement(s)
+      local lx, ly = touch.lx or touch.x, touch.ly or touch.y
+      local mx, my = math.abs(lx - (touch.px or lx)), math.abs(ly - (touch.py or ly))
+      touch.px, touch.py = lx, ly
+      -- (layout units are the touch screen's 320x240 px)
+      local moving = dt > 0 and math.max(mx, my) > Rules.PET.MOVE_PX * Rules.PET.TICK_HZ * dt
+      local sx, sy = toScene(lx, ly)
+      if onBody(pl, sx, sy, 1.2) then
+        touch.offT = 0
+        local bx, by = toBody(pl, sx, sy)
+        local zone = Petting.zoneAt(bx, by)
+        local spot, effect = Petting.spot(s.national, zone)
+        if spot == "effect" then
+          local r = G.petEffect(dt, effect)
+          if r then hitEffect(effect, lx, ly) end
+          if r == "recoil" then
+            showEmote("emote/angry", 1.0)
+            G.bump(-0.12, 0)
+            endTouch(1.0)
+          end
+        else
+          local res = G.petTouch(dt, moving, spot, spot == "normal" and zone or spot)
+          if res then reward(s, pl, res, lx, ly) end
+        end
+      else
+        touch.offT = (touch.offT or 0) + dt
+        if touch.offT >= Rules.ticks(Rules.PET.OFF_BODY_TICKS) and G.petLift then G.petLift() end
       end
     end
 
@@ -833,7 +926,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   end
 
   local function drawMon(G2, s, t)
-    local asleep = wake and wake.stage ~= "awake" and wake.back
+    local asleep = wake and (wake.stage == "asleep" or wake.stage == "exclaim" or wake.stage == "flash") and wake.back
     local pic = asleep and wake.back or s.pic
     local pl = placement(s, pic)
     if not pl.img then
@@ -881,6 +974,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
       end
       G2.setColor(1, 0.8, 0.2, f)
       G2.circle("fill", p.x, p.y, 4, 8)
+    elseif p.kind == "zzz" then
+      -- a "z" drawn as three strokes, white on a dark edge
+      local r = p.size
+      local pts = { p.x - r, p.y - r, p.x + r, p.y - r, p.x - r, p.y + r, p.x + r, p.y + r }
+      G2.setLineWidth(r * 0.5)
+      G2.setColor(0.15, 0.2, 0.35, f)
+      G2.line(pts)
+      G2.setLineWidth(r * 0.28)
+      G2.setColor(1, 1, 1, f)
+      G2.line(pts)
+      G2.setLineWidth(1)
     elseif p.kind == "sparkle" then
       G2.setColor(1, 0.95, 0.5, f)
       local r = p.size
@@ -1131,7 +1235,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     return { wake = wake and wake.stage, zoom = view.z, strip = strip.open, page = strip.page,
       picker = picker and { stage = picker.stage, game = picker.game, diff = picker.diff } or nil,
       feed = feed and feed.stage, hand = hand and hand.kind, emote = emote and emote.id,
-      calm = life.calm, hopping = life.hop ~= nil, excite = life.excite }
+      calm = life.calm, hopping = life.hop ~= nil, excite = life.excite, locked = now() < petLock }
   end
   function app.busy()
     return (wake and wake.stage ~= "awake" and wake.stage ~= "asleep") or flash ~= nil
