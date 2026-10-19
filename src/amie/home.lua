@@ -1,5 +1,5 @@
 -- HOME: the Pokemon-Amie room on the bottom screen, played from the game's own layout
--- (kawaii_lower.bclyt, a/0/2/6 entry 0; Wooble's capture 2026-10-17). The wallpaper, the
+-- (kawaii_lower.bclyt, a/0/2/6 entry 0). The wallpaper, the
 -- placed decor, the set-out puff, visitors, gifts and the wandering Pokemon are drawn in
 -- the layout's 320x240 units; the layout adds the scalloped frame (5z, opened by
 -- window_open), the menu (f: the dim 5h and the game's PLAY / DECORATE / SWITCH buttons)
@@ -337,7 +337,7 @@ return function(mod, Pointer, G, Rules, Store, host)
     if which == "play" then G.enterPlay()
     elseif which == "switch" then switchOpen = true; G.say(G.tx("selectMon"), 3)
     else
-      -- DECORATE: the room fades to black first (Wooble's capture)
+      -- DECORATE: the room fades to black first
       leaveFor(function()
         if not G.enterDecorate() then G.say("Decorating is unavailable.", 2) end
       end)

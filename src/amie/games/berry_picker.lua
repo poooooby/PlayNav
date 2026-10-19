@@ -1,6 +1,6 @@
 -- BERRY PICKER, played from the game's own screens (a/0/1/6: background_rear / _front,
 -- nuts, balloon, demoanimation02, nuts_animation, reward on the touch screen, score on the
--- top screen; Wooble's capture "Berry Game.mp4", 2026-10-17). Up to three of the player's
+-- top screen). Up to three of the player's
 -- Pokemon stand under the tree and think of the berry they want; drag the right one down from
 -- the tree before their patience runs out. 60 seconds on Easy / Normal / Hard, three misses
 -- on Unlimited. Rules: Bulbapedia "Berry Picker" (unchanged from the drawn version).
@@ -55,10 +55,9 @@ return function(mod, Pointer, G, Games, Rules, host)
   local DROP = { "1j", "1k", "1l" }
   local COUNT = { "8", "a", "c" }                              -- front: the +N over each spot
   -- a Pokemon's feet and height: the models fill more of the space than a 64x64 sprite's
-  -- frame does, so the frame is drawn a size up (Wooble, 2026-10-18: "slightly larger")
+  -- frame does, so the frame is drawn a size up
   local MON_FOOT, MON_H = 238, 104
-  -- the bubble set above the spot's anchor: the capture has the bubbles' middles at y ~148,
-  -- ours were ~51 higher at 55 (Wooble, 2026-10-18)
+  -- the bubble set above the spot's anchor (the bubbles' middles at y ~148)
   local BUBBLE_LIFT = 4
   -- the timer (front pane 2, right aligned): its right edge and middle in scene units, the
   -- font a size up, red and beating from 5 seconds left (the capture: right edge ~290, middle
@@ -68,11 +67,11 @@ return function(mod, Pointer, G, Games, Rules, host)
   -- the top screen's HIGH SCORE bar (score 2m / 2o): the capture's glyphs are ~1.35 ours
   local HIGH_SCALE = 1.35
   -- an asking Pokemon rises from below the screen, thinks of its berry once up, and drops back
-  -- down off screen when its bubble has closed (Wooble, 2026-10-18)
+  -- down off screen when its bubble has closed
   local RISE_S = 0.22
   local MON_DROP = MON_H + 16
   -- a berry let go anywhere but on an asking Pokemon falls and is lost; its kind is back on
-  -- the tree once it has fallen off the bottom (Wooble, 2026-10-18)
+  -- the tree once it has fallen off the bottom
   local FALL_G, FALL_OUT = 900, 270
 
   local st = nil      -- the running game
@@ -455,7 +454,7 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   -- ------- update
 
-  -- The heap at the end (Wooble, 2026-10-18): one berry for every berry picked, each the kind
+  -- The heap at the end: one berry for every berry picked, each the kind
   -- that was delivered, at the tree berries' own size, stacked in a mound on the ground -
   -- rows each one shorter from the ground up, none wider than PILE.maxRow (then a trapezoid),
   -- squeezed if it would stand taller than PILE.maxH. Replaces the layout's single heap
@@ -586,8 +585,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         return
       end
       -- how many ask at once follows the rotation (one, then two, then three); WHICH of
-      -- the Pokemon rises is picked at random (Wooble, 2026-10-18: it was always the middle
-      -- one, then the outer two, then all three). The pick is made from every Pokemon not
+      -- the Pokemon rises is picked at random. The pick is made from every Pokemon not
       -- asking - one still dropping included, then it rises once it is down - because a
       -- pick among those already down was forced in quick play (the last two served still
       -- on their way down: 2 1 3 2 1 3 ...); the last asker only when there is no other.
@@ -635,8 +633,8 @@ return function(mod, Pointer, G, Games, Rules, host)
       end
       local F = st.art and screen("front")
       if F then
-        -- "Time Left: NN", larger and in from the corner as the game has it (Wooble,
-        -- 2026-10-18: it sat tight against the edges); red from 5 seconds left with a beat
+        -- "Time Left: NN", larger and in from the corner as the game has it; red from 5
+        -- seconds left with a beat
         -- each second. The game's timeup_anm reds it by vertex-colour tracks the text
         -- drawer does not read (and it collapses the message window p), so it is done here.
         F:set("4", "visible", true)
@@ -849,7 +847,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     -- the rain until it has all landed. The clips park their berries at y -23 and let some
     -- peek in at y 14 before they drop to 265 (the game's 240 tall screen); a taller screen
-    -- (and even the 3DS one, a little) showed them bunched at the top (Wooble, 2026-10-18).
+    -- (and even the 3DS one, a little) would show them bunched at the top.
     -- Their heights are remapped so the parked and peeking ones sit above the visible top
     -- (-D) and the fall still leaves through the bottom: ty' = my * ty + dy, ty 106 -> above
     -- 140 + D, ty -145 -> below -140.
@@ -889,8 +887,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   -- the stars: 4i..4q are the five faint backdrops (the star texture under black vertex
   -- colours at alpha 60); the gold ones are 2u's palette pictures (white, full colour), five
   -- rows of a full and a half star per difficulty, moved onto the backdrops (the slots
-  -- 2c..2g share their middles; Wooble, 2026-10-18: we had re-textured the backdrops as the
-  -- stars)
+  -- 2c..2g share their middles)
   local STARS = { "4i", "4k", "4m", "4o", "4q" }
   local STAR_TEX = { easy = "star_easy", normal = "star_normal", hard = "star_hard", unlimited = "star_infinite" }
   local STAR_ROW = {   -- [slot] = { [diff] = { full, half } }
@@ -929,9 +926,8 @@ return function(mod, Pointer, G, Games, Rules, host)
     local digits = tostring(v)
     local n = #digits
     local anchors = DIGIT_ANCHORS[n]
-    -- the count sits in the middle of its tan box 3y (Wooble, 2026-10-18: the anchors 3k...
-    -- are 6 below it, and the digits came out off to one side): the anchors' spacing, the
-    -- group centred on the box
+    -- the count sits in the middle of its tan box 3y (the anchors 3k... are 6 below it):
+    -- the anchors' spacing, the group centred on the box
     local mx, my = boxMiddle(Sc, "3y")
     local sum = 0
     for j = 1, n do sum = sum + (boxMiddle(Sc, anchors[j]) or 0) end
@@ -995,7 +991,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       G2.draw(bg, e.x + (e.w - iw * k) / 2, e.y + (e.h - ih * k) / 2, 0, k, k)
     end
     -- the HIGH SCORE bar keeps to the top; the RESULTS card (2h, its title 2u, the stamp 4s)
-    -- is centred in the height (Wooble, 2026-10-18: it sat against the top)
+    -- is centred in the height
     local k = math.min(e.w / 400, e.h / 240)
     local off = math.max(0, (e.h / k - 240) / 2)
     if Sc.cardOff ~= off then

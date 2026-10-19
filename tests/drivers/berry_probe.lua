@@ -1,4 +1,4 @@
--- Driver: Berry Picker as the game plays it (Wooble's capture "Berry Game.mp4"): the demo
+-- Driver: Berry Picker as the game plays it: the demo
 -- (the hand mid-drag, READY, START!), play (a bubble, a quick and a slow delivery, a wrong
 -- berry), the last seconds, TIME'S UP, the rain, the heap, the smoke and medallions, the
 -- buttons, the top screen's RESULTS card, then Quit back to petting. Shots at each step.

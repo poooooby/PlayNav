@@ -1,12 +1,12 @@
 -- TILE PUZZLE, played from the game's own screens (a/0/1/8: easy / normal / hard_bound and
 -- effect for the tiles' marks and the star burst, bg_down on the touch screen, bg_up on the
--- top screen; Wooble's capture 2026-10-19). A picture of the three Pokemon is cut into tiles
+-- top screen). A picture of the three Pokemon is cut into tiles
 -- and every tile is swapped once; tap two tiles to swap them. Easy 5x4, Normal 6x5, Hard 8x6,
 -- rated by time (the clock counts up and never runs out); Unlimited chains puzzles against a
 -- 30-second clock that correct tiles and finished puzzles top up. Rules: Bulbapedia "Tile
 -- Puzzle".
 --
--- Flow, as the capture: the whole picture with the rule window and Begin -> the tiles fly to
+-- Flow, as in the game: the whole picture with the rule window and Begin -> the tiles fly to
 -- their shuffled places -> START! -> play: a tile out of place has blue corners and a dark
 -- gap (frame.bclim; the gap shows at its edges' middles), the chosen one red corners
 -- (cursol.bclim), a second tap swaps the two (both lift with a black edge over orange holes);
@@ -15,12 +15,11 @@
 -- medallions below -> View Picture / Play Again / Quit.
 --
 -- The picture: the game renders a live 3D stage there (CGFX, entries 3-8). Ours is 2D from the
--- game's art (Wooble, 2026-10-19): the sky strip, the sea, clouds and trees of the soaring
--- scenery (day, sunset and night sets), the stage's own photo frame, and the participants'
--- sprites. Its light cycles day -> sunset -> night -> dawn while the round runs (the capture:
--- day, then sunset ~20 s in, night by ~23 s; Wooble: "just part of the scene"). The Pokemon's
--- motion ramps with the puzzle's difficulty (Wooble): Easy idle bounces and sways in place,
--- Normal moves them about the scene, Hard also pans the camera.
+-- game's art: the sky strip, the sea, clouds and trees of the soaring scenery (day, sunset and
+-- night sets), the stage's own photo frame, and the participants' sprites. Its light cycles
+-- day -> sunset -> night -> dawn while the round runs (sunset ~20 s in, night by ~23 s),
+-- independent of the clock. The Pokemon's motion ramps with the puzzle's difficulty: Easy
+-- bounces and sways in place, Normal moves them about the scene, Hard also pans the camera.
 
 return function(mod, Pointer, G, Games, Rules, host)
 
@@ -39,7 +38,7 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   local L = 256 / 320
   local BLEED = 14
-  -- the clips' rate (bg_down's START! is 41 frames, ~1.4 s on the capture)
+  -- the clips' rate (bg_down's START! is 41 frames, ~1.4 s in the game)
   local FPS = 30
   -- the screen's shape: the board is the game's 320x240; a taller screen (Kanto Gear's) has
   -- D more, the board centred in it (D / 2 above and below), the top window kept at the top
@@ -60,7 +59,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     normal = { cols = 6, rows = 5, pitch = 48, x = 16, y = 0, mark = 46 },
     hard = { cols = 8, rows = 6, pitch = 38, x = 8, y = 6, mark = 36 },
   }
-  local ORANGE = { 242 / 255, 183 / 255, 53 / 255 }   -- the board under the tiles (the capture)
+  local ORANGE = { 242 / 255, 183 / 255, 53 / 255 }   -- the board under the tiles
   local GAP = { 0, 5 / 255, 15 / 255 }                -- between tiles out of place
   local SWAP_S = 0.28          -- a swap's flight
   local SHUFFLE_S = 1.1        -- the opening shuffle: the last tile lands by then
@@ -221,7 +220,7 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   -- START! / NEXT! / FINISHED! / TIME'S UP!: the window 8v and its text 99, which the clips
   -- grow (1.5 -> 1.8); every banner clip carries the same tracks, the game sets the words.
-  -- (4l / 4v and 4j / 95 / 97 stay hidden: the capture's banner is the 200 x 50 window.)
+  -- (4l / 4v and 4j / 95 / 97 stay hidden: the game's banner is the 200 x 50 window.)
   local function banner(text)
     local Dn = st and st.art and screen("down")
     if not Dn then return end
@@ -239,7 +238,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.result = G.endGame(value, false, true)
     st.sel = nil
     setPhase("finished")
-    -- a timed puzzle ends on its last tile's stars, no banner (the capture); Unlimited's clock
+    -- a timed puzzle ends on its last tile's stars, no banner; Unlimited's clock
     -- running out says TIME'S UP!
     if st.diff == "unlimited" then banner(Games.line("tile", "timesUp", nil, "TIME'S UP!")) end
     host.playSe("SE_SUCCESS")
@@ -266,7 +265,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         local row = math.floor((j - 1) / 6)
         local col = (j - 1) % 6
         local inRow = (row == 0) and perRow or (n - 6)
-        -- the capture: a row of medallions over the middle, ~56 apart, at y ~75
+        -- as the game: a row of medallions over the middle, ~56 apart, at y ~75
         local x = 160 + (col - (inRow - 1) / 2) * 56
         local y = 72 + row * 58
         Dn:set(pane.name, "visible", true)
@@ -381,7 +380,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     return r * g.cols + c + 1
   end
 
-  -- the buttons at the end (the capture: View Picture / Play Again / Quit down the middle)
+  -- the buttons at the end (as the game: View Picture / Play Again / Quit down the middle)
   local BUTTONS = { view = { 160, 152, 126, 26 }, again = { 160, 182, 126, 26 }, quit = { 160, 212, 126, 26 } }
   local BEGIN = "1k"     -- Begin's hit box (bg_down, over 1g)
   local function inButton(b, x, y) return math.abs(x - b[1]) <= b[3] / 2 and math.abs(y - b[2]) <= b[4] / 2 end
@@ -756,7 +755,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     for _, m in ipairs(order) do
       local pic = m.pic
       local x = px + m.x * pw - camX
-      -- (the capture's are ~60-110 units across a 240 picture; a 64x64 sprite's frame has room
+      -- (the game's are ~60-110 units across a 240 picture; a 64x64 sprite's frame has room
       -- round the Pokemon, so the frame is drawn larger)
       local feet = horizon + 14 + m.depth * (ph * 0.36)
       local size = (72 + m.depth * 44)
@@ -830,7 +829,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       G2.draw(pic, qd, x + g.pitch / 2, y + g.pitch / 2, 0, sc, sc, g.pitch * k / 2, g.pitch * k / 2)
     end
     -- the corners reach the tile's edge and cover the gap there, so the dark shows only at the
-    -- edges' middles (the capture); the texture's corners are 80% opaque, drawn twice to read
+    -- edges' middles; the texture's corners are 80% opaque, drawn twice to read
     -- as solid as the game's
     local function mark(img, x, y)
       if not img then return end
@@ -1028,20 +1027,9 @@ return function(mod, Pointer, G, Games, Rules, host)
     Up:set("2b", "visible", false)
     Up:set("1g", "visible", true)
     local times = res.times or {}
-    local rows = { { "2", "c" }, { "4", "k" }, { "6", "s" } }
-    for i, r in ipairs(rows) do
-      local hit = res.rank == i
-      local col = hit and { 220, 30, 40, 255 } or { 60, 50, 40, 255 }
-      Up:set(r[1], "visible", true)
-      Up:set(r[2], "visible", true)
-      Up:setText(r[1], i .. ".", { align = "right", valign = "center", color = col })
-      Up:setText(r[2], fmt(times[i] or 0), { align = "right", valign = "center", color = col })
-    end
-    local red = { 220, 30, 40, 255 }
-    Up:set("4r", "visible", true)
-    Up:set("4j", "visible", true)
-    Up:setText("4r", Games.line("tile", "new", nil, "NEW"), { align = "right", valign = "center", color = red })
-    Up:setText("4j", fmt(unlimited and st.puzzles or st.elapsed), { align = "right", valign = "center", color = red })
+    -- the rows are drawn by drawRows (larger and bold, as the game's); the panes give places
+    for _, n in ipairs({ "2", "4", "6", "c", "k", "s", "4r", "4j" }) do Up:set(n, "visible", false) end
+    st.rows = { fmt = fmt, times = times, rank = res.rank, new = fmt(unlimited and st.puzzles or st.elapsed) }
     -- the rank's title and its five stars: 87..8f are the faint backdrops, the gold ones the
     -- palette below the card (a row per slot, a full and a half star per difficulty), moved
     -- onto them as Berry Picker's card does
@@ -1052,7 +1040,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     Up:set("8h", "visible", true)
     Up:set("7x", "visible", true)
     Up:set("7t", "visible", true)
-    Up:setText("7t", res.title or "", { align = "center", valign = "center", color = { 90, 60, 40, 255 } })
+    Up:setText("7t", res.title or "", { align = "center", valign = "center", color = { 30, 24, 20, 255 }, scale = 1.45 })
     local diff = STAR_TEX[st.diff] and st.diff or "easy"
     local stars = res.stars or 0
     for j, name in ipairs(RANK_STARS) do
@@ -1081,6 +1069,277 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
   end
 
+  -- ------- the top screen's card and counters while playing (ours, in the game's palette):
+  -- the How to Play card's words with a title, the wool divider and an icon per rule; under
+  -- it panels framed by the game's scalloped number window (win_number_*), each an icon, a
+  -- small label and a large value. Unlimited's time panel drains a bar (red and beating in the
+  -- last 10 s); its points pop as they rise.
+
+  local BROWN = { 0.43, 0.27, 0.15 }
+  local CREAM = { 1, 0.98, 0.9 }
+  local ORANGE_D = { 0.93, 0.55, 0.16 }
+  local hudFonts = {}
+
+  -- text `px` layout units tall, rasterised at its size on screen (as the layout's own text)
+  local hudText
+  function hudText(G2, P, s, x, y, px, align, color, outline, w, bold)
+    local x0, y0 = G2.transformPoint(0, 0)
+    local x1, y1 = G2.transformPoint(0, 1)
+    local k = math.sqrt((x1 - x0) ^ 2 + (y1 - y0) ^ 2)
+    if k <= 0 then return end
+    local size = math.max(4, math.floor(px * k * 0.64 + 0.5))
+    local f = hudFonts[size]
+    if f == nil then
+      local ok, font = pcall(function()
+        if P.opts and P.opts.font then return P.opts.font(size) end
+        return love.graphics.newFont(size)
+      end)
+      f = ok and font or false
+      hudFonts[size] = f
+    end
+    if not f then return end
+    local tw = f:getWidth(s) / k
+    -- too wide for its room (w): a size down to fit, once
+    if w and tw > w and px > 6 then
+      return hudText(G2, P, s, x, y, math.max(6, px * w / tw - 0.5), align, color, outline, nil, bold)
+    end
+    G2.setFont(f)
+    local ax = x
+    if align == "center" then ax = x - tw / 2 elseif align == "right" then ax = x - tw end
+    local ty = y - f:getHeight() / k / 2
+    if outline then
+      G2.setColor(outline[1], outline[2], outline[3], outline[4] or 1)
+      local o = 1.2
+      for dx = -1, 1 do
+        for dy = -1, 1 do
+          if dx ~= 0 or dy ~= 0 then G2.print(s, ax + dx * o, ty + dy * o, 0, 1 / k, 1 / k) end
+        end
+      end
+    end
+    G2.setColor(color[1], color[2], color[3], color[4] or 1)
+    G2.print(s, ax, ty, 0, 1 / k, 1 / k)
+    if bold then
+      -- a heavier stroke: the line again at offsets of `bold` layout units (at least a pixel),
+      -- so the weight is the same at any resolution
+      local b = math.max(bold, 1 / k)
+      G2.print(s, ax + b, ty, 0, 1 / k, 1 / k)
+      G2.print(s, ax, ty + b * 0.5, 0, 1 / k, 1 / k)
+      G2.print(s, ax + b, ty + b * 0.5, 0, 1 / k, 1 / k)
+    end
+    return tw
+  end
+
+  -- a cream panel inside the game's scalloped frame (its pieces 10 / 8 texels, drawn at s)
+  local function panel(G2, P, x, y, w, h)
+    local s = 1.6
+    G2.setColor(0, 0, 0, 0.16)
+    G2.rectangle("fill", x + 2, y + 3, w, h, 9, 9)
+    G2.setColor(CREAM[1], CREAM[2], CREAM[3], 1)
+    G2.rectangle("fill", x, y, w, h, 9, 9)
+    -- a soft sheen on the top half
+    G2.setColor(1, 1, 1, 0.55)
+    G2.rectangle("fill", x + 4, y + 3, w - 8, h * 0.42, 6, 6)
+    local function img(n) return P:image("win_number_" .. n .. ".bclim") end
+    local Lu, Ru, Ld, Rd = img("Lu"), img("Ru"), img("Ld"), img("Rd")
+    local up, dw, Ls, Rs = img("up"), img("dw"), img("L"), img("R")
+    if not (Lu and Ru and Ld and Rd and up and dw and Ls and Rs) then
+      G2.setColor(ORANGE_D[1], ORANGE_D[2], ORANGE_D[3], 1)
+      G2.setLineWidth(2)
+      G2.rectangle("line", x, y, w, h, 9, 9)
+      G2.setLineWidth(1)
+      return
+    end
+    local c = 10 * s
+    local fx, fy, fw, fh = x - c / 2, y - c / 2, w + c, h + c
+    G2.setColor(1, 1, 1, 1)
+    G2.draw(Lu, fx, fy, 0, s, s)
+    G2.draw(Ru, fx + fw - c, fy, 0, s, s)
+    G2.draw(Ld, fx, fy + fh - c, 0, s, s)
+    G2.draw(Rd, fx + fw - c, fy + fh - c, 0, s, s)
+    local ew = 8 * s
+    local n = math.max(1, math.floor((fw - 2 * c) / ew + 0.5))
+    local kx = (fw - 2 * c) / (n * 8)
+    for i = 0, n - 1 do
+      G2.draw(up, fx + c + i * 8 * kx, fy, 0, kx, s)
+      G2.draw(dw, fx + c + i * 8 * kx, fy + fh - c, 0, kx, s)
+    end
+    local m = math.max(1, math.floor((fh - 2 * c) / ew + 0.5))
+    local ky = (fh - 2 * c) / (m * 8)
+    for i = 0, m - 1 do
+      G2.draw(Ls, fx, fy + c + i * 8 * ky, 0, s, ky)
+      G2.draw(Rs, fx + fw - c, fy + c + i * 8 * ky, 0, s, ky)
+    end
+  end
+
+  -- the icons, drawn about (cx, cy), r units across their half
+  local function iconClock(G2, cx, cy, r)
+    G2.setColor(ORANGE_D[1], ORANGE_D[2], ORANGE_D[3], 1)
+    G2.circle("fill", cx, cy, r, 28)
+    G2.setColor(CREAM[1], CREAM[2], CREAM[3], 1)
+    G2.circle("fill", cx, cy, r * 0.78, 28)
+    G2.setColor(BROWN[1], BROWN[2], BROWN[3], 1)
+    G2.setLineWidth(r * 0.16)
+    local a = (st.t or 0) * 1.2
+    G2.line(cx, cy, cx + math.sin(a) * r * 0.55, cy - math.cos(a) * r * 0.55)
+    G2.line(cx, cy, cx + r * 0.35, cy)
+    G2.setLineWidth(1)
+    G2.circle("fill", cx, cy, r * 0.12, 10)
+  end
+  local function iconTiles(G2, cx, cy, r, swap)
+    local q = r * 0.86
+    local cols = { { 0.45, 0.78, 0.95 }, { 0.98, 0.78, 0.35 }, { 0.98, 0.78, 0.35 }, { 0.45, 0.78, 0.95 } }
+    for i = 0, 3 do
+      local tx, ty = cx - q + (i % 2) * q, cy - q + math.floor(i / 2) * q
+      local cc = cols[i + 1]
+      G2.setColor(cc[1], cc[2], cc[3], 1)
+      G2.rectangle("fill", tx + 0.6, ty + 0.6, q - 1.2, q - 1.2, 1.5, 1.5)
+    end
+    if swap then
+      G2.setColor(BROWN[1], BROWN[2], BROWN[3], 1)
+      G2.setLineWidth(r * 0.14)
+      G2.arc("line", "open", cx, cy, r * 1.05, -math.pi * 0.85, -math.pi * 0.15, 12)
+      local ax, ay = cx + math.cos(-math.pi * 0.15) * r * 1.05, cy + math.sin(-math.pi * 0.15) * r * 1.05
+      G2.polygon("fill", ax + r * 0.3, ay - r * 0.05, ax - r * 0.22, ay - r * 0.3, ax - r * 0.05, ay + r * 0.25)
+      G2.setLineWidth(1)
+    end
+  end
+  local function iconB(G2, cx, cy, r, P)
+    G2.setColor(0.32, 0.32, 0.36, 1)
+    G2.circle("fill", cx, cy + 0.8, r, 24)
+    G2.setColor(0.52, 0.52, 0.58, 1)
+    G2.circle("fill", cx, cy, r, 24)
+    hudText(G2, P, "B", cx, cy, r * 1.9, "center", { 1, 1, 1 })
+  end
+  local function iconStar(G2, cx, cy, r)
+    local v = {}
+    for i = 0, 9 do
+      local rr = (i % 2 == 0) and r or r * 0.46
+      local a = i * math.pi / 5
+      v[#v + 1] = cx + math.sin(a) * rr
+      v[#v + 1] = cy - math.cos(a) * rr
+    end
+    local ok, tris = pcall(love.math.triangulate, v)
+    if not ok then return end
+    G2.setColor(0.98, 0.78, 0.15, 1)
+    for _, t in ipairs(tris) do G2.polygon("fill", t) end
+    G2.setColor(ORANGE_D[1], ORANGE_D[2], ORANGE_D[3], 1)
+    G2.polygon("line", v)
+  end
+
+  -- a panel: icon, label (small, above) and value (large)
+  local function counter(G2, P, x, y, w, h, icon, label, value, opts)
+    opts = opts or {}
+    panel(G2, P, x, y, w, h)
+    local ix = x + h * 0.5
+    icon(G2, ix, y + h / 2, h * 0.3)
+    local tx = ix + h * 0.45
+    hudText(G2, P, label, tx, y + h * 0.28, opts.labelPx or 14, "left", { BROWN[1], BROWN[2], BROWN[3], 0.85 }, nil, x + w - tx - 7)
+    G2.push()
+    local vy = y + h * 0.64
+    local pop = opts.pop or 1
+    G2.translate(tx, vy)
+    G2.scale(pop, pop)
+    hudText(G2, P, value, 0, 0, 28, "left", opts.color or BROWN, { CREAM[1], CREAM[2], CREAM[3] })
+    G2.pop()
+    if opts.bar then
+      -- the time left: a track and a fill along the panel's foot
+      local bx, by, bw, bh = x + 8, y + h - 7, w - 16, 3.5
+      G2.setColor(0.85, 0.78, 0.62, 1)
+      G2.rectangle("fill", bx, by, bw, bh, 2, 2)
+      local f = math.max(0, math.min(1, opts.bar))
+      local cc = opts.barColor
+      G2.setColor(cc[1], cc[2], cc[3], 1)
+      if f > 0 then G2.rectangle("fill", bx, by, bw * f, bh, 2, 2) end
+    end
+  end
+
+  local function stripN(s)
+    s = tostring(s or ""):gsub("{N}", ""):gsub("^%s*%d+%s*", ""):gsub("%s*:%s*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+    return s
+  end
+
+  -- RESULTS' rows, large and bold as the game's (digits about 13 units tall, ranks
+  -- right-aligned ending ~176, times from ~200; red for the new time's row and NEW,
+  -- near-black for the rest): at the rows of 1g's panes, in hudText so they are
+  -- rasterised at the screen's size, the weight in layout units so it holds at any resolution
+  local RED = { 0.9, 0.08, 0.12 }
+  local INK = { 0.1, 0.08, 0.07 }
+  local function drawRows(G2, Up)
+    local r = st.rows
+    if not r then return end
+    local rows = { { "2", "c" }, { "4", "k" }, { "6", "s" } }
+    local function row(rp, tp, a, b, col)
+      local rx, ry, rw, rh = Up:box(rp)
+      local tx = Up:box(tp)
+      if not rx then return end
+      local y = ry + rh / 2
+      hudText(G2, Up, a, rx + rw - 6, y, 27, "right", col, nil, nil, 0.4)
+      hudText(G2, Up, b, (tx or (rx + rw + 15)) + 8, y, 27, "left", col, nil, nil, 0.4)
+    end
+    for i, rr in ipairs(rows) do
+      row(rr[1], rr[2], i .. ".", r.fmt(r.times[i] or 0), r.rank == i and RED or INK)
+    end
+    row("4r", "4j", Games.line("tile", "new", nil, "NEW"), r.new, RED)
+  end
+
+  local function drawHud(G2, Up)
+    local bx, by, bw, bh = Up:box("2u")
+    if not bx then return end
+    -- the card, in place of the layout's see-through green window: a solid cream panel in the
+    -- scalloped frame, an orange header band with the title, the wool line, the two rules
+    panel(G2, Up, bx, by, bw, bh)
+    G2.setColor(ORANGE_D[1], ORANGE_D[2], ORANGE_D[3], 0.9)
+    G2.rectangle("fill", bx + 6, by + 6, bw - 12, 34, 7, 7)
+    G2.setColor(1, 0.8, 0.45, 0.6)
+    G2.rectangle("fill", bx + 10, by + 8, bw - 20, 12, 5, 5)
+    local title = Games.line("tile", "howTo", nil, "How to Play")
+    hudText(G2, Up, title, bx + bw / 2, by + 23, 24, "center", { 1, 1, 1 }, { 0.6, 0.3, 0.08 })
+    local wool = Up:image("line_wool.bclim")
+    if wool then
+      local ww, wh = wool:getDimensions()
+      G2.setColor(1, 1, 1, 0.9)
+      G2.draw(wool, bx + 26, by + 50, 0, (bw - 52) / ww, 1)
+    end
+    local rx = bx + 34
+    iconTiles(G2, rx, by + 82, 11, true)
+    hudText(G2, Up, Games.line("tile", "tapTwo", nil, "Tap two tiles to swap their positions."), rx + 24, by + 83, 21, "left", BROWN)
+    iconB(G2, rx, by + 120, 11, Up)
+    hudText(G2, Up, Games.line("tile", "pressB", nil, "Press the B Button to quit."), rx + 24, by + 121, 21, "left", BROWN)
+    -- the counters under the card
+    local py, ph = by + bh + 14, 50
+    if st.diff ~= "unlimited" then
+      local w = 180
+      counter(G2, Up, 200 - w / 2, py, w, ph, iconClock, stripN(Games.line("tile", "time", nil, "Time:")), clock(st.elapsed))
+      return
+    end
+    -- Unlimited: the time left, the puzzle, the points
+    local gap = 10
+    -- the time panel wider: its label is the longest
+    local w = (bw - 2 * gap) * 0.3
+    local wt = bw - 2 * gap - 2 * w
+    local left = st.timer or 0
+    local hurry = left <= 10
+    st.hudPeak = math.max(st.hudPeak or 30, left)
+    local beat = 1
+    if hurry and left > 0 then
+      local into = math.ceil(left) - left
+      beat = 1 + 0.18 * math.max(0, 1 - into / 0.3) ^ 2
+    end
+    local f = left / st.hudPeak
+    local barColor = f > 0.5 and { 0.42, 0.78, 0.35 } or (f > 0.25 and { 0.98, 0.76, 0.2 } or { 0.9, 0.22, 0.2 })
+    counter(G2, Up, bx, py, wt, ph, iconClock, stripN(Games.line("tile", "timeRemaining", nil, "Time Remaining:")),
+      tostring(math.ceil(left)), { bar = f, barColor = barColor, pop = beat, color = hurry and { 0.85, 0.15, 0.15 } or BROWN, labelPx = 12 })
+    counter(G2, Up, bx + wt + gap, py, w, ph, function(g, cx, cy, r) iconTiles(g, cx, cy, r, false) end,
+      stripN(Games.line("tile", "puzzleNo", { N = "" }, "Puzzle No.")), tostring(st.puzzles + 1), { labelPx = 12 })
+    -- the points pop as they rise
+    -- (on the scene's clock: st.t starts again with play)
+    if (st.hudScore or 0) ~= st.score then st.hudScore, st.hudPopAt = st.score, st.sceneT end
+    local since = st.sceneT - (st.hudPopAt or -9)
+    local pop = 1 + 0.25 * math.max(0, 1 - since / 0.35)
+    counter(G2, Up, bx + wt + w + 2 * gap, py, w, ph, iconStar,
+      stripN(Games.line("tile", "points", { N = 2 }, "Points")), tostring(st.score), { pop = pop, labelPx = 12 })
+  end
+
   function app.drawTop(G2, e)
     if not (st and st.art) then return false end
     local Up = screen("up")
@@ -1096,19 +1355,11 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     Up:set("4h", "visible", false)
     local phase = st.phase
-    if phase == "intro" or phase == "shuffle" or phase == "start" or phase == "play" or phase == "next" then
-      if st.diff == "unlimited" then
-        Up:setText("37", Games.line("tile", "timeRemaining", nil, "Time Remaining:"), { align = "left", valign = "center" })
-        Up:setText("4f", Games.line("tile", "seconds", { N = math.ceil(st.timer) }, ("%d Seconds"):format(math.ceil(st.timer))), { align = "left", valign = "center" })
-        Up:setText("4b", Games.line("tile", "puzzleNo", { N = st.puzzles + 1 }, ("Puzzle No. %d"):format(st.puzzles + 1)), { align = "left", valign = "center" })
-        Up:setText("3b", Games.line("tile", "points", { N = st.score }, ("%d Points"):format(st.score)), { align = "left", valign = "center" })
-        for _, n in ipairs({ "37", "4f", "4b", "3b" }) do Up:set(n, "visible", true) end
-      else
-        Up:setText("2f", clock(st.elapsed), { align = "left", valign = "center" })
-        Up:set("2d", "visible", true)
-        Up:set("2f", "visible", true)
-      end
-      for _, n in ipairs({ "2s", "2o", "2q", "2v" }) do Up:set(n, "visible", true) end
+    local playing = phase == "intro" or phase == "shuffle" or phase == "start" or phase == "play" or phase == "next"
+    if playing then
+      -- the layout's card, words, time and Unlimited's counts are hidden; drawHud draws them
+      Up:set("35", "visible", true)
+      for _, n in ipairs({ "2u", "2v", "2s", "2o", "2q", "2n", "36" }) do Up:set(n, "visible", false) end
     else
       dressResults(Up)
     end
@@ -1119,6 +1370,8 @@ return function(mod, Pointer, G, Games, Rules, host)
     G2.translate(e.x + (e.w - 400 * k) / 2, e.y + off * k)
     G2.scale(k, k)
     Up:draw(G2)
+    local ok, err = pcall(playing and drawHud or drawRows, G2, Up)
+    if not ok then mod.log:warn("tile puzzle hud: %s", tostring(err)) end
     G2.pop()
     G2.setColor(1, 1, 1, 1)
     return true

@@ -250,7 +250,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   D.drawBalloon = drawBalloon
 
-  -- the stadium (assets/stadiumlarge.png, Wooble's own recreation of the scene, square so it
+  -- the stadium (assets/stadiumlarge.png, a recreation of the scene, square so it
   -- reaches past the frame when the top screen fills the playfield): read once, drawn `w` units
   -- across with its grass line (`grassFrac` of its height) at `grassY`, where the trainee's
   -- stand floats; past its edges the edge texels stretch (clamp)
@@ -719,10 +719,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   D.hopPose = hopPose
 
   D.PLAYER_SCALE = 0.8
-  -- the hover board the trainee rides (assets/hoverboard.png, Wooble's own, 114x34 pixel art):
+  -- the hover board the trainee rides (assets/hoverboard.png, 114x34 pixel art):
   -- drawn at the sprite's scale, its middle 64 px under the sprite's 64 px frame, the feet
   -- FEET_Y px below its top; it hovers with a gentle bob
-  -- scale: the whole board as wide as the sprite's 64 px frame (Wooble: no bigger than the rider)
+  -- scale: the whole board as wide as the sprite's 64 px frame (no bigger than the rider)
   D.BOARD = { file = "assets/hoverboard.png", cx = 57, feetY = 20, scale = 64 / 114, bob = 1.5, bobHz = 0.9,
     -- moving up tips the board back (more of its deck shows), down tips it forward; the rider
     -- leans with it. Eased, and added to the side-to-side lean, so diagonals do both.

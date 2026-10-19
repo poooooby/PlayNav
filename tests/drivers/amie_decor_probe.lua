@@ -1,5 +1,5 @@
 -- Driver: Pokemon-Amie's room and DECORATE as the game plays them (kawaii_lower /
--- customize layouts; Wooble's capture 2026-10-17): the room, the menu with its bubbles,
+-- customize layouts): the room, the menu with its bubbles,
 -- DECORATE's entry, both drawers and a page turn, a cushion picked, dragged and settled on
 -- a seat, picked up again and put back, a puff set on its spot, the wallpaper's slide,
 -- the check, and the puff falling in back in the room. Shots at each step.

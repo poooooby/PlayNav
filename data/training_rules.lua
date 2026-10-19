@@ -182,8 +182,8 @@ N.BLOCK = { LEN = 0.6, COOLDOWN = 1.5, DEF_BONUS = 0.5 }
 
 -- the trainee stands on a floating stand and moves across and up / down on a plane facing the
 -- balloon (the d-pad); Z is its fixed depth, Y_MAX how high it can rise
--- (SPEED 25% under the first draft's 1.1 for a steadier stand: Wooble, 2026-10-12; the
--- balls' speeds and the lob's flight were eased with it)
+-- (SPEED is 25% under 1.1 for a steadier stand; the balls' speeds and the lob's flight are
+-- eased to match)
 -- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
 -- below the top: (140 - 51) / 70.5 at the stand's depth)
 N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.82, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SWIFT_MULT = 1.5,
@@ -191,8 +191,8 @@ N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.82, R = 0.12, H = 0.3
 
 -- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
 -- balloon's (FAR, z = 1) a world unit is hw px across and hu px up, and the floor is at y = fy.
--- The balloon is drawn large (a sprite about 140 px wide hovering over the stadium's grass,
--- from Wooble's concept, 2026-10-12); the trainee's stand floats in front of it.
+-- The balloon is drawn large (a sprite about 140 px wide hovering over the stadium's
+-- grass); the trainee's stand floats in front of it.
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
 
 N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,

@@ -1,9 +1,8 @@
 -- PLAY: Pokemon-Amie's close-up, played from the game's own screen (a/0/4/1 entry 0
 -- game_select_lower.bclyt, pack amie_play: the round puff / play / return buttons, the puff
 -- strip, the minigame picker with its badges, arrows and difficulty ribbons) and the petting
--- hand's frames (a/0/4/2 kawaigari_icon, pack amie_hand). Wooble's capture
--- "Play-Wake-Pet-Feed-MiniGameMenu.mp4" (2026-10-18):
---   the scene: sky (Wooble's assets/amie-play-bg.png, cropped clear of its rainbow), a big
+-- hand's frames (a/0/4/2 kawaigari_icon, pack amie_hand):
+--   the scene: sky (assets/amie-play-bg.png, cropped clear of its rainbow), a big
 --   cumulus, the bush line along the horizon and the lawn (the game's scene/* textures from
 --   the import), soap bubbles; the Pokemon large (about 3.5x its sprite, filling the height);
 --   the wake: it starts with its back turned; a tap -> "!", a white flash, it faces you with
@@ -97,7 +96,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local dance = nil
   local flash = nil       -- { t, dur } a white flash over everything
   local stars = {}        -- the flash's stars
-  -- its liveliness (Wooble, 2026-10-18: lively by mood, mostly still while petted): `calm`
+  -- its liveliness (lively by mood, mostly still while petted): `calm`
   -- eases to 1 while it is touched or eating; `hop` a hop under way; `excite` the burst after
   -- a liked touch; `lean` toward the hand
   local life = { calm = 0, hop = nil, nextHop = 1.5, excite = 0, lean = 0, twitch = 0, t = 0 }

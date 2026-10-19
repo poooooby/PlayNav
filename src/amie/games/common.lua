@@ -210,9 +210,8 @@ return function(mod, deps)
     return C.record(game).best[diff] or 0
   end
 
-  -- Tile Puzzle's RESULTS card lists the three best of a difficulty (Wooble's capture
-  -- 2026-10-19: "1. 00:48 / 2. 00:00 / 3. 00:00 / NEW 00:48"): the fewest seconds, or on
-  -- Unlimited the most puzzles; a tie goes below the older one
+  -- Tile Puzzle's RESULTS card lists the three best of a difficulty: the fewest seconds, or
+  -- on Unlimited the most puzzles; a tie goes below the older one
   C.KEEP_TIMES = 3
   function C.times(game, diff)
     local rec = C.record(game)

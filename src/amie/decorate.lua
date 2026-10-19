@@ -1,5 +1,4 @@
--- DECORATE, played from the game's own layout (customize.bclyt, a/1/4/4 entry 0; Wooble's
--- capture 2026-10-17). The wallpaper fills the screen under a header with the wallpaper's
+-- DECORATE, played from the game's own layout (customize.bclyt, a/1/4/4 entry 0). The wallpaper fills the screen under a header with the wallpaper's
 -- name and gold < > (they slide to the next owned wallpaper: bg_move_left / right); along
 -- the bottom the "Interior Items" and "Poke Puffs" pills open the drawer (goodsFolder_up:
 -- a 5 x 3 page of what is owned, with counts; < > turn pages, item_scroll_left / right) and
@@ -99,7 +98,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   app.screen = screen
 
   -- the drawer's pages for the open tab: { category, items = { { id, count, puff } } }.
-  -- Interior Items go by the game's categories (Wooble: a page per category, owned only; a
+  -- Interior Items go by the game's categories (a page per category, owned items only; a
   -- category of more than fifteen runs on to its own next page); Poke Puffs are one list.
   local function pageList()
     local decor, room = records()

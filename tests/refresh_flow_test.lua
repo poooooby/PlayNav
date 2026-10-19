@@ -67,8 +67,7 @@ T.eq(run.loader.modSave.play_nav.schema, 2, "the save is at schema 2")
 T.eq(#A.puffs(), 10, "ten starting puffs")
 T.eq(run.loader.modSave.play_nav.beans, nil, "no v1 bean counts remain")
 
--- ------- a battle: nothing drops, nothing opens (Poke Puffs come from the minigames only;
--- Wooble, 2026-10-18)
+-- ------- a battle: nothing drops, nothing opens (Poke Puffs come from the minigames only)
 
 do
   local ok, why = A.onBattleEnded({ result = "lose", battle = { player = { mon = party[1] } } })

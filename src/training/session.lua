@@ -677,11 +677,11 @@ return function(mod, deps)
   T.FINISH_CLIPS = { "a", "b", "c" }
   T.FINISH_MOVE = true   -- the flow test's bulk loops turn it off, as they do HIT_LOCK
 
-  -- a found bag's presentation (the game's training_lower_sand_bag_get clip, 121 frames,
-  -- Wooble's capture 2026-10-17): punching stops, the found bag drops down in front (to
+  -- a found bag's presentation (the game's training_lower_sand_bag_get clip, 121 frames):
+  -- punching stops, the found bag drops down in front (to
   -- frame 17, a small bounce), hangs for a look, rises away behind the frame at 67..80,
   -- and the words come up over a dimmed room at 105. The whole presentation is one hold
-  -- of 6 seconds (Wooble, 2026-10-17): taps and the automatic punches wait from the find
+  -- of 6 seconds: taps and the automatic punches wait from the find
   -- until the words clear at DONE (180 frames), and the words clear exactly then.
   T.GIFT = { HUNG = 17, RISE = 67, GONE = 80, WORDS_AT = 105, UNLOCK = 180, DONE = 180 }
   T.GIFT_SHOW = true   -- the flow test's bulk loops turn it off, as they do FINISH_MOVE
@@ -730,7 +730,7 @@ return function(mod, deps)
       return false, "no_bag"
     end
     s.anim.hit = 0.25
-    -- (no sound: the game's punches are silent, Wooble's second capture)
+    -- (no sound: the game's punches are silent)
     punch(s)
     Store.save()
     onChange()

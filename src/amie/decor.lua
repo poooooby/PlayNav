@@ -243,7 +243,7 @@ return function(CATALOG, Rules)
   end
 
   -- how many of an item are still in the drawer: the game keeps one of each, and placing it
-  -- takes it out (Wooble's capture: the drawer shows the placed cushion at 0, faded)
+  -- takes it out (the drawer shows a placed item at 0, faded)
   function D.inDrawer(room, decor, id)
     if decor and not D.owns(decor, id) then return 0 end
     for _, it in ipairs(room.items or {}) do if it.id == id then return 0 end end

@@ -205,10 +205,11 @@ return function(mod, deps)
 
   -- Amie paints the whole playfield, as Super Training does (src/hd_top.lua hands the
   -- playfield in as Layer.extent, 240x160 units): main then lays the screens out the same way
-  -- for both, the touch screen across the bottom at Super Training's size (Wooble, 2026-10-17)
+  -- for both, the touch screen across the bottom at Super Training's size
   function Layer.fillTop() return G.session ~= nil end
 
-  -- Wooble's own DECORATE top screen (1920 square, drawn to cover whatever the playfield is);
+  -- DECORATE's top screen (assets/amie_cottage.png, 1920 square, drawn to cover whatever the
+  -- playfield is);
   -- the game's bg_upper stands in without it
   local cottage = nil
   local function cottageImage()
@@ -236,8 +237,8 @@ return function(mod, deps)
     G2.draw(img, e.x + (e.w - iw * k) / 2, e.y + (e.h - ih * k) / 2, 0, k, k)
   end
 
-  -- PLAY's top screen (Wooble's capture, 2026-10-18; Wooble: "sky only, like the game"): the
-  -- dotted sky with the rainbow (assets/amie-play-bg.png, Wooble's own, 1920 square) anchored
+  -- PLAY's top screen, sky only as in the game: the dotted sky with the rainbow
+  -- (assets/amie-play-bg.png, 1920 square) anchored
   -- bottom right so the rainbow shows, translucent clouds drifting across, white clouds along
   -- the foot hiding the rainbow's end, soap bubbles rising (the game's scene/* textures, from
   -- the import; drawn plain without them)
@@ -433,7 +434,7 @@ return function(mod, deps)
     return "play"
   end
 
-  -- As Super Training's home (Wooble, 2026-10-18): the room lives on the bottom screen alone,
+  -- As Super Training's home: the room lives on the bottom screen alone,
   -- the game keeps the top screen and the player walks about; the top-screen layer (which
   -- pauses the field) is up for PLAY, DECORATE and the minigames only. G.frame ticks the
   -- session while no layer is up.
@@ -937,7 +938,7 @@ return function(mod, deps)
   end
 
   -- ------- the battle hook: nothing opens and nothing drops. Poke Puffs come from the Amie
-  -- minigames only, as in the game (Wooble, 2026-10-18: no puffs for battles)
+  -- minigames only, as in the game
 
   function G.onBattleEnded(ev)
     local result = ev and ev.result

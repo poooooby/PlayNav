@@ -75,10 +75,10 @@ return function(mod, Pointer, T, Rules, Radar, host)
   -- The screen's shape (Layout.setShape): the layout space is 320 wide and LH tall, 240 on
   -- the 3DS shape, 287.5 on Kanto Gear's. Three bands: the name frame stays at the top; the
   -- tray, buttons, party row, return button and bottom strip move down by D = LH - 240;
-  -- the room between grows, and its content keeps the game's size (Wooble's choice,
-  -- 2026-10-17: everything 1.0x, spread). The bag and the Pokemon (and their effects, the
+  -- the room between grows, and its content keeps the game's size (everything 1.0x,
+  -- spread). The bag and the Pokemon (and their effects, the
   -- found bag, the hit marks) stay exactly where the game has them, so the bag's hook stays
-  -- hidden under the name frame (BAG_SHIFT 0, Wooble: moved down it showed); the meter and
+  -- hidden under the name frame (BAG_SHIFT 0: moved down, it would show); the meter and
   -- its labels sit D/2 lower, centred in the taller room. K stays in the transform (1).
   -- On the 3DS shape D = 0: exactly the game's layout.
   local LH = 240
@@ -797,7 +797,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
       return
     end
     -- the smile hides while it strikes (a punch, the found bag's lunges) and shows again
-    -- once it is back at its spot (Wooble's capture, 2026-10-17); the finish returned above
+    -- once it is back at its spot; the finish returned above
     local striking = f or (gift and gift.t * 30 < TRACK.giftMon.frames)
     local mood = (fainted and "sad") or (s.rec.resting and "silence")
       or (T.refreshed() and not striking and "smile")
@@ -1084,7 +1084,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
       G.setColor(0, 0, 0, 136 / 255)
       G.rectangle("fill", 0, LH - BOTTOM_STRIP_H, 320, BOTTOM_STRIP_H)
     end
-    -- the found bag's words come up over a dimmed room (Wooble's capture, 2026-10-17)
+    -- the found bag's words come up over a dimmed room
     if s.anim and s.anim.gift and s.anim.gift.worded then
       G.setColor(0, 0, 0, 128 / 255)
       G.rectangle("fill", 0, 0, 320, LH)

@@ -1,5 +1,4 @@
--- Driver: Pokemon-Amie's PLAY screen as the game plays it (Wooble's capture
--- "Play-Wake-Pet-Feed-MiniGameMenu.mp4"): asleep with its back turned, the tap that wakes it
+-- Driver: Pokemon-Amie's PLAY screen as the game plays it: asleep with its back turned, the tap that wakes it
 -- ("!", the flash, facing you with notes, the buttons in), stroking (the hand, the view easing
 -- in), taps on each zone (reactions), the puff strip, a puff dragged onto it (the flash, the
 -- close-up, a bite, back out), the games picker (badge 1 -> 2 -> 3 with the arrows, back to 1,

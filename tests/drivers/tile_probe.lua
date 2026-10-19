@@ -1,4 +1,4 @@
--- Driver: Tile Puzzle as the game plays it (Wooble's capture 2026-10-19): the whole picture
+-- Driver: Tile Puzzle as the game plays it: the whole picture
 -- with the rule window and Begin, the shuffle, START!, a tile chosen (red corners), a swap in
 -- flight, a tile landing home (stars), the scene at sunset and at night, the puzzle solved
 -- (FINISHED!), the smoke and medallions, the buttons, the top screen's RESULTS card, View

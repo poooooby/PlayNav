@@ -22,6 +22,13 @@ All notable changes to this mod are documented here. The format follows
     roam further while the view drifts and leans in.
   - Unlimited shows NEXT! between puzzles and TIME'S UP! at the end, with the time left, puzzle
     number and points on the top screen.
+  - The top screen while you play is our own makeover rather than the game's flat text: a
+    cream How to Play card with an orange title band and an icon for each rule, and framed
+    panels for your time - on Unlimited, the time left (with a bar that drains and turns red
+    and beats in the last ten seconds), the puzzle number and your points (which pop as they
+    rise).
+  - The RESULTS card's times and rank title are larger and bold, as in the game, and stay
+    sharp at any screen size.
 - Needs the art extracted again (recipe 29): the extraction runs by itself on the next start.
 
 ## [0.4.0] - 2026-10-18 (pre-alpha)

@@ -999,7 +999,7 @@ add("a/0/1/6", 7, 0, 35, "lyt/berry_reward/wappen_05", 60, 60, "RGBA4")
 add("a/0/1/6", 7, 0, 36, "lyt/berry_reward/wappen_special", 60, 60, "RGBA4")
 add("a/2/1/6", 0, 2, 1, "lyt/berry_lang/result_title", 230, 44, "RGBA4")
 
--- Pokemon-Amie's Tile Puzzle (Wooble's capture 2026-10-19): a/0/1/8 entry 0 the tiles' marks
+-- Pokemon-Amie's Tile Puzzle: a/0/1/8 entry 0 the tiles' marks
 -- for the three grids (easy / normal / hard_bound: frame = the blue corners of a tile out of
 -- place, cursol = the red ones of the chosen tile) and the star burst (effect); entry 1 the
 -- touch screen (bg_down: the rule window, Begin, START!, the smoke and medallions); entry 2 the
@@ -1157,8 +1157,7 @@ sfx("SEQ_SE_SP_DECIDE", "se/sp_decide")
 sfx("SEQ_SE_SYS_057", "se/sys_057")
 sfx("SEQ_SE_MESSAGE", "se/message")
 
--- Pokemon-Amie's PLAY screen (src/amie/play.lua; Wooble's capture "Play-Wake-Pet-Feed-
--- MiniGameMenu.mp4", 2026-10-18): game_select_lower (a/0/4/1 entry 0, a raw darc at +20352:
+-- Pokemon-Amie's PLAY screen (src/amie/play.lua): game_select_lower (a/0/4/1 entry 0, a raw darc at +20352:
 -- the round puff / play / return buttons, the face bubbles, the puff strip, the minigame
 -- picker with its badges, arrows and difficulty ribbons) and the petting hand's clips
 -- kawaigari_icon (a/0/4/2 entry 0). Rows from tools/lyt_rows.py; okashi_00 (the strip's puff

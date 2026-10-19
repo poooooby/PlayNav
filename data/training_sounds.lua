@@ -9,8 +9,7 @@
 -- blocking, the attacks, time running out) keep their stand-ins in src/training/regimen.lua.
 
 return {
-  -- the home screen: punching the bag has no sound in the game (Wooble, from the second
-  -- capture); the Regimens button and the shutters into the picker are one system sound
+  -- the home screen: punching the bag has no sound in the game; the Regimens button and the shutters into the picker are one system sound
   transition = "se/sys_057",
   -- the picker
   select_course = "se/sp_decide",  -- the first tap on a course
@@ -45,9 +44,9 @@ return {
   INTRO = { PUMPS = { 3.05, 3.69, 4.52, 5.36, 6.19 }, BOT_NAME = 7.50 },
 
   -- capture 1: Hone Sp. Atk with Magnemite, 2026-10-12 (times in it, the title at 5.20 s);
-  -- capture 2: Wooble's Azahar capture 2026-10-14, the home screen near the League (Victory
-  -- Road's music subtracted) through a regimen with attacks to the results, with Wooble's own
-  -- notes of what happens when
+  -- capture 2: an Azahar capture 2026-10-14, the home screen near the League (Victory Road's
+  -- music subtracted) through a regimen with attacks to the results, with notes of what
+  -- happens when
   EVIDENCE = {
     transition = "capture 2, 11.35 s, r 0.90-0.95: the Regimens button and the shutters (a system sound)",
     select_course = "capture 2, 17.80 s, r 0.96: the first tap on a course",
