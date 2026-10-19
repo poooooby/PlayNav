@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-18 (pre-alpha)
+
 ### Added
 
 - In Play your Pokémon moves with its mood: breathing, swaying and hopping when it's happy and
