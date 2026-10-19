@@ -218,7 +218,7 @@ return function(mod, T, Rules, Sim)
     slot = slot or POPUPS[1]
     local bx, by = sim:botOffset()
     local cyW = sim.botCY and sim:botCY() or Rules.N.BOT.CY
-    local x, y = Sim.project(bx, cyW + by, 1)
+    local x, y = T.toScreen(Sim.project(bx, cyW + by, 1))
     H.popups[slot] = { t = 0, x = x, y = y, points = points }
     local pane = P.L.byName[slot]
     local digits = {}
@@ -268,8 +268,10 @@ return function(mod, T, Rules, Sim)
     if st then st.frame = math.max(0, math.min(1, sim.guts or 0)) * (st.clip.frames - 1) end
     -- the reticle and its charge
     local aim = sim.player.aim
-    local rx, ry = Sim.project(aim.x, aim.y, 1)
+    local rx, ry, rz = T.toScreen(Sim.project(aim.x, aim.y, 1))
     placeAt(P, "13", rx, ry)
+    P:set("13", "sx", rz)
+    P:set("13", "sy", rz)
     P:set("13", "visible", sim.phase == "play" and not o)
     local stage = sim:chargeStage()
     if stage > 0 and H.charge == 0 then P:play("charge") end
@@ -425,6 +427,11 @@ return function(mod, T, Rules, Sim)
     for _, n in ipairs({ "63", "71" }) do A[n] = { dx = -100 * (kx - 1), qx = kx, qy = ky } end
     for _, n in ipairs({ "67", "69", "75", "77" }) do A[n] = { qy = kx } end
     for _, n in ipairs({ "9p", "9l", "9j", "9n", "9h", "7e", "7i", "7k" }) do A[n] = { qx = kx } end
+    -- framed back (a wide area), the brackets (5m: 5x / 5z) stretch to fit the area as the
+    -- frame has them; aiming follows them (T.aimToScene)
+    if T.bracketFit and T.bracketFit() then
+      A["5m"] = { sx = kx, sy = ky, dx = dcx, dy = dcy }
+    end
     -- the panes the game parks just off its screen until they are wanted (the penalty score,
     -- idle goals, balls and marks) stay off the wider area: out past the same edge
     local root = H.P and H.P.L and H.P.L.root

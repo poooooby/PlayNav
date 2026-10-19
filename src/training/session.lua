@@ -1182,10 +1182,15 @@ return function(mod, deps)
   function T.party()
     local out = {}
     local s = T.session
+    local mons = Store.data().mons
     for i, mon in ipairs(host.party()) do
-      out[#out + 1] = { mon = mon, key = host.monKey(mon), name = host.displayName(mon),
+      local key = host.monKey(mon)
+      local rec = mons[key]
+      out[#out + 1] = { mon = mon, key = key, name = host.displayName(mon),
         icon = host.icon and host.icon(mon) or nil, eligible = eligible(mon),
-        active = s ~= nil and host.monKey(mon) == s.key, index = i }
+        active = s ~= nil and key == s.key, index = i,
+        -- lying down (idle or after its routine) until it is tapped awake
+        resting = type(rec) == "table" and rec.resting and true or false }
     end
     return out
   end

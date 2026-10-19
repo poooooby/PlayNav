@@ -155,6 +155,18 @@ local function body(game, log)
   log("after open: top", topId(), "mode", tostring(st.mode), "name", tostring(st.name), "shot", tostring(st.shot),
     "total", tostring(st.total), "surface", X.state().mode)
   shot("t01_core")
+  -- the dock: the second party member lying down (resting), the others hopping
+  do
+    local other = Runtime.getSession().party[2]
+    if other then
+      TR.store.mon(TR.host.monKey(other)).resting = "idle"
+      U.wait(20)
+      shot("t01b_dock_resting")
+      U.wait(15)
+      shot("t01c_dock_hop")
+      TR.store.mon(TR.host.monKey(other)).resting = false
+    end
+  end
   local okA, whyA = X.amie.open()
   log("amie while training:", tostring(okA), tostring(whyA))
 

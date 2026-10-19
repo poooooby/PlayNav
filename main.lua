@@ -633,7 +633,18 @@ return function(mod)
     local ok, v = pcall(HdTop.wantsFill)
     return ok and v == true
   end
-  if HdTop then HdTop.playfield = function() return Cutout and Cutout:active() and Cutout.rect or nil end end
+  -- the area a filling top layer paints: split's playfield; with the touch screen on a second
+  -- display (a Thor, Kanto Gear's phone) the whole top display, past the game's 3:2 picture
+  if HdTop then
+    HdTop.playfield = function()
+      if Cutout and Cutout:active() then return Cutout.rect end
+      if state.mode == "second_screen" or state.mode == "phone" then
+        local ok, w, h = pcall(function() return love.graphics.getDimensions() end)
+        if ok and w and h then return { x = 0, y = 0, w = w, h = h } end
+      end
+      return nil
+    end
+  end
   local function gen3Rect(vp)
     local ww, wh = vp.width or 0, vp.height or 0
     if ww < 1 or wh < 1 then return nil end

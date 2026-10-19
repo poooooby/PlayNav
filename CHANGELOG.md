@@ -11,6 +11,11 @@ All notable changes to this mod are documented here. The format follows
 
 ### Changed
 
+- Super Training's home: the other party members in the bottom dock hop every half second, as
+  the game's party icons do; a resting one lies face up, so you know to come and wake it.
+- Super Training on a second display (a Thor, Kanto Gear's phone): the regimens fill the whole
+  top screen, and on a wide one the scene is framed further back, so the balloon flying off
+  over the stadium's roof and its star are in view.
 - Super Training's records and clears are shared by your whole party: a course cleared by
   any Pokémon shows CLEARED on every Pokémon's regimen picker, and the Best Time is the course
   record, shown with the icon of the Pokémon that set it. Older saves start each record from

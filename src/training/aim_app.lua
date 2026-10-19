@@ -68,10 +68,12 @@ return function(mod, Pointer, T, Rules, Sim)
     local lx, ly = x / K, (y + BLEED) / K
     local sx = TOPBOX.x0 + (lx - PADBOX.x0) / (PADBOX.x1 - PADBOX.x0) * (TOPBOX.x1 - TOPBOX.x0)
     local sy = TOPBOX.y0 + (ly - PADBOX.y0) / (PADBOX.y1 - PADBOX.y0) * (TOPBOX.y1 - TOPBOX.y0)
+    if T.aimToScene then sx, sy = T.aimToScene(sx, sy) end
     return clampAim(sim, Sim.unproject(sx, sy))
   end
   local function layoutPointFor(sim, gx, gy)
     local sx, sy = Sim.project(gx, gy, 1)
+    if T.sceneToAim then sx, sy = T.sceneToAim(sx, sy) end
     return PADBOX.x0 + (sx - TOPBOX.x0) / (TOPBOX.x1 - TOPBOX.x0) * (PADBOX.x1 - PADBOX.x0),
       PADBOX.y0 + (sy - TOPBOX.y0) / (TOPBOX.y1 - TOPBOX.y0) * (PADBOX.y1 - PADBOX.y0)
   end

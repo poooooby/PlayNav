@@ -11,6 +11,34 @@ return function(mod, T, deps)
   local N = Rules.N
   T.Courses, T.Sim, T.Draw = Courses, Sim, Draw
   T.exitOffset = Draw and Draw.exitOffset   -- the beaten balloon's way out (hud.pose)
+  -- the arena's view on a wide area (arena_draw D.view): a scene point on the screen, and z
+  function T.toScreen(x, y)
+    if Draw and Draw.toScreen then return Draw.toScreen(T, x, y) end
+    return x, y, 1
+  end
+  -- framed back, the HUD's brackets are stretched to fit the area (hud fitAdjust 5m); aiming,
+  -- mapped onto the brackets in the frame's units, goes through that stretch and back under
+  -- the view to the scene. -> the bracket fit (kx, ky, middle) or nil when the view is plain
+  function T.bracketFit()
+    local e = T.topExtent
+    if not (e and Draw and Draw.view) then return nil end
+    local z = Draw.view(T)
+    if z >= 1 then return nil end
+    return e.w / 240, e.h / 160, e.x + e.w / 2, e.y + e.h / 2
+  end
+  function T.aimToScene(x, y)
+    local kx, ky, mx, my = T.bracketFit()
+    if not kx then return x, y end
+    local z, px, py = Draw.view(T)
+    local fx, fy = mx + (x - 120) * kx, my + (y - 80) * ky
+    return px + (fx - px) / z, py + (fy - py) / z
+  end
+  function T.sceneToAim(x, y)
+    local kx, ky, mx, my = T.bracketFit()
+    if not kx then return x, y end
+    local fx, fy, z = T.toScreen(x, y)
+    return 120 + (fx - mx) / kx, 80 + (fy - my) / ky
+  end
 
   function T.courseList() return Courses and Courses.courses or {} end
   function T.course(id) return Courses and Courses.byId and Courses.byId[id] or nil end

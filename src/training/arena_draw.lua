@@ -267,6 +267,53 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return 0, 0, 240, 160
   end
   D.extent = extent
+
+  -- A wide area (a second screen's whole 16:9 top display) frames the scene further back: the
+  -- arena drawn smaller (z) about the middle of the area's foot, until the roof's edge where the
+  -- beaten balloon leaves (D.BG.exit) and the star above it (VIEW_FIT.margin: the HUD band and sky for the flight over the roof) are under the
+  -- top. The stadium art keeps its own size there and mirrors out to the sides (grown, it would
+  -- lift the roof again). Areas nearer the frame's 3:2 keep the plain view (z 1).
+  D.VIEW_FIT = { aspect = 1.6, margin = 70, min = 0.55 }
+  local viewKey, viewZ = nil, 1
+  local function artExitY(ey, eh)
+    local W = D.BG.w
+    local Hu = W   -- the art is square
+    local gf, gy = D.BG.grassFrac, D.BG.grassY
+    local k = math.max(1, (gy - ey) / (Hu * gf), (ey + eh - gy) / (Hu * (1 - gf)))
+    return gy - (gf - D.BG.exit.y) * Hu * k
+  end
+  -- the view: z (1 = as drawn), and the pivot (px, py) on the area's foot
+  local function view(T)
+    local ex, ey, ew, eh = extent(T)
+    local px, py = 120, ey + eh
+    if ew / eh < D.VIEW_FIT.aspect then return 1, px, py end
+    local key = ("%.2f %.2f %.2f %.2f"):format(ex, ey, ew, eh)
+    if key ~= viewKey then
+      local z = 1
+      for _ = 1, 4 do
+        local sy = py + (ey - py) / z
+        local top = artExitY(sy, eh / z) - D.VIEW_FIT.margin
+        z = math.max(D.VIEW_FIT.min, math.min(1, (py - ey) / (py - top)))
+      end
+      viewKey, viewZ = key, z
+      -- for drivers and bug reports: the last view worked out
+      D.lastView = { z = z, px = px, py = py, ex = ex, ey = ey, ew = ew, eh = eh }
+    end
+    return viewZ, px, py
+  end
+  D.view = view
+  -- the area in scene units (what the arena draws to under the view)
+  local function sceneExtent(T)
+    local ex, ey, ew, eh = extent(T)
+    local z, px, py = view(T)
+    if z == 1 then return ex, ey, ew, eh end
+    return px + (ex - px) / z, py + (ey - py) / z, ew / z, eh / z
+  end
+  -- a scene point to the screen, and back (the HUD's reticle, popups and aiming)
+  function D.toScreen(T, x, y)
+    local z, px, py = view(T)
+    return px + (x - px) * z, py + (y - py) * z, z
+  end
   local function bgImage()
     if D.bg == nil then
       D.bg = false
@@ -293,12 +340,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- trainee's stand, rather than stretching the edge texels. iw, ih: the art's size (nil without it)
   local function bgPlace(T)
     local bg = bgImage()
-    local ex, ey, ew, eh = extent(T)
+    local ex, ey, ew, eh = sceneExtent(T)
     local iw, ih = 1920, 1920
     if bg then iw, ih = bg:getDimensions() end
     local W, Hu = D.BG.w, D.BG.w * ih / iw
     local gf, gy = D.BG.grassFrac, D.BG.grassY
-    local k = math.max(1, 2 * (120 - ex) / W, 2 * (ex + ew - 120) / W,
+    -- (framed back, the art does not grow to the width: it mirrors out to the sides)
+    local wide = view(T) < 1
+    local k = math.max(1, wide and 0 or 2 * (120 - ex) / W, wide and 0 or 2 * (ex + ew - 120) / W,
       (gy - ey) / (Hu * gf), (ey + eh - gy) / (Hu * (1 - gf)))
     local s = W * k / iw
     return 120 - W * k / 2, gy - ih * gf * s, s, iw, ih
@@ -320,7 +369,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   local bgQuad, bgQuadKey = nil, nil
   local function drawBackground(G2, sim, T)
     local bg = bgImage()
-    local ex, ey, ew, eh = extent(T)
+    local ex, ey, ew, eh = sceneExtent(T)
     if bg then
       local ix, iy, s, iw, ih = bgPlace(T)
       -- one quad over the whole area, in image pixels; clamp stretches the edges past the art
@@ -330,6 +379,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         bgQuad = love.graphics.newQuad(qx, qy, qw, qh, iw, ih)
         bgQuadKey = key
       end
+      -- framed back, the sides mirror the art out; else its edge texels stretch
+      bg:setWrap(view(T) < 1 and "mirroredrepeat" or "clamp", "clamp")
       G2.setColor(1, 1, 1, 1)
       G2.draw(bg, bgQuad, ex, ey, 0, s, s)
       if sim and sim.bot and sim.bot.aura > 0 then
@@ -1110,7 +1161,15 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     local Hud = T and T.hud
     local pose = Hud and Hud.pose and Hud.pose(sim, s) or nil
-    local ex, ey, ew, eh = extent(T)
+    -- the view: the arena under it, in scene units (D.view); the HUD and the fades outside
+    local vz, vpx, vpy = view(T)
+    if vz < 1 then
+      G2.push()
+      G2.translate(vpx, vpy)
+      G2.scale(vz, vz)
+      G2.translate(-vpx, -vpy)
+    end
+    local ex, ey, ew, eh = sceneExtent(T)
     -- the intro's camera (hud.pose cam): the scene drawn zoomed about the flat balloon on the
     -- grass, which shows at the area's middle; as it settles (k -> 1) the focus moves to the
     -- middle itself, so zoom 1 is the plain view. The HUD and the fades stay outside it.
@@ -1224,6 +1283,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     drawBalls(G2, sim, "front")
     if cam then G2.pop() end
+    if vz < 1 then G2.pop() end
+    ex, ey, ew, eh = extent(T)
     if not (Hud and Hud.draw and Hud.draw(G2, sim, s)) then drawHud(G2, sim, s, T) end
     if pose and pose.fade and pose.fade > 0 then
       G2.setColor(0, 0, 0, pose.fade)

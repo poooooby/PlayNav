@@ -962,15 +962,21 @@ return function(mod, Pointer, T, Rules, Radar, host)
         if r then
           local cx, cy = (r.x + r.w / 2) / L, (r.y + BLEED + r.h / 2) / L
           local icon = p.icon
+          -- a 2-unit hop every half second, its icon's two frames in turn (the game's party
+          -- icons); resting, the icon turned a quarter so it lies face up, so the player knows
+          -- to come and wake it
+          local frame = math.floor(app.clock / 15) % 2
+          local lift = frame == 1 and 2 or 0
+          local rot = p.resting and math.pi / 2 or 0
           if icon and icon.image then
             G.setColor(1, 1, 1, (p.eligible and 200 or 90) / 255)
-            local q = icon.quads and (icon.quads[0] or icon.quads[1])
+            local q = icon.quads and (icon.quads[frame % (icon.frames or 1)] or icon.quads[0] or icon.quads[1])
             local fw, fh = icon.w or 32, icon.h or 32
             local k = 40 / fw   -- the game's 40x30 icon slot
             if q then
-              drawPixel(icon.image, q, cx, cy, 0, k, k, fw / 2, fh / 2)
+              drawPixel(icon.image, q, cx, cy - lift, rot, k, k, fw / 2, fh / 2)
             else
-              drawPixel(icon.image, cx, cy, 0, k, k, fw / 2, fh / 2)
+              drawPixel(icon.image, cx, cy - lift, rot, k, k, fw / 2, fh / 2)
             end
           else
             G.setColor(1, 1, 1, p.eligible and 0.8 or 0.3)
