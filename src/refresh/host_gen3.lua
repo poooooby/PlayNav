@@ -79,6 +79,14 @@ return function(mod)
     return nil
   end
 
+  -- the back pic: the Play screen's Pokemon asleep with its back turned (until a tap wakes it)
+  function H.backPic(mon)
+    if not (mon and H.Pokemon and H.Pokemon.monBackPic) then return nil end
+    local ok, entry = pcall(H.Pokemon.monBackPic, mon)
+    if ok and type(entry) == "table" and entry.image then return entry end
+    return nil
+  end
+
   function H.icon(mon)
     local ok, entry = pcall(H.Pokemon.monIcon, mon)
     if ok and type(entry) == "table" and entry.image then return entry end

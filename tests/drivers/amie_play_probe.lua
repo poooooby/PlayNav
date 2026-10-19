@@ -1,0 +1,202 @@
+-- Driver: Pokemon-Amie's PLAY screen as the game plays it (Wooble's capture
+-- "Play-Wake-Pet-Feed-MiniGameMenu.mp4"): asleep with its back turned, the tap that wakes it
+-- ("!", the flash, facing you with notes, the buttons in), stroking (the hand, the view easing
+-- in), taps on each zone (reactions), the puff strip, a puff dragged onto it (the flash, the
+-- close-up, a bite, back out), the games picker (badge 1 -> 2 -> 3 with the arrows, back to 1,
+-- the difficulty ribbons, Easy starts Berry Picker), and the top screen's sky. Shots each step.
+--   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
+--   POKEPORT_DRIVER=mods/play_nav/tests/drivers/amie_play_probe.lua love .
+-- PROBE_SHAPE=gear|3ds picks the touch screen's shape (the option event only).
+
+local function body(game, log)
+  local U = require("tests.drivers.util")
+  local dir = os.getenv("SHOT_DIR") or "/tmp/play_nav"
+  local function waitFor(pred, limit)
+    for _ = 1, limit or 600 do
+      if pred() then return true end
+      U.wait(1)
+    end
+    return pred() and true or false
+  end
+  love.window.setMode(tonumber(os.getenv("SHOT_W")) or 603, tonumber(os.getenv("SHOT_H")) or 1294, { resizable = true, highdpi = true })
+  U.wait(2)
+  if not waitFor(function() return game.phase == "boot" and game.boot end, 900) then
+    log("FAIL boot phase not reached; phase:", game.phase)
+    return
+  end
+  -- CLEAR EXTRACTED ART may be on in the player's options: a driver run never acts on it
+  do
+    local Xk = game.mods and game.mods.exports and game.mods.exports.play_nav
+    if Xk and Xk._test and Xk._test.keepArt then Xk._test.keepArt() end
+  end
+  game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
+  U.wait(30)
+  local Runtime = require("src.core.game3.runtime")
+  local Map = require("src.core.game3.map")
+  local Player = require("src.core.game3.player")
+  local C = require("src.core.game3.constants").of("emerald")
+  local Party = require("src.core.game3.party")
+  pcall(Map.load, nil, game, "EM_LITTLEROOT_TOWN", { x = 14, y = 12, facing = "down" })
+  local s0 = Runtime.getSession()
+  if s0 then s0.x, s0.y = 14, 12 end
+  Player.cellX, Player.cellY, Player.px, Player.py = 14, 12, 14 * 16, 12 * 16
+  Player.targetX, Player.targetY = 14, 12
+  if s0 and #(s0.party or {}) == 0 then
+    Party.giveMon(s0, C:require("species", os.getenv("PROBE_SPECIES") and ("SPECIES_" .. os.getenv("PROBE_SPECIES")) or "SPECIES_TORCHIC"), 12)
+    Party.giveMon(s0, C:require("species", "SPECIES_ZIGZAGOON"), 6)
+    Party.giveMon(s0, C:require("species", "SPECIES_WURMPLE"), 5)
+  end
+  U.wait(60)
+  local loader = game.mods
+  local X = loader and loader.exports and loader.exports.play_nav
+  if not X then log("FAIL no exports"); return end
+  loader.modOptions.play_nav = loader.modOptions.play_nav or {}
+  local opts = loader.modOptions.play_nav
+  local savedDisplay = opts.display
+  opts.display = "split"
+  if os.getenv("PROBE_SHAPE") then
+    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "screen_shape", value = os.getenv("PROBE_SHAPE") })
+  end
+  log("shape:", os.getenv("PROBE_SHAPE") or "(saved)", "W x H", tostring(X.W) .. "x" .. tostring(X.H))
+  local R, Apps = X.amie, X.apps
+  local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
+  local function win(ax, ay)
+    local r = X.state().rect
+    if not r then return -1, -1 end
+    local tab = X.state().tabHeight or 0
+    return r.x + ax * r.scale, r.y + (ay + tab) * r.scale
+  end
+  local function press(id, ax, ay) local x, y = win(ax, ay); love.touchpressed(id, x, y, 0, 0, 1) end
+  local function move(id, ax, ay) local x, y = win(ax, ay); love.touchmoved(id, x, y, 0, 0, 1) end
+  local function release(id, ax, ay) local x, y = win(ax, ay); love.touchreleased(id, x, y, 0, 0, 1) end
+  local function tapAt(id, ax, ay)
+    if not ax then log("no point for", id); return end
+    press(id, ax, ay); U.wait(2); release(id, ax, ay); U.wait(3)
+  end
+
+  local ok, err = pcall(function()
+    log("open play:", R.openPlay())
+    U.wait(10)
+    local app = Apps:get("play")
+    local st = function() return app.state() end
+    local settle = function(limit) waitFor(function() return not app.busy() end, limit or 1200); U.wait(4) end
+    log("wake:", st().wake)
+    shot("p01_asleep")
+    -- the wake
+    tapAt("wake", app.tapPoint("pet"))
+    waitFor(function() return st().wake == "exclaim" end, 200)
+    U.wait(6)
+    shot("p02_exclaim")
+    waitFor(function() return st().wake == "flash" end, 1200)
+    U.wait(2)
+    shot("p03_flash")
+    waitFor(function() return st().wake == "awake" end, 1200)
+    U.wait(20)
+    shot("p04_awake")
+    log("awake:", st().wake)
+    -- its liveliness by mood: happy (hops), hungry (droops), and still while petted
+    local m = R.state().meters
+    local saved = { m.affection, m.enjoyment, m.fullness }
+    m.affection, m.enjoyment, m.fullness = 255, 255, 200
+    local hops = 0
+    for k = 1, 4 do
+      local seen = waitFor(function() return st().hopping end, 900)
+      if seen then hops = hops + 1 end
+      U.wait(3)
+      shot(("p04b_happy_%d"):format(k))
+      waitFor(function() return not st().hopping end, 300)
+    end
+    log("happy: hops seen", hops)
+    m.affection, m.enjoyment, m.fullness = 0, 0, 0
+    U.wait(30)
+    local lowHops = 0
+    for _ = 1, 600 do if st().hopping then lowHops = lowHops + 1 end; U.wait(1) end
+    shot("p04c_hungry")
+    log("hungry: frames hopping", lowHops)
+    m.affection, m.enjoyment, m.fullness = saved[1], saved[2], saved[3]
+    -- stroking: the hand, the view easing in
+    local px, py = app.tapPoint("zone", "chest")
+    press("pet", px, py); U.wait(2)
+    for k = 1, 60 do move("pet", px + math.sin(k / 5) * 18, py + math.cos(k / 7) * 10); U.wait(1) end
+    log("stroking: zoom", ("%.2f"):format(st().zoom), "hand", st().hand, "calm", ("%.2f"):format(st().calm), "hopping", tostring(st().hopping))
+    shot("p05_stroke")
+    release("pet", px, py)
+    settle()
+    -- a tap on each zone: the reaction
+    for _, zone in ipairs({ "head", "face", "cheeks", "chest", "side", "bottom" }) do
+      U.wait(40)
+      local zx, zy = app.tapPoint("zone", zone)
+      tapAt("z" .. zone, zx, zy)
+      U.wait(4)
+      log("zone", zone, "hand", st().hand, "emote", st().emote)
+      shot("p06_zone_" .. zone)
+      settle()
+    end
+    -- the strip and a meal
+    local Rules = R.rules
+    local jar = R.puffs()
+    for _, p in ipairs(Rules.PUFFS) do Rules.jarAdd(jar, p.id) end
+    R.state().meters.fullness = 0
+    tapAt("puffbtn", app.tapPoint("puff_btn"))
+    waitFor(function() return st().strip > 0.95 end, 600)
+    U.wait(4)
+    shot("p07_strip")
+    local sx, sy = app.tapPoint("slot", 2)
+    local mx, my = app.tapPoint("pet")
+    press("puff", sx, sy); U.wait(2)
+    for k = 1, 10 do move("puff", sx + (mx - sx) * k / 10, sy + (my - sy) * k / 10); U.wait(1) end
+    shot("p08_drag")
+    release("puff", mx, my)
+    waitFor(function() return st().feed == "flash" end, 100)
+    U.wait(3)
+    shot("p09_meal_flash")
+    waitFor(function() return st().feed == "eat" end, 1200)
+    waitFor(function() local f = R.state().feeding; return f and f.taken >= 1 end, 2400)
+    U.wait(2)
+    shot("p10_meal_bite")
+    waitFor(function() return st().feed == "after" end, 4800)
+    U.wait(6)
+    shot("p11_meal_done")
+    settle(2400)
+    shot("p12_back_out")
+    -- the picker
+    tapAt("playbtn", app.tapPoint("play_btn"))
+    U.wait(30)
+    log("picker:", st().picker and st().picker.stage, st().picker and st().picker.game)
+    shot("p13_picker_berry")
+    tapAt("right", app.tapPoint("arrow_r")); U.wait(30)
+    shot("p14_picker_head")
+    tapAt("right2", app.tapPoint("arrow_r")); U.wait(30)
+    shot("p15_picker_tile")
+    tapAt("left", app.tapPoint("arrow_l")); U.wait(10)
+    tapAt("left2", app.tapPoint("arrow_l")); U.wait(30)
+    log("picker back to:", st().picker and st().picker.game)
+    tapAt("badge", app.tapPoint("badge", 1)); U.wait(30)
+    log("picker:", st().picker and st().picker.stage, "diff", st().picker and st().picker.diff)
+    shot("p16_picker_diff")
+    tapAt("diff", app.tapPoint("diff", 1)); U.wait(30)
+    log("after Easy: mode", R.state().mode, "app", Apps:active().id)
+    shot("p17_berry_started")
+    R.session.finish()
+    U.wait(5)
+  end)
+  if not ok then log("probe body failed:", tostring(err)) end
+  opts.display = savedDisplay
+  log("DONE")
+end
+
+return function(game)
+  local dir = os.getenv("SHOT_DIR") or "/tmp/play_nav"
+  local logFile = io.open(dir .. "/driver.log", "w")
+  local function log(...)
+    local parts = {}
+    for i = 1, select("#", ...) do parts[#parts + 1] = tostring((select(i, ...))) end
+    local line = table.concat(parts, " ")
+    print("[driver]", line)
+    if logFile then logFile:write(line, "\n"); logFile:flush() end
+  end
+  local ok, err = xpcall(function() body(game, log) end, debug.traceback)
+  if not ok then log("DRIVER ERROR:", tostring(err)) end
+  if logFile then logFile:close() end
+  love.event.quit()
+end

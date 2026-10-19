@@ -184,7 +184,7 @@ return function(mod, deps)
     for i, item in ipairs(group.items) do
       arg.items[i] = { entry = item.entry, sub = item.sub, clim = item.clim, id = item.id,
         w = item.w, h = item.h, fmt = item.fmt, kind = item.kind, lines = item.lines,
-        match = item.match, count = item.count, name = item.name }
+        match = item.match, count = item.count, name = item.name, path = item.path }
     end
     local handle, err = mod.job:run("src/import/job_extract.lua", arg, { assetIO = true, maxSeconds = 300 })
     if not handle then

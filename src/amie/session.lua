@@ -6,7 +6,7 @@
 --           (s.tool "games": three badges, four difficulties, on the same screen)
 --   decorate  wallpaper, cushions, objects and the puff set out for visitors
 --   game    a minigame is running; s.game = { id, diff, participants }
--- A battle never opens a session: a win drops Poke Puffs into the jar (onBattleEnded).
+-- A battle never opens a session and drops nothing: Poke Puffs come from the minigames.
 -- The stat rules live in src/amie/rules.lua, the per-species spots in
 -- src/amie/petting.lua, the save data in src/amie/store.lua.
 --
@@ -236,6 +236,100 @@ return function(mod, deps)
     G2.draw(img, e.x + (e.w - iw * k) / 2, e.y + (e.h - ih * k) / 2, 0, k, k)
   end
 
+  -- PLAY's top screen (Wooble's capture, 2026-10-18; Wooble: "sky only, like the game"): the
+  -- dotted sky with the rainbow (assets/amie-play-bg.png, Wooble's own, 1920 square) anchored
+  -- bottom right so the rainbow shows, translucent clouds drifting across, white clouds along
+  -- the foot hiding the rainbow's end, soap bubbles rising (the game's scene/* textures, from
+  -- the import; drawn plain without them)
+  local playSky = nil
+  local function playSkyImage()
+    if playSky == nil then
+      playSky = false
+      local bytes = mod.read and mod:read("assets/amie-play-bg.png")
+      local LI, LF = love and love.image, love and love.filesystem
+      if bytes and LI and LF and love.graphics then
+        local ok, im = pcall(function()
+          local img = love.graphics.newImage(LI.newImageData(LF.newFileData(bytes, "amie-play-bg.png")), { mipmaps = true })
+          img:setFilter("linear", "linear")
+          img:setMipmapFilter("linear")
+          return img
+        end)
+        playSky = ok and im or false
+      end
+    end
+    return playSky or nil
+  end
+  G.playSkyImage = playSkyImage
+
+  -- n drifting things, the same each frame from their index (no per-frame tables)
+  local function hash(i, k) return (math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1 end
+
+  local function drawPlayTop(G2, e)
+    local t = (love and love.timer and love.timer.getTime()) or 0
+    local sky = playSkyImage()
+    if sky then
+      local iw, ih = sky:getDimensions()
+      local k = math.max(e.w / iw, e.h / ih)
+      G2.setColor(1, 1, 1, 1)
+      G2.draw(sky, e.x + e.w - iw * k, e.y + e.h - ih * k, 0, k, k)
+    else
+      G2.setColor(0.04, 0.12, 0.55, 1)
+      G2.rectangle("fill", e.x, e.y, e.w, e.h)
+    end
+    -- the translucent clouds drifting right
+    local cloud = topIcon("scene/cloud")
+    if cloud then
+      -- the texture's left part is the cloud; two small scraps sit beside it
+      local tw, th = cloud:getDimensions()
+      if not G.cloudQuad and love and love.graphics then G.cloudQuad = love.graphics.newQuad(0, 0, tw * 0.72, th, tw, th) end
+      local cw, ch = tw * 0.72, th
+      for i = 1, 4 do
+        local w = 70 + 40 * hash(i, 1)
+        local k = w / cw
+        local span = e.w + w
+        local x = e.x - w + ((t * (4 + 3 * hash(i, 2)) + span * hash(i, 3)) % span)
+        local y = e.y + e.h * (0.08 + 0.55 * hash(i, 4))
+        -- added, not blended: the texture's grey under its alpha would darken the sky
+        G2.setBlendMode("add")
+        G2.setColor(0.35, 0.45, 0.7, 0.55)
+        if G.cloudQuad then G2.draw(cloud, G.cloudQuad, x, y, 0, k, k) else G2.draw(cloud, x, y, 0, k, k) end
+        G2.setBlendMode("alpha")
+      end
+    end
+    -- white clouds along the foot
+    local cumulus = topIcon("scene/cumulus")
+    if cumulus then
+      local cw, ch = cumulus:getDimensions()
+      G2.setColor(1, 1, 1, 1)
+      local k = (e.w * 0.42) / cw
+      for i = 0, 2 do
+        G2.draw(cumulus, e.x + e.w * (i * 0.36 - 0.06), e.y + e.h - ch * k * 0.55, 0, k, k)
+      end
+    end
+    -- soap bubbles rising and wobbling
+    local bub = topIcon("scene/bubbles")
+    local quad = G.bubbleQuad
+    if bub and not quad and love and love.graphics then
+      local bw, bh = bub:getDimensions()
+      quad = love.graphics.newQuad(0, bh / 2, bw / 4, bh / 2, bw, bh)
+      G.bubbleQuad = quad
+    end
+    for i = 1, 14 do
+      local r = 3 + 6 * hash(i, 5)
+      local span = e.h + 2 * r
+      local y = e.y + e.h + r - ((t * (8 + 10 * hash(i, 6)) + span * hash(i, 7)) % span)
+      local x = e.x + e.w * hash(i, 8) + math.sin(t * 1.3 + i) * 4
+      if bub and quad then
+        local _, _, qw = quad:getViewport()
+        G2.setColor(1, 1, 1, 0.85)
+        G2.draw(bub, quad, x, y, 0, 2 * r / qw, 2 * r / qw, qw / 2, qw / 2)
+      else
+        G2.setColor(0.85, 0.92, 1, 0.5)
+        G2.circle("line", x, y, r, 12)
+      end
+    end
+  end
+
   -- the top screen in 240x160 units (drawn by Layer.draw or, at window resolution, hd_top);
   -- e is the playfield (the 240x160 frame when not filling): the sky and grass cover it, the
   -- name and meters sit at its top left, the words at its foot, the Pokemon in the frame
@@ -257,6 +351,12 @@ return function(mod, deps)
         G2.pop()
         return
       end
+    end
+    -- PLAY (and a game without its own top screen): the sky only, as the game
+    if s.mode == "play" or s.mode == "game" then
+      drawPlayTop(G2, e)
+      G2.pop()
+      return
     end
     G2.setColor(0.55, 0.78, 0.98, 1)
     G2.rectangle("fill", e.x, e.y, e.w, e.h)
@@ -333,6 +433,33 @@ return function(mod, deps)
     return "play"
   end
 
+  -- As Super Training's home (Wooble, 2026-10-18): the room lives on the bottom screen alone,
+  -- the game keeps the top screen and the player walks about; the top-screen layer (which
+  -- pauses the field) is up for PLAY, DECORATE and the minigames only. G.frame ticks the
+  -- session while no layer is up.
+  local LAYER_MODES = { play = true, decorate = true, game = true }
+  local function syncLayer(s)
+    local want = s and LAYER_MODES[s.mode] == true
+    if want and not s.layered then
+      local ok, err = host.pushLayer(Layer)
+      if ok then s.layered = true else mod.log:warn("could not push the amie layer: %s", tostring(err)) end
+    elseif s and not want and s.layered then
+      host.popLayer()
+      s.layered = false
+    end
+  end
+  G.syncLayer = function() syncLayer(G.session) end
+
+  function G.frame(dt)
+    local s = G.session
+    if s and not s.layered then G.tick(dt) end
+  end
+
+  -- a battle takes the bottom screen back; the room waits under it
+  function G.inBattle()
+    return host.battleActive ~= nil and host.battleActive() == true
+  end
+
   -- opts = { home, source }
   function G.start(mon, opts)
     opts = opts or {}
@@ -351,8 +478,7 @@ return function(mod, deps)
     s.lastCry = 0
     G.session = s
     G.previousApp = Apps:active() and Apps:active().id or nil
-    local ok, err = host.pushLayer(Layer)
-    if not ok then mod.log:warn("could not push the amie layer: %s", tostring(err)) end
+    syncLayer(s)
     Apps:setActive(appFor(s.mode), mod.game)
     onChange()
     if s.mode == "home" then G.enterHome(true) else G.enterPlay() end
@@ -365,6 +491,7 @@ return function(mod, deps)
     if not s or not G.Decor then return false end
     s.mode = "decorate"
     s.tool = nil
+    syncLayer(s)
     Apps:setActive("decorate", mod.game)
     onChange()
     return true
@@ -383,6 +510,7 @@ return function(mod, deps)
     s.mode = "home"
     s.tool = nil
     s.feeding = nil
+    syncLayer(s)
     Apps:setActive("home", mod.game)
     if first then
       host.playCry(s.mon)
@@ -395,7 +523,8 @@ return function(mod, deps)
   function G.back()
     local s = G.session
     if not s then return end
-    if s.mode == "play" and s.tool == "games" then
+    -- an open picker or puff strip folds first
+    if s.mode == "play" and (s.tool == "games" or s.tool == "beans") then
       s.tool = nil
       host.playSe("SE_SELECT")
       onChange()
@@ -444,6 +573,7 @@ return function(mod, deps)
     s.game = { id = id, diff = diff, participants = list, hud = nil }
     local app = Apps:get("game_" .. id)
     if not app then s.mode = "play"; return false, "no app" end
+    syncLayer(s)
     G.gameApp = app
     Apps:setActive("game_" .. id, mod.game)
     if app.start then app:start(s.game) end
@@ -480,6 +610,7 @@ return function(mod, deps)
     G.gameApp = nil
     s.mode = "play"
     if opts and opts.toPetting then s.tool = nil else s.tool = "games" end
+    syncLayer(s)
     Apps:setActive("play", mod.game)
     local r = s.lastResult
     if r and G.Games then
@@ -512,6 +643,7 @@ return function(mod, deps)
     local s = G.session
     if not s then return end
     s.mode = "play"
+    syncLayer(s)
     Apps:setActive("play", mod.game)
     Rules.openPlay(s.meters)
     host.playCry(s.mon)
@@ -523,7 +655,7 @@ return function(mod, deps)
     local s = G.session
     if not s then return end
     persist()
-    host.popLayer()
+    if s.layered then host.popLayer(); s.layered = false end
     G.session = nil
     if G.previousApp and G.previousApp ~= "play" and G.previousApp ~= "home" and Apps:get(G.previousApp) then
       Apps:setActive(G.previousApp, mod.game)
@@ -804,25 +936,15 @@ return function(mod, deps)
     end
   end
 
-  -- ------- the battle hook: a won battle drops Poke Puffs into the jar; nothing opens
+  -- ------- the battle hook: nothing opens and nothing drops. Poke Puffs come from the Amie
+  -- minigames only, as in the game (Wooble, 2026-10-18: no puffs for battles)
 
   function G.onBattleEnded(ev)
-    if mod.options:get("refresh") == false then return false, "off" end
-    if not host.available() then return false, "no host" end
     local result = ev and ev.result
     local st = ev and ev.battle or {}
     mod.log:info("amie: battle ended (result %s, wild %s, over %s)", tostring(result),
       tostring(st.wild), tostring(st.over))
-    if result == "lose" or result == "whiteout" or result == "blackout" then return false, "lost" end
-    if st.link or st.safari then return false, "kind" end
-    local mon = host.activeMon(ev)
-    if not mon or host.isEgg(mon) or (mon.hp or 0) <= 0 then return false, "no mon" end
-    if result ~= "win" then return false, "no win" end
-    local per = tonumber(mod.options:get("beans_per_win")) or 1
-    if per <= 0 then return false, "no puffs" end
-    Rules.grantPuffs(Store.puffs(), per, G.rng)
-    Store.savePuffs()
-    return true, "puffs"
+    return false, "no puffs from battles"
   end
 
   -- the Pokemon the room shows: the remembered active one when it is still

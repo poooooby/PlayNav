@@ -210,7 +210,12 @@ local function body(game, log)
       U.wait(3); waitFor(function() return not home.busy() end, 3600)
       U.wait(10)
       log("home PLAY: mode", R.state() and R.state().mode, "app", Apps:active().id)
-      tapAt("hback", 225, 166 + DH())
+      -- PLAY opens with its back turned: a tap wakes it, then the return button is up
+      local papp = Apps:get("play")
+      tapAt("hwake", papp.tapPoint("pet"))
+      waitFor(function() return papp.state().wake == "awake" end, 2400)
+      U.wait(10)
+      tapAt("hback", papp.tapPoint("back"))
       U.wait(10)
       log("play BACK: mode", R.state() and R.state().mode, "app", Apps:active().id)
       openMenu("hpet2")
@@ -328,103 +333,120 @@ local function body(game, log)
   if prompted then
     U.wait(10)
     shot("04_play")
-    -- the tray: ask the app where a tool sits
+    -- PLAY (src/amie/play.lua): it opens with its back turned; a tap wakes it. Points come
+    -- from the app (tapPoint) and the state from app.state()
     local playApp = Apps:get("play")
-    local function trayX(tool)
-      local list = playApp.geometry.tools(S.session)
-      for i, t in ipairs(list) do
-        if t == tool then return playApp.geometry.trayX(list, i) + 18 end
-      end
-      return nil
-    end
-    local function tapTool(tool)
-      local x = trayX(tool)
-      if x then tapAt("rtool", x, 18) else log("tray has no", tool) end
-    end
-    if R.state().tool then tapTool(R.state().tool) end
+    local pst = function() return playApp.state() end
+    tapAt("wake", playApp.tapPoint("pet"))
+    waitFor(function() return pst().wake == "awake" end, 2400)
+    U.wait(20)
     local affBefore = R.state().meters.affection
-    press("pet", 100, 96)
+    local px, py = playApp.tapPoint("zone", "chest")
+    press("pet", px, py)
     for i = 1, 80 do
-      move("pet", 100 + (i % 30) * 2, 96 + math.sin(i / 5) * 5); U.wait(2)
+      move("pet", px + (i % 30) - 15, py + math.sin(i / 5) * 5); U.wait(2)
     end
     shot("07_refresh_petting")
-    release("pet", 128, 100)
-    U.wait(5)
+    release("pet", px, py)
+    waitFor(function() return not playApp.busy() end, 1200)
     log("petting: affection", affBefore, "->", R.state().meters.affection)
     local fullBefore = R.state().meters.fullness
-    -- seed one of every variety so the row pages, page right and back,
-    -- then drag the SECOND slot (Mint) onto the Pokemon
+    -- seed one of every variety, open the strip, drag the SECOND slot onto the Pokemon
     local Rules = R.rules
     local jar = R.puffs()
     for _, p in ipairs(Rules.PUFFS) do Rules.jarAdd(jar, p.id) end
-    local mintBefore = Rules.jarCount(jar, "puff/mint_basic")
-    tapTool("beans")
+    local second = jar[2]
+    local secondBefore = Rules.jarCount(jar, second)
+    tapAt("puffbtn", playApp.tapPoint("puff_btn"))
+    waitFor(function() return pst().strip > 0.95 end, 600)
     U.wait(3)
     shot("07b_refresh_puff_row")
-    tapAt("rarrow", 227, 51)
-    U.wait(3)
-    shot("07c_refresh_puff_row_page2")
-    tapAt("rarrow", 27, 51)
-    U.wait(3)
-    press("bean", 40 + 29 + 11, 40 + 11)
-    for i = 1, 12 do move("bean", 80 + i * 4, 51 + i * 4); U.wait(1) end
+    local sx, sy = playApp.tapPoint("slot", 2)
+    local mx, my = playApp.tapPoint("pet")
+    press("bean", sx, sy)
+    for i = 1, 12 do move("bean", sx + (mx - sx) * i / 12, sy + (my - sy) * i / 12); U.wait(1) end
     shot("08_refresh_bean_drag")
-    -- hold the puff on the Pokemon: it is eaten bite by bite
+    release("bean", mx, my)
+    -- the meal: the flash, the close-up, bite by bite, back out
     local bitesSeen = 0
-    for _ = 1, 240 do
+    for _ = 1, 4800 do
       U.wait(1)
       local f = R.state() and R.state().feeding
       if f and f.taken > bitesSeen then bitesSeen = f.taken; if bitesSeen == 1 then shot("08b_refresh_biting") end end
-      if R.state() and not R.state().feeding and bitesSeen > 0 then break end
+      if pst().feed == nil and bitesSeen > 0 then break end
     end
-    release("bean", 128, 100)
-    U.wait(10)
+    waitFor(function() return not playApp.busy() end, 2400)
     log("bean: fullness", fullBefore, "->", R.state().meters.fullness, "bites", bitesSeen, "jar", #jar,
-      "mint", mintBefore, "->", Rules.jarCount(jar, "puff/mint_basic"), "message", tostring(R.state().message))
+      "second", tostring(second), secondBefore, "->", Rules.jarCount(jar, second), "message", tostring(R.state().message))
     for _, p in ipairs(Rules.PUFFS) do Rules.jarTake(jar, p.id) end
-    -- petting by spot: Torchic likes its neck feathers (chest), not its head feathers;
-    -- put the PUFFS tool down first, its row covers the head
-    if R.state().tool then tapTool(R.state().tool) end
-    U.wait(3)
+    -- petting by spot: Torchic likes its neck feathers (chest), not its head feathers
     local m = R.state().meters
     m.enjoyment = 120
     local affSpot = m.affection
-    press("spot", 128, 104)
-    for i = 1, 40 do move("spot", 128 + (i % 10) * 3, 104 + (i % 6)); U.wait(2) end
-    release("spot", 128, 104)
-    U.wait(5)
+    local cx, cy = playApp.tapPoint("zone", "chest")
+    press("spot", cx, cy)
+    for i = 1, 40 do move("spot", cx + (i % 10) * 3 - 15, cy + (i % 6)); U.wait(2) end
+    release("spot", cx, cy)
+    waitFor(function() return not playApp.busy() end, 1200)
     log("favored spot: affection", affSpot, "->", m.affection, "enjoyment", m.enjoyment, "message", tostring(R.state().message))
     local enjHead = m.enjoyment
-    press("head", 128, 52)
-    for i = 1, 40 do move("head", 128 + (i % 10) * 3, 52 + (i % 4)); U.wait(2) end
-    release("head", 128, 52)
-    U.wait(5)
-    log("disfavored spot: enjoyment", enjHead, "->", m.enjoyment, "affection", m.affection)
+    local hx, hy = playApp.tapPoint("zone", "head")
+    press("head", hx, hy)
+    for i = 1, 40 do move("head", hx + (i % 10) * 3 - 15, hy + (i % 4)); U.wait(2) end
     shot("08c_refresh_disfavored")
+    release("head", hx, hy)
+    waitFor(function() return not playApp.busy() end, 1200)
+    log("disfavored spot: enjoyment", enjHead, "->", m.enjoyment, "affection", m.affection)
     -- a hit: two quick taps on the same place
     m.enjoyment = 50
     local enjHit = m.enjoyment
-    tapAt("hit1", 120, 110 + DH() / 2); tapAt("hit2", 120, 110 + DH() / 2)
+    local tx, ty = playApp.tapPoint("pet")
+    tapAt("hit1", tx, ty); tapAt("hit2", tx, ty)
     U.wait(5)
     log("hit: enjoyment", enjHit, "->", m.enjoyment)
-    -- ------- the minigames: picker, then each game for a few seconds
-    tapTool("games")
-    U.wait(8)
-    log("games picker: mode", R.state() and R.state().mode, "app", Apps:active().id, "message", tostring(R.state() and R.state().message))
+    waitFor(function() return not playApp.busy() end, 1200)
+    -- ------- the minigames: the picker, then each game for a few seconds
+    tapAt("playbtn", playApp.tapPoint("play_btn"))
+    U.wait(20)
+    log("games picker: mode", R.state() and R.state().mode, "app", Apps:active().id, "picker",
+      tostring(pst().picker and pst().picker.stage), "message", tostring(R.state() and R.state().message))
     shot("08d_games_picker")
-    local geo = playApp.geometry
     -- the games run on the clock, the driver on frames: wait in seconds
     local function waitSecs(sec)
       local t0 = love.timer.getTime()
       while love.timer.getTime() - t0 < sec do U.wait(1) end
     end
+    -- turn the badges to a game, tap it, walk the ribbons to Easy, tap it
+    local function pick(gameIndex)
+      waitFor(function() return pst().picker ~= nil end, 600)
+      -- (back from a game the touch screen is handed back to PLAY over a few frames)
+      U.wait(30)
+      local function pstr()
+        local p = pst().picker
+        return p and (p.stage .. " game " .. p.game .. " diff " .. p.diff) or "none"
+      end
+      log("pick", gameIndex, "picker", pstr(), "app", Apps:active().id)
+      for _ = 1, 4 do
+        local p = pst().picker
+        if not p or p.game == gameIndex then break end
+        local ax, ay = playApp.tapPoint(p.game < gameIndex and "arrow_r" or "arrow_l")
+        tapAt("garrow", ax, ay)
+        U.wait(12)
+        log("  arrow at", ax and ("%.0f,%.0f"):format(ax, ay) or "nil", "->", pstr())
+      end
+      tapAt("gbadge", playApp.tapPoint("badge"))
+      U.wait(20)
+      log("  badge ->", pstr())
+      for _ = 1, 4 do
+        local p = pst().picker
+        if not p or p.diff == 1 then break end
+        tapAt("gleft", playApp.tapPoint("arrow_l"))
+        U.wait(12)
+      end
+      tapAt("gdiff", playApp.tapPoint("diff"))
+    end
     local function playGame(gameIndex, appId, value, shotName, midAction)
-      if not geo then return end
-      local br = geo.gameBadge(gameIndex)
-      tapAt("gbadge", br.x + br.w / 2, br.y + br.h / 2)
-      U.wait(3)
-      local dr = geo.gameDiff(1)
-      tapAt("gdiff", dr.x + dr.w / 2, dr.y + dr.h / 2)
+      pick(gameIndex)
       U.wait(5)
       local st0 = R.state()
       log(appId, "started: mode", st0 and st0.mode, "game", st0 and st0.game and st0.game.id, "app", Apps:active().id)
@@ -498,12 +520,13 @@ local function body(game, log)
       tapAt("tile1", 28 + 20, 12 + 18 + DH() / 2)
       tapAt("tile2", 28 + 60, 12 + 18 + DH() / 2)
     end)
+    U.wait(20)
     shot("08h_games_picker_after")
-    tapAt("gback", 225, 166 + DH())
-    U.wait(8)
+    tapAt("gback", playApp.tapPoint("back"))
+    U.wait(20)
     log("back from the picker: mode", R.state() and R.state().mode, "app", Apps:active().id)
     shot("09_refresh_fed")
-    tapAt("rdone", 225, 166 + DH())
+    tapAt("rdone", playApp.tapPoint("back"))
     U.wait(10)
     local mons = loader.modSave.play_nav and loader.modSave.play_nav.mons
     local n = 0

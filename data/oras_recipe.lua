@@ -1077,19 +1077,129 @@ sfx("SEQ_SE_SP_DECIDE", "se/sp_decide")
 sfx("SEQ_SE_SYS_057", "se/sys_057")
 sfx("SEQ_SE_MESSAGE", "se/message")
 
+-- Pokemon-Amie's PLAY screen (src/amie/play.lua; Wooble's capture "Play-Wake-Pet-Feed-
+-- MiniGameMenu.mp4", 2026-10-18): game_select_lower (a/0/4/1 entry 0, a raw darc at +20352:
+-- the round puff / play / return buttons, the face bubbles, the puff strip, the minigame
+-- picker with its badges, arrows and difficulty ribbons) and the petting hand's clips
+-- kawaigari_icon (a/0/4/2 entry 0). Rows from tools/lyt_rows.py; okashi_00 (the strip's puff
+-- slot) is filled at run time with our puff art.
+files("a/0/4/1", 0, 0, "lyt/amie_play", 147, "")
+files("a/0/4/2", 0, 0, "lyt/amie_hand", 16, "")
+add("a/0/4/1", 0, 0, 0, "lyt/amie_play/button_back", 30, 30, "RGBA8")
+add("a/0/4/1", 0, 0, 1, "lyt/amie_play/button_ball", 42, 42, "RGBA8")
+add("a/0/4/1", 0, 0, 2, "lyt/amie_play/button_food", 54, 54, "RGBA8")
+add("a/0/4/1", 0, 0, 3, "lyt/amie_play/button_play", 54, 54, "RGBA8")
+add("a/0/4/1", 0, 0, 4, "lyt/amie_play/face00_smile00", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 5, "lyt/amie_play/face01_smile01", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 6, "lyt/amie_play/face02_smile02", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 7, "lyt/amie_play/face03_smile03", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 8, "lyt/amie_play/face04_blink01", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 9, "lyt/amie_play/face05_blink02", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 10, "lyt/amie_play/face06_blink03", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 11, "lyt/amie_play/face07_wink01", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 12, "lyt/amie_play/face08_wink02", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 13, "lyt/amie_play/face09_etc01", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 14, "lyt/amie_play/face10_etc02", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 15, "lyt/amie_play/face11_etc03", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 16, "lyt/amie_play/face12_etc04", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 17, "lyt/amie_play/face13_etc05", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 18, "lyt/amie_play/face14_etc06", 40, 40, "ETC1A4")
+add("a/0/4/1", 0, 0, 19, "lyt/amie_play/face_bubbleL", 60, 60, "ETC1A4")
+add("a/0/4/1", 0, 0, 20, "lyt/amie_play/face_bubbleL_turnL", 60, 60, "ETC1A4")
+add("a/0/4/1", 0, 0, 21, "lyt/amie_play/face_bubbleL_turnR", 60, 60, "ETC1A4")
+add("a/0/4/1", 0, 0, 25, "lyt/amie_play/face_bubble_play", 60, 60, "ETC1A4")
+add("a/0/4/1", 0, 0, 26, "lyt/amie_play/face_window", 320, 70, "ETC1A4")
+add("a/0/4/1", 0, 0, 27, "lyt/amie_play/icon_face", 32, 40, "RGBA8")
+add("a/0/4/1", 0, 0, 28, "lyt/amie_play/kokashi_B", 16, 16, "RGBA8")
+add("a/0/4/1", 0, 0, 29, "lyt/amie_play/kokashi_C", 32, 32, "RGB8")
+add("a/0/4/1", 0, 0, 30, "lyt/amie_play/kokashi_LT", 16, 16, "RGBA8")
+add("a/0/4/1", 0, 0, 31, "lyt/amie_play/play_game01", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 32, "lyt/amie_play/play_game01_easy", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 33, "lyt/amie_play/play_game01_hard", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 34, "lyt/amie_play/play_game01_infinite", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 35, "lyt/amie_play/play_game01_normal", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 36, "lyt/amie_play/play_game02", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 37, "lyt/amie_play/play_game02_easy", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 38, "lyt/amie_play/play_game02_hard", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 39, "lyt/amie_play/play_game02_infinite", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 40, "lyt/amie_play/play_game02_normal", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 41, "lyt/amie_play/play_game03", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 42, "lyt/amie_play/play_game03_easy", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 43, "lyt/amie_play/play_game03_hard", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 44, "lyt/amie_play/play_game03_infinite", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 45, "lyt/amie_play/play_game03_normal", 154, 156, "ETC1A4")
+add("a/0/4/1", 0, 0, 46, "lyt/amie_play/play_left", 42, 42, "RGBA8")
+add("a/0/4/1", 0, 0, 47, "lyt/amie_play/play_right", 42, 42, "RGBA8")
+add("a/0/4/1", 0, 0, 48, "lyt/amie_play/play_tab", 260, 50, "ETC1A4")
+add("a/0/4/1", 0, 0, 49, "lyt/amie_play/star_easy", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 50, "lyt/amie_play/star_easyh", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 51, "lyt/amie_play/star_hard", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 52, "lyt/amie_play/star_hardh", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 53, "lyt/amie_play/star_infinite", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 54, "lyt/amie_play/star_infiniteh", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 55, "lyt/amie_play/star_normal", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 56, "lyt/amie_play/star_normalh", 20, 20, "ETC1A4")
+add("a/0/4/1", 0, 0, 57, "lyt/amie_play/twinkle0", 20, 20, "ETC1A4")
+add("a/0/4/2", 0, 0, 0, "lyt/amie_hand/filth", 32, 32, "ETC1A4")
+add("a/0/4/2", 0, 0, 1, "lyt/amie_hand/icon_biribiri0", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 2, "lyt/amie_hand/icon_biribiri1", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 3, "lyt/amie_hand/icon_biribiri2", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 4, "lyt/amie_hand/icon_biribiri3", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 5, "lyt/amie_hand/icon_burn0", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 6, "lyt/amie_hand/icon_burn1", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 7, "lyt/amie_hand/icon_burn2", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 8, "lyt/amie_hand/icon_burn3", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 9, "lyt/amie_hand/icon_freeze0", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 12, "lyt/amie_hand/icon_hand", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 13, "lyt/amie_hand/icon_hand_a0", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 14, "lyt/amie_hand/icon_hand_a1", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 15, "lyt/amie_hand/icon_hit0", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 16, "lyt/amie_hand/icon_hit1", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 17, "lyt/amie_hand/icon_hit2", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 18, "lyt/amie_hand/icon_hit3", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 19, "lyt/amie_hand/icon_hurt0", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 20, "lyt/amie_hand/icon_hurt1", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 21, "lyt/amie_hand/icon_hurt2", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 22, "lyt/amie_hand/icon_junk0", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 23, "lyt/amie_hand/icon_junk1", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 24, "lyt/amie_hand/icon_kara", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 25, "lyt/amie_hand/icon_oide_a0", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 26, "lyt/amie_hand/icon_oide_a1", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 27, "lyt/amie_hand/icon_oide_a2", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 28, "lyt/amie_hand/icon_oide_fix", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 29, "lyt/amie_hand/icon_tap0", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 30, "lyt/amie_hand/icon_tap1", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 31, "lyt/amie_hand/icon_tap2", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 32, "lyt/amie_hand/icon_tap3", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 33, "lyt/amie_hand/icon_tap4", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 34, "lyt/amie_hand/icon_water0", 64, 64, "RGBA4")
+add("a/0/4/2", 0, 0, 37, "lyt/amie_hand/icon_yubi_a1", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 38, "lyt/amie_hand/icon_yubi_a2", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 39, "lyt/amie_hand/icon_yubi_a3", 32, 32, "RGBA4")
+add("a/0/4/2", 0, 0, 40, "lyt/amie_hand/icon_yubi_fix", 32, 32, "RGBA4")
+
 -- textures inside 3D effect files (BCH), by name: the balloon's way out (src/training/
 -- arena_draw.lua). Super Training draws these from the battle effects' shared textures; the
 -- capture's air gusts are this flipbook (8 frames of 128x64, a puff curling away), its clouds
--- a cloud texture under a soft round mask.
-local function bchtex(archive, entry, name, id, w, h)
-  A[#A + 1] = { kind = "bch", archive = archive, entry = entry, sub = 0, name = name, id = id, w = w, h = h }
+-- a cloud texture under a soft round mask. `path`: the BCH inside Game Freak's packages (the
+-- index after the GARC sub entry in `tools/bch.py find`'s output, e.g. "0/26" -> "26").
+local function bchtex(archive, entry, name, id, w, h, path)
+  A[#A + 1] = { kind = "bch", archive = archive, entry = entry, sub = 0, name = name, id = id, w = w, h = h, path = path }
 end
 bchtex("a/0/3/2", 240, "etxm_streamline02f", "fx/streamline02f", 128, 512)
 bchtex("a/0/3/2", 240, "etxm_circle01m", "fx/circle01m", 64, 64)
 bchtex("a/0/3/2", 155, "etxm_kumo01m", "fx/kumo01m", 128, 128)
+-- Amie PLAY's scene (2026-10-18, found by tools/bch.py find): the lawn and the bush line of the
+-- grassy battle background, the overworld skybox's clouds, the bubbles of a/0/6/4
+bchtex("a/1/3/6", 94, "btl_sG_kusa_ji1", "scene/grass", 128, 128, "0")
+bchtex("a/1/3/6", 94, "btl_sG_kusa_ki2b", "scene/bushes", 256, 128, "0")
+bchtex("a/0/1/0", 1, "kumo_yoko_a2", "scene/cumulus", 256, 128, "3")
+bchtex("a/0/1/0", 1, "kumo_yoko_a1", "scene/cloud", 256, 128, "2")
+bchtex("a/0/1/0", 1, "hare_kumo_yoko", "scene/cloud_far", 512, 256, "1")
+bchtex("a/0/6/4", 0, "awa_spring01", "scene/bubbles", 128, 64, "26")
 
 return {
-  version = 27,
+  version = 28,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

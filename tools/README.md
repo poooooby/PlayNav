@@ -150,6 +150,22 @@ The in-game decoders are tested against the same data with
   deflation effect is named anywhere. The battle effects `a/0/3/2` hold the shared smoke family:
   e240 `etxm_streamline02f` (8 frames of 128x64, the air gusts) and `etxm_circle01m` (soft round
   mask), e155 `etxm_kumo01m` (cloud shading), e68 `etxm_smoke01m/02m`, e445 `etxm_bombsmoke01`.
+- `bch.py ... --deep` / `bch.py find <romfs-dir> <regex>` (2026-10-18): most 3D scenery sits inside
+  Game Freak's packages (a two-letter tag - 'PC' Pokemon, 'GR' field, 'MM', 'AD' ... - a u16
+  count and count + 1 u32 offsets), often LZ-compressed and nested; `--deep` opens them, `find`
+  lists every texture whose name matches across every GARC (a sub entry prints as its path
+  through the packages, e.g. `0/1/0 1.0/3`: entry 1, GARC sub 0, package file 3). Found for
+  Amie PLAY: the grassy battle background a/1/3/6 e94 `0/0` (`btl_sG_kusa_ji1` lawn,
+  `btl_sG_kusa_ki2b` bush line, `ki4` / `ki5` trees), the overworld skybox a/0/1/0 e1
+  (`hare_kumo_yoko` 1, `kumo_yoko_a1` 2, `kumo_yoko_a2` 3: cumulus), bubbles a/0/6/4 e0 `0/26`
+  (`awa_spring01`: four sizes, then popping rings). Not found anywhere: the Amie top screen's
+  dotted sky and rainbow (a 3D effect scene; Wooble's art stands in) - a/0/4/0 is 431 tiny 'MM'
+  metadata packages, a/0/3/9 857 LZ 'GR' field chunks.
+- Amie PLAY's 2D screens (2026-10-18), missed by the first darc scan: `game_select_lower.bclyt`
+  a/0/4/1 e0 (raw, darc at +20352: buttons, face bubbles, the puff strip, the minigame picker;
+  146 clips) and `kawaigari_icon.bclyt` a/0/4/2 e0 (+5248: the hand's 15 flipbook clips);
+  `tools/lyt_rows.py <romfs> amie_play=a/0/4/1:0:0 amie_hand=a/0/4/2:0:0 -- amie_play:
+  game_select_lower.bclyt:amie_play amie_hand:kawaigari_icon.bclyt:amie_hand` writes the rows.
 
 ## Pokémon-Amie text and UI (added for 0.3.2)
 

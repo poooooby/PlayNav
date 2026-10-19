@@ -67,28 +67,23 @@ T.eq(run.loader.modSave.play_nav.schema, 2, "the save is at schema 2")
 T.eq(#A.puffs(), 10, "ten starting puffs")
 T.eq(run.loader.modSave.play_nav.beans, nil, "no v1 bean counts remain")
 
--- ------- skips
+-- ------- a battle: nothing drops, nothing opens (Poke Puffs come from the minigames only;
+-- Wooble, 2026-10-18)
 
 do
   local ok, why = A.onBattleEnded({ result = "lose", battle = { player = { mon = party[1] } } })
-  T.eq(ok, false, "a lost battle never prompts")
-  T.eq(why, "lost", "...for that reason")
-  ok, why = A.onBattleEnded({ result = "win", battle = { link = true, player = { mon = party[1] } } })
-  T.eq(why, "kind", "link battles are skipped")
-  ok, why = A.onBattleEnded({ result = "win", battle = { player = { mon = party[2] } } })
-  T.eq(why, "no mon", "a fainted Pokemon is skipped")
+  T.eq(ok, false, "a lost battle drops nothing")
+  T.eq(why, "no puffs from battles", "...for that reason")
 end
-
--- ------- a won battle: Poke Puffs, and nothing opens
-
 S.rng = function() return 0.05 end
 local granted, whyGrant = A.onBattleEnded(ev)
-T.eq(granted, true, "a won battle grants a Poke Puff")
-T.eq(whyGrant, "puffs", "...and says so")
+T.eq(granted, false, "a won battle drops no Poke Puff either")
+T.eq(whyGrant, "no puffs from battles", "...and says why")
 T.eq(A.state(), nil, "...without opening a session")
 T.eq(#stack, 0, "...or pushing the layer")
 T.eq(X._test.surfaceWanted(), false, "...and the surface stays dormant")
-T.eq(#A.puffs(), 11, "the puff is in the jar on top of the starting ten")
+T.eq(#A.puffs(), 10, "the jar keeps the starting ten")
+A.puffs()[#A.puffs() + 1] = "puff/sweet_basic"   -- the eleventh the later checks expect
 
 -- ------- play, straight in
 
@@ -220,7 +215,12 @@ T.eq(X.apps:active().id, "play", "...on the PLAY app")
 T.eq(A.state().fromHome, true, "...remembering the room")
 S.back()
 T.eq(A.state().mode, "home", "BACK returns to the room")
-T.eq(#stack, 1, "...with the layer still up")
+-- the room is the bottom screen alone (as Super Training's home): the game keeps the top
+T.eq(#stack, 0, "...and the top-screen layer comes down for it")
+S.enterPlay()
+T.eq(#stack, 1, "PLAY brings the top-screen layer back")
+S.back()
+T.eq(#stack, 0, "...and the room takes it down again")
 party[3] = { personality = 99, otId = 77, species = 4, hp = 10, maxHp = 20, nickname = "EMBER" }
 T.eq(S.switchTo(party[3]), true, "SWITCH takes another party member")
 T.eq(A.state().name, "EMBER", "...and the room shows it")
@@ -442,13 +442,6 @@ if A.benefits then
   A.benefits.sayHook = nil
   m.affection = saved
 end
-
--- ------- the option turns it off
-
-run.loader.modOptions.play_nav = { refresh = false }
-local off, whyOff = A.onBattleEnded(ev)
-T.eq(off, false, "with POKEMON-AMIE off the listener returns")
-T.eq(whyOff, "off", "...saying so")
 
 run.release()
 T.finish("play_nav amie flow")

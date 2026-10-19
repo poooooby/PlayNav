@@ -7,6 +7,19 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- In Play your Pokémon moves with its mood: breathing, swaying and hopping when it's happy and
+  played with, slower and drooping when it's hungry or low, shivering or twitching when it's
+  unwell, and almost still, leaning into your hand, while you pet or feed it.
+- Pokémon-Amie's Play screen rebuilt from the game's own screen (from Wooble's capture): your
+  Pokémon stands large on a lawn under a blue sky with clouds and bushes, its back turned
+  until you tap it ("!", a flash, then it faces you with notes); the round puff, play and
+  return buttons; the view eases in as you stroke it, the hand changes with what you touch
+  (hot, shocking, cold, sharp spots, a disliked spot's yellow burst) and it reacts with
+  hearts, notes or anger; the puff button slides out a strip of your Poké Puffs, and a puff
+  dropped on it brings a flash of stars and a close-up of it eating, bite by bite; the play
+  button brings the game's picker, one big badge at a time with gold arrows, then the
+  difficulty ribbons with your stars. The top screen during Play is the sky alone: Wooble's
+  dotted sky with its rainbow, drifting clouds and rising bubbles.
 - Berry Picker, closer to the game: each Pokémon rises from the bottom of the screen to ask
   for its berry and drops back out of sight once served; a berry let go anywhere but on an
   asking Pokémon falls to the ground and is lost, back on the tree once it has fallen off
@@ -72,6 +85,11 @@ All notable changes to this mod are documented here. The format follows
 
 ### Changed
 
+- Battles no longer give Poké Puffs: as in the game, they come from the Amie minigames only
+  (the PUFFS PER WIN option is gone).
+- The Amie room leaves the top screen to the game, as Super Training's home does: you can walk
+  about while the room is open, and a battle takes the bottom screen back. Play, DECORATE and
+  the minigames still bring up their own top screen.
 - DECORATE's Interior Items drawer is sorted by the game's Décor categories (Normal through
   Fairy, then Color, Cloud, Pattern and Classy): each category gets its own page, named on the
   drawer's tab, and the arrows step through them. Only categories you own something from show.

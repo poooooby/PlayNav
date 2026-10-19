@@ -58,8 +58,6 @@ end
 return function(mod)
   mod.options:define({
     { key = "refresh", label = "POKEMON-AMIE", type = "toggle", default = true },
-    { key = "beans_per_win", label = "PUFFS PER WIN", type = "number", default = 1,
-      min = 0, max = 3, step = 1 },
     { key = "affection_benefits", label = "AFFECTION BENEFITS", type = "toggle", default = true },
     { key = "training", label = "SUPER TRAINING", type = "toggle", default = true },
     { key = "screen_shape", label = "TOUCH SCREEN SHAPE", type = "choice", default = "gear",
@@ -163,7 +161,7 @@ return function(mod)
         mod.log:warn("amie text helper failed to build (%s); our own wording stands in", tostring(AT))
       end
     end
-    local ok, app = pcall(makePlayApp, mod, Pointer, Amie, Rules, Petting)
+    local ok, app = pcall(makePlayApp, mod, Pointer, Amie, Rules, Petting, amieHost)
     if ok and type(app) == "table" then
       Apps:register(app)
       app.fontsFn = function() return Surface.font, Surface.smallFont end
@@ -872,6 +870,15 @@ return function(mod)
     -- apps keep ticking while dormant so a session can wake the surface
     Apps:update(dt, game)
     -- Super Training's home screen runs with the overworld live: its session ticks here
+    -- Amie's room lives without the top-screen layer (the game keeps the top): its session
+    -- ticks here then
+    if Amie and Amie.frame then
+      local ok, err = pcall(Amie.frame, dt)
+      if not ok and not state.amieFrameWarned then
+        state.amieFrameWarned = true
+        mod.log:warn("amie: tick failed (%s)", tostring(err))
+      end
+    end
     if Training and Training.frame then
       local ok, err = pcall(Training.frame, dt)
       if not ok and not state.frameWarned then

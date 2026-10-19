@@ -183,11 +183,24 @@ for _, key in ipairs(order) do
       if item.kind == "bch" then
         -- a texture inside a 3D model / effect file (BCH), found by its name; its pixels go the
         -- same way as a CLIM's (raw RGBA, then a PNG on the main thread)
+        -- (item.path: the BCH sits inside Game Freak's packages - field maps, battle scenery -
+        -- reached by index, opening LZ at every level; tools/bch.py find prints the path)
         local t, why = nil, "no BCH reader"
-        if Bch then t, why = Bch.texture(blob, item.name) end
+        local src = blob
+        if Bch and item.path then
+          src, why = Bch.descend(blob, item.path, function(s)
+            local f = s:byte(1)
+            if f == 0x10 or f == 0x11 then
+              local d = Lz.decode(s)
+              if d then return d end
+            end
+            return s
+          end)
+        end
+        if Bch and src then t, why = Bch.texture(src, item.name) end
         local img
         if t and t.format then
-          img, why = Bclim.decodeRaw(t.format, t.w, t.h, blob:sub(t.data + 1), #blob - t.data)
+          img, why = Bclim.decodeRaw(t.format, t.w, t.h, src:sub(t.data + 1), #src - t.data)
         elseif t then
           why = "unknown texture format"
         end

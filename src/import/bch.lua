@@ -74,4 +74,39 @@ function M.texture(blob, name)
   return nil, "no texture " .. tostring(name)
 end
 
+-- Game Freak's package (X / Y / OR / AS: 'PC' Pokemon, 'GR' field, 'MM', 'AD' ...): a
+-- two-letter tag, a u16 count, then count + 1 u32 offsets (the last is the end) -> the
+-- files as strings, or nil when s is not one. Twin of tools/bch.py's package().
+function M.package(s)
+  if type(s) ~= "string" or #s < 8 then return nil end
+  local a, b = s:byte(1, 2)
+  if not (a >= 65 and a <= 90 and b >= 65 and b <= 90) then return nil end
+  local n = s:byte(3) + s:byte(4) * 256
+  if n == 0 or n > 4096 or 4 + 4 * (n + 1) > #s then return nil end
+  local offs = {}
+  for i = 0, n do offs[i] = u32(s, 4 + 4 * i) end
+  if offs[0] < 4 + 4 * (n + 1) or offs[n] > #s then return nil end
+  local files = {}
+  for i = 0, n - 1 do
+    if offs[i] > offs[i + 1] then return nil end
+    files[i] = s:sub(offs[i] + 1, offs[i + 1])
+  end
+  return files
+end
+
+-- The file at `path` ("26", "0/11": package indexes, 0-based, as tools/bch.py find prints
+-- them after the GARC sub entry) inside blob, opening an LZ wrapper at every level with unlz
+-- (string -> string). -> the inner blob | nil, why
+function M.descend(blob, path, unlz)
+  unlz = unlz or function(s) return s end
+  for idx in tostring(path or ""):gmatch("%d+") do
+    blob = unlz(blob)
+    local files = M.package(blob)
+    if not files then return nil, "not a package before " .. idx end
+    blob = files[tonumber(idx)]
+    if not blob then return nil, "no file " .. idx end
+  end
+  return unlz(blob)
+end
+
 return M

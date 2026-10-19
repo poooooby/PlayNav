@@ -26,8 +26,14 @@ return function(mod, Pointer, G, Rules, Store, host)
     return love.graphics.draw(...)
   end
   local app = { id = "home", title = "ROOM", live = true }
+  -- the room lives on the bottom screen alone, as Super Training's home: the game keeps the
+  -- top screen (no Amie layer in this mode) and the player walks about meanwhile; a battle
+  -- takes the bottom screen back
+  app.fieldPlay = true
 
-  function app:wantsSurface() return G.session ~= nil and G.session.mode == "home" end
+  function app:wantsSurface()
+    return G.session ~= nil and G.session.mode == "home" and not (G.inBattle and G.inBattle())
+  end
 
   -- the layout's units: 320 wide, LH tall (240 on the 3DS shape); drawn under scale(L) from
   -- the top of the screen (app y + bleed). On a taller screen (Kanto Gear's) the room's
