@@ -10,7 +10,7 @@ train them, on a DS-style touch screen in Ruby, Sapphire, Emerald, FireRed and L
 </div>
 
 > [!CAUTION]
-> **PlayNav is in pre-alpha and experimental.** Expect bugs, missing pieces and balance that
+> **PlayNav is in alpha and experimental.** Expect bugs, missing pieces and balance that
 > changes between releases. Back up your save before playing with it, and please report what
 > you find.
 
@@ -223,7 +223,7 @@ Open **OPTIONS → MODS → PlayNav**.
 
 ## 📌 Good to Know
 
-- 🧪 **Pre-alpha:** Some Super Training numbers have no public source. Points per goal,
+- 🧪 **Alpha:** Some Super Training numbers have no public source. Points per goal,
   damage, timings and bag odds are best guesses and may change.
 - 🎮 **Generation 3 only.** Ruby, Sapphire, Emerald, FireRed and LeafGreen.
 - 💾 **Your game is never part of the mod.** The art and text come from the card image you

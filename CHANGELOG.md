@@ -3,10 +3,11 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.5.1] - 2026-10-20 (alpha)
 
 ### Changed
 
+- PlayNav moves from pre-alpha to alpha.
 - Every Super-Training Balloon Bot is now drawn from its own sprite, the Gen 9 Pack's battler
   sprites, packed into one small image with the mod: no Balloon Bot falls back to its course
   badge any more (Axew, Noibat, Aegislash, Hydreigon and the other newer Pokémon used to need
