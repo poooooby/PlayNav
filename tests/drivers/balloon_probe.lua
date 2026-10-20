@@ -100,6 +100,41 @@ local function body(game, log)
         U.wait(3)
         shot(("%s_stop"):format(id))
       end
+      -- the see-through rider: over a goal it fades, clear of every target it is solid
+      if os.getenv("BALLOON_RIDER") then
+        local D = TR.session.arenaDraw
+        local p = sim.player
+        local N_X = 0.8
+        local function report(what)
+          waitSecs(0.6)
+          local r = D and D.lastRider or {}
+          log(("  rider %s: opacity %.2f covers %s"):format(what, r.a or -1, tostring(r.covers)))
+          shot(("%s_rider_%s"):format(id, what))
+        end
+        for _ = 1, 600 do if sim.goals[1] then break end; U.wait(1) end
+        local g = sim.goals[1]
+        if g then
+          local gx, gy = sim:goalPos(g)
+          p.x = math.max(-N_X, math.min(N_X, gx))
+          p.y = math.max(0, math.min(1.25, gy - 0.25))
+          report("over_goal")
+        end
+        p.x, p.y = 0.8, 0
+        for _, b in ipairs(sim.bits or {}) do b.dead = true end
+        sim.goals, sim.balls = {}, {}
+        sim.pendingAttack, sim.scheduleIdx = nil, math.huge
+        report("clear")
+        -- an attack on its way in: it fades as the ball reaches it
+        sim:launch({ kind = "big" })
+        for _ = 1, 3000 do
+          local b = sim.balls[1]
+          if b and b.z < 0.35 then break end
+          U.wait(1)
+        end
+        local r = D and D.lastRider or {}
+        log(("  rider attack_coming: opacity %.2f covers %s"):format(r.a or -1, tostring(r.covers)))
+        shot(("%s_rider_attack"):format(id))
+      end
       S.quitRegimen()
       U.wait(5)
     end

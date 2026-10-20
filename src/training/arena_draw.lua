@@ -900,17 +900,60 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return D.board or nil
   end
 
-  -- once the regimen is under way (the intro over) the trainee and its board are see-through,
-  -- so the balloon and its goals show through a big sprite: `RIDER_SEE` opacity, eased in over
-  -- `RIDER_FADE_S` from the start of play; whole through the intro
-  D.RIDER_SEE, D.RIDER_FADE_S = 0.4, 0.35
-  local playFrom = setmetatable({}, { __mode = "k" })   -- sim -> its clock when play began
-  function D.riderAlpha(sim)
+  -- the trainee and its board stay solid, and turn see-through (`RIDER_SEE` opacity) only while
+  -- they cover something that matters - a goal or a live bit to aim at, or an attack on its
+  -- way in - so a big sprite never hides one; eased both ways at `RIDER_FADE_PER_S`. Whole
+  -- through the intro. The balloon's body does not count: a big one covers most of the screen.
+  D.RIDER_SEE, D.RIDER_FADE_PER_S, D.RIDER_PAD = 0.38, 4, 2
+  local riderA = setmetatable({}, { __mode = "k" })   -- sim -> { a, t }
+
+  -- does the screen rect x0..x1, y0..y1 (the rider's) touch a goal or a live bit as drawn?
+  function D.riderCovers(sim, x0, y0, x1, y1)
+    local function touches(cx, cy, r)
+      local nx = math.max(x0, math.min(x1, cx))
+      local ny = math.max(y0, math.min(y1, cy))
+      return (cx - nx) ^ 2 + (cy - ny) ^ 2 <= r * r
+    end
+    local bot = sim.bot
+    if bot and sim.goals then
+      local _, _, _, hwFar = Sim.view()
+      for _, g in ipairs(sim.goals) do
+        if not g.dead then
+          local gx, gy = sim:goalPos(g)
+          local cx, cy = Sim.project(gx, gy, 1)
+          if touches(cx, cy, g.r * hwFar * bot.scale + D.RIDER_PAD) then return true end
+        end
+      end
+    end
+    for _, bit in ipairs(sim.bits or {}) do
+      if not bit.dead then
+        local cx, cy, kk = Sim.project(bit.x, bit.y, bit.z)
+        if touches(cx, cy, bit.r * 118 * kk + D.RIDER_PAD) then return true end
+      end
+    end
+    -- an attack still on its way (not yet past the trainee), to be seen and blocked
+    local pz = sim.player and sim.player.z or 0.1
+    for _, b in ipairs(sim.balls or {}) do
+      if (b.z or 1) > pz then
+        local cx, cy = Sim.project(b.x, b.y, b.z)
+        if touches(cx, cy, ballRadius(sim, b) + D.RIDER_PAD) then return true end
+      end
+    end
+    return false
+  end
+
+  -- the rider's opacity this frame, eased toward RIDER_SEE while it covers a target, else 1
+  function D.riderAlpha(sim, x0, y0, x1, y1)
     if not sim or sim.phase == "countdown" then return 1 end
-    playFrom[sim] = playFrom[sim] or sim.t or 0
-    local t = (sim.t or 0) - playFrom[sim]
-    local f = math.max(0, math.min(1, t / D.RIDER_FADE_S))
-    return 1 - (1 - D.RIDER_SEE) * f
+    local st = riderA[sim]
+    if not st then st = { a = 1, t = sim.t or 0 }; riderA[sim] = st end
+    local dt = math.max(0, math.min(0.1, (sim.t or 0) - st.t))
+    st.t = sim.t or 0
+    local want = (x0 and D.riderCovers(sim, x0, y0, x1, y1)) and D.RIDER_SEE or 1
+    local step = D.RIDER_FADE_PER_S * dt
+    if st.a < want then st.a = math.min(want, st.a + step) else st.a = math.max(want, st.a - step) end
+    D.lastRider = { a = st.a, covers = want < 1, x0 = x0, y0 = y0, x1 = x1, y1 = y1 }   -- for drivers
+    return st.a
   end
 
   local function drawPlayer(G2, sim, s)
@@ -952,7 +995,22 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.arc("fill", px, py - 18 * k, 26 * k, -math.pi * 0.9, -math.pi * 0.1, 16)
     end
     local feetY = py + 2 - lift * k
-    local see = D.riderAlpha(sim)
+    -- the rider's box on screen: its sprite as drawn, and the board under it
+    local x0, y0, x1, y1 = px - 12 * k, feetY - 28 * k, px + 12 * k, feetY
+    if pic then
+      local ak = k * (pic.k or 1)
+      x0, x1 = px - pic.w / 2 * ak * hsx, px + pic.w / 2 * ak * hsx
+      y0 = feetY - pic.h * ak * hsy
+    end
+    if board then
+      local bk = k * D.BOARD.scale
+      local bw, bh = board:getDimensions()
+      x0 = math.min(x0, px - D.BOARD.cx * bk)
+      x1 = math.max(x1, px + (bw - D.BOARD.cx) * bk)
+      y0 = math.min(y0, feetY - D.BOARD.feetY * bk)
+      y1 = math.max(y1, feetY + (bh - D.BOARD.feetY) * bk)
+    end
+    local see = D.riderAlpha(sim, x0, y0, x1, y1)
     if board then
       -- under the rider, rolling and pitching with it
       local pitch = boardPitch(sim)

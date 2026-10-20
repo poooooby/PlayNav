@@ -5,6 +5,14 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-10-20 (alpha)
+
+### Changed
+
+- Super Training: your Pokémon and its hover board stay solid during a regimen, and turn
+  see-through only while they cover a goal, a Bitbot or an attack coming in, so you can always
+  see where you are and nothing to aim at or block is hidden.
+
 ## [0.5.5] - 2026-10-20 (alpha)
 
 ### Changed
