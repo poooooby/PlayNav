@@ -5,6 +5,47 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Pokémon-Amie plays the game's own sound effects, rendered from your card image like Super
+  Training's: buttons and menus, petting strokes and hearts, waking and dozing off, bites and the
+  last swallow, a refused or dropped Poké Puff, the high five, DECORATE, visitors coming, chatting
+  and leaving, and all three minigames (countdowns, START!, Head It's hits, combos and FEVER,
+  Berry Picker's picks and the berry rain, Tile Puzzle's swaps and tiles landing, TIME'S UP,
+  the HIGH SCORE stamp). The game names each effect for what it does; no capture settled them,
+  so they are matched by name. Moments that were silent before (petting, bites, visitors and
+  more) now have sound. Your art is re-extracted once (a few seconds) to add them.
+- The minigames play the game's own music, rendered from your card image: Berry Picker's theme
+  (checked against a capture of the game), speeding up at 30 and 10 seconds left and settling
+  back at TIME'S UP, as the game's does; Head It's theme (checked against a capture) rises two
+  notes higher and faster during FEVER, as the game's does; Tile Puzzle's (checked against a
+  capture) plays at one steady pace. Play and the room keep your area's music, as in the game.
+
+### Changed
+
+- From a capture of the game picker and Berry Picker: waking your Pokémon plays the game's turn
+  sound; the picker's arrows, START!, TIME'S UP, the HIGH SCORE stamp and the Poké Puffs
+  revealed play the effects the game uses; the asking Pokémon make a sound as they rise and drop;
+  Berry Picker's READY has no countdown ticks.
+- From a capture of Head It: a combo plays its sound as it reaches 3 hits and again at 10; TIME'S
+  UP is silent but for the side Pokémon leaving and the "!!" before the giant ball; the RESULTS
+  card plays the game's own sounds as it comes in, as each bonus counts into the total, and for
+  the star rating; FEVER has no sound of its own (its music changes instead), and a game's end
+  no longer plays an extra chime.
+- From a capture of Play: touching your Pokémon makes the game's touch sound, a stroke plays its
+  sound in a steady beat while your finger moves, a disliked spot crackles, offering a Poké Puff
+  plays the game's flash sound and each bite its own. Play has no music of its own: your area's
+  music plays on.
+- DECORATE works as the game's does: pressing an item or a Poké Puff in the drawer takes it into
+  your finger and the drawer closes, so you drag it straight into the room and let go where it
+  goes (on the tray to put it back). A Poké Puff let go anywhere in the room goes to the middle;
+  only one is out at a time (a new one takes the place of the one out). From a capture: the room
+  and DECORATE play the game's own menu, pick-up and set-down sounds; the wallpaper arrows are
+  silent.
+- From a capture of Tile Puzzle: the first tile you pick lifts with its own sound, each tile
+  landing in the opening shuffle clicks into place, START! and the finished picture play the
+  game's own sounds.
+
 ### Fixed
 
 - Super Training's home screen: a party member whose time awake had run out showed as awake in

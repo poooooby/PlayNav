@@ -17,6 +17,14 @@
 -- engine's audio is suspended (host.musicOn / musicGain / musicFilter / audioSuspended).
 --
 -- M = makeMusic(mod, T, host) ; M.wanted(s) -> id, loop, fade (pure) ; M.update(dt)
+-- The same player serves Pokemon-Amie's minigames (main makes a second one): a caller may
+-- replace M.wanted, M.session() (whose session to read), M.holds(s, id) (when the field's
+-- music is held) and M.PROBE (the track whose presence says the music is extracted).
+-- M.wanted may return a fourth value, the pitch (speed and pitch together, as the sequence
+-- player's: Head It's FEVER plays its theme 2 semitones up), applied to the playing voice.
+-- M.SONGS[id] = { song, tempo }: tracks that are one song rendered at several tempos; moving
+-- between them carries on from the same point in the song (the faster render's samples are
+-- the slower's times tempo ratio) instead of starting it again.
 
 return function(mod, T, host)
   local M = {}
@@ -34,6 +42,10 @@ return function(mod, T, host)
   M.MIX = 0.505
 
   local LOOPS = { ["bgm/sp_gamestart"] = false }
+  M.PROBE = "bgm/sp_menu"
+  M.SONGS = {}
+  function M.session() return T.session end
+  function M.holds(s, id) return s ~= nil and s.layered == true end
 
   -- what should be playing now: the track id (nil = silence), whether it loops, and how long
   -- the one before it takes to fade (0 = cut)
@@ -75,7 +87,7 @@ return function(mod, T, host)
 
   -- whether the music is there (the import ran): without it the field's music keeps playing
   function M.available()
-    return M.enabled and track("bgm/sp_menu") ~= nil
+    return M.enabled and track(M.PROBE) ~= nil
   end
 
   local function queueChunk(v, from, n)
@@ -103,6 +115,9 @@ return function(mod, T, host)
     local src = v.src
     local okF, free = pcall(src.getFreeBufferCount, src)
     free = okF and free or 0
+    -- the buffers still queued (their first samples, oldest first): the one playing is the first
+    v.q = v.q or {}
+    while #v.q > M.BUFFERS - free and #v.q > 0 do table.remove(v.q, 1) end
     local tk = v.track
     while free > 0 and not v.ended do
       local n = math.min(M.CHUNK, tk.samples - v.pos)
@@ -114,6 +129,7 @@ return function(mod, T, host)
         end
       else
         if not queueChunk(v, v.pos, n) then v.ended = true; break end
+        v.q[#v.q + 1] = v.pos
         v.pos = v.pos + n
         free = free - 1
       end
@@ -121,7 +137,15 @@ return function(mod, T, host)
     if not src:isPlaying() and not v.ended then pcall(src.play, src) end
   end
 
-  local function startVoice(id, loop)
+  -- the sample a voice is playing now (the queued buffer playing, plus how far into it)
+  local function playing(v)
+    local first = v.q and v.q[1]
+    if not first then return v.pos end
+    local okT, into = pcall(v.src.tell, v.src, "samples")
+    return first + (okT and into or 0)
+  end
+
+  local function startVoice(id, loop, at)
     local tk = track(id)
     if not (tk and love and love.audio and love.audio.newQueueableSource) then return nil end
     local ok, src = pcall(love.audio.newQueueableSource, tk.rate, 16, tk.channels, M.BUFFERS)
@@ -129,7 +153,7 @@ return function(mod, T, host)
       mod.log:warn("music: no stream source (%s)", tostring(src))
       return nil
     end
-    local v = { id = id, track = tk, src = src, pos = 0, loop = loop, gain = 1 }
+    local v = { id = id, track = tk, src = src, pos = math.max(0, math.min(at or 0, tk.samples - 1)), loop = loop, gain = 1 }
     if loop == nil then v.loop = LOOPS[id] ~= false and tk.loop end
     pump(v)
     return v
@@ -165,10 +189,12 @@ return function(mod, T, host)
 
   function M.update(dt)
     dt = dt or 0
-    local s = T.session
+    local s = M.session()
     local on = M.available()
+    local id, loop, fade, pitch = nil, false, 0, 1
+    if on then id, loop, fade, pitch = M.wanted(s) end
     -- hold the field's music while ours has the screen
-    local hold = on and s ~= nil and s.layered == true
+    local hold = on and M.holds(s, id) == true
     if hold ~= M.holding then
       M.holding = hold
       if host.overworldMusic then host.overworldMusic(not hold) end
@@ -187,7 +213,6 @@ return function(mod, T, host)
       return
     end
     M.paused = false
-    local id, loop, fade = M.wanted(s)
     -- music off in the game's settings (volume 0, or EXT. ONLY): silence; it starts afresh
     -- when turned back on
     if host.musicOn and not host.musicOn() then id, fade = nil, 0 end
@@ -201,7 +226,17 @@ return function(mod, T, host)
           stopVoice(M.voice)
         end
       end
-      M.voice = id and startVoice(id, loop) or nil
+      local a, b = M.voice and M.SONGS[M.voice.id], id and M.SONGS[id]
+      if a and b and a.song == b.song and M.voice.src then
+        -- the same song at another tempo: on from the same point, no fade
+        local old = M.voice
+        local at = math.floor(playing(old) * a.tempo / b.tempo)
+        stopVoice(old)
+        if M.fading[#M.fading] == old then table.remove(M.fading) end
+        M.voice = startVoice(id, loop, at)
+      else
+        M.voice = id and startVoice(id, loop) or nil
+      end
     end
     local gain = (host.musicGain and host.musicGain() or 1) * M.MIX
     local filter = host.musicFilter and host.musicFilter() or nil
@@ -220,6 +255,11 @@ return function(mod, T, host)
     end
     local v = M.voice
     if v then
+      pitch = pitch or 1
+      if v.pitch ~= pitch then
+        v.pitch = pitch
+        pcall(v.src.setPitch, v.src, pitch)
+      end
       applySettings(v, gain, filter)
       pump(v)
     end

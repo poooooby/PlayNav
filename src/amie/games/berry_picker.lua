@@ -176,12 +176,14 @@ return function(mod, Pointer, G, Games, Rules, host)
     sl.patience = patienceFor()
     sl.left = sl.patience
     sl.hideTimer = 0
+    G.se("berry_rise")
   end
 
   -- a slot stops asking: its bubble closes, then the Pokemon drops (update)
   local function hideSlot(i, clip, wait)
     local sl = st.slots[i]
     if sl.visible and sl.asking then bubble(i, sl.want, clip or "close", clip and "close" or nil) end
+    if sl.visible then G.se("berry_leave") end
     sl.visible, sl.asking = false, false
     if wait then sl.hideTimer = wait end
   end
@@ -200,7 +202,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     local sl = st.slots[i]
     hideSlot(i, timedOut and "timeup" or "mistake", 0.3)
     st.misses = st.misses + 1
-    host.playSe("SE_NOT_EFFECTIVE")
+    G.se("berry_wrong", "SE_NOT_EFFECTIVE")
     advanceRotation()
   end
 
@@ -214,7 +216,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.result = G.endGame(st.score, false, true)
     drag = nil
     setPhase("timeUp")
-    if mod.haptics then mod.haptics.pattern("big") end
+    if mod.haptics then mod.haptics.pattern("big") end; G.se("berry_time_up")
     local F = screen("front")
     if F then F:play("anm_timeUp"); F:setText("5", Games.line("berry", "timesUp", nil, "TIME'S UP"), { align = "center", valign = "center" }) end
     for i = 1, #st.slots do hideSlot(i, "timeup") end
@@ -369,11 +371,11 @@ return function(mod, Pointer, G, Games, Rules, host)
     if st.phase == "buttons" then
       if ev.phase == "released" and Pointer.isTap(rec, 16, 1.0) then
         if inButton(BUTTONS.again, x, y) then
-          host.playSe("SE_SELECT")
+          G.se("again", "SE_SELECT")
           local game = s.game
           G.startGame(game.id, game.diff)
         elseif inButton(BUTTONS.quit, x, y) then
-          host.playSe("SE_SELECT")
+          G.se("quit", "SE_SELECT")
           st = nil
           G.leaveGame({ toPetting = true })
         end
@@ -394,7 +396,7 @@ return function(mod, Pointer, G, Games, Rules, host)
           drag = { kind = k, x = x, y = y, id = ev.id }
           local N = screen("nuts")
           if N then N:play("kinomi_catch", { as = NUT[k], sample = "3" }) end
-          host.playSe("SE_SELECT")
+          G.se("berry_pick", "SE_SELECT")
           return
         end
       end
@@ -411,7 +413,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if ev.phase == "released" and x and y then d.x, d.y = x, y end
       local function lose()
         st.falling[d.kind] = { x = d.x, y = d.y, vy = 0 }
-        if mod.haptics then mod.haptics.pulse("light") end
+        if mod.haptics then mod.haptics.pulse("light") end; G.se("berry_drop")
       end
       if ev.phase ~= "released" then lose(); return end
       for i, sl in ipairs(st.slots) do
@@ -433,7 +435,7 @@ return function(mod, Pointer, G, Games, Rules, host)
             sl.hideTimer = 0.2
             sl.hop = 0
             if mod.haptics then mod.haptics.pulse(quick and "strong" or "medium") end
-            host.playSe(quick and "SE_PIN" or "SE_SELECT")
+            G.se(quick and "berry_give_fast" or "berry_give", quick and "SE_PIN" or "SE_SELECT")
             if st.score % 10 == 0 then
               host.playCry(sl.mon)
               local F = screen("front")
@@ -581,7 +583,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         if mod.haptics then mod.haptics.pulse("tick") end
       end
       if go then
-        setPhase("play"); st.t = 0; host.playSe("SE_SUCCESS")
+        setPhase("play"); st.t = 0; G.se("go", "SE_SUCCESS")
         -- the demo's Pokemon drop away; each comes back up when it asks
         for _, sl in ipairs(st.slots) do sl.stay = false end
       end
@@ -689,6 +691,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if st.phase == "timeUp" then
       if F:finished("anm_timeUp") or st.pt > 2.2 then
         setPhase("rain")
+        G.se("berry_rain")
         st.rainStep = 1
         Rn:play(RAIN[1])
         F:set("4", "visible", false)
@@ -723,7 +726,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       -- heap lands
       local H = mod.haptics
       if H and st.shown ~= (st.hapticShown or 0) then st.hapticShown = st.shown; H.pulse("tick") end
-      if H and st.downAt and not st.hapticLanded then st.hapticLanded = true; H.pulse("strong") end
+      if st.downAt and not st.hapticLanded then st.hapticLanded = true; if H then H.pulse("strong") end; G.se("berry_land") end
       if st.downAt and st.pt - st.downAt > up + 1.0 then
         st.viewY = 0
         st.shown = st.score
@@ -735,7 +738,7 @@ return function(mod, Pointer, G, Games, Rules, host)
           Sc:set("4s", "visible", true)
           Sc:setText("4u", Games.line("berry", "stamp", nil, "HIGH SCORE"), { align = "center", valign = "center" })
           Sc:play("highsc_anime")
-          if mod.haptics then mod.haptics.pattern("success") end
+          if mod.haptics then mod.haptics.pattern("success") end; G.se("stamp")
           Sc:setText("2o", tostring(st.score), { valign = "center", scale = HIGH_SCALE })
         end
       end
@@ -743,6 +746,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       -- under the smoke the heap goes and the Pokemon and the medallions come
       if st.pt > 0.2 and not st.revealed then
         st.revealed = true
+        G.se("puffs")
         -- all three stand under the smoke, as the game reveals them
         for _, sl in ipairs(st.slots) do sl.stay, sl.lift = true, 1 end
         st.pile = nil

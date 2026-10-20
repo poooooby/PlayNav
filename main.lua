@@ -173,6 +173,8 @@ return function(mod)
         mod.log:warn("amie text helper failed to build (%s); our own wording stands in", tostring(AT))
       end
     end
+    -- which of the game's own effects plays when (G.se)
+    Amie.sounds = loadSibling(mod, "data/amie_sounds.lua") or {}
     local ok, app = pcall(makePlayApp, mod, Pointer, Amie, Rules, Petting, amieHost)
     if ok and type(app) == "table" then
       Apps:register(app)
@@ -373,6 +375,54 @@ return function(mod)
       end
     else
       mod.log:warn("Alpha Sapphire import modules missing; extracted art stays off")
+    end
+  end
+
+  -- Pokemon-Amie's minigame music: Super Training's player (src/training/music.lua) on the
+  -- game's own sequences (recipe kind "song"). PLAY and the room keep the field's music, as the
+  -- game does (Wooble's capture: the city's theme plays on under PLAY); a minigame holds it and
+  -- plays its theme. Berry Picker's speeds up as its time runs out (x1.125 from 30 s left,
+  -- x1.25 from 10 s, back at TIME'S UP; measured from the capture), the player moving between
+  -- the tempo renders at the same point in the song.
+  local amieMusic = nil
+  if Amie and Assets and trainHost then
+    local makeMusic = loadSibling(mod, "src/training/music.lua")
+    local okM, M = false, nil
+    if makeMusic then okM, M = pcall(makeMusic, mod, { assets = Assets }, trainHost) end
+    if okM and type(M) == "table" then
+      amieMusic = M
+      M.PROBE = "bgm/kw_game01"
+      M.SONGS = { ["bgm/kw_game01"] = { song = "game01", tempo = 1 },
+        ["bgm/kw_game01_fast"] = { song = "game01", tempo = 1.125 },
+        ["bgm/kw_game01_faster"] = { song = "game01", tempo = 1.25 } }
+      M.FAST_AT, M.FASTER_AT = 30, 10
+      M.FEVER_PITCH = 2 ^ (2 / 12)
+      local THEME = { berry = "bgm/kw_game01", head = "bgm/kw_game02", tile = "bgm/kw_game03" }
+      function M.session() return Amie.session end
+      function M.holds(s, id) return id ~= nil end
+      function M.wanted(s)
+        if not (s and s.mode == "game" and s.game) or (Amie.inBattle and Amie.inBattle()) then
+          return nil, false, M.FADE_S
+        end
+        local id = THEME[s.game.id]
+        if s.game.id == "head" then
+          -- FEVER: the theme 2 semitones up, faster with it (Wooble's Head It capture)
+          local app = Apps:get("game_head")
+          local st = app and app.debugState and app.debugState()
+          if st and st.fever and (st.phase == "play" or st.phase == "timeup") then return id, true, 0, M.FEVER_PITCH end
+        end
+        if s.game.id == "berry" then
+          local app = Apps:get("game_berry")
+          local st = app and app.debugState and app.debugState()
+          if st and st.phase == "play" and not st.lives and st.timer then
+            if st.timer <= M.FASTER_AT then id = "bgm/kw_game01_faster"
+            elseif st.timer <= M.FAST_AT then id = "bgm/kw_game01_fast" end
+          end
+        end
+        return id, true, 0
+      end
+    else
+      mod.log:warn("amie music failed to build: %s", tostring(M))
     end
   end
 
@@ -914,6 +964,13 @@ return function(mod)
     state.game = game
     local dt = frameDt()
     if mod.haptics then mod.haptics.update(dt) end
+    if amieMusic then
+      local okM, errM = pcall(amieMusic.update, dt)
+      if not okM and not state.amieMusicWarned then
+        state.amieMusicWarned = true
+        mod.log:warn("amie music failed: %s", tostring(errM))
+      end
+    end
     tickExtract()
     -- CLEAR EXTRACTED ART switched on in the launcher, before PlayNav loaded: no change event
     -- reaches us then, so it is honoured once, on the first frame in the field
@@ -1287,6 +1344,7 @@ return function(mod)
         return Amie.openPlay(mon)
       end,
       state = function() return Amie.state() end,
+      music = amieMusic,   -- the minigames' music player (drivers read .current)
       onBattleEnded = function(ev) return Amie.onBattleEnded(ev) end,
       puffs = function() return Store.puffs() end,
       meters = function(key) return Store.meters(key) end,

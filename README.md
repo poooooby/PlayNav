@@ -88,6 +88,12 @@ on a touch screen below the game or on a device's second display.
 - ✋ **Little moments:** Hold a finger out beside a fond Pokémon and it leaps up to high-five
   your hand. Tap twice too fast and it feels hit. It dances as its affection grows and leaves
   you a present at each affection milestone.
+- 🔊 **Sound effects:** Amie plays the game's own sounds from your card image, at the game's
+  effects volume: petting, eating, waking and dozing, the high five, DECORATE, visitors coming
+  and going, and every minigame moment from START! to the HIGH SCORE stamp.
+- 🎵 **Minigame music:** each minigame plays the game's own theme, rendered from your card
+  image and following the game's music settings. Berry Picker's speeds up as time runs out, as
+  in the game. Play and the room keep your area's music, as the game does.
 - 🎮 **Controller:** wherever PlayNav has the screen you can also play with the pad: A wakes
   your Pokémon and opens the minigames, SELECT the Poké Puff drawer; the minigame and regimen
   pickers take the D-pad and A; Head It heads with left / up / right, Tile Puzzle moves a

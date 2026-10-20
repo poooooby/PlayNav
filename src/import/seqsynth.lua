@@ -201,12 +201,18 @@ local KEYS = { [0xc0] = "pan", [0xc1] = "vol", [0xc2] = "mvol", [0xc3] = "transp
   [0xd0] = "attack", [0xd1] = "decay", [0xd2] = "sustain", [0xd3] = "release", [0xb1] = "hold" }
 local ARG2 = { [0xe0] = true, [0xe1] = true, [0xe3] = true, [0xe4] = true }
 
-local function parseTrack(d, start, rng)
+-- music: a song - calls (8a) and returns (fd) are followed, and the first jump (89) back to an
+-- earlier point ends the track there, returning the loop { start tick, end tick } as well.
+-- Effects keep the old reading (jumps and calls stepped over), as they were matched.
+local function parseTrack(d, start, rng, music)
   local ev, opens, loops = {}, {}, {}
+  local calls, seenAt, loop = {}, {}, nil
   local i, t, waitNotes, steps = start, 0, true, 0
   local capTicks = M.MAX_SECONDS * M.TEMPO * M.TIMEBASE / 60
-  while i < #d and steps < 4000 do
+  local maxSteps = music and 200000 or 4000
+  while i < #d and steps < maxSteps do
     steps = steps + 1
+    if music and seenAt[i] == nil then seenAt[i] = t end
     local op = d:byte(i + 1)
     i = i + 1
     local prefix = nil
@@ -233,8 +239,23 @@ local function parseTrack(d, start, rng)
     elseif op == 0x88 then
       opens[#opens + 1] = { d:byte(i + 1), d:byte(i + 2) * 65536 + d:byte(i + 3) * 256 + d:byte(i + 4) }
       i = i + 4
+    elseif (op == 0x89 or op == 0x8a) and music then
+      local to = d:byte(i + 1) * 65536 + d:byte(i + 2) * 256 + d:byte(i + 3)
+      i = i + 3
+      if op == 0x8a then
+        calls[#calls + 1] = i
+        i = to
+      elseif seenAt[to] ~= nil then
+        loop = { seenAt[to], t }
+        break
+      else
+        i = to
+      end
     elseif op == 0x89 or op == 0x8a then
       i = i + 3
+    elseif op == 0xfd and music then
+      if #calls == 0 then break end
+      i = table.remove(calls)
     elseif op >= 0xb0 and op < 0xe0 then
       local v
       if prefix == 0xa0 then
@@ -283,7 +304,7 @@ local function parseTrack(d, start, rng)
     end
   end
   ev[#ev + 1] = { t, "end" }
-  return ev, opens
+  return ev, opens, loop
 end
 
 M._parseTrack, M._newRng = parseTrack, newRng   -- for the tests
@@ -305,10 +326,12 @@ local function sustainDb(s)
 end
 
 -- the track parameters a sounding voice follows live (set or swept after its note began)
+-- (d5, the expression volume, is read for a song only: the effects render as they were matched)
 local LIVE = { [0xc0] = "pan", [0xc1] = "vol", [0xc2] = "mvol", [0xc4] = "bend", [0xc5] = "range",
-  [0xca] = "mdepth", [0xcb] = "mspeed", [0xcd] = "mrange", [0xe0] = "mdelay" }
+  [0xca] = "mdepth", [0xcb] = "mspeed", [0xcd] = "mrange", [0xe0] = "mdelay", [0xd5] = "vol2" }
 local LIVE_DEFAULT = { pan = 64, vol = 127, mvol = 127, bend = 0, range = 2, mdepth = 0, mspeed = 16,
-  mrange = 1, mdelay = 0 }
+  mrange = 1, mdelay = 0, vol2 = 127 }
+M.MUSIC_TAIL_S = 3.0   -- a song is rendered this far past its loop's end, the tail folded onto the loop
 -- set at a note's start (the envelope and the instrument)
 local AT_NOTE = { [0xd0] = "attack", [0xd1] = "decay", [0xd2] = "sustain", [0xd3] = "release", [0xb1] = "hold",
   [0xc3] = "transpose" }
@@ -365,6 +388,7 @@ local function mixVoice(L, R, size, wav, reg, st, tl, t0, key, vel, length, tick
       -- the track's live parameters, swept where a sweep is running
       local bend, brange = tl.at("bend", tick), tl.at("range", tick)
       local vol, mvol, pan = tl.at("vol", tick), tl.at("mvol", tick), tl.at("pan", tick)
+      local vol2 = tl.at("vol2", tick)
       local mdepth, mspeed, mrange = tl.at("mdepth", tick), tl.at("mspeed", tick), tl.at("mrange", tick)
       local semis = key - reg.key + bend / 128 * brange
       -- vibrato: its phase runs on from when it may start (the delay after the note)
@@ -400,7 +424,7 @@ local function mixVoice(L, R, size, wav, reg, st, tl, t0, key, vel, length, tick
         env = env - releaseRate(rel)
       end
       if env <= ENV_FLOOR then break end
-      amp = velGain * (vol / 127) ^ 2 * (mvol / 127) ^ 2 * 10 ^ (env / 128 / 20)
+      amp = velGain * (vol / 127) ^ 2 * (mvol / 127) ^ 2 * (vol2 / 127) ^ 2 * 10 ^ (env / 128 / 20)
     end
     local ip = floor(pos)
     if ip >= nsrc - 1 then
@@ -422,7 +446,12 @@ local function mixVoice(L, R, size, wav, reg, st, tl, t0, key, vel, length, tick
   return last
 end
 
+-- deps = { dsp = Bcstm.dspBlock, music = bool, tempoScale = number }. A song (music) renders to
+-- its loop's end and returns the loop { start, end } in samples as a fourth value, the release
+-- tails past the end folded onto the loop's start so it repeats seamlessly; tempoScale plays it
+-- faster or slower at the same pitch (the game speeds Berry Picker's music up as time runs out).
 function M.render(sound, archive, deps)
+  local music = deps and deps.music or false
   local seq = sound.seq
   local data = section(seq, 0, "DATA")
   if not data then return nil, "no DATA section" end
@@ -430,11 +459,13 @@ function M.render(sound, archive, deps)
   local rng = newRng(12345)
   local tracks, order, seen = {}, {}, {}
   local pending = { { 0, 0 } }
+  local songLoop = nil
   while #pending > 0 do
     local item = table.remove(pending, 1)
     if not seen[item[1]] then
       seen[item[1]] = true
-      local ev, opens = parseTrack(d, item[2], rng)
+      local ev, opens, loop = parseTrack(d, item[2], rng, music)
+      if item[1] == 0 then songLoop = loop end
       tracks[item[1]] = ev
       order[#order + 1] = item[1]
       for _, o in ipairs(opens) do pending[#pending + 1] = o end
@@ -452,9 +483,18 @@ function M.render(sound, archive, deps)
       if e[2] == "set" and e[3] == 0xe1 and e[4] > 0 then tempo = e[4] end
     end
   end
-  local tickS = 60 / (tempo * timebase)
+  local tickS = 60 / (tempo * (music and deps.tempoScale or 1) * timebase)
   local soundGain = sound.volume / 127
   local size = floor(M.MAX_SECONDS * M.OUT_RATE)
+  if music then
+    local endTick = songLoop and songLoop[2] or 0
+    if not songLoop then
+      for _, idx in ipairs(order) do
+        for _, e in ipairs(tracks[idx]) do if e[1] > endTick then endTick = e[1] end end
+      end
+    end
+    size = floor((endTick * tickS + M.MUSIC_TAIL_S) * M.OUT_RATE)
+  end
   local L, R = {}, {}
   for i = 0, size - 1 do L[i], R[i] = 0, 0 end
   local last = 0
@@ -462,7 +502,7 @@ function M.render(sound, archive, deps)
     -- the whole track's live parameters first, then its notes play against them
     local tl = newTimeline()
     for _, e in ipairs(tracks[idx]) do
-      if e[2] == "set" and LIVE[e[3]] then tl.set(LIVE[e[3]], e[1], e[4], e[5]) end
+      if e[2] == "set" and LIVE[e[3]] and (music or e[3] ~= 0xd5) then tl.set(LIVE[e[3]], e[1], e[4], e[5]) end
     end
     local st = { prg = 0, transpose = 0 }
     for _, e in ipairs(tracks[idx]) do
@@ -493,6 +533,14 @@ function M.render(sound, archive, deps)
         end
       end
     end
+  end
+  if music and songLoop then
+    local ls, le = floor(songLoop[1] * tickS * M.OUT_RATE + 0.5), floor(songLoop[2] * tickS * M.OUT_RATE + 0.5)
+    for k = le, size - 1 do
+      L[ls + k - le] = L[ls + k - le] + L[k]
+      R[ls + k - le] = R[ls + k - le] + R[k]
+    end
+    return L, R, le, { ls, le }
   end
   return L, R, math.min(size, last + 1)
 end

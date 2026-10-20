@@ -64,5 +64,29 @@ for _, name in ipairs({ "SEQ_SE_SP_001", "SEQ_SE_SP_003", "SEQ_SE_SP_004", "SEQ_
   end
   T.check(worst <= 1, ("%s: sample for sample with tools/bcsar.py (worst %d LSB, %.2f s to render)"):format(name, worst, os.clock() - t0))
 end
+
+-- a song (music mode: calls, returns, the loop jump, the expression volume, the tail folded onto
+-- the loop) at the game's tempo and sped up, against `python tools/bcsar.py music ... [tempo]`
+-- (oras-extract/bgm_kw); Berry Picker's theme loops from 2.0 s to 34.0 s
+for _, case in ipairs({ { 1, "x1", 65456, 1112752 }, { 1.25, "x1.25", 52365, 890202 } }) do
+  local ref = slurp(work .. "/bgm_kw/SEQ_BGM_KW_GAME01_" .. case[2] .. ".wav")
+  if ref then
+    local t0 = os.clock()
+    local L, R, n, loop = Seq.render(assert(ar:sound("SEQ_BGM_KW_GAME01")), ar,
+      { dsp = Bcstm.dspBlock, music = true, tempoScale = case[1] })
+    local secs = os.clock() - t0
+    T.check(loop ~= nil and loop[1] == case[3] and loop[2] == case[4],
+      ("GAME01 x%s: loop %s..%s (%s)"):format(case[1], tostring(loop and loop[1]), tostring(loop and loop[2]), case[2]))
+    local mine = samples(Seq.wav(L, R, n))
+    local theirs = samples(ref)
+    T.eq(#mine, #theirs, "GAME01 x" .. case[1] .. ": the same length")
+    local worst = 0
+    for i = 1, math.min(#mine, #theirs) do
+      local dlt = math.abs(mine[i] - theirs[i])
+      if dlt > worst then worst = dlt end
+    end
+    T.check(worst <= 1, ("GAME01 x%s: sample for sample with tools/bcsar.py (worst %d LSB, %.1f s to render)"):format(case[1], worst, secs))
+  end
+end
 f:close()
 T.finish()

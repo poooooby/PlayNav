@@ -144,7 +144,7 @@ return function(mod, deps)
       local id, kind = item.id, item.kind
       if kind == "text" then
         if del("oras/text/" .. id:gsub("^text/", "") .. ".lua") then removed = removed + 1 end
-      elseif kind == "stream" then
+      elseif kind == "stream" or kind == "song" then
         local name = id:gsub("^bgm/", "")
         if del("oras/bgm/" .. name .. ".wav") then removed = removed + 1 end
         if del("oras/bgm/" .. name .. ".lua") then removed = removed + 1 end
@@ -184,7 +184,7 @@ return function(mod, deps)
     for i, item in ipairs(group.items) do
       arg.items[i] = { entry = item.entry, sub = item.sub, clim = item.clim, id = item.id,
         w = item.w, h = item.h, fmt = item.fmt, kind = item.kind, lines = item.lines,
-        match = item.match, count = item.count, name = item.name, path = item.path }
+        match = item.match, count = item.count, name = item.name, path = item.path, tempo = item.tempo }
     end
     local handle, err = mod.job:run("src/import/job_extract.lua", arg, { assetIO = true, maxSeconds = 300 })
     if not handle then
@@ -288,7 +288,7 @@ return function(mod, deps)
         pcall(mod.job.release, mod.job, handle)
         if st.status == "ok" and type(st.result) == "table" then
           for _, r in ipairs(st.result.results or {}) do
-            if r.ok and (r.kind == "text" or r.kind == "files" or r.kind == "stream" or r.kind == "sfx") then
+            if r.ok and (r.kind == "text" or r.kind == "files" or r.kind == "stream" or r.kind == "sfx" or r.kind == "song") then
               E.results[r.id] = { ok = true, w = 0, h = 0, bytes = r.count or 0, text = true }
               E.done = E.done + 1
             elseif r.ok then

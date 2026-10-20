@@ -269,10 +269,12 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.score = math.min(HR.CAP, st.score + n)
   end
 
+  local resultTotal   -- (below: the results card's running total and step)
+
   local function setFever(on)
     if on == st.fever then return end
     st.fever = on
-    if on then host.playSe("SE_SUCCESS") end
+    if on then G.se("fever", "SE_SUCCESS") end
   end
 
   local function hitBall(b, how)
@@ -285,7 +287,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       st.bigBonus = HR.BIG_BONUS[how] or 0
       effect(how == "just" and "just" or "good", b.x, headY, { giant = true })
       if mod.haptics then mod.haptics.pattern("big") end
-      host.playSe(how == "just" and "SE_SUCCESS" or "SE_PIN")
+      G.se(how == "just" and "giant_just" or "giant_good", how == "just" and "SE_SUCCESS" or "SE_PIN")
       return
     end
     local pts = (how == "just" and HR.POINTS.just or HR.POINTS.good) * (st.fever and HR.POINTS.fever or 1)
@@ -298,6 +300,8 @@ return function(mod, Pointer, G, Games, Rules, host)
     addPoints(pts)
     st.hits = st.hits + 1
     if c >= HR.COMBO_SHOW then st.comboShow = { n = c, t = 0 } end
+    -- a combo begins (its first popup, 3 hits): the game's combo sound (the 10s have their own below)
+    if c == 3 then G.se("combo3") end
     -- the interval: shorter with every hit, between the stage's minimum and its start
     st.interval = st.interval + (how == "just" and row[3] or row[2])
     st.interval = math.max(row[4], math.min(row[1], st.interval))
@@ -311,7 +315,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     -- the points fly to the score bubble as a star
     effect("star", b.x, headY, { pts = pts })
     if mod.haptics then mod.haptics.pulse(how == "just" and "strong" or "medium") end
-    host.playSe(how == "just" and "SE_PIN" or "SE_SELECT")
+    G.se((how == "just" and "head_just" or "head_good") .. (st.fever and "_fever" or ""), how == "just" and "SE_PIN" or "SE_SELECT")
     if c % 10 == 0 then
       local mon = st.participants[b.slot] and st.participants[b.slot].mon
       if mon then host.playCry(mon) end
@@ -319,6 +323,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if mod.haptics then
         mod.haptics.pattern(c % 100 == 0 and "big" or (c % 50 == 0 and "success" or "happy"))
       end
+      G.se(c % 100 == 0 and "combo100" or (c % 50 == 0 and "combo50" or "combo10"))
     end
   end
 
@@ -327,7 +332,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if b.giant then
       st.bigBonus = 0
       effect("miss", b.x, 0)
-      host.playSe("SE_NOT_EFFECTIVE")
+      G.se("giant_miss", "SE_NOT_EFFECTIVE")
       return
     end
     st.combo = 0
@@ -337,7 +342,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if st.rainbow then st.rainbowOut, st.lastBand = 0, st.rainbow end
     st.rainbow = nil
     effect("miss", b.x, 0)
-    host.playSe("SE_NOT_EFFECTIVE")
+    G.se("head_miss", "SE_NOT_EFFECTIVE")
   end
 
   local function stepBall(b)
@@ -577,11 +582,11 @@ return function(mod, Pointer, G, Games, Rules, host)
     if st.phase == "buttons" then
       if not (ev.phase == "released" and Pointer.isTap(rec, 16, 1.0)) then return end
       if inButton(BUTTONS.again, x, y) then
-        host.playSe("SE_SELECT")
+        G.se("again", "SE_SELECT")
         local game = s.game
         G.startGame(game.id, game.diff)
       elseif inButton(BUTTONS.quit, x, y) then
-        host.playSe("SE_SELECT")
+        G.se("quit", "SE_SELECT")
         st = nil
         G.leaveGame({ toPetting = true })
       end
@@ -655,7 +660,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if st.diff ~= "unlimited" and st.timer <= 0 then
         st.timer = 0
         setPhase("timeup")
-        if mod.haptics then mod.haptics.pattern("big") end
+        if mod.haptics then mod.haptics.pattern("big") end; G.se("head_time_up")
       end
     elseif ph == "timeup" then
       -- the balls still up are played out
@@ -666,6 +671,9 @@ return function(mod, Pointer, G, Games, Rules, host)
           setPhase("leave")
           hideMon(2)
           hideMon(3)
+          -- the sides leave; "!!" for the giant to come
+          G.se("head_leave")
+          G.se("giant_alert")
         end
       end
     elseif ph == "giant" then
@@ -764,7 +772,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if st.pt > 1.6 and not st.saidStart then
         st.saidStart = true
         banner(Games.line("head", "start", nil, "START!"), { 0.1, 0.12, 0.85 })
-        host.playSe("SE_SUCCESS")
+        G.se("go", "SE_SUCCESS")
       end
       if st.pt > 2.4 then
         banner(nil)
@@ -778,6 +786,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         -- the giant comes down on the middle Pokemon, "!!" over it
         setPhase("giant")
         dropGiant()
+        G.se("giant_fall")
       end
     elseif ph == "giant" then
       -- headed, or missed: the bonus is settled
@@ -791,6 +800,25 @@ return function(mod, Pointer, G, Games, Rules, host)
         end
       end
     elseif ph == "results" then
+      -- the card's sounds (Wooble's capture): NUMBER as it comes, each bonus row counting
+      -- (ADDSCORE, a loop) then settling (SCORE), the rank's stars (VALUE1-3 by how many)
+      local _, step = resultTotal()
+      if step ~= st.sndStep then
+        st.sndStep = step
+        if step == 0 then
+          G.se("results_card")
+        elseif step <= 2 then
+          st.addSound, st.addAt = G.se("result_add"), st.rt or 0
+        elseif step == 3 then
+          local stars = st.result and st.result.stars or 0
+          G.se(stars >= 5 and "rank_high" or (stars >= 3 and "rank_mid" or "rank_low"))
+        end
+      end
+      if st.addSound and (st.rt or 0) - st.addAt > 0.55 then
+        pcall(st.addSound.stop)
+        st.addSound = nil
+        G.se("result_row")
+      end
       -- the card's rows come in on the top screen; the Pokemon come back below
       if st.pt > 0.6 and not st.monsBack then
         st.monsBack = true
@@ -801,6 +829,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         setPhase("smoke")
         local Rw = screen("reward")
         if Rw then Rw:set("q", "visible", true); Rw:play("anm_smoke") end
+        G.se("puffs")
       end
     elseif ph == "smoke" then
       if st.pt > 0.25 and not st.revealed then
@@ -1268,7 +1297,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     P:set(name, "ty", 120 - cy - (cy - (by + bh / 2)))
   end
 
-  local function resultTotal()
+  function resultTotal()
     local step = math.floor((st.rt or 0) / RESULT_STEP)
     local total = st.score
     if step >= 1 then total = total + st.maxCombo end
@@ -1331,7 +1360,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     F:set("3b", "visible", false)
     if shown and res.newHigh and not st.stampAt then
       st.stampAt = st.rt or 0
-      if mod.haptics then mod.haptics.pattern("success") end
+      if mod.haptics then mod.haptics.pattern("success") end; G.se("stamp")
     end
   end
 

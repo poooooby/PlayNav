@@ -3,6 +3,7 @@
 Usage:
   python tools/bcsar.py list <file.bcsar> [prefix]               # effects: volume, notes, commands
   python tools/bcsar.py render <file.bcsar> <name> <out.wav>       # one effect (e.g. SEQ_SE_SP_001)
+  python tools/bcsar.py music <file.bcsar> <name> <out.wav> [tempo]  # a song to its loop's end (SEQ_BGM_KW_GAME01), tempo x
   python tools/bcsar.py renderall <file.bcsar> <prefix> <dir>      # every SEQ_<prefix>* to <dir>/<name>.wav
   python tools/bcsar.py match <dir> <capture.raw> [rate]           # find the effects in a capture
                                                                    # (mono s16le, default 8000 Hz)
@@ -276,15 +277,23 @@ ARG1 = set(range(0xb0, 0xe0))           # one u8 argument
 ARG2 = {0xe0, 0xe1, 0xe3, 0xe4}          # one s16 (big-endian)
 
 
-def parse_track(d, start, rng):
+def parse_track(d, start, rng, music=False):
     """the events of one track, in ticks: notes, parameter changes and sweeps, track opens.
-    Returns a list of (tick, kind, args) and the opened tracks [(index, offset)]."""
+    Returns a list of (tick, kind, args) and the opened tracks [(index, offset)].
+    music: a song - calls (8a) and returns (fd) are followed, and the first jump (89) back to
+    an earlier point ends the track there; parse_track.loop is then (loop start tick, loop end
+    tick). Effects keep the old reading (jumps and calls stepped over)."""
     ev, opens = [], []
     i, t = start, 0
     loops = []
+    calls = []
+    seen = {}          # a command's offset -> the tick it first ran at (music: the loop start)
+    parse_track.loop = None
     wait_notes = True
     steps = 0
-    while i < len(d) and steps < 4000:
+    while i < len(d) and steps < (200000 if music else 4000):
+        if music and i not in seen:
+            seen[i] = t
         steps += 1
         op = d[i]
         i += 1
@@ -309,8 +318,23 @@ def parse_track(d, start, rng):
         elif op == 0x88:
             opens.append((d[i], (d[i + 1] << 16) | (d[i + 2] << 8) | d[i + 3]))
             i += 4
+        elif op in (0x89, 0x8a) and music:
+            to = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]
+            i += 3
+            if op == 0x8a:
+                calls.append(i)
+                i = to
+            elif to in seen:
+                parse_track.loop = (seen[to], t)
+                break
+            else:
+                i = to
         elif op in (0x89, 0x8a):
             i += 3
+        elif op == 0xfd and music:
+            if not calls:
+                break
+            i = calls.pop()
         elif op in ARG1:
             if prefix == 0xa0:
                 lo, hi = struct.unpack_from('>hh', d, i)
@@ -388,9 +412,10 @@ ENV_FLOOR = -92544
 
 # the track parameters a sounding voice follows live (set or swept after its note began)
 LIVE = {0xc0: 'pan', 0xc1: 'vol', 0xc2: 'mvol', 0xc4: 'bend', 0xc5: 'range', 0xca: 'mdepth', 0xcb: 'mspeed',
-        0xcd: 'mrange', 0xe0: 'mdelay'}
+        0xcd: 'mrange', 0xe0: 'mdelay', 0xd5: 'vol2'}
 LIVE_DEFAULT = {'pan': 64, 'vol': 127, 'mvol': 127, 'bend': 0, 'range': 2, 'mdepth': 0, 'mspeed': 16,
-                'mrange': 1, 'mdelay': 0}
+                'mrange': 1, 'mdelay': 0, 'vol2': 127}
+MUSIC_TAIL_S = 3.0   # a song is rendered this far past its loop's end, the tail folded onto the loop
 # set at a note's start (the envelope and the instrument)
 AT_NOTE = {0xd0: 'attack', 0xd1: 'decay', 0xd2: 'sustain', 0xd3: 'release', 0xb1: 'hold', 0xc3: 'transpose'}
 
@@ -417,20 +442,27 @@ class Timeline:
         return val
 
 
-def render(sound, archive, seed=12345):
-    """a sound effect -> (left, right) float lists at OUT_RATE"""
+def render(sound, archive, seed=12345, music=False, tempo_scale=1.0):
+    """a sound effect -> (left, right) float lists at OUT_RATE. music: a song (parse_track's
+    music mode) rendered to its loop's end; render.loop is then (loop start, loop end) in samples,
+    the release tails past the end folded onto the loop's start so it repeats seamlessly. Only a
+    song reads the expression volume (d5); the effects render as they were matched."""
+    render.loop = None
     seq = sound['seq']
     data, _ = section(seq, 0, b'DATA')
     d = seq[data + 8:]
     rng = Rng(seed)
     tracks = {}
+    song_loop = None
     pending = [(0, 0)]
     while pending:
         idx, off = pending.pop(0)
         if idx in tracks:
             continue
-        ev, opens = parse_track(d, off, rng)
+        ev, opens = parse_track(d, off, rng, music)
         tracks[idx] = ev
+        if idx == 0 and music:
+            song_loop = parse_track.loop
         pending.extend(opens)
     bank = sound['banks'][0]
     insts = bank_regions(bank) if bank else {}
@@ -443,16 +475,20 @@ def render(sound, archive, seed=12345):
                 timebase = args[1]
             elif kind == 'set' and args[0] == 0xe1 and args[1] > 0:
                 tempo = args[1]
-    tick_s = 60.0 / (tempo * timebase)
+    tick_s = 60.0 / (tempo * (tempo_scale if music else 1.0) * timebase)
     sound_gain = sound['volume'] / 127.0
-    L = [0.0] * int(MAX_SECONDS * OUT_RATE)
+    if music:
+        end_tick = song_loop[1] if song_loop else max(e[0] for ev in tracks.values() for e in ev)
+        L = [0.0] * int((end_tick * tick_s + MUSIC_TAIL_S) * OUT_RATE)
+    else:
+        L = [0.0] * int(MAX_SECONDS * OUT_RATE)
     R = [0.0] * len(L)
     last = 0
     for idx in sorted(tracks):
         # the whole track's live parameters first, then its notes play against them
         tl = Timeline()
         for t, kind, args in tracks[idx]:
-            if kind == 'set' and args[0] in LIVE:
+            if kind == 'set' and args[0] in LIVE and (music or args[0] != 0xd5):
                 tl.set(LIVE[args[0]], t, args[1], args[2])
         st = {'prg': 0, 'transpose': 0}
         for t, kind, args in tracks[idx]:
@@ -472,6 +508,13 @@ def render(sound, archive, seed=12345):
                     wavecache[w] = cwav(archive.wave(*w))
                 end = mix_voice(L, R, wavecache[w], reg, dict(st), tl, t, k, vel, length, tick_s, sound_gain)
                 last = max(last, end)
+    if music and song_loop:
+        ls, le = (int(math.floor(x * tick_s * OUT_RATE + 0.5)) for x in song_loop)
+        for k in range(le, len(L)):
+            L[ls + k - le] += L[k]
+            R[ls + k - le] += R[k]
+        render.loop = (ls, le)
+        return L[:le], R[:le]
     n = min(len(L), last + 1)
     return L[:n], R[:n]
 
@@ -505,6 +548,7 @@ def mix_voice(L, R, wav, reg, st, tl, t0, key, vel, length, tick_s, sound_gain):
             # the track's live parameters, swept where a sweep is running
             bend, brange = tl.at('bend', tick), tl.at('range', tick)
             vol, mvol, pan = tl.at('vol', tick), tl.at('mvol', tick), tl.at('pan', tick)
+            vol2 = tl.at('vol2', tick)
             mdepth, mspeed, mrange = tl.at('mdepth', tick), tl.at('mspeed', tick), tl.at('mrange', tick)
             semis = key - reg['key'] + bend / 128 * brange
             # vibrato: its phase runs on from when it may start (the delay after the note)
@@ -543,7 +587,7 @@ def mix_voice(L, R, wav, reg, st, tl, t0, key, vel, length, tick_s, sound_gain):
                 env -= release_rate(rel)
             if env <= ENV_FLOOR:
                 break
-            amp = vel_gain * (vol / 127) ** 2 * (mvol / 127) ** 2 * 10 ** (env / 128 / 20)
+            amp = vel_gain * (vol / 127) ** 2 * (mvol / 127) ** 2 * (vol2 / 127) ** 2 * 10 ** (env / 128 / 20)
         ip = int(pos)
         if ip >= nsrc - 1:
             if wav['loop'] and wav['loopStart'] < nsrc - 1:
@@ -580,7 +624,7 @@ def main(argv):
         print(__doc__)
         return 2
     cmd = argv[0]
-    if cmd in ('list', 'render', 'renderall'):
+    if cmd in ('list', 'render', 'renderall', 'music'):
         ar = Archive(open(argv[1], 'rb').read())
     if cmd == 'list':
         prefix = 'SEQ_' + (argv[2] if len(argv) > 2 else '')
@@ -592,10 +636,11 @@ def main(argv):
             notes = sum(1 for e in ev if e[1] == 'note')
             print('%-22s vol %3d notes %d tracks %d' % (name, s['volume'], notes, 1 + len(opens)))
         return 0
-    if cmd == 'render':
-        L, R = render(ar.sound(argv[2]), ar)
+    if cmd in ('render', 'music'):
+        scale = float(argv[4]) if cmd == 'music' and len(argv) > 4 else 1.0
+        L, R = render(ar.sound(argv[2]), ar, music=cmd == 'music', tempo_scale=scale)
         write_wav(argv[3], L, R)
-        print('wrote', argv[3], '%.2f s' % (len(L) / OUT_RATE))
+        print('wrote', argv[3], '%.2f s' % (len(L) / OUT_RATE), 'loop (samples)', render.loop)
         return 0
     if cmd == 'renderall':
         os.makedirs(argv[3], exist_ok=True)

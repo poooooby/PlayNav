@@ -237,6 +237,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local function now() return Pointer.now() end
   -- haptics (src/haptics.lua): a pulse or a timed pattern at the player's level
   local function buzz(kind) local H = mod.haptics; if H then H.pulse(kind) end end
+  local STROKE_SE_S = 8 / 30   -- the stroke sound's beat while the finger moves (the game's, measured)
   local function buzzPattern(name) local H = mod.haptics; if H then H.pattern(name) end end
 
   local function showEmote(id, secs) emote = { id = id, untilT = now() + (secs or 1.2) } end
@@ -426,11 +427,11 @@ return function(mod, Pointer, G, Rules, Petting, host)
       showEmote("emote/angry", 1.0)
       setHand("dislike", lx, ly)
       G.bump(-0.08, 0)
-      buzzPattern("hurt")
+      buzzPattern("hurt"); G.se("pet_dislike")
       endTouch(0.8)
       return
     end
-    buzzPattern("happy")
+    buzzPattern("happy"); G.se("pet_reward")
     if res.hearts > 0 then
       spawn("heart", pl.headX, pl.headY - 10, math.min(5, res.hearts))
       showEmote(res.spot == "favored" and "emote/love" or "emote/happy", 1.2)
@@ -492,6 +493,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   -- a puff let go of: it drops off the bottom of the screen
   local function fall(kind, lx, ly)
     falling[#falling + 1] = { kind = kind, x = lx, y = ly, vx = (math.random() - 0.5) * 60, vy = -60, rot = 0 }
+    G.se("drop_puff")
     local H = mod.haptics
     if H then H.pulse("light") end
   end
@@ -516,7 +518,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local d = 1
     for i, diff in ipairs(GA.DIFFS) do if GA.isUnlocked(game, diff) then d = i end end
     picker.diff = d
-    G.click()
+    G.se("pick_game", "SE_SELECT")
   end
 
   -- a difficulty chosen (a tap on its ribbon, or A): another one is selected first, the selected
@@ -527,7 +529,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local game, diff = GA.GAMES[picker.game], GA.DIFFS[i]
     if i ~= picker.diff then
       picker.diff = i
-      G.click()
+      G.se("select", "SE_SELECT")
     elseif diff and GA.isUnlocked(game, diff) then
       app.lastGame = game
       G.startGame(game, diff)
@@ -610,6 +612,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     if onBody(pl, sx, sy, 1.2) and now() < petLock then return end
     if onBody(pl, sx, sy, 1.2) then
       touch = { id = ev.id, x = lx, y = ly, sx = sx, sy = sy, t = now() }
+      G.se("touch")
       want.z, want.fx, want.fy, want.px, want.py = ZOOM_TOUCH, sx, sy, lx, ly
       setHand("pet", lx, ly)
     elseif G.canHighFive() then
@@ -631,7 +634,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       if sr.mode == "pull" then
         drag = { kind = sr.kind, x = lx, y = ly, id = ev.id }
         rec.amieStrip = nil
-        buzz("tick")
+        buzz("tick"); G.se("pull_puff")
       elseif sr.mode == "scroll" then
         strip.dragging, strip.target = true, nil
         local x0, x1 = stripGeom()
@@ -669,7 +672,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local home = inBox("6", lx, ly, 10) or (s.tool == "beans" and inStripRow(lx, ly))
       if feed and s.feeding then
         if home and G.feedCancel() then
-          G.click()
+          G.se("close_puffs", "SE_SELECT")
         else
           G.feedDrop()
           fall(d.kind, lx, ly)
@@ -706,15 +709,15 @@ return function(mod, Pointer, G, Rules, Petting, host)
       elseif rec.amieButton == "back" and inBox("4", lx, ly, 6) then
         G.back()
       elseif rec.amieBack and picker then
-        if picker.stage == "diff" then picker.stage = "badge"; G.click()
+        if picker.stage == "diff" then picker.stage = "badge"; G.se("back", "SE_SELECT")
         else G.back() end
       elseif rec.amieArrow and picker then
         if picker.stage == "badge" then picker.game = math.max(1, math.min(3, picker.game + rec.amieArrow))
         else picker.diff = math.max(1, math.min(4, picker.diff + rec.amieArrow)) end
-        G.click()
+        G.se("select", "SE_SELECT")
       elseif rec.amieBadge and picker and inBox(BADGE[rec.amieBadge], lx, ly) then
         if rec.amieBadge == picker.game then startDiff(rec.amieBadge)
-        else picker.game = rec.amieBadge; G.click() end
+        else picker.game = rec.amieBadge; G.se("select", "SE_SELECT") end
       elseif rec.amieDiff and picker and GA and inBox(PLATE[rec.amieDiff], lx, ly) then
         pickDiff(rec.amieDiff)
       elseif rec.amieBody and wasTouch then
@@ -814,6 +817,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
         if wake.sated then wake.sated = nil; lastActive = now() - idleS() end
         -- it turns to face you
         if not s.status then buzzPattern("happy") end
+        G.se("wake")
         local pl = placement(s)
         spawn("note", pl.headX - 30, pl.headY, 2)
         spawn("note", pl.headX + 30, pl.headY, 1)
@@ -824,7 +828,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     -- left alone: it dozes off, then the room (anything under way keeps it awake)
     if wake.stage == "awake" then
       if touch or drag or feed or picker or (s.tool ~= nil) then lastActive = now() end
-      if now() - lastActive >= idleS() then wake.stage, wake.t, wake.zAt = "dozing", 0, 0 end
+      if now() - lastActive >= idleS() then wake.stage, wake.t, wake.zAt = "dozing", 0, 0; G.se("doze") end
     elseif wake.stage == "dozing" then
       wake.t = wake.t + dt
       wake.zAt = wake.zAt - dt
@@ -866,7 +870,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
           local r = G.petEffect(dt, effect)
           if r then hitEffect(effect, lx, ly) end
           if r == "recoil" then
-            buzzPattern("hurt")
+            buzzPattern("hurt"); G.se("hurt")
             showEmote("emote/angry", 1.0)
             G.bump(-0.12, 0)
             endTouch(1.0)
@@ -883,10 +887,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
               -- a disliked spot knocks twice, now and then while the finger stays on it
               if touch.fbT >= 0.6 or not touch.knocked then
                 touch.fbT, touch.knocked = 0, true
-                buzzPattern("bad")
+                buzzPattern("bad"); G.se("pet_dislike")
               end
             else
               life.stroke = 1
+              -- the stroke's sound runs on its own beat while the finger moves (the game's STROKE
+              -- every 8 frames, favourite spot or not); the note and its pulse every 0.5 s
+              touch.seT = (touch.seT or STROKE_SE_S) + dt
+              if touch.seT >= STROKE_SE_S then
+                touch.seT = 0
+                G.se(spot == "favored" and "heart" or "stroke")
+              end
               if touch.fbT >= 0.5 then
                 touch.fbT = 0
                 spawn(spot == "favored" and "heart" or "note", pl.headX + (math.random() - 0.5) * 40, pl.headY - 6, 1)
@@ -919,7 +930,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       if onBody(pl, sx, sy, 1.0) then
         if not drag.refused then
           if G.feedStart(drag.kind) then
-            feed = { stage = "flash", t = 0, kind = drag.kind }
+            feed = { stage = "flash", t = 0, kind = drag.kind }; G.se("offer_puff")
             flash = { t = 0, dur = 0.6 }
             stars = {}
             for i = 1, 10 do
@@ -930,7 +941,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
             want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.headX, pl.mouthY, drag.x, drag.y
           else
             drag.refused = true
-            buzzPattern("bad")     -- full, or it can't eat: it turns the puff away
+            buzzPattern("bad"); G.se("refuse")     -- full, or it can't eat: it turns the puff away
           end
         end
       end
@@ -963,7 +974,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
             feed.taken = feed.bites
             drag = nil      -- eaten: the finger holds nothing now
             life.excite = 1
-            buzzPattern("happy")
+            buzzPattern("happy"); G.se("meal_done")
             if (hearts or 0) >= 2 then
               spawn("heart", pl.headX, pl.headY - 10, 5)
               showEmote("emote/love", 1.6)
@@ -1049,7 +1060,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       elseif ev.kind == "gift" then
         G.say(("%s wants to give you something!"):format(s.name), 3)
         showEmote("emote/love", 2)
-        buzzPattern("big")
+        buzzPattern("big"); G.se("milestone_gift")
       end
     end
     if dance then
@@ -1058,7 +1069,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
         dance.next = dance.next + 0.6
         dance.cries = dance.cries - 1
         G.bump(0.15, 12)
-        buzz("medium")       -- each step of its dance
+        buzz("medium"); G.se("dance")       -- each step of its dance
         local pl = placement(s)
         spawn("heart", pl.headX, pl.headY - 20, 4)
         if dance.cries <= 0 then dance = nil end
@@ -1493,10 +1504,10 @@ return function(mod, Pointer, G, Rules, Petting, host)
         local d = left and -1 or 1
         if picker.stage == "badge" then
           local g = math.max(1, math.min(3, picker.game + d))
-          if g ~= picker.game then picker.game = g; G.click() end
+          if g ~= picker.game then picker.game = g; G.se("select", "SE_SELECT") end
         else
           local i = math.max(1, math.min(4, picker.diff + d))
-          if i ~= picker.diff then picker.diff = i; G.click() end
+          if i ~= picker.diff then picker.diff = i; G.se("select", "SE_SELECT") end
         end
         return true
       end
@@ -1506,7 +1517,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       end
       if pressed("b") and picker.stage == "diff" then
         picker.stage = "badge"
-        G.click()
+        G.se("back", "SE_SELECT")
         return true
       end
       return false

@@ -224,7 +224,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     mode = "drawer"
     refreshCells()
     if P then P:play("goodsFolder_up") end
-    host.playSe("SE_SELECT")
+    G.se("drawer_open", "SE_SELECT")
   end
   local function closeDrawer()
     if mode ~= "drawer" then return end
@@ -234,24 +234,32 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
 
   -- ------- actions
 
-  local function pick(e)
+  -- a press on a drawer cell takes the item into the finger (as the game: it follows the stylus
+  -- and the drawer folds away; let go in the room to set it down, on the tray to put it back);
+  -- held where the finger is, the item's middle (a puff: itself) under it. A tap leaves it held
+  -- there, to be dragged.
+  local function pick(e, rx, ry, pointer)
     local _, room = records()
     if e.count <= 0 then
       if e.puff then return end
       G.say(tx("whatDecor", "It's already in the room."), 2)
       return
     end
-    -- the item waits in the room to be dragged; the drawer folds away
-    if e.puff then held = { id = e.id, puff = true, x = Decor.PUFF_SPOT.x + 50, y = Decor.PUFF_SPOT.y }
-    else held = { id = e.id, x = 160, y = 165 } end
     if #(room.items or {}) >= Decor.MAX_ITEMS and not e.puff then
-      held = nil
       G.say(tx("roomFull", "You cannot put out any more Décor!"), 2)
       return
     end
+    rx, ry = rx or 160, ry or 165
+    if e.puff then
+      held = { id = e.id, puff = true, x = rx, y = ry + Decor.PUFF_LIFT }
+    else
+      local r = Decor.get(e.id)
+      held = { id = e.id, x = rx, y = ry - Decor.FOOT + (r and r.h or 40) / 2 }
+    end
+    held.pointer, held.ox, held.oy, held.fresh = pointer, held.x - rx, held.y - ry, true
     if P then P:play("goodsFolder_down") end
     mode = "hold"
-    host.playSe("SE_SELECT")
+    G.se("hold_item", "SE_SELECT")
   end
 
   local function putBack()
@@ -263,7 +271,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     end
     held = nil
     mode = "browse"
-    host.playSe("SE_SELECT")
+    G.se("put_back", "SE_SELECT")
   end
 
   -- let go at (x, y), room units
@@ -271,7 +279,8 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     local decor, room = records()
     local h = held
     if h.puff then
-      if not Decor.onPuffSpot(x, y) then h.x, h.y = x, y; return end
+      -- a puff let go anywhere in the room goes to the middle, the room's one puff spot (one out
+      -- at a time: a new one takes the place of the one out, which is used up)
       local ok = Decor.setPuffOut(room, Store.puffs(), h.id)
       if ok then
         Store.savePuffs(); Store.saveRoom()
@@ -280,7 +289,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
         end
         if G.session then G.session.puffDrop = true end
         settle = { id = h.id, puff = true, x = Decor.PUFF_SPOT.x, y = Decor.PUFF_SPOT.y, t = 0 }
-        host.playSe("SE_PIN")
+        G.se("place_puff", "SE_PIN")
       end
       held, mode = nil, "browse"
       return
@@ -296,7 +305,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     end
     Store.saveRoom()
     settle = { id = h.id, x = sx, y = sy, t = 0 }
-    host.playSe("SE_PIN")
+    G.se("place_item", "SE_PIN")
     held, mode = nil, "browse"
   end
 
@@ -315,7 +324,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       P:play(dir > 0 and "R_select" or "L_select")
       P:play(clip)
     end
-    host.playSe("SE_SELECT")
+    G.se("select2", "SE_SELECT")
   end
 
   local function turnPage(dir)
@@ -327,13 +336,13 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       P:play("itembutton_select")
       P:play(clip)
     end
-    host.playSe("SE_SELECT")
+    G.se("select", "SE_SELECT")
   end
 
   local function leave()
     if fade then return end
     if P then P:play("button_select") end
-    host.playSe("SE_SELECT")
+    G.se("deco_done", "SE_SELECT")
     fade = { t = 0, dir = 1, after = function()
       Store.saveRoom()
       if G.session then G.session.fromDecorate = true end
@@ -390,6 +399,10 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
         held.pointer, held.ox, held.oy = ev.id, held.x - rx, held.y - ry
         return
       end
+      if mode == "drawer" and not turning then
+        local e = cellAt(lx, ly)
+        if e then pick(e, rx, ry, ev.id); return end
+      end
       if mode == "browse" and not slide then
         -- a placed item picks up again; the puff once set out stays
         local _, room = records()
@@ -398,7 +411,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
           held = { id = it.id, x = it.x, y = it.y, fromRoom = idx, pointer = ev.id, ox = it.x - rx, oy = it.y - ry,
             fresh = true }
           mode = "hold"
-          host.playSe("SE_SELECT")
+          G.se("hold_item", "SE_SELECT")
           return
         end
         local ps = Decor.PUFF_SPOT
@@ -431,7 +444,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     if boxHit("6o", lx, ly, 4) then
       if P then P:play("button_select") end
       if mode == "hold" then putBack()
-      elseif mode == "drawer" then closeDrawer(); host.playSe("SE_SELECT")
+      elseif mode == "drawer" then closeDrawer(); G.se("back", "SE_SELECT")
       else leave() end
       return
     end
@@ -439,10 +452,12 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       if boxHit("6p", lx, ly) then stepWallpaper(-1); return end
       if boxHit("6q", lx, ly) then stepWallpaper(1); return end
       if boxHit("ac", lx, ly, 3) then
+        G.se("deco_tab", "SE_SELECT")
         if mode == "drawer" and tab == "interior" then closeDrawer() else openDrawer("interior") end
         return
       end
       if boxHit("a9", lx, ly, 3) then
+        G.se("deco_tab", "SE_SELECT")
         if mode == "drawer" and tab == "puffs" then closeDrawer() else openDrawer("puffs") end
         return
       end
@@ -450,8 +465,6 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     if mode == "drawer" and not turning then
       if boxHit("aq", lx, ly) then turnPage(-1); return end
       if boxHit("ap", lx, ly) then turnPage(1); return end
-      local e = cellAt(lx, ly)
-      if e then pick(e) end
     end
   end
 

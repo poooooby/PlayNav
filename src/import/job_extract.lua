@@ -72,8 +72,10 @@ if item1 and item1.kind == "stream" then
 end
 
 -- the game's sound effects (recipe kind "sfx"): each a sequence rendered on its bank's
--- instruments into oras/se/<name>.wav; the archive is read in ranges, never whole
-if item1 and item1.kind == "sfx" then
+-- instruments into oras/se/<name>.wav; the archive is read in ranges, never whole. Songs (kind
+-- "song", the same archive) render in music mode at their tempo into oras/bgm/<name>.wav with
+-- the loop point in oras/bgm/<name>.lua, as a stream's
+if item1 and (item1.kind == "sfx" or item1.kind == "song") then
   local results = {}
   local ar, why = nil, "no sound-archive reader"
   if Bcsar and Seq and Bcstm then ar, why = Bcsar.open(read, aOff, aLen) end
@@ -81,13 +83,26 @@ if item1 and item1.kind == "sfx" then
     if not ar then
       results[#results + 1] = { id = item.id, ok = false, err = "sound archive: " .. tostring(why) }
     else
+      local song = item.kind == "song"
       local ok, res = pcall(function()
         local snd = assert(ar:sound(item.name))
-        local L, R, n = Seq.render(snd, ar, { dsp = Bcstm.dspBlock })
-        return { wav = Seq.wav(L, R, n), n = n }
+        local L, R, n, loop = Seq.render(snd, ar, { dsp = Bcstm.dspBlock, music = song, tempoScale = item.tempo or 1 })
+        local wav, mono = Seq.wav(L, R, n)
+        return { wav = wav, n = n, loop = loop, channels = mono and 1 or 2 }
       end)
       if not ok then
         results[#results + 1] = { id = item.id, ok = false, err = "render: " .. tostring(res) }
+      elseif song then
+        local name = item.id:gsub("^bgm/", "")
+        local meta = ("return { rate = %d, channels = %d, samples = %d, loop = %s, loopStart = %d }\n"):format(
+          Seq.OUT_RATE, res.channels, res.n, tostring(res.loop ~= nil), res.loop and res.loop[1] or 0)
+        local okW, werr = job.cache:write("oras/bgm/" .. name .. ".wav", res.wav)
+        if okW ~= false and not (okW == nil and werr) then okW, werr = job.cache:write("oras/bgm/" .. name .. ".lua", meta) end
+        if okW == false or (okW == nil and werr) then
+          results[#results + 1] = { id = item.id, ok = false, err = "cache write: " .. tostring(werr) }
+        else
+          results[#results + 1] = { id = item.id, ok = true, kind = "song", count = res.n }
+        end
       else
         local name = item.id:gsub("^se/", "")
         local okW, werr = job.cache:write("oras/se/" .. name .. ".wav", res.wav)

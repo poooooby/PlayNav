@@ -143,6 +143,8 @@ return function(mod, deps)
     for _, v in ipairs(V.present) do v.state = "chat" end
   end
 
+  local function se(event) if G and G.se then G.se(event) end end
+
   local function leaveGift()
     local pending = Store.visitors().gifts
     local names = {}
@@ -156,6 +158,7 @@ return function(mod, deps)
     Decor.puffGroupUsed(Store.room())
     Store.saveRoom()
     for _, v in ipairs(V.present) do v.state = "leave"; v.timer = 0 end
+    se("visitor_leave")
     V.group = nil
     V.nextArrival = gap(V.GROUP_S)
     V.lastGift = rec
@@ -169,6 +172,7 @@ return function(mod, deps)
     local words = V.CONVERSATION[set] or V.CONVERSATION.A
     local who = math.floor(V.rng() * #V.present) + 1
     V.group.bubble = { who = who, word = words[math.floor(V.rng() * #words) + 1], t = 1.4, life = 1.4 }
+    se(V.group.bubble.word == "..." and "visitor_think" or "visitor_talk")
   end
 
   function V.update(dt)
@@ -194,6 +198,7 @@ return function(mod, deps)
             v.facing = v.x < V.MID and 1 or -1
           else
             v.state, v.timer = "leave", 0
+            se("visitor_leave")
           end
         end
       elseif v.state == "leave" then
@@ -247,6 +252,7 @@ return function(mod, deps)
           local v = newVisitor()
           v.tx, v.ty, v.y = V.SPOTS[free].x, V.SPOTS[free].y, V.SPOTS[free].y
           V.present[#V.present + 1] = v
+          se("visitor_enter")
         end
         V.nextArrival = gap(V.ARRIVAL_S)
       end

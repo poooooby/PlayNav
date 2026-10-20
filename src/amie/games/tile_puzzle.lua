@@ -247,7 +247,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     -- a timed puzzle ends on its last tile's stars, no banner; Unlimited's clock
     -- running out says TIME'S UP!
     if st.diff == "unlimited" then banner(Games.line("tile", "timesUp", nil, "TIME'S UP!")) end
-    host.playSe("SE_SUCCESS")
+    G.se(st.diff == "unlimited" and "time_up" or "puzzle_done", "SE_SUCCESS")
   end
 
   local PUFF_TIER = { basic = 1, frosted = 2, fancy = 3, deluxe = 4, supreme = 5 }
@@ -417,7 +417,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     -- the stars once it lands (update)
     if nowA then pz.moving[a].landed = true end
     if nowB then pz.moving[b].landed = true end
-    host.playSe(gained > 0 and "SE_PIN" or "SE_SELECT")
+    G.se("tile_swap", gained > 0 and "SE_PIN" or "SE_SELECT")
     if st.diff == "unlimited" then
       st.score = math.min(49999, st.score + gained)
       for _ = 1, gained do
@@ -440,7 +440,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.rotIndex = st.rotIndex % 3 + 1
     setPhase("next")
     banner(Games.line("tile", "next", nil, "NEXT!"))
-    host.playSe("SE_SUCCESS")
+    G.se("puzzle_done", "SE_SUCCESS")
   end
 
   function app:pointer(ev, rec)
@@ -450,7 +450,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     local tap = ev.phase == "released" and Pointer.isTap(rec, 16, 1.0)
     if st.phase == "intro" then
       if tap and inBegin(x, y) then
-        host.playSe("SE_SELECT")
+        G.se("decide", "SE_SELECT")
         local Dn = screen("down")
         if Dn then
           Dn:play("button_select")
@@ -467,14 +467,14 @@ return function(mod, Pointer, G, Games, Rules, host)
     if st.phase == "buttons" then
       if not tap then return end
       if inButton(BUTTONS.view, x, y) then
-        host.playSe("SE_SELECT")
+        G.se("view", "SE_SELECT")
         setPhase("view")
       elseif inButton(BUTTONS.again, x, y) then
-        host.playSe("SE_SELECT")
+        G.se("again", "SE_SELECT")
         local game = s.game
         G.startGame(game.id, game.diff)
       elseif inButton(BUTTONS.quit, x, y) then
-        host.playSe("SE_SELECT")
+        G.se("quit", "SE_SELECT")
         st = nil
         G.leaveGame({ toPetting = true })
       end
@@ -495,7 +495,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if not i or pz.tiles[i] == i or pz.moving[i] then return end
     if not pz.sel then
       pz.sel = i
-      host.playSe("SE_SELECT")
+      G.se("tile_select", "SE_SELECT")
       return
     end
     if pz.sel == i then pz.sel = nil; return end
@@ -522,7 +522,10 @@ return function(mod, Pointer, G, Games, Rules, host)
           if m.landed then
             burst(pos)
             if mod.haptics then mod.haptics.pulse("strong") end
-            host.playSe("SE_PIN")
+            G.se("tile_home", "SE_PIN")
+          elseif st.phase == "shuffle" then
+            -- each tile lands in its shuffled place with the game's panel sound
+            G.se("tile_shuffle")
           end
         else
           landing = true
@@ -559,6 +562,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if not busyTiles() and st.pt > 0.3 then
         setPhase("start")
         banner(Games.line("tile", "start", nil, "START!"))
+        G.se("tile_go")
       end
       return
     end
@@ -596,6 +600,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if st.phase == "finished" then
       if st.pt > 1.6 then
         setPhase("smoke")
+        G.se("puffs")
         banner(nil)
         if Dn then
           Dn:set("1l", "visible", true)
@@ -1089,7 +1094,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       Up:set("8s", "visible", true)
       Up:setText("8u", Games.line("tile", "highScore", nil, "HIGH SCORE"), { align = "center", valign = "center" })
       Up:play("highsc_anime")
-      if mod.haptics then mod.haptics.pattern("success") end
+      if mod.haptics then mod.haptics.pattern("success") end; G.se("stamp")
     end
   end
 

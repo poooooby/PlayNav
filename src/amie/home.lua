@@ -213,7 +213,7 @@ return function(mod, Pointer, G, Rules, Store, host)
   local function setMenu(on)
     if on then
       menu = {}
-      host.playSe("SE_SELECT")
+      G.se("room_menu", "SE_SELECT")
     else
       menu = nil
     end
@@ -344,7 +344,7 @@ return function(mod, Pointer, G, Rules, Store, host)
       W:clear("at", "sx"); W:clear("at", "sy")
       showSelected(act)
     end
-    host.playSe("SE_SELECT")
+    G.se("room_button", "SE_SELECT")
   end
 
   local function closeSwitch(after)
@@ -369,12 +369,12 @@ return function(mod, Pointer, G, Rules, Store, host)
     if not (sw and sw.phase == "open" and not sw.press and W) then return end
     local party = swParty()
     if hitPane("86", ax, ay) then
-      host.playSe("SE_SELECT")
+      G.se("back", "SE_SELECT")
       sw.press = { pane = "86", t = 0, act = function() closeSwitch() end }
       return
     end
     if hitPane("az", ax, ay) and sw.sel ~= activeSlot(party) and not (host.isEgg and host.isEgg(party[sw.sel])) then
-      host.playSe("SE_SUCCESS")
+      G.se("switch_to", "SE_SUCCESS")
       local i = sw.sel
       sw.press = { pane = "at", t = 0, act = function()
         if G.switchTo(party[i]) then
@@ -387,7 +387,7 @@ return function(mod, Pointer, G, Rules, Store, host)
     end
     for i = 1, #party do
       if hitPane(SLOTS[i][2], ax, ay) then
-        host.playSe("SE_SELECT")
+        G.se("select", "SE_SELECT")
         sw.press = { pane = SLOTS[i][1], t = 0, act = function()
           if host.isEgg and host.isEgg(party[i]) then G.say(G.tx("egg"), 2.5) end
           sw.sel = i
@@ -536,7 +536,7 @@ return function(mod, Pointer, G, Rules, Store, host)
           hit = math.abs(ev.x - px) <= 30 and math.abs(ev.y - py) <= 18
         end
         if hit then
-          host.playSe("SE_SELECT")
+          G.se("select", "SE_SELECT")
           menu.press = { which = which, t = 0 }
           return
         end
@@ -551,7 +551,7 @@ return function(mod, Pointer, G, Rules, Store, host)
       if math.abs(x - gx) <= 16 and math.abs(y - (gy - 4)) <= 20 then
         local text = G.Visitors.claim(i)
         if text then
-          host.playSe("SE_SUCCESS")
+          G.se("gift", "SE_SUCCESS")
           G.say(text, 3.5)
           showEmote("emote/happy", 1.5)
           spawn("heart", gx, gy - 12, 3)
@@ -703,7 +703,7 @@ return function(mod, Pointer, G, Rules, Store, host)
       elseif ev.kind == "gift" then
         G.say(("%s wants to give you something!"):format(s.name), 3)
         showEmote("emote/love", 2)
-        if mod.haptics then mod.haptics.pattern("big") end
+        if mod.haptics then mod.haptics.pattern("big") end; G.se("milestone_gift")
       end
     end
     if dance then
@@ -712,7 +712,7 @@ return function(mod, Pointer, G, Rules, Store, host)
         dance.next = dance.next + 0.6
         dance.cries = dance.cries - 1
         pet.bounce = 15
-        if mod.haptics then mod.haptics.pulse("medium") end   -- each step of its dance
+        if mod.haptics then mod.haptics.pulse("medium") end; G.se("dance")   -- each step of its dance
         host.playCry(s.mon)
         spawn("heart", pet.x, pet.y - 50, 4)
         if dance.cries <= 0 then dance = nil end

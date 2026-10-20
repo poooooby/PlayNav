@@ -550,13 +550,13 @@ return function(mod, deps)
     if not s then return end
     -- an open picker or puff strip folds first
     if s.mode == "play" and (s.tool == "games" or s.tool == "beans") then
+      G.se(s.tool == "beans" and "close_puffs" or "back", "SE_SELECT")
       s.tool = nil
-      host.playSe("SE_SELECT")
       onChange()
       return
     end
     if s.mode == "play" and s.fromHome then
-      host.playSe("SE_SELECT")
+      G.se("back", "SE_SELECT")
       persist()
       G.enterHome(false)
     else
@@ -593,8 +593,26 @@ return function(mod, deps)
     return true
   end
 
+  -- the game's own effect for `event` (data/amie_sounds.lua, G.sounds; a list plays one of
+  -- its effects at random), else the Emerald stand-in. The stand-in's haptic is felt either
+  -- way (src/haptics.lua maps the stand-in's name). Returns the effect's handle (stop() for a
+  -- loop) when the game's played.
+  function G.se(event, standIn, opts)
+    local id = G.sounds and G.sounds[event]
+    -- false: the game plays nothing there (a capture showed it); with the art extracted, silence
+    if id == false and mod.sfx and mod.sfx.has and mod.sfx.has("se/kw_select") then return nil end
+    if type(id) == "table" then id = id[math.random(#id)] end
+    local h = id and mod.sfx and mod.sfx.play(id, opts) or nil
+    if h then
+      if standIn and mod.haptics then pcall(mod.haptics.onSound, standIn) end
+      return h
+    end
+    if standIn then host.playSe(standIn) end
+    return nil
+  end
+
   -- a tap's click, for the apps that have no host of their own
-  function G.click() host.playSe("SE_SELECT") end
+  function G.click() G.se("select", "SE_SELECT") end
 
   -- a game starts: the app with that id takes the surface
   function G.startGame(id, diff)
@@ -611,7 +629,7 @@ return function(mod, deps)
     G.gameApp = app
     Apps:setActive("game_" .. id, mod.game)
     if app.start then app:start(s.game) end
-    host.playSe("SE_SELECT")
+    G.se("start_game", "SE_SELECT")
     onChange()
     return true
   end
@@ -626,7 +644,7 @@ return function(mod, deps)
       result = G.Games.finish(s.game.id, s.game.diff, value, s.game.participants, G.rng)
       s.lastResult = result
       s.game.result = result
-      host.playSe("SE_SUCCESS")
+      G.se("results", "SE_SUCCESS")
     end
     if stay and not quit then
       onChange()
@@ -702,7 +720,7 @@ return function(mod, deps)
 
   function G.finish()
     if not G.session then return end
-    host.playSe("SE_SELECT")
+    G.se("back", "SE_SELECT")
     close()
   end
 
@@ -713,8 +731,11 @@ return function(mod, deps)
   function G.selectTool(tool)
     local s = inPlay()
     if not s then return end
+    local was = s.tool
     if s.tool == tool then s.tool = nil else s.tool = tool end
-    host.playSe("SE_SELECT")
+    local ev = (s.tool == "beans" and "open_puffs") or (s.tool == "games" and "open_games")
+      or (was == "beans" and "close_puffs") or "back"
+    G.se(ev, "SE_SELECT")
     onChange()
   end
 
@@ -801,7 +822,7 @@ return function(mod, deps)
     if s.effectT > 1e-6 then return nil end
     s.effectT = Rules.ticks(P.JOLT_TICKS[kind] or 30)
     s.effectJolts = (s.effectJolts or 0) + 1
-    host.playSe("SE_NOT_EFFECTIVE")
+    G.se((kind == "burning" and "burn") or (kind == "paralyzing" and "shock") or "hurt", "SE_NOT_EFFECTIVE")
     if s.effectJolts >= P.EFFECT_JOLTS then
       s.effectJolts = 0
       s.effectT = nil
@@ -845,7 +866,7 @@ return function(mod, deps)
     if not s then return false end
     Rules.hit(s.meters)
     bump(s, -0.1, 0)
-    host.playSe("SE_NOT_EFFECTIVE")
+    G.se("hit", "SE_NOT_EFFECTIVE")
     say(("%s got hit!"):format(s.name), 1.5)
     onChange()
     return true
@@ -861,7 +882,7 @@ return function(mod, deps)
     if not (s and Rules.canHighFive(s.meters)) then return false end
     Rules.highFive(s.meters)
     bump(s, 0.1, 10)
-    host.playSe("SE_SUCCESS")
+    G.se("high_five", "SE_SUCCESS")
     host.playCry(s.mon)
     say(("%s gave you a high five!"):format(s.name), 2)
     onChange()
@@ -924,7 +945,7 @@ return function(mod, deps)
     f.taken = f.taken + 1
     s.anim.squash = 0.1
     s.anim.timer = 0.2
-    host.playSe("SE_SELECT")
+    G.se("bite", "SE_SELECT")
     if f.taken >= f.bites then
       local before = s.meters.affection
       local hearts = Rules.finishPuff(s.meters, f.kind, f.taken - 1, f.bites)
