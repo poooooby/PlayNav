@@ -250,6 +250,22 @@ return function(N)
 
   -- ------- shooting
 
+  -- the live bit nearest the reticle on screen (the aim on the balloon's plane, ax / ay), when
+  -- the reticle is within the bit's drawn disk plus the shot's radius; nil otherwise
+  function Sim:bitUnder(ax, ay, shotR)
+    local sx, sy = Sim.project(ax, ay, 1)
+    local best, bestD = nil, nil
+    for _, bit in ipairs(self.bits) do
+      if not bit.dead and bit.hp > 0 then
+        local bx, by, k = Sim.project(bit.x, bit.y, bit.z)
+        local reach = (bit.r + (shotR or 0)) * V.NEAR.hw * k
+        local d = (sx - bx) ^ 2 + (sy - by) ^ 2
+        if d <= reach * reach and (not bestD or d < bestD) then best, bestD = bit, d end
+      end
+    end
+    return best
+  end
+
   -- the energy meter decides the ball: full -> the species' Energy Shot, otherwise a plain
   -- black ball worth less the emptier the meter, and a weak ball when it is nearly dry
   function Sim:fire(stage, spread)
@@ -278,7 +294,15 @@ return function(N)
     local ay = p.aim.y
     local x0, y0, z0 = p.x, (p.y or 0) + 0.15, p.z
     local dz = math.max(0.05, 1 - z0)
-    local shot = { x = x0, y = y0, z = z0, vz = speed, vx = (ax - x0) / dz * speed, vy = (ay - y0) / dz * speed,
+    local vx, vy = (ax - x0) / dz * speed, (ay - y0) / dz * speed
+    -- the reticle over a bit (in front of the balloon) aims at the bit: the shot flies through
+    -- it, as the shot otherwise crosses the bit's depth short of where the reticle shows it
+    local bit = self:bitUnder(ax, ay, r)
+    if bit then
+      local bz = math.max(0.05, bit.z - z0)
+      vx, vy = (bit.x - x0) / bz * speed, (bit.y - y0) / bz * speed
+    end
+    local shot = { x = x0, y = y0, z = z0, vz = speed, vx = vx, vy = vy,
       r = r, points = math.floor(points + 0.5), type = kind, stage = stage, weak = weak, energy = kind == self.shotType }
     self.shots[#self.shots + 1] = shot
     self.stats.shots = self.stats.shots + 1

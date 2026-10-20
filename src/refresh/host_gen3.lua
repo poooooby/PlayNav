@@ -87,10 +87,51 @@ return function(mod)
     return still(H.Pokemon.monFrontPic, mon, nil, "summary")
   end
 
+  -- gen3-hd-sprites (optional) hands out back pics as a 64x64 stand-in cropped for the battle's
+  -- overdraw, tagged with the full frame (`texture`, `quad`, `scale`: texture px x scale = the
+  -- pic's px). The whole frame comes back as a 64x64 pic of its own, shrunk to fit when larger
+  -- (Zygarde Complete's is 140 across), feet at the bottom, at the stand-in's density.
+  local whole = setmetatable({}, { __mode = "k" })
+  local function wholeFrame(entry)
+    local img = entry and entry.image
+    if not img then return entry end
+    local hit = whole[img]
+    if hit ~= nil then return hit or entry end
+    whole[img] = false
+    local ok, out = pcall(function()
+      local lib = mod and mod.find and mod:find("gen3-hd-sprites")
+      local ex = lib and lib.exports
+      local tag = type(ex) == "table" and type(ex.tagOf) == "function" and ex.tagOf(img) or nil
+      if not (type(tag) == "table" and tag.texture and tag.quad and love and love.graphics) then return nil end
+      local _, _, qw, qh = tag.quad:getViewport()
+      local scale = tonumber(tag.scale) or 1
+      local W, Hh = tonumber(entry.w) or 64, tonumber(entry.h) or 64
+      local k = math.min(scale, W / qw, Hh / qh)
+      local dpi = img.getDPIScale and img:getDPIScale() or 1
+      local c = love.graphics.newCanvas(W, Hh, { dpiscale = dpi })
+      c:setFilter("nearest", "nearest")
+      love.graphics.push("all")
+      love.graphics.setCanvas(c)
+      love.graphics.origin()
+      love.graphics.setScissor()
+      love.graphics.setShader()
+      love.graphics.clear(0, 0, 0, 0)
+      love.graphics.setColor(1, 1, 1, 1)
+      love.graphics.draw(tag.texture, tag.quad, (W - qw * k) / 2, Hh - qh * k, 0, k, k)
+      love.graphics.pop()
+      local e = {}
+      for key, v in pairs(entry) do e[key] = v end
+      e.image, e.w, e.h = c, W, Hh
+      return e
+    end)
+    if ok and out then whole[img] = out; return out end
+    return entry
+  end
+
   -- the back pic: the Play screen's Pokemon asleep with its back turned (until a tap wakes it)
   function H.backPic(mon)
     if not (mon and H.Pokemon and H.Pokemon.monBackPic) then return nil end
-    return still(H.Pokemon.monBackPic, mon)
+    return wholeFrame(still(H.Pokemon.monBackPic, mon))
   end
 
   function H.icon(mon)

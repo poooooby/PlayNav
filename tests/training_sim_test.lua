@@ -357,6 +357,23 @@ do
     run(sim, 0.9, function(e) if e.kind == "bit_pop" then pops = pops + 1 end end)
   end
   T.check(pops >= 1, "shots pop a bit (" .. pops .. ")")
+  -- the reticle on a bit as the screen shows it, from the trainee well to one side: hits it
+  do
+    local s3 = make("lv2_spd")
+    run(s3, 9.1)
+    local b = s3.bits[2]
+    T.check(b ~= nil and not b.dead, "a live bit to aim at")
+    s3.player.x = -0.7
+    local ax, ay = Sim.unproject(Sim.project(b.x, b.y, b.z))
+    s3:aim(ax, ay)
+    T.check(s3:bitUnder(ax, ay, 0) == b, "the reticle is over it")
+    local hits = 0
+    s3:pressFire(); s3:update(1 / 60); s3:releaseFire()
+    run(s3, 0.9, function(e) if e.kind == "bit_hit" or e.kind == "bit_pop" then hits = hits + 1 end end)
+    T.eq(hits, 1, "a shot at the bit on screen hits it")
+    T.eq(b.hp, N.ATTACK.bit.hp - 1, "...and it takes the damage")
+    T.check(s3:bitUnder(0, 0.05, 0) == nil, "a reticle away from the bits aims at the balloon")
+  end
   local sim2 = make("lv2_def")   -- Graveler: barrier at 5 s
   run(sim2, 3.1)
   ev = run(sim2, 6.2)

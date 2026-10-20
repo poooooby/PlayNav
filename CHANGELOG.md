@@ -5,6 +5,14 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- In Play, a big Pokémon's back sprite from the HD sprites mod (Zygarde Complete, Hisuian
+  Arcanine) was cut to a square: the whole sprite now shows, shrunk to fit.
+- Super Training: Tentacruel's purple Bitbots (Lv. 2 Sp. Def) took no damage. They float in
+  front of the balloon, and a shot passed them by unless your Pokémon stood right below one;
+  now a shot aimed at a Bitbot hits it.
+
 ## [0.5.4] - 2026-10-20 (alpha)
 
 ### Added
