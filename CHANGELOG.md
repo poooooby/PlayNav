@@ -3,6 +3,18 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- On high-resolution screens (the AYN Thor, phones), Pokémon in Pokémon-Amie's Play screen
+  could stand lifted and off to one side, small ones sank partway below the screen while a fed
+  Poké Puff hung in the air, and in Head It some (Victini) were drawn far too large: their
+  size was measured at the screen's pixel density instead of the sprite's own.
+- On the Thor and other Android devices, party icons of newer species and forms (Zygarde
+  Complete) from a sprite mod's icon sheet looked blocky or garbled on Amie's SWITCH screen
+  and in the room.
+
 ## [0.5.0] - 2026-10-19 (pre-alpha)
 
 ### Added

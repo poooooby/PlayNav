@@ -1227,6 +1227,7 @@ return function(mod)
   mod.exports.pointer = Pointer
   mod.exports.apps = Apps
   mod.exports.hdTop = HdTop   -- the top-screen overlay (drivers read .why)
+  mod.exports.hd = HD         -- the pixel-art drawing (drivers check its shader)
   mod.exports.layout = Layout
   mod.exports.W, mod.exports.H = Layout.W, Layout.H
   mod.exports.state = function()

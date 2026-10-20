@@ -39,6 +39,13 @@ local function body(game, log)
   if s then s.x, s.y = 14, 12 end
   Player.cellX, Player.cellY, Player.px, Player.py = 14, 12, 14 * 16, 12 * 16
   Player.targetX, Player.targetY = 14, 12
+  -- PROBE_SLOTS (engine species slots, comma-separated) sets the party instead
+  local slots = {}
+  for v in (os.getenv("PROBE_SLOTS") or ""):gmatch("%d+") do slots[#slots + 1] = tonumber(v) end
+  if s and #slots > 0 then
+    while #(s.party or {}) > 0 do table.remove(s.party) end
+    for _, sp in ipairs(slots) do Party.giveMon(s, sp, 50) end
+  end
   if s and #(s.party or {}) == 0 then
     Party.giveMon(s, C:require("species", "SPECIES_TORCHIC"), 12)
     Party.giveMon(s, C:require("species", "SPECIES_ZIGZAGOON"), 6)

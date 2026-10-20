@@ -481,7 +481,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
     if not (G and G.newCanvas and icon and icon.image) then return nil end
     local fw, fh = icon.w or 32, icon.h or 32
     local ok, data = pcall(function()
-      local c = G.newCanvas(fw, fh)
+      -- one canvas pixel per sprite unit (the screen's density would scale the scan)
+      local c = G.newCanvas(fw, fh, { dpiscale = 1 })
       local prev = G.getCanvas()
       G.push("all")
       G.setCanvas(c)

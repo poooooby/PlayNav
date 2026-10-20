@@ -41,15 +41,18 @@ end
 
 -- ------- the sharp-bilinear shader
 
+-- highp throughout: on OpenGL ES (Android, the Thor) a fragment shader's floats default to
+-- mediump, ~10 bits, and texel positions across a big atlas page (a sprite mod's 4096-wide
+-- icon sheet) land on the wrong texels; LOVE defines the qualifiers away on desktop GL
 local SHARP_SRC = [[
-uniform vec2 texSize;
-uniform vec2 pxPerTexel;
-vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
-  vec2 texel = uv * texSize;
-  vec2 base = floor(texel);
-  vec2 d = fract(texel) - 0.5;
-  vec2 region = 0.5 - 0.5 / pxPerTexel;
-  vec2 f = (d - clamp(d, -region, region)) * pxPerTexel + 0.5;
+uniform highp vec2 texSize;
+uniform highp vec2 pxPerTexel;
+vec4 effect(vec4 color, Image tex, highp vec2 uv, vec2 sc) {
+  highp vec2 texel = uv * texSize;
+  highp vec2 base = floor(texel);
+  highp vec2 d = fract(texel) - 0.5;
+  highp vec2 region = 0.5 - 0.5 / pxPerTexel;
+  highp vec2 f = (d - clamp(d, -region, region)) * pxPerTexel + 0.5;
   return Texel(tex, (base + f) / texSize) * color;
 }
 ]]

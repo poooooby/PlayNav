@@ -124,7 +124,9 @@ return function(mod, Pointer, G, Games, Rules, host)
     local w, h = img:getDimensions()
     b = { x0 = 0, y0 = 0, x1 = w, y1 = h }
     pcall(function()
-      local c = love.graphics.newCanvas(w, h)
+      -- one canvas pixel per sprite unit (the default density is the screen's, 2-3 on a
+      -- high-DPI device, and the scan would read only the top-left corner)
+      local c = love.graphics.newCanvas(w, h, { dpiscale = 1 })
       love.graphics.push("all")
       love.graphics.setCanvas(c)
       love.graphics.clear(0, 0, 0, 0)
