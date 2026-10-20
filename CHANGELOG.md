@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-10-20 (alpha)
+
 ### Added
 
 - The PlayNav menu: the START menu has one **PLAYNAV** entry in place of AMIE and TRAINING. It
@@ -18,16 +20,15 @@ All notable changes to this mod are documented here. The format follows
 - The arrows at the top of Amie's room and Super Training's home that switched between the two
   are gone; the PlayNav menu is the way between them.
 - SHOW TOUCH SCREEN's default reads **ONLY WHEN NEEDED**.
+- Visitors to the Amie room come as in the game again, with no waits: the next as soon as no
+  one is walking in, so groups form and a set-out Poké Puff is eaten sooner (one portion per
+  group that leaves its gift - Basic 1, Frosted 2, Fancy 3, Deluxe 4, Supreme 5 or 7). As in the
+  game, visitors only come while the room itself is open, not during Play or the minigames.
 
 ### Removed
 
 - The options POKEMON-AMIE and SUPER TRAINING (both are always on), USE EXTRACTED ART (the
   game's art is always used) and DEV: SCRATCH APP, along with the scratch screen itself.
-
-- Visitors to the Amie room come as in the game again, with no waits: the next as soon as no
-  one is walking in, so groups form and a set-out Poké Puff is eaten sooner (one portion per
-  group that leaves its gift - Basic 1, Frosted 2, Fancy 3, Deluxe 4, Supreme 5 or 7). As in the
-  game, visitors only come while the room itself is open, not during Play or the minigames.
 
 ### Fixed
 
