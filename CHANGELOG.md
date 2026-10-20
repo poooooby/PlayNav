@@ -48,6 +48,8 @@ All notable changes to this mod are documented here. The format follows
   - A Pokémon with a status condition can't play: it shivers and goes back to its ball.
 - Pressing the return button on Amie's SWITCH screen closed Pokémon-Amie; it now just closes
   the list.
+- Visitors to the Amie room come less often: the first 15-30 seconds after the room opens,
+  then 30-60 seconds apart, and a break of 3-5 minutes after a group leaves its gift.
 - After a successful pet the Pokémon could shake violently for a moment, worse the longer the
   game had been running; its breathing and sway now speed up smoothly when it is excited.
 - With a sprite mod that animates battle sprites (such as G9 Battle Sprites), Pokémon-Amie, its
