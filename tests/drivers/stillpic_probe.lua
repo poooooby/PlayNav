@@ -32,6 +32,8 @@ local function body(game, log)
   local Pokemon = require("src.core.game3.pokemon")
   local s = Runtime.getSession()
   if s and #(s.party or {}) == 0 then
+    local slot = tonumber(os.getenv("PROBE_SLOT"))
+    if slot then Party.giveMon(s, slot, 20) end
     Party.giveMon(s, C:require("species", "SPECIES_SWAMPERT"), 40)
     Party.giveMon(s, C:require("species", "SPECIES_TORCHIC"), 12)
   end
@@ -42,14 +44,16 @@ local function body(game, log)
   if not host then log("FAIL no host"); return end
   local function save(img, name)
     local ok = pcall(function()
-      local w, h = img:getDimensions()
-      local c = love.graphics.newCanvas(w, h)
+      local lw = img:getDimensions()
+      local w, h = img:getPixelDimensions()
+      local k = w / lw
+      local c = love.graphics.newCanvas(w, h, { dpiscale = 1 })
       love.graphics.push("all")
       love.graphics.setCanvas(c)
       love.graphics.clear(0, 0, 0, 0)
       love.graphics.origin()
       love.graphics.setColor(1, 1, 1, 1)
-      love.graphics.draw(img, 0, 0)
+      love.graphics.draw(img, 0, 0, 0, k, k)
       love.graphics.setCanvas()
       love.graphics.pop()
       local data = c:newImageData()
@@ -59,6 +63,19 @@ local function body(game, log)
     end)
     return ok
   end
+  if os.getenv("PROBE_ALLFRAMES") and s.party[1] then
+    -- every frame of the first Pokemon's sheet, in order (the clock stepped at the mod's 8 fps)
+    local real, seen, n = love.timer.getTime, {}, 0
+    for f = 0, 63 do
+      love.timer.getTime = function() return f / 8 + 0.01 end
+      local ok, e = pcall(Pokemon.monFrontPic, s.party[1], nil, "summary")
+      love.timer.getTime = real
+      local img = ok and e and e.image
+      if img and seen[img] then break end
+      if img then seen[img] = true; n = n + 1; save(img, ("all_%02d"):format(f)) end
+    end
+    log("frames in the sheet:", n)
+  end
   for _, mon in ipairs(s.party) do
     local name = host.displayName and host.displayName(mon) or "?"
     local raw, ours = {}, {}
@@ -67,13 +84,10 @@ local function body(game, log)
       raw[i] = e and e.image
       local p = host.frontPic(mon)
       ours[i] = p and p.image
-      if i == 1 then
-        if raw[1] then save(raw[1], name .. "_engine_1") end
-        if ours[1] then save(ours[1], name .. "_still") end
-      end
+      if raw[i] then save(raw[i], name .. "_engine_" .. i) end
+      if i == 1 and ours[1] then save(ours[1], name .. "_still") end
       waitSecs(0.23)
     end
-    if raw[4] then save(raw[4], name .. "_engine_4") end
     local rawDiff, oursDiff = 0, 0
     for i = 2, 4 do
       if raw[i] ~= raw[1] then rawDiff = rawDiff + 1 end

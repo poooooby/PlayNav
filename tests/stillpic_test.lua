@@ -38,6 +38,27 @@ T.eq(b, a, "...the same one whenever it is asked")
 T.eq(love.timer.getTime, realGetTime, "the clock is put back")
 T.eq(love.timer.getTime(), 99.9, "...and tells the time again")
 
+-- the resting pose: frames grouped by opaque box, the box held longest wins (frame 0 a dip)
+do
+  local realBox = SP.boxKey
+  local boxes = { [0] = "dip", "up", "rest", "rest", "rest", "up" }
+  SP.boxKey = function(img) return boxes[img.frame] end
+  local seen = {}
+  local function bouncy()
+    local f = math.floor(love.timer.getTime() * 8) % 6
+    seen[f] = seen[f] or { image = { frame = f }, w = 64, h = 64 }
+    return seen[f]
+  end
+  local r = SP.get(bouncy)
+  T.eq(r and r.image.frame, 2, "the pose held longest, not frame 0's dip")
+  T.eq(SP.get(bouncy), r, "...the same one next time")
+  T.eq(love.timer.getTime, realGetTime, "...the clock put back")
+  -- a provider making a new image at every call: frame 0
+  local fresh = function() return { image = { frame = 0 }, w = 64, h = 64 } end
+  T.eq(SP.get(fresh).image.frame, 0, "a new image at every call: frame 0")
+  SP.boxKey = realBox
+end
+
 -- the game's own pic: one 64x64 frame, handed back as it is
 local rom = { image = { name = "rom" }, w = 64, h = 64 }
 T.eq(SP.get(function() return rom end), rom, "the game's own pic passes through untouched")

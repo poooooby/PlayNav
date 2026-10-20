@@ -110,7 +110,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   -- its liveliness (lively by mood, mostly still while petted): `calm`
   -- eases to 1 while it is touched or eating; `hop` a hop under way; `excite` the burst after
   -- a liked touch; `lean` toward the hand
-  local life = { calm = 0, hop = nil, nextHop = 1.5, excite = 0, lean = 0, twitch = 0, t = 0, stroke = 0, flinch = 0 }
+  local life = { calm = 0, hop = nil, nextHop = 1.5, excite = 0, lean = 0, twitch = 0, t = 0, stroke = 0, flinch = 0, phase = 0 }
 
   -- what its mood allows: 0 (low, hungry or unwell) .. 1 (happy, played with), and a status
   local function moodOf(s)
@@ -129,13 +129,14 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local free = 1 - life.calm                    -- petted / eating: almost still
     local ex = math.max(0, life.excite)
     local energy = math.min(1.4, lively + 0.6 * ex)
-    -- breathing: a little faster and fuller the livelier it is (about 0.4 to 1 a second)
-    local w = (0.8 + 0.85 * energy) * math.pi
-    local breath = math.sin(t * w) * (0.012 + 0.018 * energy)
+    -- breathing: a little faster and fuller the livelier it is (about 0.4 to 1 a second); the
+    -- phase is stepped at that rate in stepLife, so a change of rate never jumps the wave
+    local ph = life.phase
+    local breath = math.sin(ph) * (0.012 + 0.018 * energy)
     -- a sway side to side, a bob
-    local tilt = math.sin(t * w * 0.5 + 0.7) * (0.015 + 0.05 * energy) * free
-    local dx = math.sin(t * w * 0.25) * (2 + 6 * energy) * free
-    local lift = (0.5 + 0.5 * math.sin(t * w)) * (1 + 2.5 * energy) * free
+    local tilt = math.sin(ph * 0.5 + 0.7) * (0.015 + 0.05 * energy) * free
+    local dx = math.sin(ph * 0.25) * (2 + 6 * energy) * free
+    local lift = (0.5 + 0.5 * math.sin(ph)) * (1 + 2.5 * energy) * free
     local sx, sy = 1 - breath * 0.6, 1 + breath
     -- a hop: up, a squash on landing
     if life.hop then
@@ -191,6 +192,10 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   local function stepLife(s, dt, pl)
     life.t = life.t + dt
+    do
+      local energy = math.min(1.4, moodOf(s) + 0.6 * math.max(0, life.excite))
+      life.phase = (life.phase + (0.8 + 0.85 * energy) * math.pi * dt) % (8 * math.pi)
+    end
     local still = (touch ~= nil) or (feed ~= nil) or (drag ~= nil) or (wake ~= nil and (wake.stage == "dozing" or wake.stage == "ball" or wake.stage == "sick"))
     life.calm = life.calm + ((still and 1 or 0) - life.calm) * (1 - math.exp(-6 * dt))
     life.excite = math.max(0, life.excite - dt / 1.6)
