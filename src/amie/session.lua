@@ -564,7 +564,6 @@ return function(mod, deps)
     if s.mode ~= "play" then G.enterPlay() end
     s.tool = "games"
     s.feeding = nil
-    G.Games.noteOpened(s.key)
     say(G.tx("whichGame", nil, "Pick a game."), 2)
     onChange()
     return true
@@ -620,6 +619,8 @@ return function(mod, deps)
     s.game = nil
     G.gameApp = nil
     s.mode = "play"
+    -- back in PLAY from a minigame: +10 enjoyment, as opening it
+    Rules.openPlay(s.meters)
     if opts and opts.toPetting then s.tool = nil else s.tool = "games" end
     syncLayer(s)
     Apps:setActive("play", mod.game)
@@ -878,12 +879,13 @@ return function(mod, deps)
       return false, why
     end
     Rules.jarTake(s.puffs, kind)
-    local bites = Rules.bitesFor(s.sizeClass)
+    local bites = Rules.bitesFor(s.national)
     s.feeding = { kind = kind, bites = bites, taken = 0, timer = 0, pace = Rules.bitePace(s.meters, bites) }
     onChange()
     return true
   end
 
+  -- a bite's time, and with the pause a nearly full Pokemon takes after each
   local BITE_QUICK, BITE_SLOW = 0.45, 1.1
 
   -- called every frame while the puff is held on the Pokemon
@@ -892,7 +894,7 @@ return function(mod, deps)
     local f = s and s.feeding
     if not f then return nil end
     f.timer = f.timer + dt
-    local slow = f.pace == "slow" or (f.pace == "slow_late" and f.taken >= math.max(1, f.bites - 2))
+    local slow = Rules.bitePace(s.meters, f.bites) == "slow"
     if f.timer < (slow and BITE_SLOW or BITE_QUICK) then return nil end
     f.timer = 0
     f.taken = f.taken + 1
@@ -969,12 +971,11 @@ return function(mod, deps)
     local meta = Store.meta()
     meta.steps = (meta.steps or 0) + 1
     if meta.steps % N.STEPS.EVERY ~= 0 then return false end
-    -- after the Hall of Fame, visitors bring a Supreme Honor Poke Puff, once
+    -- after the Hall of Fame, the next visitor groups bring Supreme Honor Poke Puffs, one each
+    -- (the game sets a counter of 3 in its Hall of Fame routine, main 0x3d491c)
     if not meta.honorGiven and host.gameCleared and host.gameCleared() then
       meta.honorGiven = true
-      local pending = Store.visitors().gifts
-      pending[#pending + 1] = { kind = "honor", puff = "puff/supreme_honor" }
-      Store.saveVisitors()
+      meta.honorLeft = 3
     end
     Store.saveMeta()
     local m = metersFor(G.activeKey())

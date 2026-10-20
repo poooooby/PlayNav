@@ -224,8 +224,12 @@ local function body(game, log)
       U.wait(3); waitFor(function() return not home.busy() end, 3600)
       U.wait(8)
       shot("02d_home_switch")
-      tapAt("hswitchclose", 20, 60)
+      -- SWITCH slides in; its return button slides it out again
+      waitFor(function() local w = home.switchState(); return w and w.phase ~= "in" end, 3600)
+      tapAt("hswitchclose", home.switchPos("return"))
+      waitFor(function() return home.switchState() == nil end, 3600)
       U.wait(5)
+      log("switch closed:", tostring(home.switchState() == nil))
       -- DECORATE: a cushion into the room, a wallpaper, a puff set out
       openMenu("hpet3")
       bx, by = home.buttonPos("decorate")

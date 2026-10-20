@@ -238,16 +238,6 @@ return function(mod, deps)
     return at
   end
 
-  -- once per save load, opening a minigame cheers the active Pokemon up
-  C.openedThisLoad = {}
-  function C.noteOpened(key)
-    if not key or C.openedThisLoad[key] then return false end
-    C.openedThisLoad[key] = true
-    Rules.openGame(Store.meters(key))
-    Store.saveMons()
-    return true
-  end
-
   -- a finished game: rating, puffs, unlocks, gifts, the participants' stats
   -- `value` is the score (berries, points, puzzles) or seconds for a timed Tile Puzzle
   function C.finish(game, diff, value, participants, rng)
@@ -292,7 +282,7 @@ return function(mod, deps)
     Store.saveVisitors()
     for _, p in ipairs(participants or {}) do
       local key = p.key or (p.mon and host.monKey(p.mon))
-      if key then Rules.gameWin(Store.meters(key), game, diff) end
+      if key then Rules.gameWin(Store.meters(key), game, diff, C.stepFor(game, diff, value) - 1) end
     end
     Store.saveMons()
     return result

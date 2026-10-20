@@ -70,27 +70,42 @@ return function(N)
   function R.hit(meters) return add(meters, "enjoyment", N.HIT.ENJOYMENT) end
   function R.highFive(meters) return add(meters, "enjoyment", N.HIGH_FIVE.ENJOYMENT) end
   function R.canHighFive(meters) return (meters.affection or 0) >= N.HIGH_FIVE.MIN_AFFECTION end
+  -- the ticks a held-out hand waits before the Pokemon reaches for it (fonder: sooner)
+  function R.highFiveTicks(affection, rng)
+    local H = N.HIGH_FIVE
+    local r = rng and rng(H.RAND) or math.floor(math.random() * H.RAND)
+    return (math.floor((MAX - (affection or 0)) / H.STEP) + 1) * H.PER_STEP + r
+  end
   function R.openPlay(meters) return add(meters, "enjoyment", N.OPEN_PLAY.ENJOYMENT) end
-  function R.openGame(meters) return add(meters, "enjoyment", N.GAME.OPEN_ENJOYMENT) end
 
-  -- a won minigame, applied to every participant
-  function R.gameWin(meters, game, difficulty)
-    local enj = N.GAME.ENJOYMENT
-    if game == "tile" and (difficulty == "easy" or difficulty == "normal") then enj = N.GAME.ENJOYMENT_EASY_TILE end
+  -- a played minigame, applied to every participant; `step` the result's star step 0..6
+  -- (Unlimited pays by it)
+  function R.gameEnjoyment(game, difficulty, step)
+    local G = N.GAME
+    if difficulty == "unlimited" then return G.UNLIMITED_ENJOYMENT + G.UNLIMITED_STEP * math.max(0, math.min(6, step or 0)) end
+    local e = G.ENJOYMENT[game]
+    if type(e) == "table" then e = e[difficulty] end
+    return e or 80
+  end
+  function R.gameWin(meters, game, difficulty, step)
     add(meters, "fullness", N.GAME.FULLNESS)
-    return add(meters, "enjoyment", enj)
+    return add(meters, "enjoyment", R.gameEnjoyment(game, difficulty, step))
   end
 
+  -- a battle the Amie Pokemon took part in: fullness down; enjoyment up only below 50, never past it
   function R.battleEntered(meters)
     add(meters, "fullness", N.BATTLE.FULLNESS)
-    add(meters, "enjoyment", N.BATTLE.ENJOYMENT)
+    local e = meters.enjoyment or 0
+    if e < N.BATTLE.ENJOYMENT_BELOW then
+      meters.enjoyment = math.min(N.BATTLE.ENJOYMENT_BELOW, e + N.BATTLE.ENJOYMENT)
+    end
   end
 
   -- `blocks` completed blocks of 50 steps
   function R.steps(meters, blocks)
     for _ = 1, blocks or 1 do
       add(meters, "fullness", N.STEPS.FULLNESS)
-      if (meters.enjoyment or 0) <= N.STEPS.ENJOYMENT_BELOW then add(meters, "enjoyment", N.STEPS.ENJOYMENT) end
+      if (meters.enjoyment or 0) < N.STEPS.ENJOYMENT_BELOW then add(meters, "enjoyment", N.STEPS.ENJOYMENT) end
     end
   end
 
@@ -103,13 +118,16 @@ return function(N)
     return false
   end
 
+  -- the affection milestone a rise earns a Decor gift for: the highest crossed only (a list of
+  -- none or one)
   function R.giftsCrossed(before, after)
-    local out = {}
+    local best
     for _, t in ipairs(N.GIFT_AFFECTION) do
-      if before < t and after >= t then out[#out + 1] = t end
+      if before < t and after >= t then best = t end
     end
-    return out
+    return best and { best } or {}
   end
+  function R.giftSet(threshold) return N.GIFT_SET[threshold] end
 
   -- the icon over a wandering Pokemon: "puff" | "note" | "orange_note" | nil
   function R.hint(meters)
@@ -267,19 +285,20 @@ return function(N)
 
   -- ------- feeding
 
-  -- how many bites a Pokemon takes: by its sprite size class
-  function R.bitesFor(sizeClass)
-    if sizeClass == "large" then return 2 end
-    if sizeClass == "medium" then return 3 end
-    return 5
+  -- how many bites a species takes (by National Dex number; the game's per-species record)
+  function R.bitesFor(national)
+    return N.PUFF.BITES[tonumber(national) or 0] or N.PUFF.BITES_DEFAULT
   end
 
-  -- "quick" | "slow_late" | "slow": how the bites play
+  -- "quick" | "slow": a nearly full Pokemon taking two or more bites pauses after each
   function R.bitePace(meters, bites)
-    local f = meters.fullness or 0
-    if f >= N.PUFF.ALL_SLOW_FROM then return "slow" end
-    if f >= N.PUFF.SLOW_FROM then return bites == 2 and "quick" or "slow_late" end
+    if (meters.fullness or 0) >= N.PUFF.SLOW_AT and (bites or 3) >= 2 then return "slow" end
     return "quick"
+  end
+
+  -- one bite's fullness: 50 div bites (the last bite the remainder, finishPuff)
+  function R.biteFullness(bites)
+    return math.floor(N.PUFF.FULLNESS / math.max(1, bites or 3))
   end
 
   -- can the puff be offered? false, "full" | "cannot"
@@ -291,14 +310,14 @@ return function(N)
 
   -- one bite of a puff that is not (yet) finished
   function R.bite(meters, bites)
-    return add(meters, "fullness", N.PUFF.BITE_FULLNESS[bites] or N.PUFF.BITE_FULLNESS[3])
+    return add(meters, "fullness", R.biteFullness(bites))
   end
 
   -- the whole puff eaten: fullness +50 total, affection by tier. `bitesTaken`
   -- partial bites were already credited and are deducted from the 50.
   function R.finishPuff(meters, id, bitesCredited, bites)
     local p = R.PUFF_BY_ID[id]
-    local perBite = N.PUFF.BITE_FULLNESS[bites] or 0
+    local perBite = R.biteFullness(bites)
     add(meters, "fullness", N.PUFF.FULLNESS - perBite * (bitesCredited or 0))
     meters.puffsEaten = (meters.puffsEaten or 0) + 1
     return add(meters, "affection", p and p.affection or N.PUFF.AFFECTION.basic)
@@ -309,7 +328,7 @@ return function(N)
     local ok, why = R.canFeed(meters, national)
     if not ok then return false, why end
     if not R.jarTake(jar, id) then return false, "none" end
-    return true, R.finishPuff(meters, id, 0, 2)
+    return true, R.finishPuff(meters, id, 0, 1)
   end
 
   -- Status strings the host normalises to; nil when healthy

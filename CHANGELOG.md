@@ -24,6 +24,30 @@ All notable changes to this mod are documented here. The format follows
   - Unlimited follows the game's own steps, one to three Pokémon and back, faster as it goes,
     until you miss three balls.
 - Berry Picker's HIGH SCORE shows your best number of berries (it showed the star rating).
+- Pokémon-Amie now follows the game's own rules for the room, visitors, gifts and Poké Puffs
+  (read from its code; they replace numbers that were our guesses):
+  - **Visitors** come one after another, with no waiting between them. Whether one stays
+    depends on the Poké Puff set out (half the time with none, up to always with a Supreme
+    one), and each Décor item sitting on a guest seat makes staying more likely.
+  - **Their gift** follows the game's choice. Three of one species bring any new item; one
+    evolution line brings set D or a Deluxe puff; one type brings that type's Décor; otherwise
+    their affection plus the puff set out picks a set from A to F, or a puff instead. Poison,
+    Ghost and Dark Décor only comes once you own 20 Décor (or from a group of that type).
+    After the Hall of Fame, the next three groups each bring a Supreme Honor Poké Puff. Up to
+    five gifts wait in the room.
+  - **Affection gifts** come at 25, 50, 75, 100, 150 and 255 affection (25 and 75 were missing).
+  - **Poké Puffs**: how many bites a Pokémon takes is its species' own (one to five), and
+    every bite is an equal share of the puff. A nearly full Pokémon (230) pauses after each
+    bite, and a full one (255) turns away. Flavour makes no difference, as in the game.
+  - **Hitting** is a quick double press on the Pokémon (−5 enjoyment). **High fives** come
+    sooner the fonder it is of you, while you hold your finger off it (+10 enjoyment).
+  - **Enjoyment**: +10 for opening PLAY and for coming back to it from a minigame (not for
+    opening the minigame list). Minigames give 80, except Tile Puzzle on Easy (30) and
+    Normal (50); Unlimited gives 80–140 by rank. Walking and battles cheer up only the
+    Pokémon chosen for Amie, and only while its enjoyment is under 50.
+  - A Pokémon with a status condition can't play: it shivers and goes back to its ball.
+- Pressing the return button on Amie's SWITCH screen closed Pokémon-Amie; it now just closes
+  the list.
 - Petting in Pokémon-Amie follows the game's own rules (read from its Amie script): what counts
   is the time your finger keeps moving on the Pokémon. About two seconds on one kind of spot
   (more for each reward in a row on the same spot), or five seconds anywhere, earns its reward:

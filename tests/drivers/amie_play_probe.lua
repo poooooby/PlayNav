@@ -75,6 +75,7 @@ local function body(game, log)
     local app = Apps:get("play")
     local st = function() return app.state() end
     local settle = function(limit) waitFor(function() return not app.busy() end, limit or 1200); U.wait(4) end
+    local function waitSecs(sec) local t = love.timer.getTime(); while love.timer.getTime() - t < sec do U.wait(1) end end
     log("wake:", st().wake)
     shot("p01_asleep")
     -- the wake
@@ -140,6 +141,33 @@ local function body(game, log)
       U.wait(4)
       log("zone", zone, "hand", st().hand, "emote", st().emote)
       shot("p06_zone_" .. zone)
+      settle()
+    end
+    -- a hit: a second press on the body within 4 ticks of the first
+    do
+      local hx, hy = app.tapPoint("zone", "chest")
+      local e0 = R.state().meters.enjoyment
+      press("h1", hx, hy); U.wait(1); release("h1", hx, hy)
+      press("h2", hx, hy); U.wait(1); release("h2", hx, hy)
+      U.wait(3)
+      log("hit: enjoyment", e0, "->", R.state().meters.enjoyment, "emote", st().emote)
+      shot("p06b_hit")
+      waitSecs(0.5)
+      press("h3", hx, hy); U.wait(2); release("h3", hx, hy)
+      waitSecs(0.3)
+      press("h4", hx, hy); U.wait(2); release("h4", hx, hy)
+      log("two slow taps: enjoyment", R.state().meters.enjoyment)
+      settle()
+    end
+    -- a high five: a finger held off the Pokemon until the countdown runs out (high affection: soon)
+    do
+      R.state().meters.affection = 255
+      local e0 = R.state().meters.enjoyment
+      local t0 = love.timer.getTime()
+      press("five", 236, 150)
+      waitFor(function() return R.state().meters.enjoyment > e0 end, 60 * 20)
+      log(("high five after %.2f s: enjoyment %d -> %d"):format(love.timer.getTime() - t0, e0, R.state().meters.enjoyment))
+      release("five", 236, 150)
       settle()
     end
     -- the strip and a meal

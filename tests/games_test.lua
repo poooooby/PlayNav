@@ -199,8 +199,6 @@ do
   T.eq(res.rank, 3, "a tie goes below the older one")
   T.eq(table.concat(C.times("tile", "easy"), ","), "30,48,48", "...and the slowest falls off")
   T.eq(table.concat(C.times("tile", "unlimited"), ","), "17", "unlimited keeps the most puzzles")
-  T.eq(C.noteOpened("1:1"), true, "the first game opened this load cheers the Pokemon")
-  T.eq(C.noteOpened("1:1"), false, "...only once")
 end
 
 T.finish("play_nav games")

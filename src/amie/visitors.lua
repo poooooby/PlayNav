@@ -1,9 +1,12 @@
--- Visitors: while the room is open, Pokemon from the player's Pokedex (seen
--- species plus the party) drop by one at a time, decide whether to stay,
--- and once three have stayed they chat for thirty seconds and leave a gift
--- before departing. The gift set follows their combined affection, raised
--- by the Poke Puff set out; three of a type give that type's set, one
--- evolutionary line gives anything. Rules: Bulbapedia "Pokemon-Amie", Visitors.
+-- Visitors: while the room is open, Pokemon drop by one at a time (the next as soon as no one
+-- is walking), each rolling on arrival whether it stays; once three sit they chat for thirty
+-- seconds and leave a gift before departing. Rules from the game's room code (DllField.cro,
+-- the gift choice at 0x0d6494): the stay odds come from the Poke Puff set out plus the Decor
+-- on the guest seats; the gift by the group: Supreme Honor puffs after the Hall of Fame, a
+-- basic puff for the special pairs, any new item for three of one species, set D or a deluxe
+-- puff for one evolution line, the type's Decor for three of a type, else by their combined
+-- affection plus the puff's bonus. Who visits is ours: the game's visitors are the players
+-- passed in the PSS; ours are the species in the player's Pokedex.
 --
 -- deps = { session = G, Rules, Decor, Store, host }
 
@@ -16,7 +19,11 @@ return function(mod, deps)
   V.SPOTS = { { x = 125, y = 123 }, { x = 160, y = 98 }, { x = 195, y = 123 } }
   V.MID = 160
   V.CHAT_SECS = 30
-  V.MAX_PENDING = 6
+  V.MAX_PENDING = 5            -- a sixth gift pushes out the oldest (main 0x466800)
+  V.LOOK_S = 1.0               -- ours: the pause on arriving before sitting or walking off
+  -- the group's affection (plus the puff's bonus) to a set, or a puff of the tier, half and half
+  V.BANDS = { { 150, "A", "basic" }, { 300, "B", "frosted" }, { 450, "C", "fancy" }, { 600, "D", "deluxe" }, { 765, "E" } }
+  V.HONOR_GROUPS = 3           -- the Hall of Fame's Supreme Honor puffs, one a group
   V.CONVERSATION = {
     A = { "?", "..." }, B = { "?", "...", "!" }, C = { "...", "!", "note" },
     D = { "!", "!!", "note", "heart" }, E = { "!", "!!", "!!!", "note", "heart" }, F = { "!", "!!", "note", "heart", "heart", "heart" },
@@ -44,7 +51,7 @@ return function(mod, deps)
   function V.reset()
     V.present = {}
     V.group = nil
-    V.nextArrival = 4 + V.rng() * 4
+    V.nextArrival = 0
   end
 
   -- the player's average affection shapes how affectionate visitors are
@@ -60,6 +67,8 @@ return function(mod, deps)
   local function newVisitor()
     local list = pool()
     local sp = list[math.floor(V.rng() * #list) + 1]
+    -- whether it stays is rolled as it arrives
+    local stays = V.rng() < Decor.puffOutEffect(Store.room()).stay
     local avg = averageAffection()
     local aff = Rules.clamp(math.floor(avg + (V.rng() - 0.5) * 200), 0, 255)
     local side = V.rng() < 0.5 and -1 or 1
@@ -68,23 +77,38 @@ return function(mod, deps)
       affection = aff, types = host.typesOf and host.typesOf(sp) or {}, root = host.evoRoot and host.evoRoot(sp) or sp,
       icon = host.iconSpecies and host.iconSpecies(sp) or nil,
       x = side < 0 and -25 or 345, y = V.SPOTS[spot].y, tx = V.SPOTS[spot].x, ty = V.SPOTS[spot].y,
-      side = side, state = "enter", timer = 0, facing = side < 0 and 1 or -1, frame = 0, frameT = 0 }
+      side = side, state = "enter", timer = 0, facing = side < 0 and 1 or -1, frame = 0, frameT = 0, stays = stays }
   end
 
-  -- the gift set from the group's combined affection and the puff set out
+  -- the group's gift (the game's order: the first that applies)
   function V.giftRequest(group, room)
+    local meta = Store.meta()
+    if (meta.honorLeft or 0) > 0 then
+      meta.honorLeft = meta.honorLeft - 1
+      Store.saveMeta()
+      return { puff = "puff/supreme_honor", set = "F" }
+    end
+    local has = {}
+    for _, v in ipairs(group) do has[v.national or v.species] = true end
+    -- Pidgey and Caterpie, or Karrablast and Shelmet: a basic puff (and their own reactions)
+    if (has[16] and has[10]) or (has[588] and has[616]) then return { puffTier = "basic", set = "A" } end
     local total = 0
-    local sameRoot, sameType = true, nil
+    local sameSpecies, sameRoot, sameType = true, true, nil
     local typeCount = {}
     for _, v in ipairs(group) do
       total = total + (v.affection or 0)
+      if v.species ~= group[1].species then sameSpecies = false end
       if v.root ~= group[1].root then sameRoot = false end
       local seenT = {}
       for _, t in ipairs(v.types or {}) do
         if not seenT[t] then seenT[t] = true; typeCount[t] = (typeCount[t] or 0) + 1 end
       end
     end
-    if sameRoot then return { any = true, set = "D" } end
+    if sameSpecies then return { any = true, set = "D" } end
+    if sameRoot then
+      if V.rng() < 0.7 then return { set = "D" } end
+      return { puffTier = "deluxe", set = "D" }
+    end
     for t, n in pairs(typeCount) do
       if n == #group then sameType = t end
     end
@@ -92,12 +116,14 @@ return function(mod, deps)
       local name = host.typeName and host.typeName(sameType)
       if name and Decor.BY_CATEGORY[name] then return { category = name, set = "D" } end
     end
-    local idx = 1 + math.floor(total / 766 * 6)
-    idx = math.min(6, math.max(1, idx))
-    local effect = Decor.puffOutEffect(room)
-    local minIdx = Decor.SET_INDEX[effect.minSet or "A"] or 1
-    if idx < minIdx then idx = minIdx end
-    return { set = Decor.SETS[idx] }
+    total = total + (Decor.puffOutEffect(room).giftBonus or 0)
+    for _, b in ipairs(V.BANDS) do
+      if total < b[1] then
+        if b[3] and V.rng() >= 0.5 then return { puffTier = b[3], set = b[2] } end
+        return { set = b[2] }
+      end
+    end
+    return { set = "F" }
   end
 
   local function startChat(room)
@@ -110,8 +136,9 @@ return function(mod, deps)
     local pending = Store.visitors().gifts
     local names = {}
     for _, v in ipairs(V.present) do names[#names + 1] = v.name end
-    local rec = { kind = "visitor", set = V.group.req.set, category = V.group.req.category, any = V.group.req.any,
-      from = table.concat(names, ", "), names = names }
+    local req = V.group.req
+    local rec = { kind = "visitor", set = req.set, category = req.category, any = req.any, puff = req.puff,
+      puffTier = req.puffTier, from = table.concat(names, ", "), names = names }
     pending[#pending + 1] = rec
     while #pending > V.MAX_PENDING do table.remove(pending, 1) end
     Store.saveVisitors()
@@ -134,7 +161,6 @@ return function(mod, deps)
 
   function V.update(dt)
     local room = Store.room()
-    local stayChance = Decor.puffOutEffect(room).stay
     for _, v in ipairs(V.present) do
       v.frameT = v.frameT + dt
       if v.frameT >= 0.2 then v.frameT = 0; v.frame = 1 - v.frame end
@@ -150,8 +176,8 @@ return function(mod, deps)
         end
       elseif v.state == "decide" then
         v.timer = v.timer + dt
-        if v.timer >= 2 then
-          if V.rng() < stayChance then
+        if v.timer >= V.LOOK_S then
+          if v.stays then
             v.state = "stay"
             v.facing = v.x < V.MID and 1 or -1
           else
@@ -194,17 +220,23 @@ return function(mod, deps)
     if not busy and #V.present < 3 then
       V.nextArrival = V.nextArrival - dt
       if V.nextArrival <= 0 then
-        -- a leaver still walking out keeps its spot until gone
+        -- a leaver still walking out keeps its spot until gone; the seats fill as the game's
+        -- do: either side seat at random when both are free, the other side, the middle last
         local occupied = {}
         for _, v in ipairs(V.present) do occupied[v.tx] = true end
+        local L, M, R = 1, 2, 3
+        local freeL, freeR = not occupied[V.SPOTS[L].x], not occupied[V.SPOTS[R].x]
         local free
-        for i, sp in ipairs(V.SPOTS) do if not occupied[sp.x] then free = i; break end end
+        if freeL and freeR then free = (V.rng() < 0.5) and L or R
+        elseif freeL then free = L
+        elseif freeR then free = R
+        elseif not occupied[V.SPOTS[M].x] then free = M end
         if free then
           local v = newVisitor()
           v.tx, v.ty, v.y = V.SPOTS[free].x, V.SPOTS[free].y, V.SPOTS[free].y
           V.present[#V.present + 1] = v
         end
-        V.nextArrival = 6 + V.rng() * 6
+        V.nextArrival = 0
       end
     end
   end
@@ -245,7 +277,7 @@ return function(mod, deps)
       if v.state ~= "leave" then v.state, v.timer = "leave", 0; any = true end
     end
     V.group = nil
-    V.nextArrival = 6 + V.rng() * 4
+    V.nextArrival = 0
     return any
   end
 

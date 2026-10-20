@@ -508,8 +508,9 @@ return function(mod, Pointer, G, Rules, Store, host)
     if not (s and s.mode == "home") or fade then return end
     if ev.phase ~= "released" or not Pointer.isTap(rec, 16, 1.0) then return end
     local lx, ly = toLow(ev.x, ev.y)
-    if math.abs(lx - RETURN[1]) <= 20 and math.abs(ly - RETURN[2]) <= 20 then G.finish(); return end
+    -- SWITCH first: its return sits over the room's
     if sw then switchPointer(ev.x / L, (ev.y + bleed()) / L); return end
+    if math.abs(lx - RETURN[1]) <= 20 and math.abs(ly - RETURN[2]) <= 20 then G.finish(); return end
     local x, y = toRoom(ev.x, ev.y)
     if menu then
       if menu.press then return end

@@ -161,8 +161,13 @@ T.eq(D.puffOutEffect(room).stay, 0.5, "no puff: visitors stay half the time")
 T.eq(D.setPuffOut(room, jar, "puff/sweet_deluxe"), true, "a deluxe puff is set out")
 T.eq(#jar, 1, "...out of the jar")
 T.eq(room.puffOutGroups, 4, "...for four groups")
-T.eq(D.puffOutEffect(room).stay, 0.95, "...and visitors stay 95%")
-T.eq(D.puffOutEffect(room).minSet, "B", "...with gifts from set B at least")
+T.eq(D.puffOutEffect(room).stay, 0.9, "...and visitors stay 90%")
+T.eq(D.puffOutEffect(room).giftBonus, 150, "...with 150 added to the group's affection for the gift")
+room.items = room.items or {}
+local savedItems = room.items
+room.items = { { id = "cushion/leaf_cushion", x = D.SEATS[1].x, y = D.SEATS[1].y } }
+T.eq(D.puffOutEffect(room).stay, 1.0, "an item on a guest seat adds 10 (100 at most)")
+room.items = savedItems
 for _ = 1, 4 do D.puffGroupUsed(room) end
 T.eq(room.puffOut, nil, "after four groups it is gone")
 local okO, whyO = D.setPuffOut(room, jar, "puff/sweet_deluxe")
@@ -180,8 +185,17 @@ T.check(text:find("You received the"), "granting says what arrived")
 T.eq(D.owns(decor, g.id), true, "...and it is owned")
 for _, r in ipairs(D.BY_SET.F) do D.own(decor, r.id) end
 local g2 = D.roll({ set = "F" }, decor, rng0)
-T.eq(g2.kind, "puff", "with set F complete the gift is a puff")
-T.eq(Rules.puffTier(g2.id), "deluxe", "...a deluxe one")
+T.eq(g2.kind, "item", "with set F all owned a set F gift is still an item (it may repeat)")
+local g4 = D.roll({ puffTier = "deluxe" }, decor, rng0)
+T.eq(Rules.puffTier(g4.id), "deluxe", "a puff request gives a puff of its tier")
+local few = { owned = {} }
+local locked = false
+for i = 1, 40 do
+  local r = D.roll({ set = "D" }, few, function() return (i % 37) / 37 end)
+  local row = D.get(r.id)
+  if row and D.LOCKED[row.category] then locked = true end
+end
+T.eq(locked, false, "under 20 Decor owned, no Poison, Ghost or Dark Decor is given")
 local g3 = D.roll({ category = "Fire" }, decor, rng0)
 T.eq(D.get(g3.id).category, "Fire", "a type gift comes from that type")
 T.eq(D.requestOf({ kind = "milestone", affection = 150 }).set, "E", "150 affection asks for set E")

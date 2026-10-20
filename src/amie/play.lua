@@ -89,6 +89,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local function idleS() return Rules.ticks(Rules.IDLE.TICKS) end
   local function dozeS() return Rules.ticks(Rules.IDLE.CYCLES * Rules.IDLE.CYCLE_TICKS) end
   local lastActive = 0
+  -- unwell on entering: three shivers (the script's motion 5, three times), then the room
+  local SICK_S, SICK_SHIVERS = 3.0, 3
   local petLock = 0       -- after a reward or a recoil: petting waits until then
   local lastMode = nil
   local touch = nil       -- { id, x, y (layout), sx, sy (scene), onBody, t } a finger on the Pokemon
@@ -100,7 +102,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local picker = nil      -- { stage = "badge" | "diff", game = 1..3, diff = 1..4 }
   local pv = { tab = 145, cont = 0, badges = 0, plates = 0 }        -- the picker panes, eased
   local holdFive = nil
-  local lastTap = nil
+  local lastPress = nil   -- when the last press on the body began (a hit is a second one soon after)
+  local fiveLeft = 0      -- the high five's countdown, seconds; it runs only while a hand is held out
   local dance = nil
   local flash = nil       -- { t, dur } a white flash over everything
   local stars = {}        -- the flash's stars
@@ -149,6 +152,14 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local f = math.min(1, wake.t / Rules.IDLE.BALL_S)
       sx, sy = sx * (1 - f), sy * (1 - f)
     end
+    -- unwell on entering: a hunched shiver, SICK_SHIVERS times
+    if wake and wake.stage == "sick" then
+      local per = SICK_S / SICK_SHIVERS
+      local into = (wake.t % per) / per
+      local on = into < 0.6 and math.sin(into / 0.6 * math.pi) or 0
+      dx = dx + math.sin(t * 30) * 2 * on
+      sy, sx = sy - 0.05 * on, sx + 0.03 * on
+    end
     -- dozing off: it sinks a little and nods
     if wake and wake.stage == "dozing" then
       local d = math.min(1, wake.t / 1.2)
@@ -169,7 +180,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   local function stepLife(s, dt, pl)
     life.t = life.t + dt
-    local still = (touch ~= nil) or (feed ~= nil) or (drag ~= nil) or (wake ~= nil and (wake.stage == "dozing" or wake.stage == "ball"))
+    local still = (touch ~= nil) or (feed ~= nil) or (drag ~= nil) or (wake ~= nil and (wake.stage == "dozing" or wake.stage == "ball" or wake.stage == "sick"))
     life.calm = life.calm + ((still and 1 or 0) - life.calm) * (1 - math.exp(-6 * dt))
     life.excite = math.max(0, life.excite - dt / 1.6)
     if life.twitch > 0 then life.twitch = life.twitch - dt end
@@ -497,6 +508,18 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local sx, sy = toScene(lx, ly)
     rec.amieBody = true
     rec.lastX, rec.lastY = lx, ly
+    -- a second press on the body within HIT.TICKS of the first is a hit
+    if onBody(pl, sx, sy, 1.2) then
+      local t = now()
+      if lastPress and t - lastPress <= Rules.ticks(Rules.N.HIT.TICKS) then
+        lastPress = nil
+        G.hit()
+        setHand("hit", lx, ly)
+        showEmote("emote/angry", 1.0)
+        return
+      end
+      lastPress = t
+    end
     if onBody(pl, sx, sy, 1.2) and now() < petLock then return end
     if onBody(pl, sx, sy, 1.2) then
       touch = { id = ev.id, x = lx, y = ly, sx = sx, sy = sy, t = now() }
@@ -511,8 +534,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local function handleMove(ev, rec, s, lx, ly)
     if drag and drag.id == ev.id then drag.x, drag.y = lx, ly; return end
     if holdFive and holdFive.id == ev.id then
-      local dx, dy = lx - holdFive.x, ly - holdFive.y
-      if dx * dx + dy * dy > 100 then holdFive = nil; hand = nil end
+      holdFive.x, holdFive.y = lx, ly
       if hand then hand.x, hand.y = lx, ly end
     end
     if not rec.amieBody or not touch then return end
@@ -592,22 +614,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
           G.say(G.tx("needThree", nil, "Earn three stars on the rank below first."), 2.5)
         end
       elseif rec.amieBody and wasTouch then
-        -- two quick taps on the same place is a hit; one tap is a pet
-        local pl = placement(s)
-        local sx, sy = toScene(lx, ly)
-        local N = Rules.N.HIT
-        local t = now()
-        if lastTap and t - lastTap.t <= N.WINDOW_S
-            and math.abs(lx - lastTap.x) * L <= N.RADIUS_PX and math.abs(ly - lastTap.y) * L <= N.RADIUS_PX then
-          lastTap = nil
-          G.hit()
-          setHand("hit", lx, ly)
-          showEmote("emote/angry", 1.0)
-        else
-          -- a tap is not petting (the game counts only a moving finger): the hand's sparkle
-          lastTap = { x = lx, y = ly, t = t }
-          setHand("tap", lx, ly)
-        end
+        -- a tap is not petting (the game counts only a moving finger): the hand's sparkle
+        setHand("tap", lx, ly)
       end
     end
     if hand and not hand.untilT and not touch and not holdFive then hand = nil end
@@ -661,6 +669,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
       wake = { session = s, stage = back and "asleep" or "awake", t = 0, back = back }
       lastActive = now()
       petLock = 0
+      lastPress = nil
+      fiveLeft = Rules.ticks(Rules.highFiveTicks(s.meters and s.meters.affection or 0))
       if G.resetPetting then G.resetPetting() end
       -- content and full on entering: it dozes off at once (once a visit)
       local m = s.meters or {}
@@ -683,6 +693,11 @@ return function(mod, Pointer, G, Rules, Petting, host)
       wake.t = wake.t + dt
       if wake.t >= 0.25 then
         wake.stage, wake.t = "awake", 0
+        -- unwell (a status condition): it cannot play; it shivers three times, then its ball
+        if s.status then
+          wake.stage = "sick"
+          G.say(("%s doesn't seem to be feeling well..."):format(s.name or "It"), SICK_S)
+        end
         if wake.sated then wake.sated = nil; lastActive = now() - idleS() end
         local pl = placement(s)
         spawn("note", pl.headX - 30, pl.headY, 2)
@@ -705,6 +720,9 @@ return function(mod, Pointer, G, Rules, Petting, host)
           life = 1.6, age = 0, size = 7 + math.random() * 3 }
       end
       if wake.t >= dozeS() then wake.stage, wake.t = "ball", 0 end
+    elseif wake.stage == "sick" then
+      wake.t = wake.t + dt
+      if wake.t >= SICK_S then wake.stage, wake.t = "ball", 0 end
     elseif wake.stage == "ball" then
       -- back into its ball, then the room
       wake.t = wake.t + dt
@@ -808,14 +826,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
       pv.plates = ease(pv.plates, -200 * (picker.diff - 1), kp)
     end
 
-    -- the high-five: a still finger off the Pokemon
-    if holdFive and now() - holdFive.startT >= Rules.N.HIGH_FIVE.HOLD_S then
-      local pl = placement(s)
-      local hx, hy = toScene(holdFive.x, holdFive.y)
-      holdFive = nil
-      hand = nil
-      if G.highFive() then spawn("sparkle", hx, hy, 6); showEmote("emote/laugh", 1.5) end
-      local _ = pl
+    -- the high-five: a finger held off the Pokemon; once the hand is out (POSE_TICKS) the
+    -- countdown runs, then it reaches for the hand, and a new countdown is rolled
+    if holdFive and now() - holdFive.startT >= Rules.ticks(Rules.N.HIGH_FIVE.POSE_TICKS) then
+      fiveLeft = fiveLeft - dt
+      if fiveLeft <= 0 then
+        local hx, hy = toScene(holdFive.x, holdFive.y)
+        holdFive = nil
+        hand = nil
+        if G.highFive() then spawn("sparkle", hx, hy, 6); showEmote("emote/laugh", 1.5) end
+        fiveLeft = Rules.ticks(Rules.highFiveTicks(s.meters and s.meters.affection or 0))
+      end
     end
     -- milestones the session reported
     for _, ev in ipairs(G.takeEvents()) do
@@ -1157,13 +1178,6 @@ return function(mod, Pointer, G, Rules, Petting, host)
         local size = iw >= 64 and 56 or 34
         G2.setColor(1, 1, 1, 1)
         G2.draw(img, hand.x, hand.y, 0, size / iw, size / ih, iw / 2, ih / 2)
-      end
-      if holdFive then
-        local f = math.min(1, (now() - holdFive.startT) / Rules.N.HIGH_FIVE.HOLD_S)
-        G2.setColor(1, 1, 1, 0.85)
-        G2.setLineWidth(2)
-        G2.arc("line", "open", hand.x, hand.y, 22, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 24)
-        G2.setLineWidth(1)
       end
     end
 

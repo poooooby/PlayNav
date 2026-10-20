@@ -216,27 +216,21 @@ T.check(rec.lastCareAt ~= nil, "...and a last-played timestamp")
 -- ------- outside a session: steps and battles move the active Pokemon's stats
 
 local m = A.meters("1234:77")
-m.fullness, m.enjoyment = 100, 50
+m.fullness, m.enjoyment = 100, 49
 for _ = 1, 50 do S.onStep() end
 T.eq(m.fullness, 99, "50 steps take one fullness")
-T.eq(m.enjoyment, 51, "...and give one enjoyment")
--- the Hall of Fame: one Supreme Honor puff waits with the visitors, once
-local gifts = A.store.visitors().gifts
-local giftsBefore = #gifts
+T.eq(m.enjoyment, 50, "...and give one enjoyment below 50")
+-- the Hall of Fame: the next three visitor groups bring Supreme Honor puffs, set up once
 local liveHost = X._test.refreshHost()
 liveHost.gameCleared = function() return true end
 for _ = 1, 100 do S.onStep() end
 liveHost.gameCleared = function() return false end
-T.eq(#gifts, giftsBefore + 1, "after the Hall of Fame one gift waits, however far you walk")
-T.eq(gifts[#gifts].puff, "puff/supreme_honor", "...a Supreme Honor puff")
-local honorJar = #A.puffs()
-A.visitors.claim(#gifts)
-T.eq(A.puffs()[#A.puffs()], "puff/supreme_honor", "...claimed into the jar")
-T.eq(#A.puffs(), honorJar + 1, "...one puff")
-m.fullness, m.enjoyment = 99, 51
+T.eq(A.store.meta().honorLeft, 3, "after the Hall of Fame three groups will bring Honor puffs, however far you walk")
+A.store.meta().honorLeft = 1
+m.fullness, m.enjoyment = 99, 47
 S.onBattleStarted()
 T.eq(m.fullness, 89, "entering a battle takes 10 fullness")
-T.eq(m.enjoyment, 56, "...and gives 5 enjoyment")
+T.eq(m.enjoyment, 50, "...and gives up to 5 enjoyment, never past 50")
 
 -- ------- opening from the menu: the room, then play and back, then a switch
 
@@ -349,18 +343,28 @@ T.eq(Dc.nearestCushion(A.store.room(), 100, 100).id, "cushion/leaf_cushion", "..
 local Vs = A.visitors
 T.check(#Vs.poolOf() >= 4, "the visitor pool has species to draw from")
 local before = #Vs.pending()
-local req = Vs.force({ 4, 5, 6 }, { 255, 255, 255 })
-T.eq(req.any, true, "three of one evolutionary line give any item")
+local req = Vs.force({ 4, 25, 7 }, { 0, 0, 0 })
+T.eq(req.puff, "puff/supreme_honor", "the group after the Hall of Fame brings a Supreme Honor puff")
+local honorJar = #A.puffs()
+local _, honorGift = Vs.claim(#Vs.pending())
+T.eq(honorGift and honorGift.id, "puff/supreme_honor", "...claimed into the jar")
+T.eq(#A.puffs(), honorJar + 1, "...one puff")
+before = #Vs.pending()
+req = Vs.force({ 4, 4, 4 }, { 255, 255, 255 })
+T.eq(req.any, true, "three of one species give any new item")
+req = Vs.force({ 4, 5, 6 }, { 255, 255, 255 })
+T.eq(req.set, "D", "three of one evolutionary line give set D (or a deluxe puff)")
 req = Vs.force({ 4, 25, 7 }, { 255, 255, 255 })
 T.eq(req.set, "F", "three at max affection give set F")
 req = Vs.force({ 4, 25, 7 }, { 0, 0, 0 })
-T.eq(req.set, "A", "three at zero give set A")
-T.eq(#Vs.pending(), math.min(before + 3, 6), "three more gifts wait on the floor (six at most)")
+T.eq(req.set, "A", "three at zero give set A (or a basic puff)")
+T.eq(#Vs.pending(), math.min(before + 4, 5), "the gifts wait on the floor (five at most)")
 Dc.setPuffOut(A.store.room(), A.puffs(), Rules.ownedPuffs(A.puffs())[1].id)
+local nPending = #Vs.pending()
 local text, gift = Vs.claim(1)
 T.check(text and text:find("You received"), "claiming a gift says what arrived")
 T.check(gift.kind == "item" or gift.kind == "puff", "...an item or a puff")
-T.eq(#Vs.pending(), math.min(before + 3, 6) - 1, "...and it leaves the floor")
+T.eq(#Vs.pending(), nPending - 1, "...and it leaves the floor")
 S.finish()
 
 -- ------- benefits: the endure odds and affection lookup

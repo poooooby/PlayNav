@@ -44,30 +44,63 @@ return {
   -- at once on entering when enjoyment and fullness are both at least SATED
   IDLE = { TICKS = 900, CYCLES = 3, CYCLE_TICKS = 60, SATED = 150, BALL_S = 0.35 },
 
+  -- feeding, as Amie's script runs it: a puff is FULLNESS in BITES[national] bites (50 div bites
+  -- each, the last the remainder), then its tier's affection; no flavour or nature enters it;
+  -- from SLOW_AT fullness a Pokemon taking two or more bites pauses after each; at 255 it turns
+  -- away from the puff. Eating changes no enjoyment.
   PUFF = {
     FULLNESS = 50,                       -- a whole puff
     AFFECTION = { basic = 2, frosted = 3, fancy = 4, deluxe = 5, supreme = 6, supreme_special = 10 },
-    BITE_FULLNESS = { [2] = 24, [3] = 16, [5] = 10 },  -- per bite of a puff not finished
-    SLOW_FROM = 198, ALL_SLOW_FROM = 214,  -- fullness bands that slow the bites
+    SLOW_AT = 230,
     CAP = 100,                           -- jar size; the oldest puff is lost past it
     START = 10,
+    BITES_DEFAULT = 3,
+    -- the species that take other than three bites (a/0/8/9 entries 1-721, s16 at +306)
+    BITES = {
+      [23] = 1, [24] = 1, [316] = 1, [317] = 1, [321] = 1, [336] = 1, [443] = 1, [455] = 1,
+      [3] = 2, [95] = 2, [103] = 2, [115] = 2, [130] = 2, [131] = 2, [143] = 2, [146] = 2,
+      [148] = 2, [149] = 2, [150] = 2, [160] = 2, [199] = 2, [208] = 2, [226] = 2, [244] = 2,
+      [245] = 2, [248] = 2, [249] = 2, [250] = 2, [289] = 2, [297] = 2, [306] = 2, [320] = 2,
+      [330] = 2, [350] = 2, [357] = 2, [381] = 2, [382] = 2, [383] = 2, [384] = 2, [389] = 2,
+      [450] = 2, [460] = 2, [464] = 2, [465] = 2, [472] = 2, [473] = 2, [477] = 2, [483] = 2,
+      [484] = 2, [486] = 2, [487] = 2, [493] = 2, [497] = 2, [545] = 2, [593] = 2, [604] = 2,
+      [614] = 2, [623] = 2, [638] = 2, [640] = 2, [643] = 2, [644] = 2, [646] = 2, [675] = 2,
+      [697] = 2, [699] = 2, [706] = 2, [713] = 2, [716] = 2, [717] = 2, [718] = 2,
+      [50] = 5, [177] = 5, [298] = 5, [406] = 5, [412] = 5, [433] = 5, [492] = 5, [590] = 5,
+      [595] = 5, [602] = 5, [682] = 5,
+    },
   },
 
+  -- a played minigame, every participant: fullness and enjoyment by game and rank; Unlimited
+  -- by the result's star step (0..6: +80 .. +140)
   GAME = {
-    FULLNESS = -110, ENJOYMENT = 80, ENJOYMENT_EASY_TILE = 30,
-    OPEN_ENJOYMENT = 10,                 -- once per save load
+    FULLNESS = -110,
+    ENJOYMENT = { berry = 80, head = 80, tile = { easy = 30, normal = 50, hard = 80 } },
+    UNLIMITED_ENJOYMENT = 80, UNLIMITED_STEP = 10,
     PARTICIPANTS = 3,
   },
 
-  BATTLE = { FULLNESS = -10, ENJOYMENT = 5 },
-  STEPS = { EVERY = 50, FULLNESS = -1, ENJOYMENT = 1, ENJOYMENT_BELOW = 70 },  -- 0-70 inclusive
-  HIT = { ENJOYMENT = -5, WINDOW_S = 0.3, RADIUS_PX = 10 },
-  HIGH_FIVE = { ENJOYMENT = 10, HOLD_S = 5, MIN_AFFECTION = 5 },
+  -- the Pokemon chosen for Amie only, when it took part in a battle / every 50 steps:
+  -- enjoyment only below ENJOYMENT_BELOW (a battle's never past it)
+  BATTLE = { FULLNESS = -10, ENJOYMENT = 5, ENJOYMENT_BELOW = 50 },
+  STEPS = { EVERY = 50, FULLNESS = -1, ENJOYMENT = 1, ENJOYMENT_BELOW = 50 },
+  -- a hit: a second press on the body within TICKS of the first
+  HIT = { ENJOYMENT = -5, TICKS = 4 },
+  -- a high five: a finger held still off the Pokemon (after POSE_TICKS the hand is held out)
+  -- counts down ((255 - affection) div STEP + 1) x PER_STEP + rand(RAND) ticks (only while
+  -- held; rolled again after an attempt), then it reaches for the hand, TRIES times at most;
+  -- needs MIN_AFFECTION
+  HIGH_FIVE = { ENJOYMENT = 10, MIN_AFFECTION = 5, POSE_TICKS = 10, STEP = 50, PER_STEP = 30, RAND = 30, TRIES = 2 },
+  -- opening PLAY, and coming back to it from a minigame
   OPEN_PLAY = { ENJOYMENT = 10 },
-  MAKING_FACES = { AFFECTION = 8, FULLNESS = -50, ENJOYMENT = 80 },  -- needs a camera; unused
+  -- the camera and microphone games (no camera or microphone here; unused)
+  MAKING_FACES = { AFFECTION = 4, FULLNESS = -50, ENJOYMENT = 40 },
+  MIC = { ENJOYMENT = 5, TIMES = 4 }, SMILE = { ENJOYMENT = 5, TIMES = 4 },
 
-  DANCE_EVERY = 50,                      -- hearts and two cries at 50, 100, ...; three at 255
-  GIFT_AFFECTION = { 50, 100, 150, 255 },  -- each affection level from 2 up
+  DANCE_EVERY = 50,                      -- hearts, twice at 50, 100, 150, 200; three times at 255
+  -- affection milestones that give a Decor gift (the highest crossed only), and their sets
+  GIFT_AFFECTION = { 25, 50, 75, 100, 150, 255 },
+  GIFT_SET = { [25] = "B", [50] = "C", [75] = "D", [100] = "D", [150] = "E", [255] = "F" },
   HINT = { LOW = 50, HIGH = 200 },       -- icons over a wandering Pokemon
 
   -- benefits in battle
@@ -80,14 +113,14 @@ return {
   },
 
   -- species that never eat Poke Puffs (no visible mouth)
-  NON_EATERS = { [11] = true, [14] = true, [204] = true, [266] = true, [268] = true, [292] = true },
+  NON_EATERS = { [11] = true, [14] = true, [204] = true, [266] = true, [268] = true, [292] = true, [665] = true },
   -- species that cannot be petted at all (burning / freezing whole body)
   NO_PET = { [218] = true, [378] = true },
 
   -- where each value comes from; a row covers the path and everything under it
   EVIDENCE = {
     MAX = { class = "verified", source = "Bulbapedia Pokemon-Amie: stats run 0..255", confidence = "high" },
-    LEVELS = { class = "verified", source = "Bulbapedia Pokemon-Amie: level thresholds 1 / 50 / 100 / 150 / 255; the words Affection / Fullness / Enjoyment are a/0/7/3 file 111 lines 14-16", confidence = "high" },
+    LEVELS = { class = "verified", source = "DllField.cro 0xd790c / 0xd4120 (levels 1-49, 50-99, 100-149, 150-254, 255); Bulbapedia Pokemon-Amie agrees; the words Affection / Fullness / Enjoyment are a/0/7/3 file 111 lines 14-16", confidence = "high" },
     PET = { class = "verified", source = "Amie's script a/0/8/9 entry 0 (func_0cca0, rewards 0xd890..0xdb68); Bulbapedia Pokemon-Amie, Petting agrees", confidence = "high" },
     ["PET.TICK_HZ"] = { class = "verified", source = "the game runs at 30 fps (Wooble, 2026-10-19); the script yields once a frame, so the idle sleep's 900 ticks are 30 s", confidence = "high" },
     ["PET.MOVE_PX"] = { class = "verified", source = "a/0/8/9 func_05534(4) at 0xd67c / 0xd714: abs delta > 4 touch px", confidence = "high" },
@@ -102,26 +135,26 @@ return {
     ["PET.LOCK_S"] = { class = "inferred", source = "the script locks touch until the happy motion (func_04f2c) ends; the motion's length is ours", confidence = "low" },
     IDLE = { class = "verified", source = "a/0/8/9 func_0f284: L5 > 900 (0xfc24..0xfc44), 3 sleep cycles (0xfc94..0x10234), 60 ticks with no motion, at once when enjoyment and fullness >= 150 (0xf364..0xf3b0)", confidence = "high" },
     ["IDLE.BALL_S"] = { class = "inferred", source = "func_10ec4: it shrinks into its ball over 10 ticks before the room", confidence = "medium" },
-    PUFF = { class = "verified", source = "Bulbapedia Poke Puff: +50 fullness, affection by tier, bites, the slow bands", confidence = "high" },
+    PUFF = { class = "verified", source = "Amie's script a/0/8/9 e0: fullness 50 div bites, the last the remainder (func_0b144 0xb248-0xb34c); affection = the puff table a/2/2/3's b1 (_GetCakePara(1), 0xb844 / 0xb860; read by main 0x468e14); a pause after each bite from 230 with 2+ bites (0xb470-0xb640); refused at 255 (0xc5b4); no flavour read anywhere", confidence = "high" },
+    ["PUFF.BITES"] = { class = "verified", source = "a/0/8/9 entries 1-721 (National Dex), s16 at +306 (the script's G448): 639 species 3 bites; that this is G448 is inferred from the record layout and the spread", confidence = "medium" },
     ["PUFF.CAP"] = { class = "verified", source = "Bulbapedia Poke Puff: up to 100 kept; a/0/7/3 files 105-107 'You can't carry any more Poke Puffs!' confirms a cap", confidence = "high" },
     ["PUFF.START"] = { class = "placeholder", source = "ours: the starting jar", confidence = "low" },
-    GAME = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affecting stats: a game -110 fullness, +80 enjoyment (+30 easy Tile Puzzle), +10 on opening", confidence = "high" },
+    GAME = { class = "verified", source = "DllPuzzle.cro 0x55d0-0x5634 (ro 0xe0f4: easy 30, normal 50, hard 80, Unlimited 80..140 by result), DllNuts.cro 0x4434-0x44a8 (ro 0xd594: 80; Unlimited 80..140), DllHeading.cro 0x44c4 (80; Unlimited 80..140); fullness -110 each; row = difficulty, index = result is inferred", confidence = "high" },
     ["GAME.PARTICIPANTS"] = { class = "verified", source = "a/0/7/3 file 124 line 9 'You need three Pokemon in good condition.'", confidence = "high" },
-    BATTLE = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affecting stats", confidence = "high" },
-    STEPS = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affecting stats", confidence = "high" },
-    HIT = { class = "verified", source = "Bulbapedia Pokemon-Amie: a hit -5 enjoyment", confidence = "medium" },
-    ["HIT.WINDOW_S"] = { class = "placeholder", source = "ours: what reads as a hit on this screen", confidence = "low" },
-    ["HIT.RADIUS_PX"] = { class = "placeholder", source = "ours", confidence = "low" },
-    HIGH_FIVE = { class = "verified", source = "Bulbapedia Pokemon-Amie: a high five +10 enjoyment", confidence = "medium" },
-    ["HIGH_FIVE.HOLD_S"] = { class = "placeholder", source = "ours: how long the hand is held out", confidence = "low" },
-    ["HIGH_FIVE.MIN_AFFECTION"] = { class = "inferred", source = "Bulbapedia: a Pokemon high-fives once it is fond of you; the threshold is ours", confidence = "low" },
-    OPEN_PLAY = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affecting stats", confidence = "high" },
-    MAKING_FACES = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affecting stats (needs the camera; unused)", confidence = "high" },
-    DANCE_EVERY = { class = "inferred", source = "Bulbapedia: the Pokemon celebrates as affection grows; the cadence is ours", confidence = "low" },
-    GIFT_AFFECTION = { class = "verified", source = "oraswiki Pokemon-Amie: decorations are won by raising the affection level (levels 2-5 at 50 / 100 / 150 / 255); a/0/7/3 file 111 lines 11, 19 are the gift lines", confidence = "medium" },
-    HINT = { class = "placeholder", source = "ours: when the room shows a hunger or boredom icon", confidence = "low" },
+    BATTLE = { class = "verified", source = "main 0x3e8a64 -> 0x3b5548: the Amie Pokemon only, when it took part (flag +0x155); enjoyment +5 only below 50, capped at 50 (0x3b5594-0x3b55ac); fullness -10 (0x3b55c0)", confidence = "high" },
+    STEPS = { class = "verified", source = "DllField.cro 0x23818-0x2384c (every 50 steps) -> main 0x478828: enjoyment +1 only below 50 (0x478880), fullness -1 (0x4788a0); the Amie Pokemon only (party +0x19)", confidence = "high" },
+    HIT = { class = "verified", source = "Amie's script func_0a234 (0xaf28-0xb048): a new press on the body while the first press's counter is 1..4; func_09fc0: enjoyment -5 (0xa054)", confidence = "high" },
+    HIGH_FIVE = { class = "verified", source = "Amie's script: pose at 10 ticks (0xa4d8-0xa53c), countdown ((255 - aff) div 50 + 1) * 30 + rand(30) (0xa3b8), runs only while held off the body (0xa778), affection >= 5 (0xa7cc), 2 tries (0xa878), success on body part 10 during the reach (0xa92c), +10 enjoyment (0xaaa8), rolled again (0xab54); the reach needs the species' motion 25", confidence = "high" },
+    OPEN_PLAY = { class = "verified", source = "Amie's script func_104c8 0x10cf0-0x10d1c (+10 on opening PLAY, once a run) and func_10d88 0x10e60 (+10 back from a minigame); the room changes no stats (DllField imports no setter)", confidence = "high" },
+    MAKING_FACES = { class = "verified", source = "Amie's script 0x1296c / 0x12994 / 0x129b0 (per success); microphone +5 x4 (0x2d0c), smile +5 x4 (0x6698); no camera or microphone here, unused", confidence = "high" },
+    DANCE_EVERY = { class = "verified", source = "Amie's script func_095f0: thresholds 50 / 100 / 150 / 200 / 255 (data 0x51c), played 2 / 2 / 2 / 2 / 3 times, once each a visit, after feeding, a petting reward or a face game", confidence = "high" },
+    GIFT_AFFECTION = { class = "verified", source = "main 0x408fc8 (thresholds 25 / 50 / 75 / 100 / 150 / 255 at 0x581c24; the highest crossed since the last stored value only), sets DllField 0xfb404 (B C D D E F); lines 11 / 19 of file 111", confidence = "high" },
+    HINT = { class = "placeholder", source = "ours: the game shows no hint over the room's Pokemon (DllField has only the menu's bubbles)", confidence = "low" },
     BENEFITS = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affection benefits", confidence = "high" },
-    NON_EATERS = { class = "verified", source = "Bulbapedia Poke Puff: species that cannot eat", confidence = "high" },
+    GIFT_SET = { class = "verified", source = "DllField.cro table 0xfb404: the affection milestones' sets B C D D E F", confidence = "high" },
+    MIC = { class = "verified", source = "Amie's script: microphone +5 enjoyment for the first 4 times (G1264, 0x2d0c); no microphone here, unused", confidence = "high" },
+    SMILE = { class = "verified", source = "Amie's script: a camera smile >= 50 gives +5 enjoyment, 4 times at most (G1268, 0x6698); no camera here, unused", confidence = "high" },
+    NON_EATERS = { class = "verified", source = "DllField.cro 0xd40f0-0xd411c (no fullness bubble for 11, 14, 204, 266, 268, 292, 665); Bulbapedia Poke Puff agrees", confidence = "high" },
     NO_PET = { class = "verified", source = "Bulbapedia Petting: Slugma and Regice cannot be petted", confidence = "high" },
   },
 }

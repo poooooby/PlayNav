@@ -13,8 +13,9 @@ return function(CATALOG, Rules)
   D.SET_INDEX = { A = 1, B = 2, C = 3, D = 4, E = 5, F = 6 }
   -- the puff a visitor group leaves instead of an item, by set
   D.SET_PUFF_TIER = { A = "basic", B = "frosted", C = "fancy", D = "deluxe" }
-  -- affection milestones to sets (Bulbapedia: 25 -> B, 50 -> C, 75 and 100 -> D, 150 -> E, 255 -> F)
-  D.MILESTONE_SET = { [50] = "C", [100] = "D", [150] = "E", [255] = "F" }
+  -- affection milestones to sets (the game's: 25 -> B, 50 -> C, 75 and 100 -> D, 150 -> E, 255 -> F;
+  -- data/amie_rules.lua GIFT_SET)
+  D.MILESTONE_SET = { [25] = "B", [50] = "C", [75] = "D", [100] = "D", [150] = "E", [255] = "F" }
 
   D.BY_ID = {}
   D.ITEMS = {}        -- cushions and objects
@@ -325,18 +326,40 @@ return function(CATALOG, Rules)
     if room.puffOutGroups <= 0 then room.puffOut, room.puffOutGroups = nil, 0 end
   end
 
-  -- how the set-out puff changes visitors: stay chance, minimum gift set
-  function D.puffOutEffect(room)
+  -- the set-out puff for visitors (the puff table a/2/2/3: b2 the stay odds in percent, the u32 a
+  -- bonus to the group's affection when the gift is chosen); none set out: 50, 0
+  D.PUFF_OUT = { none = { 50, 0 }, basic = { 70, 0 }, frosted = { 80, 50 }, fancy = { 90, 100 },
+    deluxe = { 90, 150 }, seasonal = { 100, 300 }, special = { 100, 500 } }
+  -- a Decor item set exactly on a guest seat adds SEAT_BONUS to the stay odds, SEAT_BONUS_MAX at most
+  D.SEAT_BONUS, D.SEAT_BONUS_MAX = 10, 30
+  local function puffOutRow(room)
     local id = room.puffOut
-    if not id then return { stay = 0.5, minSet = "A" } end
+    if not id then return D.PUFF_OUT.none end
     local tier = Rules.puffTier(id)
-    if tier == "basic" then return { stay = 0.65, minSet = "A" } end
-    if tier == "frosted" then return { stay = 0.8, minSet = "A" } end
-    if tier == "fancy" then return { stay = 0.9, minSet = "A" } end
-    if tier == "deluxe" then return { stay = 0.95, minSet = "B" } end
-    local p = Rules.PUFF_BY_ID[id]
-    if p and p.seasonal then return { stay = 1.0, minSet = "C" } end
-    return { stay = 1.0, minSet = "D" }
+    if tier == "supreme" then
+      local p = Rules.PUFF_BY_ID[id]
+      return (p and p.seasonal) and D.PUFF_OUT.seasonal or D.PUFF_OUT.special
+    end
+    return D.PUFF_OUT[tier] or D.PUFF_OUT.none
+  end
+
+  -- items sitting on the guest seats
+  function D.seatedItems(room)
+    local n = 0
+    for _, it in ipairs(room.items or {}) do
+      for _, sp in ipairs(D.SEATS) do
+        if math.abs(it.x - sp.x) < 1 and math.abs(it.y - sp.y) < 1 then n = n + 1; break end
+      end
+    end
+    return n
+  end
+
+  -- how the set-out puff changes visitors: the stay chance (0..1, with the seat bonus) and the
+  -- gift bonus
+  function D.puffOutEffect(room)
+    local row = puffOutRow(room)
+    local bonus = math.min(D.SEAT_BONUS_MAX, D.SEAT_BONUS * D.seatedItems(room))
+    return { stay = math.min(100, row[1] + bonus) / 100, giftBonus = row[2] }
   end
 
   -- ------- gifts
@@ -352,21 +375,53 @@ return function(CATALOG, Rules)
     return pool[math.floor(rng() * #pool) + 1]
   end
 
-  -- resolve one gift request into { kind = "item", id } or { kind = "puff", id }
-  -- req = { set = "A".."F" } | { category = "Fire" } | { any = true }
+  -- while the player owns fewer than LOCK_UNTIL Decor, the Poison, Ghost and Dark Decor is
+  -- never given (but by a group of that type)
+  D.LOCK_UNTIL = 20
+  D.LOCKED = { Poison = true, Ghost = true, Dark = true }
+
+  local function pick(list, rng) return list[math.floor(rng() * #list) + 1] end
+  local function puffOf(tier, rng)
+    local flavors = { "sweet", "mint", "citrus", "mocha", "spice" }
+    local id = "puff/" .. pick(flavors, rng) .. "_" .. tier
+    return { kind = "puff", id = id, name = Rules.puffName(id) }
+  end
+  local function wallGift(r) return { kind = "item", id = r.id, name = r.name } end
+
+  -- resolve one gift request (the game's DllField 0x0d70d0 / 0x0694ec) into { kind = "item", id }
+  -- or { kind = "puff", id }:
+  --   { set = "A".."F" }: a wallpaper of the set not owned (half the time, when there is one),
+  --     else any item of the set (it may be one already owned)
+  --   { category = "Fire" }: the type's wallpaper half the time when not owned, else one of its items
+  --   { any = true }: an item not owned from any set (any item once all are owned)
+  --   { puffTier = "deluxe" }: a puff of that tier
   function D.roll(req, decor, rng)
     rng = rng or math.random
-    local rows
-    if req.any then rows = D.ITEMS
-    elseif req.category then rows = D.BY_CATEGORY[req.category]
-    else rows = D.BY_SET[req.set or "A"] end
-    local item = D.unownedFrom(rows, decor, rng)
-    if item then return { kind = "item", id = item.id, name = item.name } end
-    -- everything in that set is owned: a puff of the matching tier
-    local tier = D.SET_PUFF_TIER[req.set or "A"] or "deluxe"
-    local flavors = { "sweet", "mint", "citrus", "mocha", "spice" }
-    local id = "puff/" .. flavors[math.floor(rng() * 5) + 1] .. "_" .. tier
-    return { kind = "puff", id = id, name = Rules.puffName(id) }
+    if req.puff then return { kind = "puff", id = req.puff, name = Rules.puffName(req.puff) } end
+    if req.puffTier then return puffOf(req.puffTier, rng) end
+    local locked = (D.ownedCount(decor) < D.LOCK_UNTIL) and not req.category
+    local function allowed(r) return not (locked and D.LOCKED[r.category]) end
+    if req.any then
+      local item = D.unownedFrom(D.ITEMS, decor, rng) or pick(D.ITEMS, rng)
+      return { kind = "item", id = item.id, name = item.name }
+    end
+    local rows = req.category and D.BY_CATEGORY[req.category] or D.BY_SET[req.set or "A"] or {}
+    local walls, items = {}, {}
+    for _, r in ipairs(rows) do
+      if allowed(r) then
+        if r.kind == "wall" then
+          if not D.owns(decor, r.id) then walls[#walls + 1] = r end
+        elseif r.kind == "cushion" or r.kind == "object" then
+          items[#items + 1] = r
+        end
+      end
+    end
+    if #walls > 0 and (rng() < 0.5 or #items == 0) then return wallGift(pick(walls, rng)) end
+    if #items > 0 then
+      local it = pick(items, rng)
+      return { kind = "item", id = it.id, name = it.name }
+    end
+    return puffOf(D.SET_PUFF_TIER[req.set or "A"] or "deluxe", rng)
   end
 
   -- give a resolved gift to the player; returns the text to show
@@ -382,6 +437,8 @@ return function(CATALOG, Rules)
   -- pending records (from milestones, unlocks, five-star runs, visitor groups)
   -- carry a set or category; turn them into concrete gifts
   function D.requestOf(pending)
+    if pending.puff then return { puff = pending.puff } end
+    if pending.puffTier then return { puffTier = pending.puffTier } end
     if pending.category then return { category = pending.category } end
     if pending.any then return { any = true } end
     if pending.set then return { set = pending.set } end
