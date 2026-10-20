@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-20 (alpha)
+
 ### Changed
 
 - Super Training: once a regimen starts (after the intro), your Pokémon and its hover board fade
