@@ -900,6 +900,19 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return D.board or nil
   end
 
+  -- once the regimen is under way (the intro over) the trainee and its board are see-through,
+  -- so the balloon and its goals show through a big sprite: `RIDER_SEE` opacity, eased in over
+  -- `RIDER_FADE_S` from the start of play; whole through the intro
+  D.RIDER_SEE, D.RIDER_FADE_S = 0.4, 0.35
+  local playFrom = setmetatable({}, { __mode = "k" })   -- sim -> its clock when play began
+  function D.riderAlpha(sim)
+    if not sim or sim.phase == "countdown" then return 1 end
+    playFrom[sim] = playFrom[sim] or sim.t or 0
+    local t = (sim.t or 0) - playFrom[sim]
+    local f = math.max(0, math.min(1, t / D.RIDER_FADE_S))
+    return 1 - (1 - D.RIDER_SEE) * f
+  end
+
   local function drawPlayer(G2, sim, s)
     local p = sim.player
     local px, py, k = Sim.project(p.x, p.y or 0, p.z)
@@ -939,17 +952,18 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.arc("fill", px, py - 18 * k, 26 * k, -math.pi * 0.9, -math.pi * 0.1, 16)
     end
     local feetY = py + 2 - lift * k
+    local see = D.riderAlpha(sim)
     if board then
       -- under the rider, rolling and pitching with it
       local pitch = boardPitch(sim)
       hsy = hsy * (1 - D.BOARD.RIDER_PITCH * pitch)
-      G2.setColor(1, 1, 1, 1)
+      G2.setColor(1, 1, 1, see)
       local bk = k * D.BOARD.scale
       drawPixel(board, px, feetY, lean, bk, bk * (1 + D.BOARD.PITCH * pitch), D.BOARD.cx, D.BOARD.feetY)
     end
     if pic then
       local flash = p.stun > 0 and (math.floor(sim.t * 20) % 2 == 0)
-      G2.setColor(1, 1, 1, flash and 0.4 or 1)
+      G2.setColor(1, 1, 1, (flash and 0.4 or 1) * see)
       -- scaled about its feet, so a squash flattens it onto the ground; a full-resolution
       -- frame (pic.k) at the size the pic would have had
       local y = feetY
@@ -960,7 +974,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         drawPixel(pic.image, px, y, lean, ak * hsx * face, ak * hsy, pic.w / 2, pic.h)
       end
     else
-      G2.setColor(0.95, 0.6, 0.2, 1)
+      G2.setColor(0.95, 0.6, 0.2, see)
       G2.circle("fill", px, py - 14 * k, 12 * k, 16)
     end
     -- the reticle (the game's HUD draws its own)

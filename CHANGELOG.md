@@ -5,6 +5,11 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Super Training: once a regimen starts (after the intro), your Pokémon and its hover board fade
+  to 40% opacity, so the Balloon Bot and its goals show through a big sprite.
+
 ### Fixed
 
 - In Play, a big Pokémon's back sprite from the HD sprites mod (Zygarde Complete, Hisuian
