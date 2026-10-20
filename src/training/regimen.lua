@@ -143,7 +143,30 @@ return function(mod, T, deps)
   -- one event's haptic (src/haptics.lua): a goal hit pulses (harder charged), a hit taken
   -- knocks, the balloon popping and the clear burst; the stand-in sound's own is skipped
   local HAPTIC = { goal_hit = "medium", player_hit = "hurt", bot_pop = "big", bit_pop = "light",
-    blocked = "light", chance_goal = "strong", clear = "success", shot_fired = "tick" }
+    blocked = "light", chance_goal = "strong", clear = "success", shot_fired = "tick",
+    play = "strong", timeout = "bad" }
+
+  -- felt as they change, frame by frame: each charge stage a held shot reaches (the full one
+  -- strong), the energy meter filling for the Energy Shot, and a tick for each of the last
+  -- five seconds on the clock
+  local function stateHaptics(s, sim)
+    local H = mod.haptics
+    if not H then return end
+    local stage = sim.chargeStage and sim:chargeStage() or 0
+    local last = s.hapticStage or 0
+    if stage > last then
+      H.pulse(stage >= #N.CHARGE.STAGE_S and "strong" or "light")
+    end
+    s.hapticStage = stage
+    local full = (sim.guts or 0) >= (N.GUTS.FULL_AT or 1)
+    if full and not s.hapticGutsFull then H.pattern("happy") end
+    s.hapticGutsFull = full
+    if sim.phase == "play" and sim.remaining then
+      local sec = math.ceil(sim.remaining)
+      if sec <= 5 and sec >= 1 and sec ~= s.hapticSec then H.pulse("tick") end
+      s.hapticSec = sec
+    end
+  end
   local function eventHaptic(e)
     local H = mod.haptics
     local what = H and HAPTIC[e.kind]
@@ -224,6 +247,7 @@ return function(mod, T, deps)
     if not (s and sim) then return end
     chargeSound(s, sim)
     flightSound(s, sim)
+    stateHaptics(s, sim)
     if sim.phase ~= "play" and s.warnSound then
       if type(s.warnSound) == "table" then s.warnSound.stop() end
       s.warnSound = nil

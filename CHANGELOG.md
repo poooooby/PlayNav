@@ -15,7 +15,13 @@ All notable changes to this mod are documented here. The format follows
   Head It's connected hits (harder on a perfect one) and the giant yarn; Tile Puzzle's tiles
   landing home and the finished picture; misses everywhere knock twice. Super Training: each
   punch on the bag, a cleared bag and a found bag; in a regimen your shots, goal hits (harder
-  charged), hits on your Pokémon, the balloon popping and the clear.
+  charged), hits on your Pokémon, the balloon popping and the clear. Also: your Pokémon turning
+  to face you in Play, each step of its affection dance and its "wants to give you something",
+  a puff it turns away, the jolt that makes it pull away; the minigames' countdowns, START!,
+  TIME'S UP and HIGH SCORE stamps, Head It's 10 / 50 / 100 combos, a berry let go of; Super
+  Training's second wind, the stat that went up, the Balloon Bot's five pumps and START, each
+  charge stage of a held shot (the full one strong), a full energy meter, the regimen's last
+  five seconds, and each results page.
 - Controller support on Pokémon-Amie's minigame picker: left and right move between Berry
   Picker, Head It and Tile Puzzle (and between the difficulties), A does what a tap on the
   selected one does, and B steps back from the difficulties to the games. Left and right also

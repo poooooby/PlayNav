@@ -341,7 +341,9 @@ return function(mod, deps)
   -- the Emerald stand-in; returns the effect's handle (handle:stop()) when the game's played
   -- the menus' sounds tick (src/haptics.lua); the regimen's play their own in regimen.lua
   local MENU_TICK = { select_course = "tick", transition = "tick", start_course = "tick", result_next = "tick",
-    result_jingle = "success" }
+    result_jingle = "success",
+    -- the regimen's intro: each of the five pumps that blow the Balloon Bot up
+    pump = "medium" }
   function T.playSe(event, standIn, opts)
     local H, what = mod.haptics, MENU_TICK[event]
     if H and what then
@@ -556,7 +558,6 @@ return function(mod, deps)
     if not def then return end
     -- on screen, the cleared bag gets the game's finishing move: one of three clips with its
     -- line, the glow, then what the bag did; the messages below wait for it (say)
-    if s == T.session and mod.haptics then mod.haptics.pattern("success") end
     if T.FINISH_MOVE and s == T.session and s.anim then
       local clip = 1 + math.floor(T.rng() * #T.FINISH_CLIPS)
       s.anim.finish = { t = 0, clip = T.FINISH_CLIPS[clip], bag = def.id, queue = {} }
@@ -773,6 +774,7 @@ return function(mod, deps)
     rec.restedAt = nil
     -- up again with a second wind, for one bag or one regimen
     rec.secondWind = true
+    if mod.haptics then mod.haptics.pattern("happy") end
     awake(rec, wall())
     T.touch()
     rec.nextAutoAt = wall() + autoInterval()
@@ -1003,6 +1005,8 @@ return function(mod, deps)
       if f >= T.FINISH.WORDS_AT and not fin.worded then
         -- the bag's words (the stat that went up) until the home screen comes back
         fin.worded = true
+        -- the stat that went up is revealed
+        if fin.statUp and mod.haptics then mod.haptics.pattern("happy") end
         local first = table.remove(fin.queue, 1)
         s.message = first and first.text or nil
         s.messageUntil = now() + (T.FINISH.DONE - T.FINISH.WORDS_AT) / 30

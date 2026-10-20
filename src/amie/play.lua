@@ -812,6 +812,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
           G.say(("%s doesn't seem to be feeling well..."):format(s.name or "It"), SICK_S)
         end
         if wake.sated then wake.sated = nil; lastActive = now() - idleS() end
+        -- it turns to face you
+        if not s.status then buzzPattern("happy") end
         local pl = placement(s)
         spawn("note", pl.headX - 30, pl.headY, 2)
         spawn("note", pl.headX + 30, pl.headY, 1)
@@ -864,6 +866,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
           local r = G.petEffect(dt, effect)
           if r then hitEffect(effect, lx, ly) end
           if r == "recoil" then
+            buzzPattern("hurt")
             showEmote("emote/angry", 1.0)
             G.bump(-0.12, 0)
             endTouch(1.0)
@@ -927,6 +930,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
             want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.headX, pl.mouthY, drag.x, drag.y
           else
             drag.refused = true
+            buzzPattern("bad")     -- full, or it can't eat: it turns the puff away
           end
         end
       end
@@ -1045,6 +1049,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       elseif ev.kind == "gift" then
         G.say(("%s wants to give you something!"):format(s.name), 3)
         showEmote("emote/love", 2)
+        buzzPattern("big")
       end
     end
     if dance then
@@ -1053,6 +1058,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
         dance.next = dance.next + 0.6
         dance.cries = dance.cries - 1
         G.bump(0.15, 12)
+        buzz("medium")       -- each step of its dance
         local pl = placement(s)
         spawn("heart", pl.headX, pl.headY - 20, 4)
         if dance.cries <= 0 then dance = nil end

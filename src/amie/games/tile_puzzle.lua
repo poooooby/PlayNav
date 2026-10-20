@@ -232,6 +232,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     Dn:set("8v", "visible", text ~= nil)
     Dn:set("99", "visible", text ~= nil)
     if text then
+      if mod.haptics then mod.haptics.pulse("strong") end   -- START! / NEXT! / TIME'S UP!
       Dn:setText("99", text, { align = "center", valign = "center" })
       -- anm_start for every banner: anm_next / anm_timeup left the words out (their 99 tracks
       -- keep it unseen in our player); START!'s shows the window and grows the words
@@ -1078,6 +1079,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       Up:set("8s", "visible", true)
       Up:setText("8u", Games.line("tile", "highScore", nil, "HIGH SCORE"), { align = "center", valign = "center" })
       Up:play("highsc_anime")
+      if mod.haptics then mod.haptics.pattern("success") end
     end
   end
 

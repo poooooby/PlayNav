@@ -315,6 +315,10 @@ return function(mod, Pointer, G, Games, Rules, host)
     if c % 10 == 0 then
       local mon = st.participants[b.slot] and st.participants[b.slot].mon
       if mon then host.playCry(mon) end
+      -- a combo milestone: bigger at 50 and 100
+      if mod.haptics then
+        mod.haptics.pattern(c % 100 == 0 and "big" or (c % 50 == 0 and "success" or "happy"))
+      end
     end
   end
 
@@ -651,6 +655,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if st.diff ~= "unlimited" and st.timer <= 0 then
         st.timer = 0
         setPhase("timeup")
+        if mod.haptics then mod.haptics.pattern("big") end
       end
     elseif ph == "timeup" then
       -- the balls still up are played out
@@ -1323,7 +1328,10 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     -- HIGH SCORE: a new best (drawn over TOTAL by drawStamp)
     F:set("3b", "visible", false)
-    if shown and res.newHigh and not st.stampAt then st.stampAt = st.rt or 0 end
+    if shown and res.newHigh and not st.stampAt then
+      st.stampAt = st.rt or 0
+      if mod.haptics then mod.haptics.pattern("success") end
+    end
   end
 
   -- the HIGH SCORE stamp at the layout's 3b (its corner of TOTAL, overlapping the number's

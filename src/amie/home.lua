@@ -691,7 +691,11 @@ return function(mod, Pointer, G, Rules, Store, host)
     -- milestones
     for _, ev in ipairs(G.takeEvents()) do
       if ev.kind == "dance" then dance = { cries = ev.cries, t = 0, next = 0 }
-      elseif ev.kind == "gift" then G.say(("%s wants to give you something!"):format(s.name), 3); showEmote("emote/love", 2) end
+      elseif ev.kind == "gift" then
+        G.say(("%s wants to give you something!"):format(s.name), 3)
+        showEmote("emote/love", 2)
+        if mod.haptics then mod.haptics.pattern("big") end
+      end
     end
     if dance then
       dance.t = dance.t + dt
@@ -699,6 +703,7 @@ return function(mod, Pointer, G, Rules, Store, host)
         dance.next = dance.next + 0.6
         dance.cries = dance.cries - 1
         pet.bounce = 15
+        if mod.haptics then mod.haptics.pulse("medium") end   -- each step of its dance
         host.playCry(s.mon)
         spawn("heart", pet.x, pet.y - 50, 4)
         if dance.cries <= 0 then dance = nil end

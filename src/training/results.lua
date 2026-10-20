@@ -155,7 +155,8 @@ return function(mod, T, Rules, Radar)
     local p = R.list[R.page]
     R.pageT = 0
     -- an Award / new best time, a reward received: the game's jingle (data/training_sounds.lua)
-    if p and p.jingle and T.playSe then T.playSe("result_jingle") end
+    if p and p.jingle and T.playSe then T.playSe("result_jingle")
+    elseif p and mod.haptics then mod.haptics.pulse("light") end   -- each page as it comes up
     local B = R.bottom
     if not (p and B) then return end
     if p.show ~= R.shown then

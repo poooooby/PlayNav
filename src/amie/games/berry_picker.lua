@@ -214,6 +214,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.result = G.endGame(st.score, false, true)
     drag = nil
     setPhase("timeUp")
+    if mod.haptics then mod.haptics.pattern("big") end
     local F = screen("front")
     if F then F:play("anm_timeUp"); F:setText("5", Games.line("berry", "timesUp", nil, "TIME'S UP"), { align = "center", valign = "center" }) end
     for i = 1, #st.slots do hideSlot(i, "timeup") end
@@ -410,6 +411,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if ev.phase == "released" and x and y then d.x, d.y = x, y end
       local function lose()
         st.falling[d.kind] = { x = d.x, y = d.y, vy = 0 }
+        if mod.haptics then mod.haptics.pulse("light") end
       end
       if ev.phase ~= "released" then lose(); return end
       for i, sl in ipairs(st.slots) do
@@ -572,6 +574,12 @@ return function(mod, Pointer, G, Games, Rules, host)
         st.count = 3 - math.floor(st.t)
         go = st.t >= 3
       end
+      -- a tick each second of the count (START! itself: its sound's pattern)
+      local sec = math.floor(st.t)
+      if not go and sec ~= st.hapticSec then
+        st.hapticSec = sec
+        if mod.haptics then mod.haptics.pulse("tick") end
+      end
       if go then
         setPhase("play"); st.t = 0; host.playSe("SE_SUCCESS")
         -- the demo's Pokemon drop away; each comes back up when it asks
@@ -727,6 +735,7 @@ return function(mod, Pointer, G, Games, Rules, host)
           Sc:set("4s", "visible", true)
           Sc:setText("4u", Games.line("berry", "stamp", nil, "HIGH SCORE"), { align = "center", valign = "center" })
           Sc:play("highsc_anime")
+          if mod.haptics then mod.haptics.pattern("success") end
           Sc:setText("2o", tostring(st.score), { valign = "center", scale = HIGH_SCALE })
         end
       end
