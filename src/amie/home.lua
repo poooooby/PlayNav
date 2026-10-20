@@ -852,22 +852,30 @@ return function(mod, Pointer, G, Rules, Store, host)
 
   -- the room's contents: the decor and the set-out puff by depth, then the visitors and the
   -- Pokemon by depth over all of them (they never pass behind an item); gifts; chat
+  -- the items and visitors are sorted as they are (they carry y); the puff and the Pokemon
+  -- ride in two reused records, so a frame's depth sort allocates nothing
   local floor, actors = {}, {}
+  local puffRec, petRec = { y = 0, puff = nil }, { y = 0, pet = true }
+  local BUBBLES = { "g", "h", "5n" }
   local function byY(a, b) return a.y < b.y end
   local function drawScene(G2, s, room)
     for i = #floor, 1, -1 do floor[i] = nil end
     for i = #actors, 1, -1 do actors[i] = nil end
-    for _, it in ipairs(room.items or {}) do floor[#floor + 1] = { y = it.y, item = it } end
-    if room.puffOut and not fallPending then floor[#floor + 1] = { y = G.Decor and G.Decor.PUFF_SPOT.y or 116, puff = room.puffOut } end
-    for _, v in ipairs(G.Visitors and G.Visitors.present or {}) do actors[#actors + 1] = { y = v.y, visitor = v } end
-    actors[#actors + 1] = { y = pet.y, pet = true }
+    for _, it in ipairs(room.items or {}) do floor[#floor + 1] = it end
+    if room.puffOut and not fallPending then
+      puffRec.y, puffRec.puff = (G.Decor and G.Decor.PUFF_SPOT.y or 116), room.puffOut
+      floor[#floor + 1] = puffRec
+    end
+    for _, v in ipairs(G.Visitors and G.Visitors.present or {}) do actors[#actors + 1] = v end
+    petRec.y = pet.y
+    actors[#actors + 1] = petRec
     table.sort(floor, byY)
     table.sort(actors, byY)
     for _, d in ipairs(floor) do
-      if d.item then drawItem(G2, d.item) else drawPuff(G2, d.puff) end
+      if d == puffRec then drawPuff(G2, d.puff) else drawItem(G2, d) end
     end
     for _, d in ipairs(actors) do
-      if d.visitor then drawVisitor(G2, d.visitor) else drawPet(G2, s) end
+      if d == petRec then drawPet(G2, s) else drawVisitor(G2, d) end
     end
     local grp = G.Visitors and G.Visitors.group
     if grp and grp.bubble then
@@ -955,7 +963,7 @@ return function(mod, Pointer, G, Rules, Store, host)
     if P then
       if menu then
         -- the bubbles ride over the Pokemon (the layout parks them off to the right)
-        for _, n in ipairs({ "g", "h", "5n" }) do
+        for _, n in ipairs(BUBBLES) do
           P:set(n, "tx", pet.x - 160)
           P:set(n, "ty", 120 - pet.y)
         end

@@ -3,7 +3,25 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.5.0] - 2026-10-19 (pre-alpha)
+
+### Added
+
+- Pokémon-Amie is an app in Kanto Gear's Silph Store too, next to Super Training: its own
+  Poké Puff icon, description and translations (German, Spanish, French, Italian, Japanese,
+  by the games' own names: Pokémon-Ami, Poké Recreo, Pokémon-Récré, Poké io e te, ポケパルレ).
+- Pokémon-Amie's SWITCH is now the game's own party list (from Wooble's capture): it slides in
+  over the room with your party in gold medallions, a heart on the Pokémon in the room, and
+  the chosen one's icon, name, Affection, Fullness and Enjoyment. Choosing another Pokémon
+  shows the green Switch Pokémon! button; pressing it moves the heart, the list slides away
+  and the new Pokémon comes into the room. The return button closes the list.
+- Petting in PLAY gives feedback while it builds up: the Pokémon wriggles and leans into your
+  strokes, with a music note now and then (a heart on a spot it loves); on a spot it dislikes,
+  the hand changes and it flinches away.
+- Left alone in PLAY for about 30 seconds, your Pokémon dozes off, sleeps a moment, goes back
+  into its ball and you return to the room. Tap it while it dozes to wake it. A Pokémon that
+  is already happy and full when you start playing dozes off at once, as in the game.
+- A Pokémon with a status condition can't play: it shivers and goes back to its ball.
 
 ### Changed
 
@@ -23,89 +41,8 @@ All notable changes to this mod are documented here. The format follows
     HIGH SCORE stamp on a new best), then the smoke and the Poké Puffs, Play Again / Quit.
   - Unlimited follows the game's own steps, one to three Pokémon and back, faster as it goes,
     until you miss three balls.
-- Berry Picker's HIGH SCORE shows your best number of berries (it showed the star rating).
-- Pokémon-Amie now follows the game's own rules for the room, visitors, gifts and Poké Puffs
-  (read from its code; they replace numbers that were our guesses):
-  - **Visitors** come one after another, with no waiting between them. Whether one stays
-    depends on the Poké Puff set out (half the time with none, up to always with a Supreme
-    one), and each Décor item sitting on a guest seat makes staying more likely.
-  - **Their gift** follows the game's choice. Three of one species bring any new item; one
-    evolution line brings set D or a Deluxe puff; one type brings that type's Décor; otherwise
-    their affection plus the puff set out picks a set from A to F, or a puff instead. Poison,
-    Ghost and Dark Décor only comes once you own 20 Décor (or from a group of that type).
-    After the Hall of Fame, the next three groups each bring a Supreme Honor Poké Puff. Up to
-    five gifts wait in the room.
-  - **Affection gifts** come at 25, 50, 75, 100, 150 and 255 affection (25 and 75 were missing).
-  - **Poké Puffs**: how many bites a Pokémon takes is its species' own (one to five), and
-    every bite is an equal share of the puff. A nearly full Pokémon (230) pauses after each
-    bite, and a full one (255) turns away. Flavour makes no difference, as in the game.
-  - **Hitting** is a quick double press on the Pokémon (−5 enjoyment). **High fives** come
-    sooner the fonder it is of you, while you hold your finger off it (+10 enjoyment).
-  - **Enjoyment**: +10 for opening PLAY and for coming back to it from a minigame (not for
-    opening the minigame list). Minigames give 80, except Tile Puzzle on Easy (30) and
-    Normal (50); Unlimited gives 80–140 by rank. Walking and battles cheer up only the
-    Pokémon chosen for Amie, and only while its enjoyment is under 50.
-  - A Pokémon with a status condition can't play: it shivers and goes back to its ball.
-- Pressing the return button on Amie's SWITCH screen closed Pokémon-Amie; it now just closes
-  the list.
-- Pokémon-Amie is in Kanto Gear's Silph Store too, next to Super Training: its own Poké Puff
-  icon, description and translations (German, Spanish, French, Italian, Japanese, by the
-  games' own names: Pokémon-Ami, Poké Recreo, Pokémon-Récré, Poké io e te, ポケパルレ).
-- Visitors to the Amie room come less often: the first 15-30 seconds after the room opens,
-  then 30-60 seconds apart, and a break of 3-5 minutes after a group leaves its gift.
-- After a successful pet the Pokémon could shake violently for a moment, worse the longer the
-  game had been running; its breathing and sway now speed up smoothly when it is excited.
-- With a sprite mod that animates battle sprites (such as G9 Battle Sprites), Pokémon-Amie, its
-  minigames and Super Training show each Pokémon in one still pose, the same every time, instead
-  of whichever pose was showing when the screen opened. The pose is the one the animation holds
-  longest, not its first frame, which for some Pokémon (Sprigatito) is a crouch that looked
-  squashed. The game's own sprites are unaffected.
-- Petting in PLAY gives feedback while it builds up: the Pokémon wriggles and leans into your
-  strokes, with a music note now and then (a heart on a spot it loves); on a spot it dislikes,
-  the hand changes and it flinches away.
-- Head It and Tile Puzzle: the Poké Puffs you earn bob and rock as in Berry Picker.
-- Head It: the Pokémon breathe and bob while playing, and hop now and then on the results
-  screen. A ball now has to be at the Pokémon's head to count: one nearly off the bottom of
-  the screen no longer does.
-- The room no longer stops a starving Pokémon with a sad face and "is hungry!" before the
-  menu, which the game doesn't do: a tap always opens the menu, whose fullness bubble shows
-  how hungry it is.
-- Petting in Pokémon-Amie follows the game's own rules (read from its Amie script): what counts
-  is the time your finger keeps moving on the Pokémon. About two seconds on one kind of spot
-  (more for each reward in a row on the same spot), or five seconds anywhere, earns its reward:
-  hearts of affection paid for with enjoyment, as before. Then petting stops while it bounces
-  and gives off music notes, and you can pet again. A single tap no longer counts as petting.
-  - A disliked spot makes it angry after a second; a burning, shocking, sharp or freezing spot
-    jolts it on contact, and the fifth jolt of a visit makes it pull away.
-  - Left alone for about 30 seconds, it dozes off, sleeps a moment, goes back into its ball and
-    you return to the room. Tap it while it dozes to wake it. A Pokémon that is already happy
-    and full when you start playing dozes off at once, as in the game.
-- Pokémon in Amie move more gently: no more rapid bouncing in the room or jittering in Play.
-
-### Removed
-
-- The TOUCH SCREEN SHAPE option: the touch screen is always Kanto Gear's shape (10:9).
-
-### Changed
-
-- Super Training's home: the other party members in the bottom dock hop every half second, as
-  the game's party icons do; a resting one lies face up, so you know to come and wake it.
-- Super Training on a second display (a Thor, Kanto Gear's phone): the regimens fill the whole
-  top screen, and on a wide one the scene is framed further back, so the balloon flying off
-  over the stadium's roof and its star are in view.
-- Super Training's records and clears are shared by your whole party: a course cleared by
-  any Pokémon shows CLEARED on every Pokémon's regimen picker, and the Best Time is the course
-  record, shown with the icon of the Pokémon that set it. Older saves start each record from
-  the best of any Pokémon's times.
-- Super Training's regimen picker on a tall top screen keeps the target time and best time on
-  the right-hand side, under the course's picture, instead of moving them to the middle.
-- Pokémon-Amie's SWITCH is now the game's own party list (from Wooble's capture): it slides in
-  over the room with your party in gold medallions, a heart on the Pokémon in the room, and
-  the chosen one's icon, name, Affection, Fullness and Enjoyment. Choosing another Pokémon
-  shows the green Switch Pokémon! button; pressing it moves the heart, the list slides away
-  and the new Pokémon comes into the room. The return button closes the list.
-
-- Tile Puzzle rebuilt from the game's own screens (from Wooble's capture): the picture shows
+  - The Pokémon breathe and bob while playing, and hop now and then on the results screen.
+- Tile Puzzle, rebuilt from the game's own screens (from Wooble's capture): the picture shows
   whole with the rules and a Begin button, then the tiles fly to their shuffled places and
   START! shows. Tiles out of place have blue corners, the one you pick red ones; picking a
   second swaps them, both lifting across the board. A tile that lands home bursts into stars,
@@ -127,12 +64,78 @@ All notable changes to this mod are documented here. The format follows
     rise).
   - The RESULTS card's times and rank title are larger and bold, as in the game, and stay
     sharp at any screen size.
-- Needs the art extracted again (recipe 29): the extraction runs by itself on the next start.
+- Head It and Tile Puzzle: the Poké Puffs you earn bob and rock as in Berry Picker.
+- Berry Picker's HIGH SCORE shows your best number of berries (it showed the star rating).
+- Pokémon-Amie now follows the game's own rules for the room, visitors, gifts and Poké Puffs
+  (read from its code; they replace numbers that were our guesses):
+  - **Visitors**: whether one stays depends on the Poké Puff set out (half the time with none,
+    up to always with a Supreme one), and each Décor item sitting on a guest seat makes staying
+    more likely. They come now and then rather than one straight after another: the first
+    15-30 seconds after the room opens, then 30-60 seconds apart, and a break of 3-5 minutes
+    after a group leaves its gift.
+  - **Their gift** follows the game's choice. Three of one species bring any new item; one
+    evolution line brings set D or a Deluxe puff; one type brings that type's Décor; otherwise
+    their affection plus the puff set out picks a set from A to F, or a puff instead. Poison,
+    Ghost and Dark Décor only comes once you own 20 Décor (or from a group of that type).
+    After the Hall of Fame, the next three groups each bring a Supreme Honor Poké Puff. Up to
+    five gifts wait in the room.
+  - **Affection gifts** come at 25, 50, 75, 100, 150 and 255 affection (25 and 75 were missing).
+  - **Poké Puffs**: how many bites a Pokémon takes is its species' own (one to five), and
+    every bite is an equal share of the puff. A nearly full Pokémon (230) pauses after each
+    bite, and a full one (255) turns away. Flavour makes no difference, as in the game.
+  - **Hitting** is a quick double press on the Pokémon (−5 enjoyment). **High fives** come
+    sooner the fonder it is of you, while you hold your finger off it (+10 enjoyment).
+  - **Enjoyment**: +10 for opening PLAY and for coming back to it from a minigame (not for
+    opening the minigame list). Minigames give 80, except Tile Puzzle on Easy (30) and
+    Normal (50); Unlimited gives 80–140 by rank. Walking and battles cheer up only the
+    Pokémon chosen for Amie, and only while its enjoyment is under 50.
+- Petting in Pokémon-Amie follows the game's own rules (read from its Amie script): what counts
+  is the time your finger keeps moving on the Pokémon. About two seconds on one kind of spot
+  (more for each reward in a row on the same spot), or five seconds anywhere, earns its reward:
+  hearts of affection paid for with enjoyment, as before. Then petting stops while it bounces
+  and gives off music notes, and you can pet again. A single tap no longer counts as petting.
+  A disliked spot makes it angry after a second; a burning, shocking, sharp or freezing spot
+  jolts it on contact, and the fifth jolt of a visit makes it pull away.
+- Pokémon in Amie move more gently: no more rapid bouncing in the room or jittering in Play.
+- The room no longer stops a starving Pokémon with a sad face and "is hungry!" before the
+  menu, which the game doesn't do: a tap always opens the menu, whose fullness bubble shows
+  how hungry it is.
+- With a sprite mod that animates battle sprites (such as G9 Battle Sprites), Pokémon-Amie, its
+  minigames and Super Training show each Pokémon in one still pose, the same every time, instead
+  of whichever pose was showing when the screen opened: the pose the animation holds longest.
+  The game's own sprites are unaffected.
+- Super Training's home: the other party members in the bottom dock hop every half second, as
+  the game's party icons do; a resting one lies face up, so you know to come and wake it.
+- Super Training on a second display (a Thor, Kanto Gear's phone): the regimens fill the whole
+  top screen, and on a wide one the scene is framed further back, so the balloon flying off
+  over the stadium's roof and its star are in view.
+- Super Training's records and clears are shared by your whole party: a course cleared by
+  any Pokémon shows CLEARED on every Pokémon's regimen picker, and the Best Time is the course
+  record, shown with the icon of the Pokémon that set it. Older saves start each record from
+  the best of any Pokémon's times.
+- Super Training's regimen picker on a tall top screen keeps the target time and best time on
+  the right-hand side, under the course's picture, instead of moving them to the middle.
+- Smoother on low-power devices: the screens make far less memory garbage each frame for the
+  device to clear up (the Amie room less than half of what it did, Tile Puzzle and Head It
+  too).
+- Needs the art extracted again (recipe 31): the extraction runs by itself on the next start.
 
 ### Fixed
 
+- After a successful pet the Pokémon could shake violently for a moment, worse the longer the
+  game had been running.
+- With an animated sprite mod, some Pokémon (Sprigatito) looked squashed: their still pose was
+  the animation's first frame, a crouch.
+- Head It: a ball nearly off the bottom of the screen could still be headed; it now has to be
+  at the Pokémon's head.
+- Pressing the return button on Amie's SWITCH screen closed Pokémon-Amie; it now just closes
+  the list.
 - In the Amie room, visitors and your Pokémon always draw over the decorations; they could
   slip behind an item placed lower in the room.
+
+### Removed
+
+- The TOUCH SCREEN SHAPE option: the touch screen is always Kanto Gear's shape (10:9).
 
 ## [0.4.0] - 2026-10-18 (pre-alpha)
 

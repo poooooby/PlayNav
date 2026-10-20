@@ -1179,18 +1179,23 @@ return function(mod, deps)
 
   -- ------- what the apps and tests read
 
+  -- the rows and the list are reused call to call: the home screen asks once a frame
+  local partyOut, partyRows = {}, {}
   function T.party()
-    local out = {}
+    local out = partyOut
+    for i = #out, 1, -1 do out[i] = nil end
     local s = T.session
     local mons = Store.data().mons
     for i, mon in ipairs(host.party()) do
-      local key = host.monKey(mon)
-      local rec = mons[key]
-      out[#out + 1] = { mon = mon, key = key, name = host.displayName(mon),
-        icon = host.icon and host.icon(mon) or nil, eligible = eligible(mon),
-        active = s ~= nil and key == s.key, index = i,
-        -- lying down (idle or after its routine) until it is tapped awake
-        resting = type(rec) == "table" and rec.resting and true or false }
+      local rec = mons[host.monKey(mon)]
+      local r = partyRows[i]
+      if not r then r = {}; partyRows[i] = r end
+      r.mon, r.key, r.name = mon, host.monKey(mon), host.displayName(mon)
+      r.icon = host.icon and host.icon(mon) or nil
+      r.eligible, r.active, r.index = eligible(mon), s ~= nil and r.key == s.key, i
+      -- lying down (idle or after its routine) until it is tapped awake
+      r.resting = type(rec) == "table" and rec.resting and true or false
+      out[#out + 1] = r
     end
     return out
   end

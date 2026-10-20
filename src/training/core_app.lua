@@ -581,10 +581,11 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   -- an image fitted into a pane rect, optionally tinted (no mesh)
+  local WHITE3 = { 255, 255, 255 }
   local function fit(G, img, p, flipX, tint, alpha)
     local iw, ih = img:getDimensions()
     local sx, sy = p[3] / iw, p[4] / ih
-    local t = tint or { 255, 255, 255 }
+    local t = tint or WHITE3
     G.setColor(t[1] / 255, t[2] / 255, t[3] / 255, (alpha or 255) / 255)
     if flipX then
       G.draw(img, p[1] + p[3] / 2, p[2] - p[4] / 2, 0, -sx, sy)
@@ -996,13 +997,18 @@ return function(mod, Pointer, T, Rules, Radar, host)
     return eval(BOUNCE, f) or 1
   end
 
+  -- hoisted, with a reused rect: drawButtons runs every home-screen frame
+  local BUTTON_ROWS = { { PANE.regimens, "training/btn_regimens", "REGIMENS", "regimens" },
+    { PANE.bags, "training/btn_bags", "BAGS", "bags" } }
+  local buttonRect = { 0, 0, 0, 0 }
   local function drawButtons(G, small)
-    for _, b in ipairs({ { PANE.regimens, "training/btn_regimens", "REGIMENS", "regimens" }, { PANE.bags, "training/btn_bags", "BAGS", "bags" } }) do
+    for _, b in ipairs(BUTTON_ROWS) do
       local img = art(b[2])
       if img then
         local k = buttonScale(b[4])
         local p = b[1]
-        fit(G, img, { p[1], p[2], p[3] * k, p[4] * k })
+        buttonRect[1], buttonRect[2], buttonRect[3], buttonRect[4] = p[1], p[2], p[3] * k, p[4] * k
+        fit(G, img, buttonRect)
       else
         local p = b[1]
         G.setColor(0.25, 0.3, 0.42, 1)

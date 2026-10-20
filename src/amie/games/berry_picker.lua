@@ -493,12 +493,15 @@ return function(mod, Pointer, G, Games, Rules, host)
     return pile
   end
 
+  -- the berries' texture names, built once: drawPile runs per heap berry per frame
+  local KINOMI = {}
+  for k = 1, 8 do KINOMI[k] = ("kinomi%02d.bclim"):format(k - 1) end
   local function drawPile(G2)
     local N = screen("nuts")
     if not (N and st.pile) then return end
     G2.setColor(1, 1, 1, 1)
     for _, b in ipairs(st.pile) do
-      local img = N:image(("kinomi%02d.bclim"):format(b.kind - 1))
+      local img = N:image(KINOMI[b.kind])
       local p = N.L.byName[NUT[b.kind]]
       if img and p then
         local iw, ih = img:getDimensions()
@@ -643,13 +646,17 @@ return function(mod, Pointer, G, Games, Rules, host)
         local secs = math.ceil(st.timer)
         local hurry = not st.lives and secs <= 5
         local color = hurry and TIMER.red or TIMER.white
-        local text
-        if st.lives then
-          text = ("%d / 3"):format(st.misses)
-        else
-          text = Games.line("berry", "timeLeft", { N = ("%02d"):format(secs) }, ("Time Left: %02d"):format(secs))
+        -- the line changes once a second (or on a miss), not once a frame
+        local timeFor = st.lives and -st.misses or secs
+        if st.timeTextFor ~= timeFor then
+          st.timeTextFor = timeFor
+          if st.lives then
+            st.timeText = ("%d / 3"):format(st.misses)
+          else
+            st.timeText = Games.line("berry", "timeLeft", { N = ("%02d"):format(secs) }, ("Time Left: %02d"):format(secs))
+          end
         end
-        F:setText("2", text, { align = "right", valign = "center", color = color, scale = TIMER.scale })
+        F:setText("2", st.timeText, { align = "right", valign = "center", color = color, scale = TIMER.scale })
         -- the beat: a swell as each second turns over, easing back within BEAT_S
         local beat = 1
         if hurry then
@@ -659,8 +666,12 @@ return function(mod, Pointer, G, Games, Rules, host)
         F:set("2", "sx", beat)
         F:set("2", "sy", beat)
       end
-      s.game.hud = ("BERRY PICKER  %s   %d berries%s"):format(Games.DIFF_LABEL[st.diff], st.score,
-        st.lives and ("   misses %d/3"):format(st.misses) or ("   %ds"):format(math.ceil(st.timer)))
+      local stamp = st.score * 1e4 + (st.lives and -st.misses or math.ceil(st.timer))
+      if st.hudFor ~= stamp then     -- rebuilt only when a part changes
+        st.hudFor = stamp
+        s.game.hud = ("BERRY PICKER  %s   %d berries%s"):format(Games.DIFF_LABEL[st.diff], st.score,
+          st.lives and ("   misses %d/3"):format(st.misses) or ("   %ds"):format(math.ceil(st.timer)))
+      end
       return
     end
 

@@ -16,6 +16,7 @@ return function(mod, deps)
   local host, Rules, Sim = deps.host, deps.Rules, deps.Sim
   local N = Rules.N
   local D = { assets = nil }
+  local PITCH_ROWS = { 0.2, 0.5, 0.8 }
 
   local function art(id)
     local A = D.assets
@@ -395,14 +396,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.rectangle("fill", 0, 60, 240, 32)
     G2.setColor(0.22, 0.62, 0.38, 1)
     G2.rectangle("fill", 0, 92, 240, 68)
-    -- pitch lines
+    -- pitch lines (PITCH_ROWS hoisted: this runs every frame)
     G2.setColor(1, 1, 1, 0.25)
     for i = -2, 2 do
       local x0 = Sim.project(i * 0.5, 0, 0)
       local x1 = Sim.project(i * 0.5, 0, 1)
       G2.line(x0, 150, x1, 92)
     end
-    for _, z in ipairs({ 0.2, 0.5, 0.8 }) do
+    for _, z in ipairs(PITCH_ROWS) do
       local _, y = Sim.project(0, 0, z)
       local xl = Sim.project(-1, 0, z)
       local xr = Sim.project(1, 0, z)

@@ -147,6 +147,11 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   -- the motion of the puzzle on now: 0 bounce in place, 1 about the scene, 2 and the camera
   local MOTION = { easy = 0, normal = 1, hard = 2 }
+  -- the horizon's cloud rows (1 = cumulus, 2 = cloud; drift share, w, h, alpha); hoisted,
+  -- drawScene runs every frame
+  local CLOUD_ROWS = { { 1, 0.0, 150, 70, 0.9 }, { 2, 0.45, 130, 55, 0.8 }, { 1, 0.8, 120, 52, 0.7 } }
+  local byDepth = function(a, b) return a.depth < b.depth end
+  local monOrder = {}
 
   -- ------- the Pokemon in the picture
 
@@ -685,8 +690,8 @@ return function(mod, Pointer, G, Games, Rules, host)
     local cr = day + dusk * 1.0 + night * 0.35
     local cg = day + dusk * 0.72 + night * 0.4
     local cb = day + dusk * 0.62 + night * 0.62
-    for k, c in ipairs({ { cumulus, 0.0, 150, 70, 0.9 }, { cloud, 0.45, 130, 55, 0.8 }, { cumulus, 0.8, 120, 52, 0.7 } }) do
-      local img = c[1]
+    for k, c in ipairs(CLOUD_ROWS) do
+      local img = c[1] == 1 and cumulus or cloud
       if img then
         local iw, ih = img:getDimensions()
         local span = pw + c[3] + 160
@@ -751,9 +756,10 @@ return function(mod, Pointer, G, Games, Rules, host)
     shore(px + 30 - camX * 0.2, 1)
     shore(px + pw - 26 - camX * 0.2, -1)
     -- the Pokemon in the water, nearer ones lower and bigger; Hard's camera pans across them
-    local order = {}
+    local order = monOrder
+    for i = #order, 1, -1 do order[i] = nil end
     for i, m in ipairs(st.mons) do order[i] = m end
-    table.sort(order, function(a, b) return a.depth < b.depth end)
+    table.sort(order, byDepth)
     for _, m in ipairs(order) do
       local pic = m.pic
       local x = px + m.x * pw - camX

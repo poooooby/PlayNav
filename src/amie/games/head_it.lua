@@ -812,14 +812,27 @@ return function(mod, Pointer, G, Games, Rules, host)
       end
     end
     if s.game and st then
-      s.game.hud = ("HEAD IT  %s   %d pts  combo %d%s%s"):format(Games.DIFF_LABEL[st.diff], st.score, st.combo,
-        st.fever and "  FEVER" or "", st.lives and ("  chances %d"):format(st.lives) or ("  %ds"):format(count))
+      -- rebuilt only when a part changes (once a second or on a hit), not every tick
+      local stamp = st.score * 1e6 + st.combo * 1e3 + (st.lives or count) + (st.fever and 0.5 or 0)
+      if st.hudFor ~= stamp then
+        st.hudFor = stamp
+        s.game.hud = ("HEAD IT  %s   %d pts  combo %d%s%s"):format(Games.DIFF_LABEL[st.diff], st.score, st.combo,
+          st.fever and "  FEVER" or "", st.lives and ("  chances %d"):format(st.lives) or ("  %ds"):format(count))
+      end
     end
   end
 
   -- ------- drawing
 
   local hudFonts = {}
+  -- reused colour tables and cached lines (only the alpha moves frame to frame)
+  local COMBO_COL, COMBO_OUT = { 0.86, 0.06, 0.18, 1 }, { 1, 1, 1, 0.8 }
+  local FEVER_COL, WHITE3 = { 1, 0.62, 0.1, 1 }, { 1, 1, 1 }
+  local STAMP_COL = { 0.85, 0.08, 0.12, 1 }
+  local TIMER_RED = { 230, 0, 30, 255 }
+  local SIGNAL = { "signal_red.bclim", "signal_yellow.bclim", "signal_blue.bclim" }
+  local CHANCE_BALLS = { "3j", "3l", "3n" }
+  local feverLine, stampLine
   -- text `px` layout units tall, rasterised at its size on screen
   local function hudText(G2, P, s, x, y, px, align, color, outline, rot)
     local x0, y0 = G2.transformPoint(0, 0)
@@ -926,9 +939,17 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
   end
 
+  -- the ball textures' ids, built once: ballArt runs per ball per frame
+  local BALL_ID = setmetatable({}, { __index = function(t, look)
+    local row = { [0] = ("lyt/head_ball/%s_00"):format(look),
+      ("lyt/head_ball/%s_01"):format(look), ("lyt/head_ball/%s_02"):format(look) }
+    t[look] = row
+    return row
+  end })
+  local GIANT_ID = { [0] = "lyt/head_ball/giant00", "lyt/head_ball/giant01", "lyt/head_ball/giant02" }
   local function ballArt(b, frame)
-    if b.giant then return art(("lyt/head_ball/giant%02d"):format(frame % 3)) end
-    return art(("lyt/head_ball/%s_%02d"):format(b.look, frame % 3))
+    if b.giant then return art(GIANT_ID[frame % 3]) end
+    return art(BALL_ID[b.look][frame % 3])
   end
 
   -- a ball in screen units of either screen: (sx, sy) its middle
@@ -1152,7 +1173,11 @@ return function(mod, Pointer, G, Games, Rules, host)
       local showScore = st.hud and (st.phase == "play" or st.phase == "timeup" or st.phase == "leave" or st.phase == "giant")
       Dn:set("4", "visible", showScore and true or false)
       if showScore then
-        Dn:setText("2", ("%03d"):format(st.shownScore or 0), { align = "center", valign = "center",
+        if st.scoreTextFor ~= (st.shownScore or 0) then     -- formatted only when it changes
+          st.scoreTextFor = st.shownScore or 0
+          st.scoreText = ("%03d"):format(st.scoreTextFor)
+        end
+        Dn:setText("2", st.scoreText, { align = "center", valign = "center",
           scale = st.scorePop and (1 + 0.25 * (1 - st.scorePop / 0.3)) or nil })
       end
       Dn:draw(G2)
@@ -1164,13 +1189,15 @@ return function(mod, Pointer, G, Games, Rules, host)
       G2.push()
       G2.translate(165, 70 - D)
       G2.scale(s, s)
-      hudText(G2, Dn, Games.line("head", "combo", { N = c.n }, ("%d-HIT COMBO"):format(c.n)), 0, 0, 24, "center",
-        { 0.86, 0.06, 0.18, a }, { 1, 1, 1, 0.8 })
+      c.text = c.text or Games.line("head", "combo", { N = c.n }, ("%d-HIT COMBO"):format(c.n))
+      COMBO_COL[4] = a
+      hudText(G2, Dn, c.text, 0, 0, 24, "center", COMBO_COL, COMBO_OUT)
       G2.pop()
     end
     if st.fever and (st.phase == "play" or st.phase == "timeup") then
-      local a = 0.7 + 0.3 * math.sin(st.t * 8)
-      hudText(G2, Dn, Games.line("head", "fever", nil, "FEVER"), 278, 26 - D, 18, "center", { 1, 0.62, 0.1, a }, { 1, 1, 1 })
+      feverLine = feverLine or Games.line("head", "fever", nil, "FEVER")
+      FEVER_COL[4] = 0.7 + 0.3 * math.sin(st.t * 8)
+      hudText(G2, Dn, feverLine, 278, 26 - D, 18, "center", FEVER_COL, WHITE3)
     end
     -- the demo's pen
     if st.phase == "demo" then
@@ -1315,8 +1342,9 @@ return function(mod, Pointer, G, Games, Rules, host)
       G2.setColor(1, 1, 1, math.min(1, f / 3))
       G2.draw(img, -w / 2, -h / 2, 0, w / iw, h / ih)
     end
-    hudText(G2, F, (Games.line("head", "highScore", nil, "HIGH SCORE:"):gsub(":%s*$", "")), 0, 0, STAMP.text, "center",
-      { 0.85, 0.08, 0.12, math.min(1, f / 3) })
+    stampLine = stampLine or (Games.line("head", "highScore", nil, "HIGH SCORE:"):gsub(":%s*$", ""))
+    STAMP_COL[4] = math.min(1, f / 3)
+    hudText(G2, F, stampLine, 0, 0, STAMP.text, "center", STAMP_COL)
     G2.pop()
   end
 
@@ -1370,7 +1398,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     elseif st.rainbowOut and st.lastBand then band, a = st.lastBand, 1 - st.rainbowOut / 0.5 end
     if band then st.lastBand = st.rainbow or st.lastBand end
     if st.phase == "results" or st.phase == "smoke" or st.phase == "buttons" then band = nil end
-    local img = band and Rr:image(({ "signal_red", "signal_yellow", "signal_blue" })[band] .. ".bclim")
+    local img = band and Rr:image(SIGNAL[band])
     if img then
       if band == 3 then a = a * (0.75 + 0.25 * math.cos((st.rainbowT or 0) * math.pi * 2 * 0.75)) end
       local iw, ih = img:getDimensions()
@@ -1385,8 +1413,11 @@ return function(mod, Pointer, G, Games, Rules, host)
       if not unlimited then
         local left = math.max(0, math.ceil(st.timer / FPS))
         local red = st.timer > 0 and left <= 5
-        F:setText("4", Games.line("head", "timeLeft", { N = ("%02d"):format(left) }, ("Time Left: %02d"):format(left)),
-          { align = "center", valign = "center", color = red and { 230, 0, 30, 255 } or nil })
+        if st.timeTextFor ~= left then     -- the line changes once a second, not once a frame
+          st.timeTextFor = left
+          st.timeText = Games.line("head", "timeLeft", { N = ("%02d"):format(left) }, ("Time Left: %02d"):format(left))
+        end
+        F:setText("4", st.timeText, { align = "center", valign = "center", color = red and TIMER_RED or nil })
         -- the last seconds beat (timeup_anm's 5m)
         if red then
           local into = (st.timer % FPS) / FPS
@@ -1400,7 +1431,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       if unlimited then
         F:setText("0", Games.line("head", "chances", nil, "Chances:"), { align = "right", valign = "center" })
         F:set("5k", "visible", false)
-        for j, n in ipairs({ "3j", "3l", "3n" }) do
+        for j, n in ipairs(CHANCE_BALLS) do
           F:set(n, "visible", true)
           F:set(n, "sx", 0.55)
           F:set(n, "sy", 0.55)

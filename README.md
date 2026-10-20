@@ -60,23 +60,32 @@ on a touch screen below the game or on a device's second display.
 ### Pokémon-Amie 💕
 
 - 🏠 **The Amie room:** **AMIE** on the START menu opens a room where your Pokémon wanders,
-  plays, naps and asks for food when it's hungry. It's laid out from the game's own screen,
-  scalloped frame and all. Tap your Pokémon for **PLAY**, **DECORATE** or **SWITCH** (another
-  party member); bubbles over it show how much it wants Poké Puffs and play.
-- 🤚 **Petting:** Stroke your Pokémon with your finger. Every species has a spot it loves and
-  one it dislikes, and some have spots you shouldn't touch at all: Charmander's tail burns,
-  Pikachu's cheeks shock, Regice freezes. Hearts show how much it enjoyed it.
-- 🧁 **Poké Puffs:** Drag a puff to your Pokémon and hold it there while it eats, bite by
-  bite. There are 26 kinds, from Basic to Supreme, and you win them in battles and games. A
-  few Pokémon, like Metapod and Shedinja, can't eat.
-- ✋ **Little moments:** Rest a finger beside a fond Pokémon and it gives you a high five. Tap
-  twice too fast and it feels hit. It dances as its affection grows and leaves you a present
-  each time it gains a heart.
-- 🎯 **Three minigames,** picked with the GAMES button on the Play screen:
+  plays and naps. It's laid out from the game's own screen, scalloped frame and all. Tap your
+  Pokémon for **PLAY**, **DECORATE** or **SWITCH** (another party member); while the menu is
+  up, bubbles over it show how much it wants Poké Puffs and play, and how fond of you it is.
+- 🌤️ **Play:** your Pokémon stands large on a lawn under the sky, its back to you until you tap
+  it. It moves with its mood: lively and hopping when it's happy, drooping when it's hungry,
+  and an unwell Pokémon shivers and goes back to its ball. Leave it alone long enough and it
+  dozes off.
+- 🤚 **Petting:** Stroke your Pokémon with your finger and it wriggles along with music notes
+  (hearts on a spot it loves); keep at it and it hops for joy. Every species has a spot it
+  loves and one it dislikes (it flinches away), and some have spots you shouldn't touch at
+  all: Charmander's tail burns, Pikachu's cheeks shock, Regice freezes.
+- 🧁 **Poké Puffs:** Drag a puff from the strip to your Pokémon and it eats it bite by bite, in
+  as many bites as its species takes. There are 26 kinds, from Basic to Supreme, and you win
+  them in the minigames. A nearly full Pokémon eats slowly, and a few, like Metapod and
+  Shedinja, can't eat.
+- ✋ **Little moments:** Hold a finger out beside a fond Pokémon and it gives you a high five.
+  Tap twice too fast and it feels hit. It dances as its affection grows and leaves you a
+  present at each affection milestone.
+- 🎯 **Three minigames,** picked with the Play button on the Play screen:
   - **Berry Picker:** hand each Pokémon the berry it asks for, on the game's own screens: the opening
     demo, the tree and the thought bubbles, TIME'S UP and the berries raining onto the heap, the Poké
     Puffs you won, Play Again or Quit, and the RESULTS card on the top screen.
-  - **Head It:** tap Pokémon to bounce yarn, with combos and FEVER.
+  - **Head It:** balls of yarn fall from the top screen onto the Pokémon they're meant for; tap
+    it as the ball reaches the star over its head to head it back. Up to three Pokémon join in,
+    the yarn speeds up as you keep heading it, a long combo brings FEVER (double points), and
+    time up drops a giant ball of yarn for a big bonus before the RESULTS card.
   - **Tile Puzzle:** swap tiles to rebuild a moving picture of your Pokémon in the sea, on the game's
     own screens: the whole picture and Begin, the tiles flying apart, START!, blue corners on the
     tiles out of place and red on the one you pick, stars as a tile lands home (it locks there),
@@ -90,9 +99,11 @@ on a touch screen below the game or on a device's second display.
   the top, open **Interior Items** or **Poké Puffs**, and drag what you pick into the room. Let
   it go near one of the spots around the middle and it settles exactly on it; tap a placed item
   to move it again, or drop it in the tray to put it back. Set out a Poké Puff on the middle spot
-  (it falls into place when you're back in the room) and visiting Pokémon from your Pokédex drop by. Three that stay
-  chat together and leave you a present. Once you've entered the Hall of Fame, they bring you a
-  Supreme Honor Poké Puff.
+  (it falls into place when you're back in the room) and visiting Pokémon from your Pokédex drop
+  by now and then; a better puff, and Décor on the seats around it, make them likelier to stay.
+  Three that stay chat together and leave you a present, picked by who they are and how fond
+  they are. After you enter the Hall of Fame, the next three groups each bring a Supreme Honor
+  Poké Puff.
 - ⚔️ **Affection in battle:** The fonder your Pokémon, the more it does for you. At two hearts
   it earns more experience. From three it can hang on at 1 HP. From four it can shake off a
   status. At 200 affection foes miss it more, and at five hearts it lands more critical hits.
@@ -112,8 +123,6 @@ on a touch screen below the game or on a device's second display.
 - 😄 **Second wind:** Woken from a rest, after some cleared bags, from a rare find or the Team
   Flare Bag, it gets a happy bubble and punches with double strength: the next bag takes half
   the taps, or the next regimen scores double. It lasts one bag or one regimen.
-- 🏪 **In Kanto Gear's Silph Store:** with Kanto Gear installed, Super Training is also a
-  store app — get it, put it on the Gear's home screen, and open it from there.
 - 🎁 **The blank bag:** With no training bag set, every punch (yours or your Pokémon's) has a 5%
   chance of digging up a bag, 10% for a Pokémon with all 510 EVs; any bag but the Team Flare
   Bag can turn up, each as likely as the next. A find plays the game's presentation: the new
@@ -202,12 +211,15 @@ Open **OPTIONS → MODS → PlayNav**.
 - [Kanto Gear](https://github.com/AverageConsumer/kanto-gear): touch battle commands, bag and
   pad. PlayNav doesn't do controls; the two share the second display. With **SHOW TOUCH
   SCREEN** on When Needed, PlayNav has the second display while Amie or Super Training is open
-  and Kanto Gear is back on it the moment you close them.
+  and Kanto Gear is back on it the moment you close them. Pokémon-Amie and Super Training are
+  also apps in the Gear's Silph Store: get them, put them on the Gear's home screen, and open
+  them from there.
 - [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3): the real Dusk, Shiny and
   Dawn Stones with their evolutions. Super Training's stone prizes become those stones.
 - [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): with sprites
   for the newer species, the Generation 4-6 Balloon Bots (Aegislash, Stunfisk, Hydreigon and
-  more) use them instead of their course badge.
+  more) use them instead of their course badge. Its animated sprites hold one still pose in
+  Pokémon-Amie and Super Training.
 
 ## 📌 Good to Know
 
@@ -220,8 +232,8 @@ Open **OPTIONS → MODS → PlayNav**.
 - 🖱️ **On a PC with a second-display window,** strokes don't come through, only taps, so
   petting needs Split Screen there. A real second panel, like the AYN Thor's, works
   fully.
-- 🧁 **Every Pokémon takes three bites** of a puff, and petting spots cover broad areas (head,
-  face, belly...) rather than exact pixels.
+- 🤚 **Petting spots** cover broad areas (head, face, belly...) of the sprite rather than exact
+  pixels, and the visitors are Pokémon from your Pokédex rather than other players'.
 - 🪶 **The Wings and stones** are items the original game doesn't have. If you remove PlayNav, a save
   that holds them shows them as numbers.
 - 🔁 **Coming from DS Touch?** PlayNav was called DS Touch in its early test builds. Your

@@ -311,20 +311,32 @@ return function(mod, Pointer, G, Rules, Petting, host)
     return b
   end
 
-  -- where the Pokemon stands (scene units): its feet, its scale, its body ellipse
+  -- where the Pokemon stands (scene units): its feet, its scale, its body ellipse.
+  -- Deterministic from the picture and the shape, and asked for several times a frame, so it
+  -- is cached per image (nothing writes into the record) and dropped when the shape changes.
+  local placements = setmetatable({}, { __mode = "k" })
+  local placeLH = nil
   local function placement(s, pic)
     pic = pic or (s and s.pic)
     local img = pic and pic.image
+    if placeLH ~= LH then
+      placeLH = LH
+      for k in pairs(placements) do placements[k] = nil end
+    end
+    local hit = img and placements[img]
+    if hit then return hit end
     local b = opaqueBox(img) or { x0 = 0, y0 = 0, x1 = 64, y1 = 64 }
     local bw, bh = b.x1 - b.x0, b.y1 - b.y0
     local k = (LH * MON_FILL) / math.max(1, bh)
     k = math.max(MON_K_MIN, math.min(MON_K_MAX, k, 290 / math.max(1, bw)))
     local feetY = LH - FEET_UP
-    return {
+    local pl = {
       img = img, b = b, k = k, x = 160, y = feetY,
       cx = 160, cy = feetY - bh * k / 2, rx = bw * k / 2, ry = bh * k / 2,
       headX = 160, headY = feetY - bh * k * 0.78, mouthY = feetY - bh * k * 0.62,
     }
+    if img then placements[img] = pl end
+    return pl
   end
 
   local function toScene(lx, ly)

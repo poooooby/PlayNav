@@ -198,8 +198,13 @@ function Player:clear(pane, key)
 end
 
 function Player:setText(pane, s, o)
-  self.texts[pane] = s and { s = s, align = o and o.align, color = o and o.color, valign = o and o.valign,
-    outline = o and o.outline, scale = o and o.scale } or nil
+  -- the record is reused: setText runs every frame for live numbers (scores, timers)
+  if not s then self.texts[pane] = nil; return end
+  local t = self.texts[pane]
+  if not t then t = {}; self.texts[pane] = t end
+  if t.s ~= s then t.s, t.lines = s, nil end   -- drawText caches the split lines on it
+  t.align, t.color, t.valign, t.outline, t.scale =
+    o and o.align, o and o.color, o and o.valign, o and o.outline, o and o.scale
 end
 
 function Player:setImage(pane, img) self.images[pane] = img end
@@ -235,7 +240,12 @@ local function paneProps(self, pane)
           if v ~= nil then
             if key == "visible" then st.visible = v ~= 0
             elseif key:sub(1, 1) == "c" and key:find("%.") then
-              colors = colors or {}
+              if not colors then
+                -- reused per pane: a clip's colour tracks run every frame
+                colors = pane._ca
+                if colors then for ck in pairs(colors) do colors[ck] = nil end
+                else colors = {}; pane._ca = colors end
+              end
               colors[key] = v
             else st[key] = v end
           end
@@ -256,7 +266,12 @@ local function matProps(self, pane, mat)
     if self.bound[a.name][pane.name] then
       local props = a.clip.materials[mat.name]
       if props then
-        out = out or {}
+        if not out then
+          -- reused per pane, as paneProps' records are: this runs every frame
+          out = pane._mp
+          if out then for k in pairs(out) do out[k] = nil end
+          else out = {}; pane._mp = out end
+        end
         for key, track in pairs(props) do
           local v = F.eval(track, a.frame)
           if v ~= nil then
@@ -509,19 +524,32 @@ local function drawFrames(self, G, pane, w, h, x0, y0, alpha, sh, cols, cm, cimg
   local L = self.L
   local frames = pane.frames
   local n = #frames
-  local imgs, sizes, mats = {}, {}, {}
-  for i, fr in ipairs(frames) do
-    local m = L.materials[fr.mat]
-    mats[i] = m
-    imgs[i] = m and m.maps[1] and self:image(L.textures[m.maps[1].tex]) or nil
-    if imgs[i] then
-      local iw, ih = imgs[i]:getDimensions()
-      sizes[i] = { iw, ih }
-    else
-      sizes[i] = sizes[1] or { 0, 0 }
+  -- the frames' materials and textures never change after load, and the rects only with the
+  -- window's size (a window_open clip); cached per pane, so a steady frame allocates nothing
+  self.fw = self.fw or {}
+  local C = self.fw[pane.name]
+  if not C then
+    local imgs, sizes, mats = {}, {}, {}
+    for i, fr in ipairs(frames) do
+      local m = L.materials[fr.mat]
+      mats[i] = m
+      imgs[i] = m and m.maps[1] and self:image(L.textures[m.maps[1].tex]) or nil
+      if imgs[i] then
+        local iw, ih = imgs[i]:getDimensions()
+        sizes[i] = { iw, ih }
+      else
+        sizes[i] = sizes[1] or { 0, 0 }
+      end
     end
+    C = { imgs = imgs, sizes = sizes, mats = mats }
+    self.fw[pane.name] = C
   end
-  local rects, inner = Player.windowRects(w, h, n, sizes)
+  local imgs, mats = C.imgs, C.mats
+  if C.w ~= w or C.h ~= h then
+    C.rects, C.inner = Player.windowRects(w, h, n, C.sizes)
+    C.w, C.h = w, h
+  end
+  local rects, inner = C.rects, C.inner
   if cimg and inner.w > 0 and inner.h > 0 then
     quad(G, cimg, x0 + inner.x, y0 + inner.y, inner.w, inner.h, pane.content.uv, cols, cm, nil, sh)
   end
@@ -711,9 +739,14 @@ end
 function Player:box(name)
   local pane = self.L.byName[name]
   if not pane then return nil end
-  local chain = {}
-  local p = pane
-  while p do table.insert(chain, 1, p); p = p.parent end
+  -- the parent chain never changes after load; built once per pane (box runs every frame)
+  local chain = pane._chain
+  if not chain then
+    chain = {}
+    local p = pane
+    while p do table.insert(chain, 1, p); p = p.parent end
+    pane._chain = chain
+  end
   local x, y, sx, sy = self.L.W / 2, self.L.H / 2, 1, 1
   local st, adj
   for _, q in ipairs(chain) do
