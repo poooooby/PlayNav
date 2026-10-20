@@ -331,6 +331,44 @@ return function(mod, deps)
     return false
   end
 
+  -- ------- the pad on a game's end buttons (Play Again / Quit, Tile Puzzle's View Picture too):
+  -- up / down move the focus through `order` (st.focus, the first by default), A taps the
+  -- focused one, B taps "quit"; `tap(name)` taps a button through the game's own touch code.
+  -- true when the pad was used.
+  function C.padButtons(input, st, order, tap)
+    local at = 1
+    for i, n in ipairs(order) do if n == st.focus then at = i end end
+    if input:wasPressed("up") or input:wasPressed("down") then
+      -- the first press shows the focus (on the first button); a touch player never sees it
+      if not st.focus then
+        st.focus = order[1]
+        if mod.haptics then mod.haptics.pulse("tick") end
+        return true
+      end
+      local i = math.max(1, math.min(#order, at + (input:wasPressed("down") and 1 or -1)))
+      if order[i] ~= st.focus then
+        st.focus = order[i]
+        if mod.haptics then mod.haptics.pulse("tick") end
+      end
+      return true
+    end
+    if input:wasPressed("a") then tap(st.focus or order[1]); return true end
+    if input:wasPressed("b") then tap("quit"); return true end
+    return false
+  end
+
+  -- the ring round the focused button (`b` = { cx, cy, w, h }), breathing
+  function C.drawFocus(G2, b)
+    local t = (love and love.timer and love.timer.getTime()) or 0
+    local a = 0.65 + 0.35 * math.sin(t * 5)
+    local x0, y0 = b[1] - b[3] / 2 - 3, b[2] - b[4] / 2 - 3
+    G2.setLineWidth(2.5)
+    G2.setColor(1, 0.85, 0.2, a)
+    G2.rectangle("line", x0, y0, b[3] + 6, b[4] + 6, 14, 14)
+    G2.setLineWidth(1)
+    G2.setColor(1, 1, 1, 1)
+  end
+
   function C.drawStars(G2, x, y, stars, size, art)
     size = size or 6
     local fullImg = art and art("star/orange")

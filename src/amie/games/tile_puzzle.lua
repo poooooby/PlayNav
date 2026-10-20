@@ -910,6 +910,15 @@ return function(mod, Pointer, G, Games, Rules, host)
         piece(pz.tiles[pos], x, y, g.pitch)
       end
     end
+    -- the pad's cursor (padInput): a breathing yellow outline round its cell
+    if pz.cursor and st.phase == "play" then
+      local x, y = cellXY(g, pz.cursor)
+      local t = (love and love.timer and love.timer.getTime()) or 0
+      G2.setLineWidth(2.5)
+      G2.setColor(1, 0.85, 0.2, 0.65 + 0.35 * math.sin(t * 5))
+      G2.rectangle("line", x + 1, y + 1, g.pitch - 2, g.pitch - 2)
+      G2.setLineWidth(1)
+    end
     -- the star bursts from tiles that landed home
     local P0 = st.art and screen("easy")
     local starImg = P0 and P0:image("star.bclim")
@@ -958,6 +967,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         G2.draw(ic, x0 + b[3] - 24, b[2] - 9, 0, 18 / iw, 18 / ih)
       end
     end
+    if st and st.focus and BUTTONS[st.focus] == b then Games.drawFocus(G2, b) end
   end
 
   function app:draw(G2, w, h)
@@ -1401,6 +1411,51 @@ return function(mod, Pointer, G, Games, Rules, host)
     if st.phase == "play" then return busyTiles() end
     return st.phase ~= "intro" and st.phase ~= "buttons" and st.phase ~= "view"
   end
+  -- the pad (the session asks first): A presses Begin; in play the D-pad walks a cursor over
+  -- the tiles (shown once the pad is used, from the board's first tile) and A is a tap on its
+  -- tile - select, swap, or let go of the selected one; the end buttons take up / down, A and B
+  -- (Games.padButtons); viewing the picture, A or B goes back to them. B otherwise quits (the
+  -- game's own "Press the B Button to quit.")
+  function app.padInput(input)
+    local s = G.session
+    if not (st and s and s.mode == "game") then return false end
+    local function pressed(b) return input:wasPressed(b) end
+    if st.phase == "intro" then
+      if pressed("a") then G.padTap(app, app.tapPoint("begin")); return true end
+      return false
+    end
+    if st.phase == "buttons" then
+      return Games.padButtons(input, st, { "view", "again", "quit" }, function(n) G.padTap(app, app.tapPoint(n)) end)
+    end
+    if st.phase == "view" then
+      if pressed("a") or pressed("b") then G.padTap(app, app.tapPoint("begin")); return true end
+      return false
+    end
+    local pz = st.pz
+    if st.phase ~= "play" or not pz then return false end
+    local g = pz.g
+    local dc = (pressed("left") and -1) or (pressed("right") and 1) or 0
+    local dr = (pressed("up") and -1) or (pressed("down") and 1) or 0
+    if dc ~= 0 or dr ~= 0 then
+      if not pz.cursor then
+        pz.cursor = pz.sel or 1
+      else
+        local c, r = (pz.cursor - 1) % g.cols, math.floor((pz.cursor - 1) / g.cols)
+        c = math.max(0, math.min(g.cols - 1, c + dc))
+        r = math.max(0, math.min(g.rows - 1, r + dr))
+        pz.cursor = r * g.cols + c + 1
+      end
+      if mod.haptics then mod.haptics.pulse("tick") end
+      return true
+    end
+    if pressed("a") then
+      pz.cursor = pz.cursor or 1
+      G.padTap(app, app.tapPoint("tile", pz.cursor))
+      return true
+    end
+    return false
+  end
+
   function app.tapPoint(what, i)
     if not st then return nil end
     if what == "begin" then return fromBoard(160, 142) end

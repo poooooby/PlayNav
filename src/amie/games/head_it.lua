@@ -1133,6 +1133,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         G2.draw(ic, x0 + b[3] - 24, b[2] - 9, 0, 18 / iw, 18 / ih)
       end
     end
+    if st and st.focus and BUTTONS[st.focus] == b then Games.drawFocus(G2, b) end
   end
 
   -- the touch screen's sky (bg_DOWN), scaled to cover a taller screen: its foot (the clouds the
@@ -1479,6 +1480,22 @@ return function(mod, Pointer, G, Games, Rules, host)
     if not st then return false end
     return st.phase ~= "play" and st.phase ~= "buttons"
   end
+  -- the pad (the session asks first): left / up or A / right head the left / middle / right
+  -- Pokemon, as a tap on it does; on the end buttons up / down, A and B (Games.padButtons)
+  function app.padInput(input)
+    local s = G.session
+    if not (st and s and s.mode == "game") then return false end
+    if st.phase == "buttons" then
+      return Games.padButtons(input, st, { "again", "quit" }, function(n) G.padTap(app, app.tapPoint(n)) end)
+    end
+    if st.phase == "play" or st.phase == "timeup" or st.phase == "giant" then
+      local slot = (input:wasPressed("left") and 2) or (input:wasPressed("right") and 3)
+        or ((input:wasPressed("up") or input:wasPressed("a")) and 1) or nil
+      if slot then G.padTap(app, app.tapPoint("slot", slot)); return true end
+    end
+    return false
+  end
+
   function app.tapPoint(what, i)
     if not st then return nil end
     if what == "slot" then return fromScene(160 + slotX(i or 1), 200) end

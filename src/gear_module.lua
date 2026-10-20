@@ -9,7 +9,7 @@
 local function amie(deps)
   return {
     id = "pokemon_amie",
-    label = "POKEMON-AMIE",
+    label = "POKEAMIE",
     category = "FRIENDSHIP",
     description = {
       "BOND WITH YOUR POKEMON.",
@@ -51,35 +51,35 @@ local function amie(deps)
     open = deps.open,
     translations = {
       de = {
-        ["POKEMON-AMIE"] = "POKéMON-AMI",
+        ["POKEAMIE"] = "POKéMON AMI",
         ["FRIENDSHIP"] = "FREUNDSCHAFT",
         ["BOND WITH YOUR POKEMON."] = "Schließe Freundschaft mit deinen Pokémon.",
         ["PET, FEED AND PLAY MINIGAMES."] = "Streicheln, füttern und Minispiele spielen.",
         ["POWERED BY THE PLAYNAV MOD."] = "Eine PlayNav-App.",
       },
       es = {
-        ["POKEMON-AMIE"] = "POKé RECREO",
+        ["POKEAMIE"] = "POKé RECREO",
         ["FRIENDSHIP"] = "AMISTAD",
         ["BOND WITH YOUR POKEMON."] = "Estrecha lazos con tus Pokémon.",
         ["PET, FEED AND PLAY MINIGAMES."] = "Acarícialos, dales de comer y juega a minijuegos.",
         ["POWERED BY THE PLAYNAV MOD."] = "Una aplicación de PlayNav.",
       },
       fr = {
-        ["POKEMON-AMIE"] = "POKéMON-RÉCRÉ",
+        ["POKEAMIE"] = "POKéMON RÉCRÉ",
         ["FRIENDSHIP"] = "AMITIÉ",
         ["BOND WITH YOUR POKEMON."] = "Tisse des liens avec tes Pokémon.",
         ["PET, FEED AND PLAY MINIGAMES."] = "Caresse-les, nourris-les et joue à des mini-jeux.",
         ["POWERED BY THE PLAYNAV MOD."] = "Une application PlayNav.",
       },
       it = {
-        ["POKEMON-AMIE"] = "POKé IO E TE",
+        ["POKEAMIE"] = "POKé IO E TE",
         ["FRIENDSHIP"] = "AMICIZIA",
         ["BOND WITH YOUR POKEMON."] = "Stringi amicizia con i tuoi Pokémon.",
         ["PET, FEED AND PLAY MINIGAMES."] = "Accarezzali, nutrili e gioca ai minigiochi.",
         ["POWERED BY THE PLAYNAV MOD."] = "Un'app di PlayNav.",
       },
       ja = {
-        ["POKEMON-AMIE"] = "ポケパルレ",
+        ["POKEAMIE"] = "ポケパルレ",
         ["FRIENDSHIP"] = "なかよし",
         ["BOND WITH YOUR POKEMON."] = "ポケモンと なかよくなろう。",
         ["PET, FEED AND PLAY MINIGAMES."] = "なでたり ポフレをあげたり ミニゲームで遊ぼう。",

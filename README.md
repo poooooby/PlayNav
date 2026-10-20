@@ -84,6 +84,10 @@ on a touch screen below the game or on a device's second display.
 - ✋ **Little moments:** Hold a finger out beside a fond Pokémon and it leaps up to high-five
   your hand. Tap twice too fast and it feels hit. It dances as its affection grows and leaves
   you a present at each affection milestone.
+- 🎮 **Controller:** wherever PlayNav has the screen you can also play with the pad: A wakes
+  your Pokémon and opens the minigames, SELECT the Poké Puff drawer; the minigame and regimen
+  pickers take the D-pad and A; Head It heads with left / up / right, Tile Puzzle moves a
+  cursor; end buttons and results take A and B. Feeding, petting and Berry Picker are touch.
 - 🎯 **Three minigames,** picked with the Play button on the Play screen, by touch or with the
   controller (left / right to choose, A to pick, B to step back):
   - **Berry Picker:** hand each Pokémon the berry it asks for, on the game's own screens: the opening

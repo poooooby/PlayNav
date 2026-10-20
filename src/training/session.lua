@@ -95,9 +95,10 @@ return function(mod, deps)
     elseif s.mode == "bags" then
       if input:wasPressed("b") then T.enterCore() end
     elseif s.mode == "courses" then
+      -- the D-pad, A and L / R: courses_app's T.pickerInput (A is a tap on the selected one)
       if input:wasPressed("b") then T.goTo("core")
-      elseif input:wasPressed("a") and s.picked then T.startCourse(s.picked)
-      elseif T.pickerInput then T.pickerInput(input) end
+      elseif T.pickerInput then T.pickerInput(input)
+      elseif input:wasPressed("a") and s.picked then T.startCourse(s.picked) end
     elseif s.mode == "regimen" then
       if T.onRegimenInput then T.onRegimenInput(input) end
     elseif s.mode == "result" then

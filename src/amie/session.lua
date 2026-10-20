@@ -106,6 +106,16 @@ return function(mod, deps)
   local Layer = { isMenu = true }
   G.layer = Layer
 
+  -- the pad as a tap: a press and release at an app point, through the app's own touch code
+  -- (a tap's record: no travel, no time held), so a button does exactly what a tap does
+  function G.padTap(app, x, y)
+    if not (app and app.pointer and x and y) then return false end
+    local rec = { travel = 0, downAt = 0, upAt = 0, x = x, y = y, vx = 0, vy = 0 }
+    pcall(app.pointer, app, { phase = "pressed", id = "pad", x = x, y = y }, rec)
+    pcall(app.pointer, app, { phase = "released", id = "pad", x = x, y = y }, rec)
+    return true
+  end
+
   function Layer.handleInput(input)
     local s = G.session
     if not s then return end
@@ -116,9 +126,21 @@ return function(mod, deps)
       -- the drawer folds, a held item goes back, else the room (src/amie/decorate.lua)
       if input:wasPressed("b") then
         if G.decorateBack then G.decorateBack() else G.enterHome(false) end
+      elseif input:wasPressed("left") or input:wasPressed("right") then
+        -- left / right: the wallpapers, or the drawer's pages while it is open
+        local deco = Apps:get("decorate")
+        local st = deco and deco.state and deco.state()
+        if st and not st.held then
+          local right = input:wasPressed("right")
+          local what = (st.mode == "drawer") and (right and "pageRight" or "pageLeft") or (right and "wallRight" or "wallLeft")
+          G.padTap(deco, deco.tapPoint(what))
+        end
       end
     elseif s.mode == "game" then
-      if input:wasPressed("b") and G.gameApp and G.gameApp.quit then G.gameApp:quit() end
+      -- the game's own pad first (its buttons, Head It's Pokemon, Tile Puzzle's cursor), else B quits
+      local ga = G.gameApp
+      if ga and ga.padInput and ga.padInput(input) then return end
+      if input:wasPressed("b") and ga and ga.quit then ga:quit() end
     else
       -- PLAY's own pad (src/amie/play.lua: the picker's D-pad / A / B, the strip's D-pad)
       if G.playInput and G.playInput(input) then return end

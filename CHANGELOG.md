@@ -3,6 +3,32 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.3] - 2026-10-20 (alpha)
+
+### Added
+
+- More controller support, wherever PlayNav has the screen (the room, SWITCH and Super
+  Training's home keep the pad for walking, as before):
+  - Super Training's regimen picker: the D-pad moves between the regimens (on to the next page
+    past the end), A selects one and A again starts it; L / R still turn the page. On the
+    results, A or B is a tap.
+  - Play: A wakes your Pokémon, then opens the minigame picker; SELECT opens and closes the
+    Poké Puff drawer.
+  - Head It: left, up (or A) and right head the left, middle and right Pokémon.
+  - Tile Puzzle: A presses Begin; the D-pad moves a cursor over the tiles and A picks and
+    swaps, as a tap does. B quits, as the game says.
+  - Every minigame's end buttons: up and down move a highlight, A presses it, B is Quit.
+  - DECORATE: left and right flip through the wallpapers (or the drawer's pages).
+
+### Changed
+
+- Kanto Gear's store calls the app POKEAMIE (Pokémon-Amie was cut off on its tile); the
+  German and French names split onto two lines instead.
+
+### Fixed
+
+- Play's round buttons (Poké Puffs, the minigames, return) had no haptic when pressed.
+
 ## [0.5.2] - 2026-10-20 (alpha)
 
 ### Added

@@ -216,10 +216,55 @@ return function(mod, Pointer, T, Rules)
     end
   end
 
-  -- L / R turn the page
+  -- the pad (the session's layer hands it here; B is the layer's): the D-pad moves the
+  -- selection - left / right through the slots in reading order, on to the next or previous
+  -- page past the ends, up / down between the two rows - and A is a tap on the selected one
+  -- (pick: a first press selects, a press on the selected one starts it). L / R turn the page.
+  local function filled(p, i) return p and p.slots[i] or nil end
+  local function firstFilled(p, from, step)
+    local i = from
+    while i >= 1 and i <= #SLOTS do
+      if filled(p, i) then return i end
+      i = i + step
+    end
+    return nil
+  end
   T.pickerInput = function(input)
-    if input:wasPressed("l") or input:wasPressed("left") then app.setPage(page - 1)
-    elseif input:wasPressed("r") or input:wasPressed("right") then app.setPage(page + 1) end
+    local s = T.session
+    if not s then return false end
+    local function pressed(b) return input:wasPressed(b) end
+    if pressed("l") then app.setPage(page - 1); return true end
+    if pressed("r") then app.setPage(page + 1); return true end
+    local p = current()
+    local at
+    for i = 1, #SLOTS do
+      local c = filled(p, i)
+      if c and c.id == s.picked then at = i end
+    end
+    if pressed("a") then
+      local i = at or firstFilled(p, 1, 1)
+      if i then pick(filled(p, i)) end
+      return true
+    end
+    local d = (pressed("left") and -1) or (pressed("right") and 1) or (pressed("up") and -3) or (pressed("down") and 3)
+    if not d then return false end
+    if not at then
+      -- nothing selected yet: the first regimen on the page
+      local i = firstFilled(p, 1, 1)
+      if i then pick(filled(p, i)) end
+      return true
+    end
+    local step = (d > 0) and 1 or -1
+    local i = (math.abs(d) == 1) and firstFilled(p, at + d, step) or (filled(p, at + d) and at + d or nil)
+    if i then
+      pick(filled(p, i))
+    elseif math.abs(d) == 1 and app.setPage(page + step) then
+      -- past the end of the page: the next page's first (or the previous page's last)
+      local np = current()
+      local j = step > 0 and firstFilled(np, 1, 1) or firstFilled(np, #SLOTS, -1)
+      if j then pick(filled(np, j)) end
+    end
+    return true
   end
 
   function app:update(dt) app.clock = app.clock + (dt or 0) * 30 end

@@ -805,6 +805,7 @@ return function(mod, Pointer, G, Games, Rules, host)
         G2.draw(ic, x0 + b[3] - 24, b[2] - 9, 0, 18 / iw, 18 / ih)
       end
     end
+    if st and st.focus and BUTTONS[st.focus] == b then Games.drawFocus(G2, b) end
   end
 
   local function drawNoArt(G2)
@@ -1054,6 +1055,17 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
   -- the berry a visible slot wants, for the driver to deliver right
   function app.wanted(i) local sl = st and st.slots[i]; return sl and sl.visible and sl.asking and sl.want or nil end
+
+  -- the pad (the session asks first): the berries are dragged, so touch only; on the end
+  -- buttons up / down, A and B (Games.padButtons)
+  function app.padInput(input)
+    local s = G.session
+    if not (st and s and s.mode == "game") then return false end
+    if st.phase == "buttons" then
+      return Games.padButtons(input, st, { "again", "quit" }, function(n) G.padTap(app, app.tapPoint(n)) end)
+    end
+    return false
+  end
 
   function app:releaseAll() drag = nil end
   app.leave = app.releaseAll

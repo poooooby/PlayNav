@@ -576,7 +576,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     -- the drawer: a press on its row is a scroll (sideways) or, on a puff, a pull (down) -
     -- decided as the finger moves (handleMove)
     if s.tool == "beans" and strip.open > 0.9 then
-      if inBox("6", lx, ly, 4) then rec.amieButton = "puff"; return end
+      if inBox("6", lx, ly, 4) then rec.amieButton = "puff"; buzz("tick"); return end
       if inStripRow(lx, ly) then
         local i, kinds = kindAt(s, lx, ly)
         rec.amieStrip = { x = lx, y = ly, scroll = strip.scroll, kind = i and kinds[i].id or nil,
@@ -585,11 +585,11 @@ return function(mod, Pointer, G, Rules, Petting, host)
         return
       end
     end
-    -- the buttons
+    -- the buttons (each ticks as it is pressed: the picker's or drawer's own sound comes later)
     if buttonsUp(s) or s.tool == "beans" then
-      if inBox("6", lx, ly, 4) then rec.amieButton = "puff"; return end
-      if s.tool ~= "beans" and inBox("8", lx, ly, 4) then rec.amieButton = "play"; return end
-      if s.tool ~= "beans" and inBox("4", lx, ly, 4) then rec.amieButton = "back"; return end
+      if inBox("6", lx, ly, 4) then rec.amieButton = "puff"; buzz("tick"); return end
+      if s.tool ~= "beans" and inBox("8", lx, ly, 4) then rec.amieButton = "play"; buzz("tick"); return end
+      if s.tool ~= "beans" and inBox("4", lx, ly, 4) then rec.amieButton = "back"; buzz("tick"); return end
     end
     -- the Pokemon (or a still finger off it: a high-five)
     local sx, sy = toScene(lx, ly)
@@ -1510,6 +1510,33 @@ return function(mod, Pointer, G, Rules, Petting, host)
         return true
       end
       return false
+    end
+    -- A wakes it (asleep, its back turned; or dozing off), as a tap on it does; awake with
+    -- nothing open, A opens the minigame picker (the Play button). SELECT opens and closes the
+    -- puff drawer (the puff button).
+    if wake and pressed("a") then
+      if wake.stage == "asleep" then
+        wake.stage, wake.t = "exclaim", 0
+        G.click()
+        return true
+      elseif wake.stage == "dozing" then
+        wake.stage, wake.t = "awake", 0
+        lastActive = now()
+        showEmote("emote/smile", 0.8)
+        return true
+      elseif wake.stage == "awake" and not s.tool and not feed and not drag and not touch then
+        G.click()
+        if G.showGames() then openPicker(s) end
+        return true
+      end
+    end
+    if pressed("select") and wake and wake.stage == "awake" and not feed and not drag and not picker then
+      if s.tool == "beans" then G.selectTool("beans")
+      elseif Rules.jarTotal(s.puffs) == 0 then G.say("No Poke Puffs left.", 1.5)
+      elseif not Rules.canEat(s.national) then G.say(("%s can't eat Poke Puffs."):format(s.name), 1.5)
+      else G.selectTool("beans") end
+      G.click()
+      return true
     end
     if s.tool == "beans" and strip.open > 0.5 and not feed then
       local left, right = pressed("left"), pressed("right")
