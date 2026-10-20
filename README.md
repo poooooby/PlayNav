@@ -75,14 +75,17 @@ on a touch screen below the game or on a device's second display.
   (hearts on a spot it loves); keep at it and it hops for joy. Every species has a spot it
   loves and one it dislikes (it flinches away), and some have spots you shouldn't touch at
   all: Charmander's tail burns, Pikachu's cheeks shock, Regice freezes.
-- 🧁 **Poké Puffs:** Drag a puff from the strip to your Pokémon and it eats it bite by bite, in
-  as many bites as its species takes. There are 26 kinds, from Basic to Supreme, and you win
-  them in the minigames. A nearly full Pokémon eats slowly, and a few, like Metapod and
-  Shedinja, can't eat.
-- ✋ **Little moments:** Hold a finger out beside a fond Pokémon and it gives you a high five.
-  Tap twice too fast and it feels hit. It dances as its affection grows and leaves you a
-  present at each affection milestone.
-- 🎯 **Three minigames,** picked with the Play button on the Play screen:
+- 🧁 **Poké Puffs:** Open the puff drawer (swipe it sideways to see them all; a number shows
+  how many of a kind you have), pull a puff out and hold it for your Pokémon: it eats while you
+  keep it at its mouth, bite by bite, in as many bites as its species takes. Let go and the
+  puff falls away and is lost, though one it hasn't bitten yet can go back in the drawer.
+  There are 26 kinds, from Basic to Supreme, and you win them in the minigames. A nearly full
+  Pokémon eats slowly, and a few, like Metapod and Shedinja, can't eat.
+- ✋ **Little moments:** Hold a finger out beside a fond Pokémon and it leaps up to high-five
+  your hand. Tap twice too fast and it feels hit. It dances as its affection grows and leaves
+  you a present at each affection milestone.
+- 🎯 **Three minigames,** picked with the Play button on the Play screen, by touch or with the
+  controller (left / right to choose, A to pick, B to step back):
   - **Berry Picker:** hand each Pokémon the berry it asks for, on the game's own screens: the opening
     demo, the tree and the thought bubbles, TIME'S UP and the berries raining onto the heap, the Poké
     Puffs you won, Play Again or Quit, and the RESULTS card on the top screen.
