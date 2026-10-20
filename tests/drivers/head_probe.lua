@@ -173,6 +173,12 @@ local function body(game, log)
     shot("h19_smoke")
     waitFor(function() local x = st(); return x.phase == "smoke" and x.pt > 1.4 end, 60 * 30)
     shot("h20_medals")
+    do
+      local Rw = app.screen and app.screen("reward")
+      local n = 0
+      for _, e in ipairs(Rw and Rw.active or {}) do if e.name == "sweets" then n = n + 1 end end
+      log("medallions dancing (sweets on each):", n)
+    end
     waitFor(function() return st().phase == "buttons" end, 60 * 60)
     U.wait(20)
     shot("h21_buttons")

@@ -439,6 +439,8 @@ return function(mod, Pointer, G, Games, Rules, host)
         R:setImage(pane.name, R:image(("wappen_%02d.bclim"):format(tier)))
         local img = art(puffs[j])
         if img then R:setImage(child.name, img) end
+        -- each bobs and rocks as Berry Picker's do (the game's sweets clip, made on pane 0)
+        R:play("sweets", { as = pane.name, sample = "0", loop = true, from = (j * 7) % 40 })
       end
     end
   end
@@ -967,12 +969,24 @@ return function(mod, Pointer, G, Games, Rules, host)
       local p = 1 - m.head / HEAD_FRAMES
       lift = math.sin(p * math.pi) * 10
     end
+    -- idle: breathing and a bob, each to its own beat; livelier over RESULTS, with a hop now and then
+    local resting = st.phase == "results" or st.phase == "smoke" or st.phase == "buttons"
+    local t = st.t + i * 1.7
+    local bob = (0.5 + 0.5 * math.sin(t * 2.2)) * (resting and 3 or 1)
+    local breath = math.sin(t * 2.2) * (resting and 0.025 or 0.012)
+    if resting then
+      local hp = (t % 2.6) / 0.35
+      if hp < 1 then bob = bob + math.sin(hp * math.pi) * 8 end
+    end
+    lift = lift + bob
     local x = 160 + slotX(i)
     -- the side Pokemon face the middle
     local face = (i == 3) and -1 or 1
     G2.setColor(1, 1, 1, 1)
     -- by its top, so a sprite shrunk to fit its width still has the star on its head
-    drawPixel(img, x, HEAD_TOP - lift + sink, 0, k * face, k, (bx.x0 + bx.x1) / 2, bx.y0)
+    -- (breathing about the feet)
+    local ky = k * (1 + breath)
+    drawPixel(img, x, HEAD_TOP - lift + sink + (k - ky) * bh, 0, k * face * (1 - breath * 0.5), ky, (bx.x0 + bx.x1) / 2, bx.y0)
   end
 
   local function drawStars(G2)

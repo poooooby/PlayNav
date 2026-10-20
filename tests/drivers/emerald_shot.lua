@@ -192,7 +192,7 @@ local function body(game, log)
       local home = Apps:get("home")
       U.wait(90)
       shot("02b_home_wander")
-      -- a starving Pokemon takes the first tap as "I know"; the menu opens on the next
+      -- a tap on the Pokemon opens the menu (retried while it is still busy)
       local function openMenu(tag)
         for attempt = 1, 3 do
           local px, py = home.petPos()

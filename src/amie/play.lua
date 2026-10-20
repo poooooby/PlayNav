@@ -110,7 +110,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   -- its liveliness (lively by mood, mostly still while petted): `calm`
   -- eases to 1 while it is touched or eating; `hop` a hop under way; `excite` the burst after
   -- a liked touch; `lean` toward the hand
-  local life = { calm = 0, hop = nil, nextHop = 1.5, excite = 0, lean = 0, twitch = 0, t = 0 }
+  local life = { calm = 0, hop = nil, nextHop = 1.5, excite = 0, lean = 0, twitch = 0, t = 0, stroke = 0, flinch = 0 }
 
   -- what its mood allows: 0 (low, hungry or unwell) .. 1 (happy, played with), and a status
   local function moodOf(s)
@@ -175,6 +175,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
     end
     -- leaning into the hand while petted
     tilt = tilt + life.lean * 0.05 * life.calm
+    -- being stroked: it wriggles with the strokes, so the player sees the petting land
+    if life.stroke > 0 then
+      local k = life.stroke
+      tilt = tilt + math.sin(t * 9) * 0.03 * k
+      sy, sx = sy + math.sin(t * 9 + 1) * 0.025 * k, sx - math.sin(t * 9 + 1) * 0.015 * k
+      lift = lift + (0.5 + 0.5 * math.sin(t * 9)) * 1.5 * k
+    end
+    -- a disliked spot: it flinches away from the hand
+    if life.flinch > 0 then
+      dx = dx + math.sin(t * 40) * 2.5 * life.flinch - life.lean * 4 * life.flinch
+    end
     return dx, lift, tilt, sx, sy
   end
 
@@ -183,6 +194,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local still = (touch ~= nil) or (feed ~= nil) or (drag ~= nil) or (wake ~= nil and (wake.stage == "dozing" or wake.stage == "ball" or wake.stage == "sick"))
     life.calm = life.calm + ((still and 1 or 0) - life.calm) * (1 - math.exp(-6 * dt))
     life.excite = math.max(0, life.excite - dt / 1.6)
+    life.stroke = math.max(0, life.stroke - dt * 3)
+    life.flinch = math.max(0, life.flinch - dt * 2.5)
     if life.twitch > 0 then life.twitch = life.twitch - dt end
     if s.status == "PAR" and life.twitch <= 0 and math.random() < dt * 0.4 then life.twitch = 0.35 end
     -- toward the hand while petted
@@ -542,7 +555,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
     -- where the finger is; the petting itself is counted each frame (update)
     touch.lx, touch.ly = lx, ly
     if hand then hand.x, hand.y = lx, ly end
-    if hand and hand.kind ~= "pet" and not hand.untilT then setHand("pet", lx, ly) end
+    local want = touch.dislike and "dislike" or "pet"
+    if hand and hand.kind ~= want and not hand.untilT then setHand(want, lx, ly) end
   end
 
   local function handleRelease(ev, rec, s, lx, ly)
@@ -756,6 +770,24 @@ return function(mod, Pointer, G, Rules, Petting, host)
             endTouch(1.0)
           end
         else
+          -- feedback while it builds: a stroke that moves makes it wriggle, with a note now
+          -- and then (a heart on a favourite spot); a disliked spot turns the hand and makes
+          -- it flinch
+          touch.dislike = spot == "disfavored"
+          if moving then
+            touch.fbT = (touch.fbT or 0) + dt
+            if touch.dislike then
+              life.flinch = 1
+            else
+              life.stroke = 1
+              if touch.fbT >= 0.5 then
+                touch.fbT = 0
+                spawn(spot == "favored" and "heart" or "note", pl.headX + (math.random() - 0.5) * 40, pl.headY - 6, 1)
+              end
+            end
+          end
+          local want = touch.dislike and "dislike" or "pet"
+          if hand and hand.kind ~= want and not hand.untilT then setHand(want, lx, ly) end
           local res = G.petTouch(dt, moving, spot, spot == "normal" and zone or spot)
           if res then reward(s, pl, res, lx, ly) end
         end
@@ -1249,7 +1281,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
     return { wake = wake and wake.stage, zoom = view.z, strip = strip.open, page = strip.page,
       picker = picker and { stage = picker.stage, game = picker.game, diff = picker.diff } or nil,
       feed = feed and feed.stage, hand = hand and hand.kind, emote = emote and emote.id,
-      calm = life.calm, hopping = life.hop ~= nil, excite = life.excite, locked = now() < petLock }
+      calm = life.calm, hopping = life.hop ~= nil, excite = life.excite, locked = now() < petLock,
+      fiveHeld = holdFive ~= nil, fiveLeft = fiveLeft }
   end
   function app.busy()
     return (wake and wake.stage ~= "awake" and wake.stage ~= "asleep") or flash ~= nil

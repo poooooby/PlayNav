@@ -117,6 +117,7 @@ local function body(game, log)
     R.state().meters.enjoyment = 120
     press("pet", px, py); U.wait(2)
     local t0, k, rewarded = love.timer.getTime(), 0, false
+    local shotNotes = false
     while love.timer.getTime() - t0 < 5 do
       k = k + 1
       move("pet", px + math.sin(k / 3) * 22, py + math.cos(k / 4) * 10)
@@ -124,6 +125,10 @@ local function body(game, log)
       if k == 30 then
         log("stroking: zoom", ("%.2f"):format(st().zoom), "hand", st().hand, "calm", ("%.2f"):format(st().calm))
         shot("p05_stroke")
+      end
+      if not shotNotes and love.timer.getTime() - t0 > 1.3 then
+        shotNotes = true
+        shot("p05c_stroke_feedback")
       end
       if st().locked then rewarded = true; break end
     end
@@ -164,10 +169,13 @@ local function body(game, log)
       R.state().meters.affection = 255
       local e0 = R.state().meters.enjoyment
       local t0 = love.timer.getTime()
-      press("five", 236, 150)
-      waitFor(function() return R.state().meters.enjoyment > e0 end, 60 * 20)
+      press("five", 248, 112)
+      U.wait(3)
+      log("five held:", tostring(st().fiveHeld), "left", ("%.2f"):format(st().fiveLeft or -1), "wake", st().wake, "hand", st().hand)
+      -- (the countdown was rolled at the visit's start, at that affection: up to ~7 s)
+      while R.state().meters.enjoyment <= e0 and love.timer.getTime() - t0 < 12 do U.wait(1) end
       log(("high five after %.2f s: enjoyment %d -> %d"):format(love.timer.getTime() - t0, e0, R.state().meters.enjoyment))
-      release("five", 236, 150)
+      release("five", 248, 112)
       settle()
     end
     -- the strip and a meal

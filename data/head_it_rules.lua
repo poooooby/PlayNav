@@ -16,7 +16,10 @@ return {
   -- the hit windows (ball.bclyt's bounding panes, screen y down from the touch screen's top) and
   -- the test point: the ball's middle, lowered by a quarter of its 90-unit pane (the giant: 0.4
   -- of its 350)
-  WINDOW = { goodHigh = { 90, 130 }, just = { 130, 180 }, goodLow = { 180, 240 }, miss = { 240, 280 } },
+  -- (the game's good windows run 90-130 and 180-240; ours are tighter, 105-130 and 180-205, so a
+  -- ball has to be at the Pokemon's head: with our sprites the game's let a ball nearly off the
+  -- screen's foot count)
+  WINDOW = { goodHigh = { 105, 130 }, just = { 130, 180 }, goodLow = { 180, 205 }, miss = { 240, 280 } },
   BALL_H = 90, TEST_DROP = 0.25, GIANT_H = 350, GIANT_DROP = 0.4,
   -- the touch columns (1f / 1g / 1h): 106 wide about each place, the touch screen's lower half
   TOUCH = { w = 106, top = 120 },
@@ -141,7 +144,7 @@ return {
     STAGES = { class = "verified", source = "DllHeading.cro .rodata 0xb038 + diff * 2520, 7 ints a stage; the second Pokemon at 600 frames, the third at 1200 (0x64b4); fever 0x6d50-0x6e50; interval clamp 0x6c94", confidence = "high" },
     PATTERNS = { class = "verified", source = "DllHeading.cro 0xd920 + diff * 6000 + idx * 200 (odds), flight 0x59c0, fall v += g; y -= v (0xd18), ball type roll 0x12a8, crush check 0x57dc", confidence = "high" },
     UNLIMITED_STEPS = { class = "verified", source = "DllHeading.cro 0xcdc0 (records), 0xd798 (order, 1030 jumps to 30, 0x7b68), 0x136e0 (patterns, % 30 of 1010 back to 20)", confidence = "high" },
-    WINDOW = { class = "measured", source = "ball.bclyt (a/0/1/7 e0) bounding panes 0/2/4, 1/3/5, 1x/1y/1z, 8 (index tables 0x13d68 / 0x13d80 / 0x13d74); the test point's 0.25 drop is read from 0x58b0 but not run live", confidence = "medium" },
+    WINDOW = { class = "inferred", source = "good windows narrowed by us (the game's counted a ball nearly off the screen past our sprites); the game's: ball.bclyt (a/0/1/7 e0) bounding panes 0/2/4, 1/3/5, 1x/1y/1z, 8 (index tables 0x13d68 / 0x13d80 / 0x13d74); the test point's 0.25 drop is read from 0x58b0 but not run live", confidence = "medium" },
     TOUCH = { class = "verified", source = "ball.bclyt panes 1f / 1g / 1h (106 x 120); a tap counts for the column's lowest ball, not while that Pokemon heads (0xb1c)", confidence = "high" },
     BIG_BONUS = { class = "verified", source = "DllHeading.cro 0x74c0: 10 good, 50 just, 0 missed; the giant drops on the middle Pokemon after the side ones leave (state machine 0x61b4)", confidence = "high" },
   },

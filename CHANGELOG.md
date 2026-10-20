@@ -48,6 +48,16 @@ All notable changes to this mod are documented here. The format follows
   - A Pokémon with a status condition can't play: it shivers and goes back to its ball.
 - Pressing the return button on Amie's SWITCH screen closed Pokémon-Amie; it now just closes
   the list.
+- Petting in PLAY gives feedback while it builds up: the Pokémon wriggles and leans into your
+  strokes, with a music note now and then (a heart on a spot it loves); on a spot it dislikes,
+  the hand changes and it flinches away.
+- Head It and Tile Puzzle: the Poké Puffs you earn bob and rock as in Berry Picker.
+- Head It: the Pokémon breathe and bob while playing, and hop now and then on the results
+  screen. A ball now has to be at the Pokémon's head to count: one nearly off the bottom of
+  the screen no longer does.
+- The room no longer stops a starving Pokémon with a sad face and "is hungry!" before the
+  menu, which the game doesn't do: a tap always opens the menu, whose fullness bubble shows
+  how hungry it is.
 - Petting in Pokémon-Amie follows the game's own rules (read from its Amie script): what counts
   is the time your finger keeps moving on the Pokémon. About two seconds on one kind of spot
   (more for each reward in a row on the same spot), or five seconds anywhere, earns its reward:

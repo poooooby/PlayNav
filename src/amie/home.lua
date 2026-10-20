@@ -145,13 +145,15 @@ return function(mod, Pointer, G, Rules, Store, host)
     return (FLOOR.x0 + FLOOR.x1) / 2, (FLOOR.y0 + FLOOR.y1) / 2
   end
 
+  -- ours: from this much enjoyment it plays more often
+  local PLAYFUL = 200
+
   -- the Pokemon's mood decides what it does next
   local function nextBehaviour(s)
     local m = s.meters
     if s.status or (s.mon and (s.mon.hp or 1) <= 0) then return "nap", 3 end
-    if (m.fullness or 0) <= 0 and not pet.acknowledged then return "hungry", 2 end
     local r = math.random()
-    local happy = (m.enjoyment or 0) >= Rules.N.HINT.HIGH
+    local happy = (m.enjoyment or 0) >= PLAYFUL
     if r < (happy and 0.3 or 0.12) then return "play", 1.8 end
     if r < 0.5 then return "idle", 0.8 + math.random() * 1.6 end
     -- a cushion in the room is a favourite spot
@@ -169,7 +171,6 @@ return function(mod, Pointer, G, Rules, Store, host)
     pet.x, pet.y = 160, 150
     pet.tx, pet.ty = pet.x, pet.y
     pet.state, pet.timer = "idle", 1.0
-    pet.acknowledged = false
     pet.hops = 0
     menu, sw = nil, nil
     lastKey = s.key
@@ -549,16 +550,9 @@ return function(mod, Pointer, G, Rules, Store, host)
         return
       end
     end
-    -- on the Pokemon: the menu; near it: it looks over; starving: acknowledge
+    -- on the Pokemon: the menu; near it: it looks over
     local dx, dy = x - pet.x, y - (pet.y - 14)
     if dx * dx + dy * dy <= 28 ^ 2 then
-      if pet.state == "hungry" then
-        pet.acknowledged = true
-        pet.state, pet.timer = "idle", 0.5
-        G.say(("%s is hungry!"):format(s.name), 2)
-        showEmote("emote/sad", 1.5)
-        return
-      end
       pet.state, pet.timer = "look", 4
       setMenu(true)
       return
@@ -675,8 +669,6 @@ return function(mod, Pointer, G, Rules, Store, host)
         pet.frameT = pet.frameT + dt
         if pet.frameT >= 0.18 then pet.frameT = 0; pet.frame = 1 - pet.frame end
       end
-      -- starving: stop where it is
-      if (s.meters.fullness or 0) <= 0 and not pet.acknowledged then pet.state, pet.timer = "hungry", 2 end
     elseif pet.state == "play" then
       pet.frameT = pet.frameT + dt
       if pet.frameT >= 0.12 then pet.frameT = 0; pet.frame = 1 - pet.frame end

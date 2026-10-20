@@ -101,7 +101,6 @@ return {
   -- affection milestones that give a Decor gift (the highest crossed only), and their sets
   GIFT_AFFECTION = { 25, 50, 75, 100, 150, 255 },
   GIFT_SET = { [25] = "B", [50] = "C", [75] = "D", [100] = "D", [150] = "E", [255] = "F" },
-  HINT = { LOW = 50, HIGH = 200 },       -- icons over a wandering Pokemon
 
   -- benefits in battle
   BENEFITS = {
@@ -149,7 +148,6 @@ return {
     MAKING_FACES = { class = "verified", source = "Amie's script 0x1296c / 0x12994 / 0x129b0 (per success); microphone +5 x4 (0x2d0c), smile +5 x4 (0x6698); no camera or microphone here, unused", confidence = "high" },
     DANCE_EVERY = { class = "verified", source = "Amie's script func_095f0: thresholds 50 / 100 / 150 / 200 / 255 (data 0x51c), played 2 / 2 / 2 / 2 / 3 times, once each a visit, after feeding, a petting reward or a face game", confidence = "high" },
     GIFT_AFFECTION = { class = "verified", source = "main 0x408fc8 (thresholds 25 / 50 / 75 / 100 / 150 / 255 at 0x581c24; the highest crossed since the last stored value only), sets DllField 0xfb404 (B C D D E F); lines 11 / 19 of file 111", confidence = "high" },
-    HINT = { class = "placeholder", source = "ours: the game shows no hint over the room's Pokemon (DllField has only the menu's bubbles)", confidence = "low" },
     BENEFITS = { class = "verified", source = "Bulbapedia Pokemon-Amie, Affection benefits", confidence = "high" },
     GIFT_SET = { class = "verified", source = "DllField.cro table 0xfb404: the affection milestones' sets B C D D E F", confidence = "high" },
     MIC = { class = "verified", source = "Amie's script: microphone +5 enjoyment for the first 4 times (G1264, 0x2d0c); no microphone here, unused", confidence = "high" },

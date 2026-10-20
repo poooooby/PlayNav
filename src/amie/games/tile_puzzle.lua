@@ -277,6 +277,8 @@ return function(mod, Pointer, G, Games, Rules, host)
         Dn:setImage(pane.name, Dn:image(("wappen_%02d.bclim"):format(tier)))
         local img = art(puffs[j])
         if img then Dn:setImage(child.name, img) end
+        -- each bobs and rocks as Berry Picker's do (the game's sweets clip, made on pane p)
+        Dn:play("sweets", { as = pane.name, sample = "p", loop = true, from = (j * 7) % 20 })
       end
     end
   end

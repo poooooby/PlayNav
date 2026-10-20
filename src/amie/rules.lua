@@ -129,16 +129,6 @@ return function(N)
   end
   function R.giftSet(threshold) return N.GIFT_SET[threshold] end
 
-  -- the icon over a wandering Pokemon: "puff" | "note" | "orange_note" | nil
-  function R.hint(meters)
-    local f, e = meters.fullness or 0, meters.enjoyment or 0
-    if f < N.HINT.LOW or e < N.HINT.LOW then
-      return (f <= e) and "puff" or "note"
-    end
-    if f >= N.HINT.HIGH and e >= N.HINT.HIGH then return "orange_note" end
-    return nil
-  end
-
   function R.canEat(national) return not N.NON_EATERS[national or 0] end
   function R.canPet(national) return not N.NO_PET[national or 0] end
 

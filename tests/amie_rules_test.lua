@@ -104,7 +104,7 @@ do
   T.eq(R.gameEnjoyment("berry", "unlimited", 6), 140, "...140 at the top")
 end
 
--- ------- milestones and hints
+-- ------- milestones
 
 T.eq(R.danceCrossed(49, 50), 2, "crossing 50 dances with two cries")
 T.eq(R.danceCrossed(249, 250), false, "250 is skipped")
@@ -116,11 +116,6 @@ T.eq(R.giftSet(25), "B", "...from set B")
 T.eq(R.giftSet(75), "D", "75 gives set D")
 T.eq(#R.giftsCrossed(20, 255), 1, "a jump past several gives one gift")
 T.eq(R.giftsCrossed(20, 255)[1], 255, "...for the highest crossed")
-T.eq(R.hint({ fullness = 10, enjoyment = 40 }), "puff", "low fullness shows the puff")
-T.eq(R.hint({ fullness = 40, enjoyment = 10 }), "note", "lower enjoyment shows the note")
-T.eq(R.hint({ fullness = 30, enjoyment = 30 }), "puff", "a tie shows the puff")
-T.eq(R.hint({ fullness = 200, enjoyment = 210 }), "orange_note", "both high shows the orange note")
-T.eq(R.hint({ fullness = 100, enjoyment = 100 }), nil, "middling shows nothing")
 
 -- ------- puffs and the jar
 
