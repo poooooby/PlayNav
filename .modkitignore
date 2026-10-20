@@ -86,3 +86,4 @@ imgs/st-balloons1.png
 imgs/st-home.png
 tests/drivers/gear_store_probe.lua
 tests/drivers/perf_amie.lua
+tests/stillpic_test.lua
