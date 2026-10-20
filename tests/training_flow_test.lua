@@ -626,6 +626,17 @@ do
   T.eq(S.state().evs.hp, 100, "with its own EVs")
   T.eq(#S.party(), 3, "the party strip lists three")
   T.check(S.party()[3].active and not S.party()[2].eligible, "active and eligible flags")
+  -- the dock: a member past its time awake shows lying down before it is tapped
+  local lead = Store.mon(S.party()[1].key)
+  lead.resting, lead.awakeAt, lead.restAfter = false, clock.wall, 1800
+  T.check(not S.party()[1].resting, "a member still within its awake stretch is up in the dock")
+  lead.awakeAt = clock.wall - 1801
+  T.check(S.party()[1].resting, "...past it, the dock shows it resting without a tap")
+  T.check(S.switchTo(party[1]), "tapped, it takes the screen")
+  S.tick(0.016)
+  T.eq(S.state().resting, "idle", "...lying down, as the dock showed")
+  S.wake()
+  S.switchTo(party[3])
 end
 
 -- ------- the Wings through item.use

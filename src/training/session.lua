@@ -1198,11 +1198,20 @@ return function(mod, deps)
 
   -- the rows and the list are reused call to call: the home screen asks once a frame
   local partyOut, partyRows = {}, {}
+  -- lying down, or due to: a member past its rolled time awake lies down the moment its clock
+  -- next runs (stepCore, when it becomes the trainee), so the dock shows it resting already
+  local function restingNow(rec, at)
+    if type(rec) ~= "table" then return false end
+    if rec.resting then return true end
+    return rec.awakeAt ~= nil and rec.restAfter ~= nil and at >= rec.awakeAt + rec.restAfter
+  end
+  T.restingNow = restingNow
   function T.party()
     local out = partyOut
     for i = #out, 1, -1 do out[i] = nil end
     local s = T.session
     local mons = Store.data().mons
+    local at = wall()
     for i, mon in ipairs(host.party()) do
       local rec = mons[host.monKey(mon)]
       local r = partyRows[i]
@@ -1211,7 +1220,9 @@ return function(mod, deps)
       r.icon = host.icon and host.icon(mon) or nil
       r.eligible, r.active, r.index = eligible(mon), s ~= nil and r.key == s.key, i
       -- lying down (idle or after its routine) until it is tapped awake
-      r.resting = type(rec) == "table" and rec.resting and true or false
+      -- (a fainted one's clock does not run: only a rest it already took)
+      r.resting = (type(rec) == "table" and rec.resting and true)
+        or (restingNow(rec, at) and not host.isFainted(mon)) or false
       out[#out + 1] = r
     end
     return out

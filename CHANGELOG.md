@@ -5,6 +5,11 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Super Training's home screen: a party member whose time awake had run out showed as awake in
+  the row at the bottom until you tapped it; it now shows lying down as soon as it is resting.
+
 ## [0.5.7] - 2026-10-20 (alpha)
 
 ### Fixed
