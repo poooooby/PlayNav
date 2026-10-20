@@ -48,6 +48,10 @@ All notable changes to this mod are documented here. The format follows
   - A Pokémon with a status condition can't play: it shivers and goes back to its ball.
 - Pressing the return button on Amie's SWITCH screen closed Pokémon-Amie; it now just closes
   the list.
+- With a sprite mod that animates battle sprites (such as G9 Battle Sprites), Pokémon-Amie, its
+  minigames and Super Training show each Pokémon in its animation's first frame, the same every
+  time, instead of whichever pose was showing when the screen opened. The game's own sprites
+  are unaffected.
 - Petting in PLAY gives feedback while it builds up: the Pokémon wriggles and leans into your
   strokes, with a music note now and then (a heart on a spot it loves); on a spot it dislikes,
   the hand changes and it flinches away.

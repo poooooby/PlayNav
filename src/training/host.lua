@@ -225,19 +225,24 @@ return function(mod, base)
 
   -- ------- pictures
 
-  -- the front pic of a species (Gen 1-3) for Balloon Bots without ORAS art
-  function H.speciesFrontPic(species)
-    if not (species and H.Pokemon and H.Pokemon.frontPic) then return nil end
-    local ok, entry = pcall(H.Pokemon.frontPic, species)
+  -- (mod.stillPic: the first frame of an animated sprite mod's pic, the game's own as it is)
+  local function still(fn, ...)
+    local SP = mod and mod.stillPic
+    if SP then return SP.get(fn, ...) end
+    local ok, entry = pcall(fn, ...)
     if ok and type(entry) == "table" and entry.image then return entry end
     return nil
   end
 
+  -- the front pic of a species (Gen 1-3) for Balloon Bots without ORAS art
+  function H.speciesFrontPic(species)
+    if not (species and H.Pokemon and H.Pokemon.frontPic) then return nil end
+    return still(H.Pokemon.frontPic, species)
+  end
+
   function H.backPic(mon)
     if not (mon and H.Pokemon and H.Pokemon.monBackPic) then return nil end
-    local ok, entry = pcall(H.Pokemon.monBackPic, mon)
-    if ok and type(entry) == "table" and entry.image then return entry end
-    return nil
+    return still(H.Pokemon.monBackPic, mon)
   end
 
   -- a Gen 3 internal species id from a National number, or nil

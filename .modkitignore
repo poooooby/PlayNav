@@ -49,6 +49,7 @@ tests/drivers/amie_play_probe.lua
 tests/drivers/berry_probe.lua
 tests/drivers/tile_probe.lua
 tests/drivers/head_probe.lua
+tests/drivers/stillpic_probe.lua
 tests/drivers/amie_switch_probe.lua
 tests/drivers/thor_probe.lua
 tests/drivers/extract_probe.lua

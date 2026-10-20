@@ -94,6 +94,11 @@ return function(mod)
     mod.hd = HD
   end
   local makeHdTop = loadSibling(mod, "src/hd_top.lua")
+  -- one still frame of a Pokemon's pic, whatever sprite mod hands it out (shared as mod.stillPic)
+  do
+    local makeStill = loadSibling(mod, "src/stillpic.lua")
+    if makeStill then mod.stillPic = makeStill(mod) end
+  end
   -- text that wraps and shrinks to fit its box (shared as mod.textfit)
   mod.textfit = loadSibling(mod, "src/textfit.lua")
   local makeApps = loadSibling(mod, "src/apps/init.lua")

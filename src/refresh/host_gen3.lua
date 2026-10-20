@@ -73,18 +73,24 @@ return function(mod)
     return "POKEMON"
   end
 
-  function H.frontPic(mon)
-    local ok, entry = pcall(H.Pokemon.monFrontPic, mon, nil, "summary")
+  -- (mod.stillPic: the first frame of an animated sprite mod's pic, the game's own as it is)
+  local function still(fn, ...)
+    local SP = mod and mod.stillPic
+    if SP then return SP.get(fn, ...) end
+    local ok, entry = pcall(fn, ...)
     if ok and type(entry) == "table" and entry.image then return entry end
     return nil
+  end
+
+  function H.frontPic(mon)
+    if not (mon and H.Pokemon and H.Pokemon.monFrontPic) then return nil end
+    return still(H.Pokemon.monFrontPic, mon, nil, "summary")
   end
 
   -- the back pic: the Play screen's Pokemon asleep with its back turned (until a tap wakes it)
   function H.backPic(mon)
     if not (mon and H.Pokemon and H.Pokemon.monBackPic) then return nil end
-    local ok, entry = pcall(H.Pokemon.monBackPic, mon)
-    if ok and type(entry) == "table" and entry.image then return entry end
-    return nil
+    return still(H.Pokemon.monBackPic, mon)
   end
 
   function H.icon(mon)
