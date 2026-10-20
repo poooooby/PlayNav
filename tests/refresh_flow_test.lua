@@ -184,6 +184,25 @@ T.eq(done, 2, "the last bite finishes the puff for two hearts")
 T.eq(st.meters.fullness, full + 100, "...and 50 fullness in total")
 T.eq(S.feedStart(owned[1].id) and S.feedDrop(), true, "a puff pulled away is dropped")
 T.eq(A.state().feeding, nil, "...and the bites stop")
+-- offered and taken back before a bite: back in the jar; once bitten it cannot go back
+do
+  local n0 = #A.puffs()
+  local id = Rules.ownedPuffs(A.puffs())[1].id
+  S.feedStart(id)
+  T.eq(#A.puffs(), n0 - 1, "an offered puff is out of the jar")
+  T.eq(S.feedCancel(), true, "...taken back before a bite")
+  T.eq(#A.puffs(), n0, "...it is in the jar again")
+  T.eq(A.state().feeding, nil, "...and nothing is being eaten")
+  S.feedStart(id)
+  for _ = 1, 40 do if S.feedHold(0.1) then break end end
+  T.eq(S.feedCancel(), false, "a bitten puff cannot be put back")
+  S.feedDrop()
+  -- let go of before it was offered: it falls and is lost
+  local n1 = #A.puffs()
+  T.eq(S.dropPuff(id), true, "a puff let go of is lost")
+  T.eq(#A.puffs(), n1 - 1, "...one fewer in the jar")
+  T.eq(S.dropPuff("puff/no_such_puff"), false, "...one the jar doesn't hold: nothing")
+end
 st.meters.fullness = 255
 local okFull, why = S.feedStart(owned[1].id)
 T.eq(why, "full", "a full Pokemon turns away")

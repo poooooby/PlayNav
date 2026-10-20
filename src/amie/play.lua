@@ -64,6 +64,10 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local MON_K_MIN, MON_K_MAX = 2.5, 5.5
   local ZOOM_TOUCH = 1.35         -- the view while a finger is on the Pokemon
   local ZOOM_EAT = 1.7            -- the close-up while it eats (more turns a GBA sprite to blocks)
+  local EAT_R = 40                -- how near its mouth (screen units) a held puff must be to be eaten
+  local JUMP_S, JUMP_PEAK = 0.7, 0.4   -- the high five's leap: its length, and when it reaches the hand
+  local JUMP_REACH = 0.75         -- how much of the way from its head to the hand it leaps
+  local JUMP_HOP = 30             -- and how high it springs on the way (layout units)
   local EASE = 9                  -- view easing, per second
   local STRIP_W = 313             -- the puff strip open (the game's window 2y)
   local STRIP_SLOTS = { "38", "3a", "3c", "3e", "3g", "3i", "3k" }
@@ -98,7 +102,9 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local emote = nil       -- { id, untilT }
   local drag = nil        -- { kind = <puff id>, x, y (layout), id }
   local feed = nil        -- { stage = "flash" | "eat" | "after", t, kind, bites, taken }
-  local strip = { open = 0, page = 1 }
+  local strip = { open = 0, scroll = 0, vel = 0 }   -- the puff drawer: how open, scrolled (layout units)
+  local falling = {}      -- puffs let go of: { kind, x, y, vx, vy, rot } (layout units) until off screen
+  local jump = nil        -- the high five: { t, dur, hx, hy (scene), slapped } it leaps at the hand
   local picker = nil      -- { stage = "badge" | "diff", game = 1..3, diff = 1..4 }
   local pv = { tab = 145, cont = 0, badges = 0, plates = 0 }        -- the picker panes, eased
   local holdFive = nil
@@ -441,21 +447,46 @@ return function(mod, Pointer, G, Rules, Petting, host)
     end
   end
 
-  -- ------- the puff strip: the jar's puffs in order, seven a page
+  -- ------- the puff drawer: one of each kind the jar holds (catalogue order) with its count,
+  -- drawn by us along the drawer from the puff button's right edge (the layout's seven slot
+  -- panes started under the button and ran off the screen). It slides out of the button as it
+  -- opens; a sideways drag scrolls it (with momentum), a pull down takes a puff out.
 
-  local function stripPuffs(s)
-    local list = {}
-    for _, id in ipairs(s.puffs or {}) do list[#list + 1] = id end
-    return list
+  local PUFF_PX, PUFF_PITCH = 34, 40   -- a puff's size and spacing in the drawer
+  local function stripKinds(s) return Rules.ownedPuffs(s.puffs or {}) end
+  -- the puff row: its left and right edges and middle height (layout units)
+  local function stripGeom()
+    local bx, by, bw, bh = box("6")
+    if not bx then return 72, 306, 33 end
+    return bx + bw + 4, bx + STRIP_W - 10, by + bh / 2
   end
-  local function stripPages(s)
-    local n = #stripPuffs(s)
-    local pages = math.max(1, math.ceil(n / #STRIP_SLOTS))
-    strip.page = math.min(math.max(strip.page or 1, 1), pages)
-    return pages
+  local function maxScroll(n, x0, x1) return math.max(0, n * PUFF_PITCH - (x1 - x0)) end
+  -- how far the row has come out of the button (0..1, eased): the whole row slides out as one,
+  -- at full opacity, from behind the button's edge (the drawer's clip hides the rest)
+  local function slideOf()
+    local e = math.max(0, math.min(1, strip.open))
+    return e * e * (3 - 2 * e)
   end
-  local function slotPuff(s, i)
-    return stripPuffs(s)[(strip.page - 1) * #STRIP_SLOTS + i]
+  local function slotX(i, x0, x1)
+    local home = x0 + PUFF_PITCH / 2 + (i - 1) * PUFF_PITCH - strip.scroll
+    local hidden = ((x1 or (x0 + STRIP_W)) - x0) + PUFF_PITCH
+    return home - (1 - slideOf()) * hidden
+  end
+  -- the kind under a point of the open drawer, or nil
+  local function kindAt(s, lx, ly)
+    local x0, x1, cy = stripGeom()
+    if math.abs(ly - cy) > PUFF_PITCH / 2 or lx < x0 or lx > x1 then return nil end
+    local i = math.floor((lx - x0 + strip.scroll) / PUFF_PITCH) + 1
+    local kinds = stripKinds(s)
+    return kinds[i] and i or nil, kinds
+  end
+  local function inStripRow(lx, ly)
+    local x0, x1, cy = stripGeom()
+    return math.abs(ly - cy) <= PUFF_PITCH / 2 + 4 and lx >= x0 - 8 and lx <= x1 + 8
+  end
+  -- a puff let go of: it drops off the bottom of the screen
+  local function fall(kind, lx, ly)
+    falling[#falling + 1] = { kind = kind, x = lx, y = ly, vx = (math.random() - 0.5) * 60, vy = -60, rot = 0 }
   end
 
   -- ------- the picker
@@ -479,6 +510,23 @@ return function(mod, Pointer, G, Rules, Petting, host)
     for i, diff in ipairs(GA.DIFFS) do if GA.isUnlocked(game, diff) then d = i end end
     picker.diff = d
     G.click()
+  end
+
+  -- a difficulty chosen (a tap on its ribbon, or A): another one is selected first, the selected
+  -- one starts the game if it is open
+  local function pickDiff(i)
+    local GA = Games()
+    if not (GA and picker) then return end
+    local game, diff = GA.GAMES[picker.game], GA.DIFFS[i]
+    if i ~= picker.diff then
+      picker.diff = i
+      G.click()
+    elseif diff and GA.isUnlocked(game, diff) then
+      app.lastGame = game
+      G.startGame(game, diff)
+    else
+      G.say(G.tx("needThree", nil, "Earn three stars on the rank below first."), 2.5)
+    end
   end
 
   -- ------- input
@@ -518,17 +566,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
       end
       return
     end
-    -- the strip: a puff to drag, the arrows, the strip itself
+    -- the drawer: a press on its row is a scroll (sideways) or, on a puff, a pull (down) -
+    -- decided as the finger moves (handleMove)
     if s.tool == "beans" and strip.open > 0.9 then
-      for i, n in ipairs(STRIP_SLOTS) do
-        local id = slotPuff(s, i)
-        if id and inBox(n, lx, ly) then
-          drag = { kind = id, x = lx, y = ly, id = ev.id }
-          return
-        end
-      end
       if inBox("6", lx, ly, 4) then rec.amieButton = "puff"; return end
-      if ly <= 60 then rec.amieStrip = lx; return end
+      if inStripRow(lx, ly) then
+        local i, kinds = kindAt(s, lx, ly)
+        rec.amieStrip = { x = lx, y = ly, scroll = strip.scroll, kind = i and kinds[i].id or nil,
+          lastX = lx, lastT = now() }
+        strip.vel = 0
+        return
+      end
     end
     -- the buttons
     if buttonsUp(s) or s.tool == "beans" then
@@ -565,6 +613,31 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   local function handleMove(ev, rec, s, lx, ly)
     if drag and drag.id == ev.id then drag.x, drag.y = lx, ly; return end
+    local sr = rec.amieStrip
+    if sr then
+      local dx, dy = lx - sr.x, ly - sr.y
+      if not sr.mode then
+        -- down (or more down than across) on a puff pulls it out; across scrolls
+        if sr.kind and (dy > 10 or (math.abs(dy) > 8 and math.abs(dy) > math.abs(dx))) then sr.mode = "pull"
+        elseif math.abs(dx) > 6 then sr.mode = "scroll" end
+      end
+      if sr.mode == "pull" then
+        drag = { kind = sr.kind, x = lx, y = ly, id = ev.id }
+        rec.amieStrip = nil
+      elseif sr.mode == "scroll" then
+        strip.dragging, strip.target = true, nil
+        local x0, x1 = stripGeom()
+        local top = maxScroll(#stripKinds(s), x0, x1)
+        local want = sr.scroll - dx
+        -- a little give past the ends, pulled back on release
+        if want < 0 then want = want * 0.35 elseif want > top then want = top + (want - top) * 0.35 end
+        strip.scroll = want
+        local t = now()
+        if t > sr.lastT then strip.vel = -(lx - sr.lastX) / (t - sr.lastT) end
+        sr.lastX, sr.lastT = lx, t
+      end
+      return
+    end
     if holdFive and holdFive.id == ev.id then
       holdFive.x, holdFive.y = lx, ly
       if hand then hand.x, hand.y = lx, ly end
@@ -579,25 +652,31 @@ return function(mod, Pointer, G, Rules, Petting, host)
   end
 
   local function handleRelease(ev, rec, s, lx, ly)
-    -- a dragged puff: onto the Pokemon starts the meal, anywhere else back to the strip
+    -- a held puff let go of: back on the puff button (or the drawer) it goes back in the jar if
+    -- no bite has been taken; anywhere else it falls off the screen and is lost (the rest of a
+    -- bitten one too)
     if drag and drag.id == ev.id then
       local d = drag
       drag = nil
-      if ev.phase == "released" then
-        local pl = placement(s)
-        local sx, sy = toScene(lx, ly)
-        if onBody(pl, sx, sy, 1.25) and G.feedStart(d.kind) then
-          feed = { stage = "flash", t = 0, kind = d.kind }
-          flash = { t = 0, dur = 0.6 }
-          stars = {}
-          for i = 1, 10 do
-            local a = i / 10 * 2 * math.pi
-            stars[i] = { a = a, v = 90 + math.random() * 80, r = 6 + math.random() * 6,
-              kind = (i % 2 == 0) and "lyt/amie_play/star_normal" or "lyt/amie_play/star_easy" }
-          end
-          G.setTool(nil)
+      local home = inBox("6", lx, ly, 10) or (s.tool == "beans" and inStripRow(lx, ly))
+      if feed and s.feeding then
+        if home and G.feedCancel() then
+          G.click()
+        else
+          G.feedDrop()
+          fall(d.kind, lx, ly)
         end
+        feed = nil
+        want.z, want.fx, want.fy, want.px, want.py = 1, 160, LH / 2, 160, LH / 2
+      elseif not home and not feed then
+        if G.dropPuff(d.kind) then fall(d.kind, lx, ly) end
       end
+      return
+    end
+    if rec.amieStrip then
+      -- a scroll ends: its momentum carries on (update); a press that never moved does nothing
+      rec.amieStrip = nil
+      strip.dragging = false
       return
     end
     local wasTouch = touch and touch.id == ev.id
@@ -618,13 +697,6 @@ return function(mod, Pointer, G, Rules, Petting, host)
         if G.showGames() then openPicker(s) end
       elseif rec.amieButton == "back" and inBox("4", lx, ly, 6) then
         G.back()
-      elseif rec.amieStrip then
-        -- a tap on the strip off the puffs: page by halves
-        local pages = stripPages(s)
-        if pages > 1 then
-          strip.page = rec.amieStrip < 160 and math.max(1, strip.page - 1) or math.min(pages, strip.page + 1)
-          G.click()
-        end
       elseif rec.amieBack and picker then
         if picker.stage == "diff" then picker.stage = "badge"; G.click()
         else G.back() end
@@ -636,16 +708,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
         if rec.amieBadge == picker.game then startDiff(rec.amieBadge)
         else picker.game = rec.amieBadge; G.click() end
       elseif rec.amieDiff and picker and GA and inBox(PLATE[rec.amieDiff], lx, ly) then
-        local game, diff = GA.GAMES[picker.game], GA.DIFFS[rec.amieDiff]
-        if rec.amieDiff ~= picker.diff then
-          picker.diff = rec.amieDiff
-          G.click()
-        elseif diff and GA.isUnlocked(game, diff) then
-          app.lastGame = game
-          G.startGame(game, diff)
-        else
-          G.say(G.tx("needThree", nil, "Earn three stars on the rank below first."), 2.5)
-        end
+        pickDiff(rec.amieDiff)
       elseif rec.amieBody and wasTouch then
         -- a tap is not petting (the game counts only a moving finger): the hand's sparkle
         setHand("tap", lx, ly)
@@ -694,6 +757,14 @@ return function(mod, Pointer, G, Rules, Petting, host)
     end
     if emote and now() > emote.untilT then emote = nil end
     if flash then flash.t = flash.t + dt; if flash.t >= flash.dur then flash = nil end end
+    -- puffs let go of tumble off the bottom
+    for i = #falling, 1, -1 do
+      local f = falling[i]
+      f.vy = f.vy + 900 * dt
+      f.x, f.y = f.x + f.vx * dt, f.y + f.vy * dt
+      f.rot = f.rot + (f.vx >= 0 and 6 or -6) * dt
+      if f.y > LH + 60 then table.remove(falling, i) end
+    end
 
     if not s then app.live = false; return end
     -- a fresh visit to PLAY (a new session, or from the room) starts with its back turned
@@ -709,8 +780,9 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local m = s.meters or {}
       wake.sated = (m.enjoyment or 0) >= Rules.IDLE.SATED and (m.fullness or 0) >= Rules.IDLE.SATED
       view.z, want.z = 1, 1
-      particles, feed, drag, touch, hand, picker = {}, nil, nil, nil, nil, nil
-      strip.open, strip.page = 0, 1
+      particles, feed, drag, touch, hand, picker, jump = {}, nil, nil, nil, nil, nil, nil
+      falling = {}
+      strip.open, strip.scroll, strip.vel = 0, 0, 0
       if s.tool == "games" then openPicker(s) end
     end
     -- back from a game: the picker is on the badges again, at the game just played
@@ -822,28 +894,55 @@ return function(mod, Pointer, G, Rules, Petting, host)
     if s.tool == "games" and not picker then openPicker(s) end
     if s.tool ~= "games" and picker then picker = nil end
 
-    -- the meal: the flash, the close-up, the bites, the reaction, back out
+    -- a held puff touches the Pokemon: the meal starts (the flash, a close-up about its mouth,
+    -- which stays under the finger); a refusal (full, can't eat) is said once a drag
+    if drag and not feed and wake.stage == "awake" then
+      local pl = placement(s)
+      local sx, sy = toScene(drag.x, drag.y)
+      if onBody(pl, sx, sy, 1.0) then
+        if not drag.refused then
+          if G.feedStart(drag.kind) then
+            feed = { stage = "flash", t = 0, kind = drag.kind }
+            flash = { t = 0, dur = 0.6 }
+            stars = {}
+            for i = 1, 10 do
+              local a = i / 10 * 2 * math.pi
+              stars[i] = { a = a, v = 90 + math.random() * 80, r = 6 + math.random() * 6,
+                kind = (i % 2 == 0) and "lyt/amie_play/star_normal" or "lyt/amie_play/star_easy" }
+            end
+            want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.headX, pl.mouthY, drag.x, drag.y
+          else
+            drag.refused = true
+          end
+        end
+      end
+    end
+
+    -- the meal: the flash, the bites while the puff is held at the mouth, the reaction, back out
     if feed then
       feed.t = feed.t + dt
       local pl = placement(s)
+      -- the mouth on screen (it moves with the view), and whether the puff is at it
+      local mx = view.px + (pl.headX - view.fx) * view.z
+      local my = view.py + (pl.mouthY - view.fy) * view.z
+      feed.atMouth = drag ~= nil and (drag.x - mx) ^ 2 + (drag.y - my) ^ 2 <= EAT_R * EAT_R
       if feed.stage == "flash" then
-        if feed.t >= 0.3 and not feed.zoomed then
-          feed.zoomed = true
-          view.z, view.fx, view.fy, view.px, view.py = ZOOM_EAT, pl.headX, pl.mouthY, 160, LH * 0.5
-        end
-        want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.headX, pl.mouthY, 160, LH * 0.5
+        -- under the flash the mouth follows the puff, so it is at the finger when the flash clears
+        if drag then want.px, want.py = drag.x, drag.y end
         if feed.t >= 0.6 then feed.stage, feed.t = "eat", 0 end
       elseif feed.stage == "eat" then
         local f = s.feeding
         if not f then
           feed.stage, feed.t = "after", 0
-        else
+        elseif feed.atMouth then
           feed.bites, feed.taken = f.bites, f.taken
           local what, hearts = G.feedHold(dt)
           if what == "bite" then
             spawn("crumb", pl.headX, pl.mouthY, 3)
+            feed.taken = (s.feeding and s.feeding.taken) or feed.taken
           elseif what == "done" then
             feed.taken = feed.bites
+            drag = nil      -- eaten: the finger holds nothing now
             life.excite = 1
             if (hearts or 0) >= 2 then
               spawn("heart", pl.headX, pl.headY - 10, 5)
@@ -868,7 +967,23 @@ return function(mod, Pointer, G, Rules, Petting, host)
     view.px, view.py = ease(view.px, want.px, k), ease(view.py, want.py, k)
 
     -- the strip and the picker's panes
-    strip.open = ease(strip.open, (s.tool == "beans" and not feed) and 1 or 0, 1 - math.exp(-14 * dt))
+    strip.open = ease(strip.open, (s.tool == "beans" and not feed) and 1 or 0, 1 - math.exp(-10 * dt))
+    -- the drawer's scroll: momentum after a flick, then eased back inside its ends
+    if s.tool == "beans" then
+      local x0, x1 = stripGeom()
+      local top = maxScroll(#stripKinds(s), x0, x1)
+      if not strip.dragging then
+        strip.scroll = strip.scroll + strip.vel * dt
+        strip.vel = strip.vel * math.exp(-5 * dt)
+        if math.abs(strip.vel) < 5 then strip.vel = 0 end
+        if strip.scroll < 0 then strip.scroll = ease(strip.scroll, 0, 1 - math.exp(-14 * dt)); strip.vel = math.max(0, strip.vel)
+        elseif strip.scroll > top then strip.scroll = ease(strip.scroll, top, 1 - math.exp(-14 * dt)); strip.vel = math.min(0, strip.vel) end
+        if strip.target then
+          strip.scroll = ease(strip.scroll, strip.target, 1 - math.exp(-14 * dt))
+          if math.abs(strip.scroll - strip.target) < 0.5 then strip.target = nil end
+        end
+      end
+    end
     local kp = 1 - math.exp(-16 * dt)
     pv.tab = ease(pv.tab, picker and 105 or 145, kp)
     if picker then
@@ -884,9 +999,26 @@ return function(mod, Pointer, G, Rules, Petting, host)
       if fiveLeft <= 0 then
         local hx, hy = toScene(holdFive.x, holdFive.y)
         holdFive = nil
-        hand = nil
-        if G.highFive() then spawn("sparkle", hx, hy, 6); showEmote("emote/laugh", 1.5) end
+        if G.highFive() then
+          -- it leaps at the hand (drawMon), the slap at the top of the jump, then back down
+          jump = { t = 0, dur = JUMP_S, hx = hx, hy = hy, lx = hand and hand.x, ly = hand and hand.y }
+          showEmote("emote/laugh", 1.5)
+        else
+          hand = nil
+        end
         fiveLeft = Rules.ticks(Rules.highFiveTicks(s.meters and s.meters.affection or 0))
+      end
+    end
+    if jump then
+      jump.t = jump.t + dt
+      if not jump.slapped and jump.t >= jump.dur * JUMP_PEAK then
+        jump.slapped = true
+        spawn("sparkle", jump.hx, jump.hy, 8)
+        if jump.lx then setHand("hit", jump.lx, jump.ly) end
+      end
+      if jump.t >= jump.dur then
+        jump = nil
+        if hand and hand.kind == "five" then hand = nil end
       end
     end
     -- milestones the session reported
@@ -1022,6 +1154,20 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local lsx, lsy
       dx, lift, tilt, lsx, lsy = lifeMotion(s, t, pl)
       sx, sy = sx * lsx, sy * lsy
+      -- the high five: out to the hand by the peak (eased out), back to its spot after
+      if jump then
+        local u = jump.t / jump.dur
+        local f = u < JUMP_PEAK and math.sin(u / JUMP_PEAK * math.pi / 2)
+          or math.cos((u - JUMP_PEAK) / (1 - JUMP_PEAK) * math.pi / 2)
+        local ox = (jump.hx - pl.headX) * JUMP_REACH * f
+        local oy = (jump.hy - pl.headY) * JUMP_REACH * f
+        dx = dx + ox
+        lift = lift - oy + JUMP_HOP * f
+        tilt = tilt + (ox >= 0 and 1 or -1) * 0.18 * f
+        -- stretched as it springs, squashed as it lands
+        local land = (u > 0.85) and math.sin((u - 0.85) / 0.15 * math.pi) * 0.08 or 0
+        sx, sy = sx * (1 - 0.06 * f + land), sy * (1 + 0.08 * f - land)
+      end
     end
     G2.setColor(1, 1, 1, 1)
     drawPixel(pl.img, pl.x + dx, pl.y - bounce - lift, tilt, pl.k * sx, pl.k * sy, (pl.b.x0 + pl.b.x1) / 2, pl.b.y1)
@@ -1132,14 +1278,58 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local w = STRIP_W * strip.open
     P:set("2y", "visible", w > 2)
     P:set("2y", "w", w)
-    local full = strip.open > 0.9
-    stripPages(s)
-    for i, n in ipairs(STRIP_SLOTS) do
-      local id = full and slotPuff(s, i)
-      local img = id and art(id)
-      P:set(n, "visible", img ~= nil and not (drag and drag.slot == i))
-      if img then P:setImage(n, img) end
+    -- the layout's slot panes stay hidden: the puffs are drawn by drawStrip
+    for _, n in ipairs(STRIP_SLOTS) do P:set(n, "visible", false) end
+  end
+
+  -- a count in the corner of a stacked puff: white, outlined black
+  local function drawCount(G2, n, x, y)
+    local font = app.smallFont or app.font
+    if not font then return end
+    local str = tostring(n)
+    local k = 11 / font:getHeight()
+    local tw = font:getWidth(str) * k
+    local tx, ty = x - tw, y - font:getHeight() * k
+    G2.setFont(font)
+    G2.setColor(0, 0, 0, 1)
+    for ox = -1, 1 do
+      for oy = -1, 1 do
+        if ox ~= 0 or oy ~= 0 then G2.print(str, tx + ox * 0.9, ty + oy * 0.9, 0, k, k) end
+      end
     end
+    G2.setColor(1, 1, 1, 1)
+    G2.print(str, tx, ty, 0, k, k)
+  end
+
+  -- the drawer's puffs, one per kind with its count, sliding out of the button as it opens;
+  -- clipped to the drawer
+  local function drawStrip(G2, s)
+    if strip.open < 0.02 then return end
+    local x0, x1, cy = stripGeom()
+    local kinds = stripKinds(s)
+    -- clipped to the drawer as far as it has opened (its window widens with it)
+    local wx, _, ww = box("2y")
+    local right = x1 + 2
+    if wx and ww then right = math.min(right, wx + ww - 8) end
+    if right <= x0 then return end
+    local ax, ay = G2.transformPoint(x0 - 2, cy - PUFF_PITCH / 2)
+    local bx, by = G2.transformPoint(right, cy + PUFF_PITCH / 2)
+    G2.push("all")
+    G2.intersectScissor(math.floor(ax), math.floor(ay), math.max(0, math.ceil(bx - ax)), math.max(0, math.ceil(by - ay)))
+    for i, k in ipairs(kinds) do
+      local n = k.count
+      -- the one in the hand is out of the jar's count until it is offered or put back
+      if drag and drag.kind == k.id and not feed then n = n - 1 end
+      local x = slotX(i, x0, x1)
+      local img = art(k.id)
+      if img and n > 0 and x > x0 - PUFF_PITCH and x < x1 + PUFF_PITCH then
+        local iw, ih = img:getDimensions()
+        G2.setColor(1, 1, 1, 1)
+        G2.draw(img, x, cy, 0, PUFF_PX / iw, PUFF_PX / ih, iw / 2, ih / 2)
+        if n > 1 then drawCount(G2, n, x + PUFF_PX / 2 + 2, cy + PUFF_PX / 2 + 2) end
+      end
+    end
+    G2.pop()
   end
 
   local function dressButtons(s)
@@ -1172,17 +1362,6 @@ return function(mod, Pointer, G, Rules, Petting, host)
     G2.translate(-view.fx, -view.fy)
     drawScene(G2, t)
     local pl = drawMon(G2, s, t)
-    -- the puff at its mouth, a bite smaller each time
-    if feed and (feed.stage == "eat" or (feed.stage == "flash" and feed.t >= 0.3)) then
-      local img = art(feed.kind)
-      local frac = (feed.bites and feed.bites > 0) and (feed.taken or 0) / feed.bites or 0
-      local size = 46 * (1 - 0.75 * frac)
-      if img and frac < 1 then
-        local iw, ih = img:getDimensions()
-        G2.setColor(1, 1, 1, 1)
-        G2.draw(img, pl.headX, pl.mouthY, 0, size / iw, size / ih, iw / 2, ih / 2)
-      end
-    end
     for _, p in ipairs(particles) do drawParticle(G2, p) end
     G2.pop()
     -- the emote beside its head, at the screen's own size whatever the view
@@ -1207,15 +1386,27 @@ return function(mod, Pointer, G, Rules, Petting, host)
       dressStrip(s)
       dressPicker(s)
       Pl:draw(G2)
+      drawStrip(G2, s)
     end
 
-    -- the dragged puff, a little larger (the game's food_scale_on)
+    -- the held puff, a little larger (the game's food_scale_on), a bite smaller each bite
     if drag then
       local img = art(drag.kind)
+      local frac = (feed and feed.bites and feed.bites > 0) and (feed.taken or 0) / feed.bites or 0
+      if img and frac < 1 then
+        local iw, ih = img:getDimensions()
+        local size = 48 * (1 - 0.7 * frac)
+        G2.setColor(1, 1, 1, 1)
+        G2.draw(img, drag.x, drag.y, 0, size / iw, size / ih, iw / 2, ih / 2)
+      end
+    end
+    -- puffs let go of, tumbling away
+    for _, f in ipairs(falling) do
+      local img = art(f.kind)
       if img then
         local iw, ih = img:getDimensions()
         G2.setColor(1, 1, 1, 1)
-        G2.draw(img, drag.x, drag.y, 0, 48 / iw, 48 / ih, iw / 2, ih / 2)
+        G2.draw(img, f.x, f.y, f.rot, 44 / iw, 44 / ih, iw / 2, ih / 2)
       end
     end
 
@@ -1254,9 +1445,61 @@ return function(mod, Pointer, G, Rules, Petting, host)
   end
 
   function app:releaseAll()
-    if drag then drag = nil end
+    -- a puff in the hand: back in the jar if it was not bitten, else the rest is lost
+    if drag and feed and G.session and G.session.feeding then
+      if not G.feedCancel() then G.feedDrop() end
+      feed = nil
+    end
+    drag = nil
+    strip.dragging = false
     touch, holdFive, hand = nil, nil, nil
     want.z = feed and want.z or 1
+  end
+
+  -- the pad in PLAY (the session's layer asks first; true = handled): on the minigame picker
+  -- left / right move between the games or the difficulties, A is a tap on the selected one,
+  -- B steps back from the difficulties to the games (from the games G.back folds the picker);
+  -- left / right scroll the open puff drawer a puff at a time
+  G.playInput = function(input)
+    local s = G.session
+    if not (s and s.mode == "play") or not input then return false end
+    local function pressed(b) return input:wasPressed(b) end
+    if picker and wake and wake.stage == "awake" then
+      local left, right = pressed("left"), pressed("right")
+      if left or right then
+        local d = left and -1 or 1
+        if picker.stage == "badge" then
+          local g = math.max(1, math.min(3, picker.game + d))
+          if g ~= picker.game then picker.game = g; G.click() end
+        else
+          local i = math.max(1, math.min(4, picker.diff + d))
+          if i ~= picker.diff then picker.diff = i; G.click() end
+        end
+        return true
+      end
+      if pressed("a") then
+        if picker.stage == "badge" then startDiff(picker.game) else pickDiff(picker.diff) end
+        return true
+      end
+      if pressed("b") and picker.stage == "diff" then
+        picker.stage = "badge"
+        G.click()
+        return true
+      end
+      return false
+    end
+    if s.tool == "beans" and strip.open > 0.5 and not feed then
+      local left, right = pressed("left"), pressed("right")
+      if left or right then
+        local x0, x1 = stripGeom()
+        local top = maxScroll(#stripKinds(s), x0, x1)
+        local from = strip.target or strip.scroll
+        strip.target = math.max(0, math.min(top, from + (left and -1 or 1) * PUFF_PITCH))
+        strip.vel = 0
+        return true
+      end
+    end
+    return false
   end
   -- switched away (a game, the room): app:update stops running meanwhile, so the mode it is
   -- leaving for is noted here (the session sets it before the switch); coming back from a
@@ -1280,7 +1523,16 @@ return function(mod, Pointer, G, Rules, Petting, host)
     if what == "puff_btn" then return centre("6") end
     if what == "play_btn" then return centre("8") end
     if what == "back" then return centre(picker and "e" or "4") end
-    if what == "slot" then return centre(STRIP_SLOTS[i or 1]) end
+    if what == "slot" then
+      -- the i-th kind in the drawer, where it is drawn now
+      local x0, x1, cy = stripGeom()
+      return fromLyt(slotX(i or 1, x0, x1), cy)
+    end
+    if what == "strip" then
+      -- a point on the drawer's row between the puffs' rows (for a sideways drag)
+      local x0, x1, cy = stripGeom()
+      return fromLyt((x0 + x1) / 2, cy)
+    end
     if what == "badge" then return centre(BADGE[i or (picker and picker.game) or 1]) end
     if what == "diff" then return centre(PLATE[i or (picker and picker.diff) or 1]) end
     if what == "arrow_l" then return centre("2") end
@@ -1297,7 +1549,10 @@ return function(mod, Pointer, G, Rules, Petting, host)
     return nil
   end
   function app.state()
-    return { wake = wake and wake.stage, zoom = view.z, strip = strip.open, page = strip.page,
+    local s = G.session
+    return { wake = wake and wake.stage, zoom = view.z, strip = strip.open, scroll = strip.scroll,
+      kinds = s and #stripKinds(s) or 0, held = drag and drag.kind or nil, atMouth = feed and feed.atMouth or false,
+      falling = #falling, jumping = jump ~= nil,
       picker = picker and { stage = picker.stage, game = picker.game, diff = picker.diff } or nil,
       feed = feed and feed.stage, hand = hand and hand.kind, emote = emote and emote.id,
       calm = life.calm, hopping = life.hop ~= nil, excite = life.excite, locked = now() < petLock,

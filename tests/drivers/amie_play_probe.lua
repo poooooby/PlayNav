@@ -174,8 +174,14 @@ local function body(game, log)
       log("five held:", tostring(st().fiveHeld), "left", ("%.2f"):format(st().fiveLeft or -1), "wake", st().wake, "hand", st().hand)
       -- (the countdown was rolled at the visit's start, at that affection: up to ~7 s)
       while R.state().meters.enjoyment <= e0 and love.timer.getTime() - t0 < 12 do U.wait(1) end
-      log(("high five after %.2f s: enjoyment %d -> %d"):format(love.timer.getTime() - t0, e0, R.state().meters.enjoyment))
+      log(("high five after %.2f s: enjoyment %d -> %d; jumping %s"):format(love.timer.getTime() - t0, e0,
+        R.state().meters.enjoyment, tostring(st().jumping)))
+      -- the leap at the hand: on its way, at the top, landing
+      waitSecs(0.12); shot("p07b_five_rising")
+      waitSecs(0.16); shot("p07b_five_peak")
+      waitSecs(0.3); shot("p07b_five_landing")
       release("five", 248, 112)
+      waitFor(function() return not st().jumping end, 600)
       settle()
     end
     -- the strip and a meal
@@ -183,29 +189,111 @@ local function body(game, log)
     local jar = R.puffs()
     for _, p in ipairs(Rules.PUFFS) do Rules.jarAdd(jar, p.id) end
     R.state().meters.fullness = 0
+    -- a few kinds stacked several deep, so the counts show
+    for _ = 1, 3 do Rules.jarAdd(jar, Rules.PUFFS[1].id); Rules.jarAdd(jar, Rules.PUFFS[2].id) end
     tapAt("puffbtn", app.tapPoint("puff_btn"))
-    waitFor(function() return st().strip > 0.95 end, 600)
+    waitSecs(0.08)
+    shot("p07a_strip_opening")
+    waitFor(function() return st().strip > 0.98 end, 600)
     U.wait(4)
     shot("p07_strip")
-    local sx, sy = app.tapPoint("slot", 2)
+    log("drawer:", st().kinds, "kinds; scroll", ("%.1f"):format(st().scroll))
+    -- a sideways drag scrolls it; the pad's left scrolls back a puff at a time
+    do
+      local rx, ry = app.tapPoint("strip")
+      press("scr", rx, ry); U.wait(1)
+      for k = 1, 12 do move("scr", rx - k * 14, ry); U.wait(1) end
+      release("scr", rx - 12 * 14, ry)
+      waitSecs(0.6)
+      log("after a drag left: scroll", ("%.1f"):format(st().scroll))
+      shot("p07c_scrolled")
+      local s1 = st().scroll
+      U.tap(game, "left"); waitSecs(0.4)
+      log("pad left: scroll", ("%.1f"):format(s1), "->", ("%.1f"):format(st().scroll))
+      for _ = 1, 12 do U.tap(game, "left"); U.wait(2) end
+      waitSecs(0.5)
+      log("pad left x12: scroll", ("%.1f"):format(st().scroll))
+    end
     local mx, my = app.tapPoint("pet")
-    press("puff", sx, sy); U.wait(2)
-    for k = 1, 10 do move("puff", sx + (mx - sx) * k / 10, sy + (my - sy) * k / 10); U.wait(1) end
+    local function pull(id, i)
+      local sx, sy = app.tapPoint("slot", i)
+      press(id, sx, sy); U.wait(1)
+      for k = 1, 4 do move(id, sx, sy + k * 6); U.wait(1) end   -- down out of the drawer
+      return sx, sy + 24
+    end
+    local function carry(id, fx, fy, tx, ty, n)
+      for k = 1, n or 10 do move(id, fx + (tx - fx) * k / (n or 10), fy + (ty - fy) * k / (n or 10)); U.wait(1) end
+    end
+    -- 1. offered, then taken back to the puff button before the first bite: back in the jar
+    do
+      local n0 = #R.puffs()
+      local px, py = pull("back", 1)
+      carry("back", px, py, mx, my)
+      waitFor(function() return st().feed ~= nil end, 200)
+      log("offered: feed", st().feed, "jar", n0, "->", #R.puffs())
+      local bx, by = app.tapPoint("puff_btn")
+      carry("back", mx, my, bx, by, 4)
+      release("back", bx, by)
+      U.wait(4)
+      log("put back before a bite: jar", #R.puffs(), "(was", n0 .. "); feed", tostring(st().feed))
+      settle(1200)
+    end
+    -- 2. let go of on the grass, never offered: it falls away and is lost
+    do
+      local n0 = #R.puffs()
+      local px, py = pull("lost", 2)
+      carry("lost", px, py, 40, 200, 6)
+      release("lost", 40, 200)
+      U.wait(3)
+      log("let go off the Pokemon: jar", n0, "->", #R.puffs(), "falling", st().falling)
+      shot("p08a_puff_falls")
+      settle(600)
+    end
+    -- 3. the meal: held to it, it eats while the puff stays at its mouth
+    local px, py = pull("puff", 2)
+    carry("puff", px, py, mx, my)
     shot("p08_drag")
-    release("puff", mx, my)
-    waitFor(function() return st().feed == "flash" end, 100)
+    waitFor(function() return st().feed == "flash" end, 200)
     U.wait(3)
     shot("p09_meal_flash")
     waitFor(function() return st().feed == "eat" end, 1200)
+    log("eating: at mouth", tostring(st().atMouth))
     waitFor(function() local f = R.state().feeding; return f and f.taken >= 1 end, 2400)
     U.wait(2)
     shot("p10_meal_bite")
+    -- pulled away mid-meal: it waits; brought back, it carries on
+    do
+      local f = R.state().feeding
+      local taken = f and f.taken or -1
+      carry("puff", mx, my, mx + 90, my - 40, 4)
+      waitSecs(1.2)
+      local f2 = R.state().feeding
+      log("pulled away: at mouth", tostring(st().atMouth), "bites", taken, "->", f2 and f2.taken or "done")
+      carry("puff", mx + 90, my - 40, mx, my, 4)
+    end
     waitFor(function() return st().feed == "after" end, 4800)
     U.wait(6)
     shot("p11_meal_done")
+    release("puff", mx, my)
     settle(2400)
     shot("p12_back_out")
-    -- the picker
+    -- 4. let go of mid-meal: the rest falls away
+    do
+      local n0 = #R.puffs()
+      R.state().meters.fullness = 0
+      local qx, qy = pull("mid", 1)
+      carry("mid", qx, qy, mx, my)
+      waitFor(function() local f = R.state().feeding; return f and f.taken >= 1 end, 2400)
+      release("mid", mx, my)
+      U.wait(3)
+      log("let go mid-meal: jar", n0, "->", #R.puffs(), "feeding", tostring(R.state().feeding ~= nil),
+        "falling", st().falling, "feed", tostring(st().feed))
+      settle(1200)
+    end
+    -- the drawer stays open after a meal: the puff button folds it, then the picker
+    tapAt("puffclose", app.tapPoint("puff_btn"))
+    waitFor(function() return st().strip < 0.02 end, 600)
+    log("drawer folded:", ("%.2f"):format(st().strip))
     tapAt("playbtn", app.tapPoint("play_btn"))
     U.wait(30)
     log("picker:", st().picker and st().picker.stage, st().picker and st().picker.game)
@@ -217,6 +305,25 @@ local function body(game, log)
     tapAt("left", app.tapPoint("arrow_l")); U.wait(10)
     tapAt("left2", app.tapPoint("arrow_l")); U.wait(30)
     log("picker back to:", st().picker and st().picker.game)
+    -- the pad: right / left between the games, A for its difficulties, left / right there, B back
+    do
+      local function pk() local p = st().picker; return p and (p.stage .. " game " .. p.game .. " diff " .. p.diff) or "none" end
+      U.tap(game, "right"); U.wait(20)
+      log("pad right:", pk())
+      U.tap(game, "right"); U.wait(20)
+      U.tap(game, "right"); U.wait(20)
+      log("pad right x2 more (stops at the last):", pk())
+      U.tap(game, "a"); U.wait(30)
+      log("pad A:", pk())
+      shot("p15b_pad_diff")
+      U.tap(game, "left"); U.wait(20)
+      log("pad left on the difficulties:", pk())
+      U.tap(game, "b"); U.wait(30)
+      log("pad B:", pk())
+      U.tap(game, "left"); U.wait(15)
+      U.tap(game, "left"); U.wait(30)
+      log("pad left x2:", pk())
+    end
     tapAt("badge", app.tapPoint("badge", 1)); U.wait(30)
     log("picker:", st().picker and st().picker.stage, "diff", st().picker and st().picker.diff)
     shot("p16_picker_diff")

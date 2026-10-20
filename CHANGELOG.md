@@ -3,6 +3,27 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Controller support on Pokémon-Amie's minigame picker: left and right move between Berry
+  Picker, Head It and Tile Puzzle (and between the difficulties), A does what a tap on the
+  selected one does, and B steps back from the difficulties to the games. Left and right also
+  scroll the open Poké Puff drawer.
+
+### Changed
+
+- The Poké Puff drawer in Play: the puffs start beside the puff button (the first was hidden
+  under it), slide out of it smoothly as the drawer opens, sit in the middle of the drawer, and
+  each kind shows once with a count in its corner when you have more than one. Drag left and
+  right on the drawer to see the rest; pull a puff down to take it out.
+- Feeding is now holding the puff for your Pokémon: bring it to your Pokémon and hold it there,
+  and it eats while the puff stays at its mouth. Let go and the puff falls off the screen and
+  is lost; if your Pokémon hasn't taken a bite yet, drop it back on the puff button to put it
+  away again.
+- A high five: your Pokémon leaps at your hand, slaps it, and lands back in its place.
+
 ## [0.5.1] - 2026-10-20 (alpha)
 
 ### Changed

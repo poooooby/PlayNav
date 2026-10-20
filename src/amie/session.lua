@@ -120,6 +120,8 @@ return function(mod, deps)
     elseif s.mode == "game" then
       if input:wasPressed("b") and G.gameApp and G.gameApp.quit then G.gameApp:quit() end
     else
+      -- PLAY's own pad (src/amie/play.lua: the picker's D-pad / A / B, the strip's D-pad)
+      if G.playInput and G.playInput(input) then return end
       if input:wasPressed("b") or input:wasPressed("start") then G.back() end
     end
   end
@@ -926,6 +928,27 @@ return function(mod, deps)
     else say(("%s looks confused."):format(s.name), 1.5) end
     onChange()
     return true
+  end
+
+  -- the puff taken back before the first bite (dragged back to the puff button): into the jar
+  -- again; false once it has been bitten
+  function G.feedCancel()
+    local s = inPlay()
+    local f = s and s.feeding
+    if not f or f.taken > 0 then return false end
+    s.feeding = nil
+    Rules.jarAdd(s.puffs, f.kind)
+    onChange()
+    return true
+  end
+
+  -- a puff let go of before it was offered: it falls away and is lost
+  function G.dropPuff(kind)
+    local s = inPlay()
+    if not (s and kind) then return false end
+    local ok = Rules.jarTake(s.puffs, kind)
+    if ok then onChange() end
+    return ok
   end
 
   -- one call for tests and simple callers: the whole puff at once
