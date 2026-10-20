@@ -284,6 +284,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if b.giant then
       st.bigBonus = HR.BIG_BONUS[how] or 0
       effect(how == "just" and "just" or "good", b.x, headY, { giant = true })
+      if mod.haptics then mod.haptics.pattern("big") end
       host.playSe(how == "just" and "SE_SUCCESS" or "SE_PIN")
       return
     end
@@ -309,6 +310,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     effect(how == "just" and "just" or "good", b.x, headY)
     -- the points fly to the score bubble as a star
     effect("star", b.x, headY, { pts = pts })
+    if mod.haptics then mod.haptics.pulse(how == "just" and "strong" or "medium") end
     host.playSe(how == "just" and "SE_PIN" or "SE_SELECT")
     if c % 10 == 0 then
       local mon = st.participants[b.slot] and st.participants[b.slot].mon

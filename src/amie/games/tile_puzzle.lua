@@ -518,7 +518,11 @@ return function(mod, Pointer, G, Games, Rules, host)
         m.t = m.t + dt
         if m.t >= m.dur then
           pz.moving[pos] = nil
-          if m.landed then burst(pos); host.playSe("SE_PIN") end
+          if m.landed then
+            burst(pos)
+            if mod.haptics then mod.haptics.pulse("strong") end
+            host.playSe("SE_PIN")
+          end
         else
           landing = true
         end

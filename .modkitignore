@@ -89,3 +89,4 @@ tests/drivers/perf_amie.lua
 tests/stillpic_test.lua
 tests/drivers/icon_probe.lua
 tools/balloon_atlas.py
+tests/haptics_test.lua

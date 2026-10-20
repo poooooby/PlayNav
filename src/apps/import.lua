@@ -9,7 +9,7 @@
 -- them (app.openTraining, wired by main). The banner is drawn, not shipped.
 
 return function(mod, Pointer, Extract, Assets)
-  local app = { id = "import", title = "PLAYNAV", live = true }
+  local app = { id = "import", title = "PLAYNAV", live = true, hapticTouch = true }
 
   -- app space is 256 x 178 (the tab strip's 14 rows above are reached with -bleed)
   local W, H = 256, 178

@@ -51,12 +51,15 @@ return function(mod, Pointer, T, Rules, Sim)
 
   -- the pad and the top screen share their brackets: the aim screen's (aim_c, panes 1e / 1g at
   -- x 72 / 248, 90 tall about y 94 of 320x240) stand for the HUD's (bg_02, panes 5x / 5z at
-  -- x 96 / 304, 110 tall about y 120 of 400x240, which the top screen shows at 0.6 across and
-  -- 2/3 down: x 57.6 .. 182.4, y 43.3 .. 116.7 of 240x160). A touch maps linearly from one
+  -- x 96 / 304, 110 tall about y 120 of 400x240). The top screen draws that layout at 0.6, its
+  -- pane positions spread 10/9 down to fill 160 rows (stretchY) but its pictures at their own
+  -- height, so the brackets show 110 x 0.6 = 66 tall about y 80: x 57.6 .. 182.4, y 47 .. 113
+  -- of 240x160 (taking them 2/3 down, 73.3 tall, sent every shot off the middle 11% further
+  -- out than the brackets show: below them in the lower half). A touch maps linearly from one
   -- box to the other (and on past them), then onto the balloon's plane.
   local PADBOX = { x0 = 72, x1 = 248, y0 = 94 - 45, y1 = 94 + 45 }
   local TOPBOX = { x0 = 120 + (96 - 200) * 0.6, x1 = 120 + (304 - 200) * 0.6,
-    y0 = 80 + (65 - 120) * (160 / 240), y1 = 80 + (175 - 120) * (160 / 240) }
+    y0 = 80 + (65 - 120) * 0.6, y1 = 80 + (175 - 120) * 0.6 }
   app.PADBOX, app.TOPBOX = PADBOX, TOPBOX
 
   local function clampAim(sim, ax, ay)
@@ -169,6 +172,7 @@ return function(mod, Pointer, T, Rules, Sim)
       if inRect(x, y, EXIT) then
         roles[ev.id] = "exit"
         if P then P:play("touch") end
+        if mod.haptics then mod.haptics.pulse("tick") end
         return
       end
       if not P and inRect(x, y, BLOCK) then roles[ev.id] = "block"; sim:block(); return end

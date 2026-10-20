@@ -430,6 +430,7 @@ return function(mod, Pointer, G, Games, Rules, host)
             sl.visible, sl.asking = false, false
             sl.hideTimer = 0.2
             sl.hop = 0
+            if mod.haptics then mod.haptics.pulse(quick and "strong" or "medium") end
             host.playSe(quick and "SE_PIN" or "SE_SELECT")
             if st.score % 10 == 0 then
               host.playCry(sl.mon)
@@ -710,6 +711,11 @@ return function(mod, Pointer, G, Games, Rules, host)
         st.viewY = top * math.min(1, st.pt / up)
       end
       st.shown = math.floor((st.score or 0) * math.min(1, st.pt / 3) + 0.5)
+      -- a tick for each berry counted as they rain (haptics merge a fast run), a thud as the
+      -- heap lands
+      local H = mod.haptics
+      if H and st.shown ~= (st.hapticShown or 0) then st.hapticShown = st.shown; H.pulse("tick") end
+      if H and st.downAt and not st.hapticLanded then st.hapticLanded = true; H.pulse("strong") end
       if st.downAt and st.pt - st.downAt > up + 1.0 then
         st.viewY = 0
         st.shown = st.score

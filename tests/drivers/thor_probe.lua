@@ -89,6 +89,62 @@ local function body(game, log)
     else
       log("view: not recorded")
     end
+    -- aiming lines up: a tap at the aim pad's middle (and the middle of its top edge) must land
+    -- where the top screen draws its brackets' middle (and top edge), in the frame's units
+    do
+      local Ap = X.apps and X.apps:get("training_aim")
+      local P = T.hud and T.hud.P
+      local sim0 = simNow()
+      if Ap and P and sim0 and sim0.phase == "play" then
+        local function frameMid(name)
+          local bx, by, bw, bh = P:box(name)
+          if not bx then return nil end
+          return (bx + bw / 2) * 0.6, (by + bh / 2) * 0.6, by * 0.6
+        end
+        local lx, ly, ltop = frameMid("5x")
+        local rx, ry, rtop = frameMid("5z")
+        -- the brackets' own boxes (layout units) on both screens, for the mapping's numbers
+        for _, n in ipairs({ "5x", "5z" }) do
+          local bx, by, bw, bh = P:box(n)
+          log(("top bracket %s: %.1f,%.1f %.1fx%.1f (top layout, stretch %s)"):format(n, bx or -1, by or -1, bw or -1, bh or -1, tostring(P.stretchY)))
+        end
+        local AP = Ap.screen
+        for _, n in ipairs({ "1e", "1g" }) do
+          local bx, by, bw, bh = AP and AP:box(n)
+          log(("pad bracket %s: %.1f,%.1f %.1fx%.1f"):format(n, bx or -1, by or -1, bw or -1, bh or -1))
+        end
+        local K, BLEED = 256 / 320, 14
+        local pad = Ap.geometry().PAD
+        local function tapAt(ax, ay)
+          Ap:pointer({ phase = "pressed", id = 91, x = ax, y = ay }, {})
+          Ap:pointer({ phase = "released", id = 91, x = ax, y = ay }, {})
+          local ls = sim0.player.lastShot
+          local sx, sy = T.Sim.project(ls.x, ls.y, 1)
+          return T.toScreen(sx, sy)
+        end
+        if lx and rx then
+          local wantX, wantY = (lx + rx) / 2, (ly + ry) / 2
+          local gotX, gotY = tapAt(pad.cx, pad.cy)
+          log(("aim middle: brackets drawn at %.1f,%.1f; the shot lands at %.1f,%.1f (off %.1f,%.1f frame units)"):format(
+            wantX, wantY, gotX, gotY, gotX - wantX, gotY - wantY))
+          -- the pad's top edge: PADBOX is 90 tall about the pad's middle (45 * K up)
+          local topY = (ltop + rtop) / 2
+          local gx2, gy2 = tapAt(pad.cx, pad.cy - 45 * K)
+          log(("aim top edge: brackets' top drawn at y %.1f; the shot lands at y %.1f (off %.1f)"):format(topY, gy2, gy2 - topY))
+          local _, _, _, lh = P:box("5x")
+          local botY = topY + (lh or 0) * 0.6
+          local _, gy3 = tapAt(pad.cx, pad.cy + 45 * K)
+          log(("aim bottom edge: brackets' foot drawn at y %.1f; the shot lands at y %.1f (off %.1f)"):format(botY, gy3, gy3 - botY))
+          local gx4 = tapAt(pad.cx - 88 * K, pad.cy)
+          log(("aim left edge: the left bracket drawn at x %.1f; the shot lands at x %.1f (off %.1f)"):format(lx, gx4, gx4 - lx))
+          shot("h02b_aimed")
+        else
+          log("aim check: brackets 5x / 5z not found")
+        end
+      else
+        log("aim check skipped:", tostring(Ap), tostring(P), sim0 and sim0.phase)
+      end
+    end
     local sim = simNow()
     if sim and sim.phase == "play" then log("forceEnd:", T.forceEnd({ clear = true, remaining = sim.remaining })) end
     for _, at in ipairs({ { 3.0, "h03_outro_fly" }, { 5.3, "h04_outro_away" }, { 6.4, "h05_outro_twinkle" } }) do

@@ -339,7 +339,15 @@ return function(mod, deps)
 
   -- the game's own effect for `event` (data/training_sounds.lua, rendered by the import), else
   -- the Emerald stand-in; returns the effect's handle (handle:stop()) when the game's played
+  -- the menus' sounds tick (src/haptics.lua); the regimen's play their own in regimen.lua
+  local MENU_TICK = { select_course = "tick", transition = "tick", start_course = "tick", result_next = "tick",
+    result_jingle = "success" }
   function T.playSe(event, standIn, opts)
+    local H, what = mod.haptics, MENU_TICK[event]
+    if H and what then
+      if H.PATTERNS[what] then H.pattern(what) else H.pulse(what) end
+      if standIn then H.skipNextSound() end
+    end
     local id = event and T.sounds and T.sounds[event]
     if type(id) == "table" and T.sfx then
       -- several layered: all of them (the first's handle comes back)
@@ -548,6 +556,7 @@ return function(mod, deps)
     if not def then return end
     -- on screen, the cleared bag gets the game's finishing move: one of three clips with its
     -- line, the glow, then what the bag did; the messages below wait for it (say)
+    if s == T.session and mod.haptics then mod.haptics.pattern("success") end
     if T.FINISH_MOVE and s == T.session and s.anim then
       local clip = 1 + math.floor(T.rng() * #T.FINISH_CLIPS)
       s.anim.finish = { t = 0, clip = T.FINISH_CLIPS[clip], bag = def.id, queue = {} }
@@ -653,6 +662,7 @@ return function(mod, deps)
     meta.blackTaps = 0
     if Rules.isRareBag(id) then t.rec.secondWind = true end
     if t == T.session then
+      if mod.haptics then mod.haptics.pattern("big") end
       local def = Rules.bag(id)
       local line = T.gameLine("training_bags", T.CORE_LINE.found, { BAG = T.bagName(id) }) or ("A %s dropped down!"):format(def and def.label or id)
       if T.GIFT_SHOW then
@@ -722,6 +732,8 @@ return function(mod, deps)
       if (s.anim.lock or 0) > 0 or s.anim.finish or T.gifting() then return false, "busy" end
       s.anim.lock = T.HIT_LOCK
       T.touch()
+      -- the punch lands (silent in the game; felt here)
+      if mod.haptics then mod.haptics.pulse("medium") end
     end
     s.anim.statUp = nil
     local bag = rec.bag

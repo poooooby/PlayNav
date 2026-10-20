@@ -140,8 +140,22 @@ return function(mod, T, deps)
     blocked = "SE_SELECT", bit_pop = "SE_BALL_BOUNCE_2", chance_goal = "SE_EXP", overcharge = "SE_FAILURE",
     barrier_up = "SE_SELECT", attack_telegraph = "SE_SELECT" }
 
+  -- one event's haptic (src/haptics.lua): a goal hit pulses (harder charged), a hit taken
+  -- knocks, the balloon popping and the clear burst; the stand-in sound's own is skipped
+  local HAPTIC = { goal_hit = "medium", player_hit = "hurt", bot_pop = "big", bit_pop = "light",
+    blocked = "light", chance_goal = "strong", clear = "success", shot_fired = "tick" }
+  local function eventHaptic(e)
+    local H = mod.haptics
+    local what = H and HAPTIC[e.kind]
+    if not what then return end
+    if e.kind == "goal_hit" and ((e.stage or 1) >= 2 or e.energy) then what = "strong" end
+    if H.PATTERNS[what] then H.pattern(what) else H.pulse(what) end
+    if SE[e.kind] then H.skipNextSound() end
+  end
+
   -- one event's sound: the game's effect where the capture showed it, else the stand-in
   local function eventSound(e, cleared)
+    eventHaptic(e)
     local charged = (e.stage or 1) >= 2 or e.energy
     if e.kind == "play" then
       T.playSe("play")

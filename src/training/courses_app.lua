@@ -11,7 +11,7 @@
 -- 400x240, scaled into the top screen.
 
 return function(mod, Pointer, T, Rules)
-  local app = { id = "training_courses", title = "REGIMENS", live = true, hideTabs = true }
+  local app = { id = "training_courses", title = "REGIMENS", live = true, hideTabs = true, hapticTouch = true }
   local N = Rules.N
   -- src/training/lyt.lua: the layout drawing helpers (nil when missing: plain shapes)
   local L

@@ -146,6 +146,9 @@ return function(mod, Pointer, Layout)
       phase = ev.phase, id = ev.id, source = ev.source, pressure = ev.pressure,
       x = ev.x, y = ev.y - self.TAB_H, dx = ev.dx, dy = ev.dy,
     }
+    -- a menu screen (app.hapticTouch) ticks on every press (src/haptics.lua); the others pulse
+    -- for what a touch did
+    if ev.phase == "pressed" and app.hapticTouch and mod.haptics then mod.haptics.pulse("tick") end
     local ok, err = pcall(app.pointer, app, localEv, rec, game)
     if not ok then mod.log:warn("app %s pointer failed: %s", app.id, tostring(err)) end
   end

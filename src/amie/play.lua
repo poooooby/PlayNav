@@ -235,6 +235,9 @@ return function(mod, Pointer, G, Rules, Petting, host)
   end
 
   local function now() return Pointer.now() end
+  -- haptics (src/haptics.lua): a pulse or a timed pattern at the player's level
+  local function buzz(kind) local H = mod.haptics; if H then H.pulse(kind) end end
+  local function buzzPattern(name) local H = mod.haptics; if H then H.pattern(name) end end
 
   local function showEmote(id, secs) emote = { id = id, untilT = now() + (secs or 1.2) } end
 
@@ -423,9 +426,11 @@ return function(mod, Pointer, G, Rules, Petting, host)
       showEmote("emote/angry", 1.0)
       setHand("dislike", lx, ly)
       G.bump(-0.08, 0)
+      buzzPattern("hurt")
       endTouch(0.8)
       return
     end
+    buzzPattern("happy")
     if res.hearts > 0 then
       spawn("heart", pl.headX, pl.headY - 10, math.min(5, res.hearts))
       showEmote(res.spot == "favored" and "emote/love" or "emote/happy", 1.2)
@@ -487,6 +492,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
   -- a puff let go of: it drops off the bottom of the screen
   local function fall(kind, lx, ly)
     falling[#falling + 1] = { kind = kind, x = lx, y = ly, vx = (math.random() - 0.5) * 60, vy = -60, rot = 0 }
+    local H = mod.haptics
+    if H then H.pulse("light") end
   end
 
   -- ------- the picker
@@ -624,6 +631,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       if sr.mode == "pull" then
         drag = { kind = sr.kind, x = lx, y = ly, id = ev.id }
         rec.amieStrip = nil
+        buzz("tick")
       elseif sr.mode == "scroll" then
         strip.dragging, strip.target = true, nil
         local x0, x1 = stripGeom()
@@ -869,11 +877,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
             touch.fbT = (touch.fbT or 0) + dt
             if touch.dislike then
               life.flinch = 1
+              -- a disliked spot knocks twice, now and then while the finger stays on it
+              if touch.fbT >= 0.6 or not touch.knocked then
+                touch.fbT, touch.knocked = 0, true
+                buzzPattern("bad")
+              end
             else
               life.stroke = 1
               if touch.fbT >= 0.5 then
                 touch.fbT = 0
                 spawn(spot == "favored" and "heart" or "note", pl.headX + (math.random() - 0.5) * 40, pl.headY - 6, 1)
+                buzz(spot == "favored" and "medium" or "light")
               end
             end
           end
@@ -939,11 +953,13 @@ return function(mod, Pointer, G, Rules, Petting, host)
           local what, hearts = G.feedHold(dt)
           if what == "bite" then
             spawn("crumb", pl.headX, pl.mouthY, 3)
+            buzz("medium")
             feed.taken = (s.feeding and s.feeding.taken) or feed.taken
           elseif what == "done" then
             feed.taken = feed.bites
             drag = nil      -- eaten: the finger holds nothing now
             life.excite = 1
+            buzzPattern("happy")
             if (hearts or 0) >= 2 then
               spawn("heart", pl.headX, pl.headY - 10, 5)
               showEmote("emote/love", 1.6)
@@ -1014,6 +1030,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       if not jump.slapped and jump.t >= jump.dur * JUMP_PEAK then
         jump.slapped = true
         spawn("sparkle", jump.hx, jump.hy, 8)
+        buzz("strong")
         if jump.lx then setHand("hit", jump.lx, jump.ly) end
       end
       if jump.t >= jump.dur then

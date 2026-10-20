@@ -62,6 +62,7 @@ local function body(game, log)
   local loader = game.mods
   local MOD_ID = "play_nav"
   local X = loader and loader.exports and loader.exports[MOD_ID]
+  if X and X.haptics then X.haptics.log = {} end
   if not X then log("FAIL no exports"); return end
   local TR = X.training
   if not TR then log("FAIL training not exported"); return end
@@ -572,6 +573,12 @@ local function body(game, log)
     for _ = 1, 4 do U.tap(game, "down"); U.wait(6) end
     shot("t09_bag_wings")
     U.tap(game, "b"); U.wait(15); U.tap(game, "b"); U.wait(10)
+  end
+  if X and X.haptics and X.haptics.log then
+    local n = {}
+    for _, k in ipairs(X.haptics.log) do n[k] = (n[k] or 0) + 1 end
+    log(("haptics felt: tick %d light %d medium %d strong %d (%d pulses)"):format(n.tick or 0, n.light or 0,
+      n.medium or 0, n.strong or 0, #X.haptics.log))
   end
   log("done: top", tostring(topId()))
 end

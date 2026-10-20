@@ -342,12 +342,15 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   D.extent = extent
 
-  -- A wide area (a second screen's whole 16:9 top display) frames the scene further back: the
-  -- arena drawn smaller (z) about the middle of the area's foot, until the roof's edge where the
-  -- beaten balloon leaves (D.BG.exit) and the star above it (VIEW_FIT.margin: the HUD band and sky for the flight over the roof) are under the
-  -- top. The stadium art keeps its own size there and mirrors out to the sides (grown, it would
-  -- lift the roof again). Areas nearer the frame's 3:2 keep the plain view (z 1).
-  D.VIEW_FIT = { aspect = 1.6, margin = 70, min = 0.55 }
+  -- A wide area could frame the scene further back (the arena drawn smaller, z, about the
+  -- middle of the area's foot, so the roof's edge where the beaten balloon leaves shows, the
+  -- stadium art mirrored out to the sides). It is OFF (aspect huge, 2026-10-20, Wooble): on the
+  -- Thor's 16:9 top screen it shrank the balloons, mirrored the art, and its aiming (the
+  -- brackets stretched to the area, then back under the view) depended on the area's size, which
+  -- a high-DPI screen measures differently, so shots landed low. At z 1 the arena keeps its
+  -- size, the 302-unit art covers a 16:9 area's ~284 by itself, and aiming is the plain
+  -- mapping. Set aspect back (1.6) to frame back again.
+  D.VIEW_FIT = { aspect = math.huge, margin = 70, min = 0.55 }
   local viewKey, viewZ = nil, 1
   local function artExitY(ey, eh)
     local W = D.BG.w
@@ -412,6 +415,17 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- it is, or larger where the area reaches past the art (a screen where the frame is small
   -- next to the area): grown about the grass line's middle, so the ground still meets the
   -- trainee's stand, rather than stretching the edge texels. iw, ih: the art's size (nil without it)
+  -- On a wide area (D.BG_FIT.aspect, the Thor's 16:9 top screen) the stadium art alone is drawn
+  -- smaller, about the grass line (the trainee's stand stays on the ground), just enough that its
+  -- top - the sky and the Poke Ball over the roof - reaches the area's top; its sides mirror out
+  -- past it. The arena, the balloon and aiming keep their size (the view stays z 1); the
+  -- beaten balloon's exit and twinkle are points of the art (D.bgPoint), so they come into frame
+  -- with it. 2026-10-20, Wooble.
+  D.BG_FIT = { aspect = 1.6 }
+  local function bgShrinks(T)
+    local _, _, ew, eh = sceneExtent(T)
+    return eh > 0 and ew / eh >= D.BG_FIT.aspect
+  end
   local function bgPlace(T)
     local bg = bgImage()
     local ex, ey, ew, eh = sceneExtent(T)
@@ -419,13 +433,18 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if bg then iw, ih = bg:getDimensions() end
     local W, Hu = D.BG.w, D.BG.w * ih / iw
     local gf, gy = D.BG.grassFrac, D.BG.grassY
-    -- (framed back, the art does not grow to the width: it mirrors out to the sides)
-    local wide = view(T) < 1
-    local k = math.max(1, wide and 0 or 2 * (120 - ex) / W, wide and 0 or 2 * (ex + ew - 120) / W,
-      (gy - ey) / (Hu * gf), (ey + eh - gy) / (Hu * (1 - gf)))
+    local k
+    if bgShrinks(T) or view(T) < 1 then
+      -- as small as still covers the area from top to foot (the width mirrors)
+      k = math.max((gy - ey) / (Hu * gf), (ey + eh - gy) / (Hu * (1 - gf)))
+    else
+      k = math.max(1, 2 * (120 - ex) / W, 2 * (ex + ew - 120) / W,
+        (gy - ey) / (Hu * gf), (ey + eh - gy) / (Hu * (1 - gf)))
+    end
     local s = W * k / iw
     return 120 - W * k / 2, gy - ih * gf * s, s, iw, ih
   end
+  D.bgShrinks = bgShrinks
   -- a point of the art (fractions of its width / height) in 240x160 units this frame
   function D.bgPoint(T, fx, fy)
     local ix, iy, s, iw, ih = bgPlace(T)
@@ -453,8 +472,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         bgQuad = love.graphics.newQuad(qx, qy, qw, qh, iw, ih)
         bgQuadKey = key
       end
-      -- framed back, the sides mirror the art out; else its edge texels stretch
-      bg:setWrap(view(T) < 1 and "mirroredrepeat" or "clamp", "clamp")
+      -- drawn smaller on a wide area (or framed back), the sides mirror the art out; else its
+      -- edge texels stretch
+      bg:setWrap((bgShrinks(T) or view(T) < 1) and "mirroredrepeat" or "clamp", "clamp")
       G2.setColor(1, 1, 1, 1)
       G2.draw(bg, bgQuad, ex, ey, 0, s, s)
       if sim and sim.bot and sim.bot.aura > 0 then

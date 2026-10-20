@@ -7,10 +7,30 @@ All notable changes to this mod are documented here. The format follows
 
 ### Added
 
+- Haptics on phones and handhelds, with a HAPTICS option (High / Medium / Low / Off, Medium by
+  default): a tick on menu presses everywhere; in Play a pulse for a good stroke (stronger on a
+  favourite spot), a happy run for a petting reward or a finished puff, two knocks on a spot it
+  dislikes, a pulse for each bite and a strong one for the high five's slap; Berry Picker's
+  correct berries, a tick for every berry counted as they rain and a thud as the heap lands;
+  Head It's connected hits (harder on a perfect one) and the giant yarn; Tile Puzzle's tiles
+  landing home and the finished picture; misses everywhere knock twice. Super Training: each
+  punch on the bag, a cleared bag and a found bag; in a regimen your shots, goal hits (harder
+  charged), hits on your Pokémon, the balloon popping and the clear.
 - Controller support on Pokémon-Amie's minigame picker: left and right move between Berry
   Picker, Head It and Tile Puzzle (and between the difficulties), A does what a tap on the
   selected one does, and B steps back from the difficulties to the games. Left and right also
   scroll the open Poké Puff drawer.
+
+### Fixed
+
+- Super-Training Regimens: shots landed where the top screen's brackets don't show - the
+  further from the middle, the further out, so below the brackets in their lower half. A tap on
+  the aim screen now lands exactly where its brackets mark on the top screen.
+- On a wide top screen (the AYN Thor's), regimens are drawn at full size again: the Balloon
+  Bots and everything in the arena are no longer shrunk, and aiming no longer drifts low on its
+  high-resolution screen. Only the stadium behind them is drawn smaller there, so its sky and
+  the Poké Ball over the roof show (mirrored out at the sides), and the beaten balloon bursts
+  and twinkles out over the roof in view.
 
 ### Changed
 

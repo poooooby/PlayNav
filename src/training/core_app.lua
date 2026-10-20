@@ -197,9 +197,13 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local s = T.session
     if not (s and s.mode == "core") or s.trans then return end
     geo()
+    local H = mod.haptics
     if ev.phase == "pressed" then
       for key, r in pairs({ regimens = REGIMENS, bags = BAGS }) do
-        if inRect(ev.x, ev.y, r) then app.press[key] = { held = true } end
+        if inRect(ev.x, ev.y, r) then
+          app.press[key] = { held = true }
+          if H then H.pulse("tick") end
+        end
       end
       return
     end
@@ -211,10 +215,15 @@ return function(mod, Pointer, T, Rules, Radar, host)
     if T.touch then T.touch() end
     if not Pointer.isTap(rec, 16, 1.0) then return end
     local x, y = ev.x, ev.y
-    if inRect(x, y, CLOSE) then T.finish(); return end
+    if inRect(x, y, CLOSE) then
+      if H then H.pulse("tick") end
+      T.finish()
+      return
+    end
     -- the finishing move plays out before anything else is taken
     if T.finishing and T.finishing() then return end
     if inRect(x, y, ARROWS[1]) or inRect(x, y, ARROWS[2]) then
+      if H then H.pulse("tick") end
       if T.onSwitch then T.onSwitch() end
       return
     end
@@ -234,6 +243,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     for i, p in ipairs(party()) do
       local r = slotOf(i)
       if r and not p.active and inRect(x, y, r) then
+        if H then H.pulse("tick") end
         T.switchTo(p.mon)
         return
       end

@@ -7,7 +7,7 @@
 -- are the game's own once the player's card is extracted (T.bagName / bagDescription / uiText).
 
 return function(mod, Pointer, T, Rules, Store)
-  local app = { id = "training_bags", title = "TRAINING BAGS", live = true, hideTabs = true }
+  local app = { id = "training_bags", title = "TRAINING BAGS", live = true, hideTabs = true, hapticTouch = true }
   local N = Rules.N
 
   app.fieldPlay = true

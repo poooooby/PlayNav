@@ -52,6 +52,10 @@ on a touch screen below the game or on a device's second display.
   effects and English text from your own Alpha Sapphire card image. The import is required:
   until it has run, opening Pokémon-Amie or Super Training shows the PlayNav screen with a
   **Begin extraction** button — or a warning that the card image is missing.
+- 📳 **Haptics:** On a phone or handheld you feel your touches: a tick for menu presses, a
+  pulse for a good stroke, a bite or a hit that lands, two knocks when your Pokémon doesn't like
+  it or you miss, and a burst for a cleared bag, a finished puzzle or a popped Balloon Bot. Set
+  how strong in the options, or turn it off.
 - 🔍 **Sharp at any size:** Both screens are drawn at your display's full resolution. The 3DS
   art stays smooth at any size, Pokémon sprites keep their square pixels, and text stays crisp.
   A line too long for its box shrinks to fit. The overworld, battles and the rest of the game
@@ -183,6 +187,7 @@ Open **OPTIONS → MODS → PlayNav**.
 | **USE EXTRACTED ART** | On / Off | On | Draw with your game's art and text. Off: simple shapes and PlayNav's own wording. |
 | **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
+| **HAPTICS** | High / Medium / Low / Off | Medium | How strongly your phone or handheld vibrates for touches and play: menu presses, petting, bites, high fives, minigame hits, punching bags and Balloon Bot hits. No effect on a PC. |
 | **DEV: SCRATCH APP** | On / Off | Off | A touch test screen for mod makers. |
 
 ## 💾 Installation

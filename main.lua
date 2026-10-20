@@ -76,6 +76,8 @@ return function(mod)
     { key = "clear_rom_art", label = "CLEAR EXTRACTED ART", type = "choice", default = false,
       choices = { { "PRESS TO CLEAR", false }, { "CLEARS AT NEXT START", true } } },
     { key = "hd_render", label = "HD RENDERING", type = "toggle", default = true },
+    { key = "haptics", label = "HAPTICS", type = "choice", default = "medium",
+      choices = { { "HIGH", "high" }, { "MEDIUM", "medium" }, { "LOW", "low" }, { "OFF", "off" } } },
   })
 
   -- save data and options kept under the old id carry over once
@@ -101,6 +103,11 @@ return function(mod)
   end
   -- text that wraps and shrinks to fit its box (shared as mod.textfit)
   mod.textfit = loadSibling(mod, "src/textfit.lua")
+  -- vibration for touches and play at the HAPTICS option's level (shared as mod.haptics)
+  do
+    local makeHaptics = loadSibling(mod, "src/haptics.lua")
+    if makeHaptics then mod.haptics = makeHaptics(mod) end
+  end
   local makeApps = loadSibling(mod, "src/apps/init.lua")
   local makePadHide = loadSibling(mod, "src/pad_hide.lua")
   local makeCutout = loadSibling(mod, "src/cutout.lua")
@@ -150,6 +157,15 @@ return function(mod)
     Petting = makePetting(PettingData or {})
     Store = makeStore(mod, Rules)
     amieHost = makeHost(mod)
+    -- every sound effect Amie (and Super Training's stand-ins, through the same host) plays has
+    -- its haptic: menu presses tick, good hits pulse, misses knock twice (src/haptics.lua)
+    if mod.haptics and amieHost.playSe then
+      local playSe = amieHost.playSe
+      amieHost.playSe = function(name, ...)
+        pcall(mod.haptics.onSound, name)
+        return playSe(name, ...)
+      end
+    end
     -- the top-screen overlay finds our layers on the engine's stack through the host
     if HdTop and amieHost.Stack then HdTop.Stack = amieHost.Stack end
     Amie = makeSession(mod, { host = amieHost, Rules = Rules, Petting = Petting,
@@ -863,6 +879,7 @@ return function(mod)
   local function tick(game, viewport)
     state.game = game
     local dt = frameDt()
+    if mod.haptics then mod.haptics.update(dt) end
     -- the USE EXTRACTED ART option once a frame, for every screen's art() (reading an option
     -- walks the schema; the screens ask for art dozens of times a frame)
     if Assets then Assets.enabled = mod.options:get("use_rom_art") ~= false end
@@ -1173,6 +1190,7 @@ return function(mod)
       home.pointer = function(self, ev, rec)
         if Amie.session and Amie.session.mode == "home" and ev.phase == "released"
             and Pointer.isTap(rec, 16, 1.0) and Strip.hit(ev.x, ev.y, 256, self.bleed or 14) then
+          if mod.haptics then mod.haptics.pulse("tick") end
           Amie.finish()
           if importGate() then return end
           local ok, why = Training.open()
@@ -1228,6 +1246,7 @@ return function(mod)
   mod.exports.apps = Apps
   mod.exports.hdTop = HdTop   -- the top-screen overlay (drivers read .why)
   mod.exports.hd = HD         -- the pixel-art drawing (drivers check its shader)
+  mod.exports.haptics = mod.haptics   -- (drivers record the pulses through .log)
   mod.exports.layout = Layout
   mod.exports.W, mod.exports.H = Layout.W, Layout.H
   mod.exports.state = function()
