@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0-beta.1] - 2026-10-20 (alpha, beta test build)
+
 ### Added
 
 - Pokémon-Amie plays the game's own sound effects, rendered from your card image like Super
