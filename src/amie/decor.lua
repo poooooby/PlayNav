@@ -162,6 +162,28 @@ return function(CATALOG, Rules)
   D.PUFF_LIFT = 20
   -- released this close to a free spot, an item settles exactly on it (the game's "perfect fit")
   D.SNAP = 22
+  -- the game's no-go areas while an item is held (customize 6z: area_ng 9x, 120 x 50 about
+  -- 160,105 - the middle, all three seats inside it - and 9v, 576 x 20 about y 140), in the
+  -- layout's units; an item's point is SEAT_DY above its seat pane's middle (6t 160,103 holds
+  -- the item at 160,94). Inside them an item can only settle on a free seat, so each seat holds
+  -- one; anywhere else it stands where it is let go.
+  D.SEAT_DY = 9
+  D.NO_GO = { { x0 = 100, y0 = 80, x1 = 220, y1 = 130 }, { x0 = -128, y0 = 130, x1 = 448, y1 = 150 } }
+  function D.inNoGo(x, y)
+    local py = y + D.SEAT_DY
+    for _, r in ipairs(D.NO_GO) do
+      if x >= r.x0 and x <= r.x1 and py >= r.y0 and py <= r.y1 then return true end
+    end
+    return false
+  end
+  -- where an item let go at (x, y) can go: a free seat within SNAP, else there unless that is a
+  -- no-go area -> x, y, seat index (or nil); nil when it cannot be put down there
+  function D.settle(room, x, y, skip)
+    local sx, sy, seat = D.snap(room, x, y, skip)
+    if seat then return sx, sy, seat end
+    if D.inNoGo(x, y) then return nil end
+    return x, y, nil
+  end
 
   -- where a 320x240 wallpaper goes on a screen LH layout units tall whose room sits roomDy
   -- lower (the Kanto Gear shape's D / 2): the picture's own point under the puff's spot (its
@@ -309,6 +331,9 @@ return function(CATALOG, Rules)
     if id == nil then room.puffOut, room.puffOutGroups = nil, 0; return true end
     if not Rules.jarTake(jar, id) then return false, "none" end
     room.puffOut = id
+    -- how many visitor groups it lasts: the puff table a/2/2/3's b3 (read 2026-10-20: basic 1,
+    -- frosted 2, fancy 3, deluxe 4, the seasonal supremes 5, the others 7); a group spends one
+    -- as it leaves its gift (puffGroupUsed, visitors.lua)
     local tier = Rules.puffTier(id)
     local groups = ({ basic = 1, frosted = 2, fancy = 3, deluxe = 4 })[tier] or 1
     if tier == "supreme" then

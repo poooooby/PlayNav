@@ -378,18 +378,19 @@ T.eq(req.set, "F", "three at max affection give set F")
 req = Vs.force({ 4, 25, 7 }, { 0, 0, 0 })
 T.eq(req.set, "A", "three at zero give set A (or a basic puff)")
 T.eq(#Vs.pending(), math.min(before + 4, 5), "the gifts wait on the floor (five at most)")
--- arrivals are spaced: a break after a group's gift, a gap between arrivals
-T.check(#Vs.present == 3 and Vs.nextArrival >= Vs.GROUP_S[1], "after a group's gift, a long break before anyone comes")
+-- arrivals as the game (DllField 0xd6038): no waits - the next comes as soon as no one is
+-- walking in
 Vs.reset()
-T.check(Vs.nextArrival >= Vs.FIRST_S[1], "the room opened: a wait before the first visitor")
-for _ = 1, math.floor(Vs.FIRST_S[1] * 10) - 1 do Vs.update(0.1) end
-T.eq(#Vs.present, 0, "...no one inside it")
-for _ = 1, math.ceil((Vs.FIRST_S[2] - Vs.FIRST_S[1]) * 10) + 2 do
+Vs.update(0.1)
+T.eq(#Vs.present, 1, "the room opened: the first visitor comes at once")
+Vs.update(0.1)
+T.eq(#Vs.present, 1, "...no second while it walks in")
+local second = false
+for _ = 1, 200 do
   Vs.update(0.1)
-  if #Vs.present > 0 then break end
+  if #Vs.present >= 2 then second = true; break end
 end
-T.eq(#Vs.present, 1, "...then one arrives")
-T.check(Vs.nextArrival >= Vs.ARRIVAL_S[1], "...and the next waits ARRIVAL_S")
+T.check(second, "...then the next comes straight after")
 Vs.reset()
 Dc.setPuffOut(A.store.room(), A.puffs(), Rules.ownedPuffs(A.puffs())[1].id)
 local nPending = #Vs.pending()

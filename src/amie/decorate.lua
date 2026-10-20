@@ -206,6 +206,10 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     P:set("6z", "visible", holding)
     P:set("9t", "visible", holding and held and held.puff or false)
     P:set("ad", "visible", holding and held and held.puff or false)
+    -- the no-go areas (area_ng) while an item is held: where it cannot be put down
+    local item = holding and held and not held.puff or false
+    P:set("9v", "visible", item)
+    P:set("9x", "visible", item)
     local free = {}
     if holding and held and not held.puff then
       for _, sp in ipairs(Decor.freeSeats(room, held.fromRoom)) do free[sp.i] = true end
@@ -283,7 +287,14 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       held, mode = nil, "browse"
       return
     end
-    local sx, sy = Decor.snap(room, x, y, h.fromRoom)
+    -- a free seat, or the open floor; never a no-go area (the middle round the seats and the band
+    -- below them), so a seat holds one item. There it stays held, as a puff off its spot does.
+    local sx, sy = Decor.settle(room, x, y, h.fromRoom)
+    if not sx then
+      h.x, h.y = x, y
+      if mod.haptics then mod.haptics.pattern("bad") end
+      return
+    end
     if h.fromRoom then
       Decor.move(room, h.fromRoom, sx, sy)
     else

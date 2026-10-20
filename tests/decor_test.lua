@@ -142,6 +142,19 @@ do
   T.eq(fx, 190, "...it stays where it was let go")
   local ox, oy = D.snap(r2, 60, 200)
   T.eq(ox + oy, 260, "far from any seat: where it was let go")
+  -- one per seat: the game's no-go areas (area_ng) cover the middle round the seats and a band
+  -- below them, so there an item settles only on a free seat
+  T.eq(D.settle(r2, 190, 125), nil, "let go on a taken seat: it cannot be put down (one per seat)")
+  T.eq(D.settle(r2, 210, 90), nil, "...nor elsewhere in the middle, out of a free seat's reach")
+  T.eq(D.settle(r2, 60, 125), nil, "...nor on the band below them")
+  local qx, qy, qseat = D.settle(r2, 157, 96)
+  T.eq(qseat, 1, "a free seat nearby still takes it")
+  T.eq(qx + qy, 160 + 94, "...exactly on it")
+  local gx, gy, gseat = D.settle(r2, 60, 200)
+  T.eq(gseat, nil, "the open floor, away from the seats: where it was let go")
+  T.eq(gx + gy, 260, "...")
+  T.check(D.inNoGo(160, 94) and D.inNoGo(195, 119) and D.inNoGo(125, 119), "all three seats lie inside the no-go middle")
+  T.check(not D.inNoGo(60, 200) and not D.inNoGo(280, 60), "the corners of the floor are open")
   -- the wallpaper under the spots: its Poke Ball's middle (the picture's 160, 116) on the
   -- puff's spot, covering the screen
   local sc, ox, oy = D.wallPlace(240, 0)

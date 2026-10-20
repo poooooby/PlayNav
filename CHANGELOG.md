@@ -3,6 +3,22 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- Visitors to the Amie room come as in the game again, with no waits: the next as soon as no
+  one is walking in, so groups form and a set-out Poké Puff is eaten sooner (one portion per
+  group that leaves its gift - Basic 1, Frosted 2, Fancy 3, Deluxe 4, Supreme 5 or 7). As in the
+  game, visitors only come while the room itself is open, not during Play or the minigames.
+
+### Fixed
+
+- DECORATE: two pieces of furniture could be put on the same seat. Now, as in the game, the
+  red areas shown while you hold an item - the middle round the three seats and the band
+  below them - take nothing but an item on a free seat, so each seat holds one; let go there
+  and the item stays in your hand to put somewhere else.
+
 ## [0.5.3] - 2026-10-20 (alpha)
 
 ### Added

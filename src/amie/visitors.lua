@@ -1,5 +1,5 @@
--- Visitors: while the room is open, Pokemon drop by one at a time (`ARRIVAL_S` apart, a longer
--- `GROUP_S` after a group's gift), each rolling on arrival whether it stays; once three sit they chat for thirty
+-- Visitors: while the room is open, Pokemon drop by one at a time (the next as soon as no one is
+-- walking, as the game), each rolling on arrival whether it stays; once three sit they chat for thirty
 -- seconds and leave a gift before departing. Rules from the game's room code (DllField.cro,
 -- the gift choice at 0x0d6494): the stay odds come from the Poke Puff set out plus the Decor
 -- on the guest seats; the gift by the group: Supreme Honor puffs after the Hall of Fame, a
@@ -21,10 +21,14 @@ return function(mod, deps)
   V.CHAT_SECS = 30
   V.MAX_PENDING = 5            -- a sixth gift pushes out the oldest (main 0x466800)
   V.LOOK_S = 1.0               -- ours: the pause on arriving before sitting or walking off
-  -- ours (the game sends the next at once): seconds, rolled between min and max
-  V.FIRST_S = { 15, 30 }       -- the room opened: until the first arrives
-  V.ARRIVAL_S = { 30, 60 }     -- after one arrives or walks off: until the next
-  V.GROUP_S = { 180, 300 }     -- after a group leaves its gift: until anyone comes again
+  -- waits before the next visitor, seconds rolled between min and max: none, as the game
+  -- (DllField.cro 0xd6038: the next comes whenever no one is walking; read 2026-10-20). Visitors
+  -- advance only while the room is open - the game tears the room down for PLAY and the
+  -- minigames (field::EventLoveCall) and nothing catches up - and a set-out puff is spent one
+  -- portion per departing group (0xd74e0 -> 0x466a90).
+  V.FIRST_S = { 0, 0 }         -- the room opened: until the first arrives
+  V.ARRIVAL_S = { 0, 0 }       -- after one arrives or walks off: until the next
+  V.GROUP_S = { 0, 0 }         -- after a group leaves its gift: until anyone comes again
   -- the group's affection (plus the puff's bonus) to a set, or a puff of the tier, half and half
   V.BANDS = { { 150, "A", "basic" }, { 300, "B", "frosted" }, { 450, "C", "fancy" }, { 600, "D", "deluxe" }, { 765, "E" } }
   V.HONOR_GROUPS = 3           -- the Hall of Fame's Supreme Honor puffs, one a group
