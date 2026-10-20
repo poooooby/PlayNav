@@ -5,6 +5,15 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-20 (beta)
+
+### Fixed
+
+- Super Training's shutters make their sound every time they close, not only on the way into the
+  training regimens: going back from the regimens to the home screen, opening Super Training from
+  the PlayNav menu, and the play button after the art extraction. It is the game's own sound for
+  the shutters; the way back is assumed to use the same one, as no capture shows it yet.
+
 ## [0.6.0] - 2026-10-20 (beta)
 
 PlayNav moves from alpha to beta.

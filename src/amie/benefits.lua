@@ -89,7 +89,9 @@ return function(mod, deps)
     end
   end
 
+  -- B.forceRoll(lo, hi): the drivers' stand-in for the affection rolls only (crit, endure, cure)
   local function rngOf(ctx)
+    if B.forceRoll then return B.forceRoll end
     if type(ctx.rng) == "function" then return ctx.rng end
     local ad = adapter()
     if ad and ad.rng then
@@ -301,7 +303,8 @@ return function(mod, deps)
         local status = b.status or (b.mon and b.mon.status)
         if isPlayer(st, b) and status and (b.mon and (tonumber(b.mon.hp) or 0) > 0)
             and levelOf(b.mon) >= N.CURE_LEVEL then
-          local okRoll, v = pcall(ad.roll, ad, 0, 99)
+          local okRoll, v
+          if B.forceRoll then okRoll, v = true, B.forceRoll(0, 99) else okRoll, v = pcall(ad.roll, ad, 0, 99) end
           if okRoll and type(v) == "number" and v < N.CURE_PCT then
             local code = statusCode(status)
             -- the five major conditions only: affection never shakes off confusion

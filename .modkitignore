@@ -96,3 +96,5 @@ tests/drivers/pic_dump_probe.lua
 tests/drivers/visitors_probe.lua
 tests/drivers/amie_sound_probe.lua
 tests/drivers/amie_music_probe.lua
+tests/drivers/demo_showcase.lua
+tests/drivers/benefits_probe.lua

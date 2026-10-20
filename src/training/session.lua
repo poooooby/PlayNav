@@ -453,6 +453,8 @@ return function(mod, deps)
     if not s or s.trans then return false end
     if mode == s.mode then return true end
     s.trans = { to = mode, from = s.mode, t = 0 }
+    -- a change behind the shutters has the game's one system sound (the results fade instead)
+    if s.mode ~= "result" and T.playSe then T.playSe("transition") end
     onChange()
     return true
   end

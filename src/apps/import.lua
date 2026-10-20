@@ -229,6 +229,7 @@ return function(mod, Pointer, Extract, Assets)
       local sunk = pressedAt ~= nil and (Pointer.now() - pressedAt) < 0.14
       if pressedAt and not shutterAt and Pointer.now() - pressedAt >= 0.14 then
         shutterAt = Pointer.now()
+        if app.shutterSound then pcall(app.shutterSound) end
       end
       drawPlay(G, a, sunk)
       if not pressedAt then closeButton(G) end

@@ -848,6 +848,12 @@ return function(mod)
   do
     menuDeps.setActive = function(id) Apps:setActive(id, state.game) end
     menuDeps.inBattle = function() return Amie ~= nil and Amie.inBattle ~= nil and Amie.inBattle() end
+    -- the game's shutters sound (Super Training's screen changes) wherever PlayNav draws them
+    menuDeps.shutterSound = function()
+      if Training and Training.playSe then Training.playSe("transition") end
+    end
+    local gateApp2 = Apps:get("import")
+    if gateApp2 then gateApp2.shutterSound = menuDeps.shutterSound end
     local makeGearModule = loadSibling(mod, "src/gear_module.lua")
     local function iconFor(which)
       if not makeGearModule then return nil end

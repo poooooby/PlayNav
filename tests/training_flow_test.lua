@@ -139,7 +139,12 @@ do
   T.check(b > 0 and b < 1, "fading in (" .. tostring(b) .. ")")
   frames(X.FADE)
   T.check(not S.transitioning(), "the change is over")
+  local heard = {}
+  local playSe0 = S.playSe
+  S.playSe = function(ev, ...) heard[#heard + 1] = ev; return playSe0(ev, ...) end
   T.check(S.goTo("core"), "back from the picker")
+  S.playSe = playSe0
+  T.eq(heard[1], "transition", "...to the shutters' sound, as the way in")
   frames(5)
   T.eq(S.transView("bottom").shutter, "close", "its shutters close")
   frames(X.CLOSE)

@@ -131,6 +131,9 @@ return function(mod, Pointer, deps)
     -- a pad's tap comes as press and release together; a finger must lift on the card it pressed
     if i and (not held or held.i == i) then
       going = { i = i, at = Pointer.now() }
+      -- the shutters' system sound, as Super Training's own screen changes
+      local a = app.cards()[i]
+      if a and a.shutters and deps.shutterSound then pcall(deps.shutterSound) end
     end
   end
 

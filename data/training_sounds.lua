@@ -10,6 +10,7 @@
 
 return {
   -- the home screen: punching the bag has no sound in the game; the Regimens button and the shutters into the picker are one system sound
+  -- (1.74 s: the close, the black and the fade); every shutter change plays it (T.goTo, the PlayNav menu's card, the import screen's play button)
   transition = "se/sys_057",
   -- the picker
   select_course = "se/sp_decide",  -- the first tap on a course
@@ -48,7 +49,7 @@ return {
   -- music subtracted) through a regimen with attacks to the results, with notes of what
   -- happens when
   EVIDENCE = {
-    transition = "capture 2, 11.35 s, r 0.90-0.95: the Regimens button and the shutters (a system sound)",
+    transition = "capture 2, 11.35 s, r 0.90-0.95: the Regimens button and the shutters (a system sound); INFERRED for the way back (the picker's shutters close, the home screen's open) and PlayNav's own shutters: no capture shows them",
     select_course = "capture 2, 17.80 s, r 0.96: the first tap on a course",
     start_course = "capture 1, 1.26 / 1.30 s, r 0.70 / 0.67; capture 2, 23.85 / 23.88 s, r 0.69 / 0.62: DECIDE with SP_031 40 ms after",
     pump = "capture 1, 8.25-11.39 s, r 0.92-0.99; capture 2, 30.75-33.91 s, r 0.80-0.99",
