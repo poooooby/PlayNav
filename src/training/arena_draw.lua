@@ -151,15 +151,88 @@ return function(mod, deps)
     end
   end
 
+  -- The Balloon Bots' own sprites: every bot (Mega Aggron too) from one indexed atlas
+  -- (tools/balloon_atlas.py: assets/balloon_bots.png, a 96x96 cell per bot holding colour
+  -- numbers, 0 transparent; data/balloon_bots.lua the cells and their palettes). A cell is
+  -- expanded to a full-colour image the first time its bot is asked for, so a regimen never
+  -- depends on the game's own front sprites or a sprite mod's.
+  local cellData, atlasData = nil, nil
+  local botSprites = {}
+  local function botCells()
+    if cellData == nil then
+      cellData = false
+      local src = mod.read and mod:read("data/balloon_bots.lua")
+      local chunk = src and load(src, "@data/balloon_bots.lua")
+      local ok, t = false, nil
+      if chunk then ok, t = pcall(chunk) end
+      if ok and type(t) == "table" and type(t.cells) == "table" then cellData = t end
+    end
+    return cellData or nil
+  end
+  function D.botKey(row)
+    return tostring(row.national) .. (row.mega and "-mega" or "")
+  end
+  -- pure: a "rrggbbaa" palette as { r, g, b, a } in 0..1
+  function D.parsePalette(pal)
+    local out = {}
+    for i, hex in ipairs(pal or {}) do
+      local r, g, b, a = hex:match("^(%x%x)(%x%x)(%x%x)(%x%x)$")
+      out[i] = r and { tonumber(r, 16) / 255, tonumber(g, 16) / 255, tonumber(b, 16) / 255, tonumber(a, 16) / 255 }
+        or { 0, 0, 0, 0 }
+    end
+    return out
+  end
+  -- the bot's sprite as { image, w, h }, or nil (no cell for it, or no graphics)
+  function D.botSprite(row)
+    if not row then return nil end
+    local key = D.botKey(row)
+    if botSprites[key] ~= nil then return botSprites[key] or nil end
+    botSprites[key] = false
+    local cells = botCells()
+    local cell = cells and cells.cells[key]
+    local G, LI, LF = love and love.graphics, love and love.image, love and love.filesystem
+    if not (cell and G and LI and LF) then return nil end
+    local ok, img = pcall(function()
+      if not atlasData then
+        local bytes = mod:read("assets/balloon_bots.png")
+        atlasData = LI.newImageData(LF.newFileData(bytes, "balloon_bots.png"))
+      end
+      local size, y0 = cells.size, cell.row * cells.size
+      local pal = D.parsePalette(cell.pal)
+      local data = LI.newImageData(size, size)
+      local A = atlasData
+      data:mapPixel(function(x, y)
+        local n = math.floor(A:getPixel(x, y0 + y) * 255 + 0.5)
+        local c = pal[n]
+        if not c then return 0, 0, 0, 0 end
+        return c[1], c[2], c[3], c[4]
+      end)
+      local im = G.newImage(data)
+      im:setFilter("nearest", "nearest")
+      return im
+    end)
+    if not ok then
+      mod.log:warn("super training: the Balloon Bot sprite for #%s could not be built (%s)", key, tostring(img))
+      return nil
+    end
+    local entry = { image = img, w = cells.size, h = cells.size }
+    botSprites[key] = entry
+    return entry
+  end
+
   function D.shapeFor(row)
     if not row then return nil end
-    local key = tostring(row.national) .. ":" .. tostring(row.species)
+    local key = D.botKey(row)
     if shapes[key] ~= nil then return shapes[key] or nil end
     shapes[key] = false
-    -- course rows name species as constants ("SPECIES_BLASTOISE"); the pic wants the number
-    local sp = host.speciesFromNational and row.national and host.speciesFromNational(row.national)
-    if not sp and type(row.species) == "number" then sp = row.species end
-    local entry = sp and host.speciesFrontPic and host.speciesFrontPic(sp)
+    -- the bot's own sprite; without the atlas, the game's (or a sprite mod's) front sprite
+    local entry = D.botSprite(row)
+    if not entry then
+      -- course rows name species as constants ("SPECIES_BLASTOISE"); the pic wants the number
+      local sp = host.speciesFromNational and row.national and host.speciesFromNational(row.national)
+      if not sp and type(row.species) == "number" then sp = row.species end
+      entry = sp and host.speciesFrontPic and host.speciesFrontPic(sp)
+    end
     if not (entry and entry.image) then
       mod.log:info("super training: no front sprite for #%s; the course badge stands in", tostring(row.national))
       return nil

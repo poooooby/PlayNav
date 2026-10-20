@@ -131,7 +131,8 @@ on a touch screen below the game or on a device's second display.
   Soothing Bag, and six bags that power up your next regimen. Tap a bag to read about it, then
   use or discard it.
 - 🎯 **Super-Training Regimens:** Shoot at the goals on a big Balloon Bot made in the image of a
-  real Pokémon, in a stadium, the way the game plays it: the course's title, the balloon pumped
+  real Pokémon (every one of them, from Axew to Mega Aggron, drawn from its own sprite), in a
+  stadium, the way the game plays it: the course's title, the balloon pumped
   up on the grass, both names, **Start**, and **Success!** as the balloon zips off into the sky.
   On split screen the picker, the stadium and the results fill the whole top of the screen, as
   the overworld does.
@@ -216,10 +217,9 @@ Open **OPTIONS → MODS → PlayNav**.
   them from there.
 - [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3): the real Dusk, Shiny and
   Dawn Stones with their evolutions. Super Training's stone prizes become those stones.
-- [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): with sprites
-  for the newer species, the Generation 4-6 Balloon Bots (Aegislash, Stunfisk, Hydreigon and
-  more) use them instead of their course badge. Its animated sprites hold one still pose in
-  Pokémon-Amie and Super Training.
+- [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): your
+  Pokémon show its sprites in Pokémon-Amie and Super Training, each animated sprite held in one
+  still pose.
 
 ## 📌 Good to Know
 
@@ -252,6 +252,8 @@ Open **OPTIONS → MODS → PlayNav**.
   © Nintendo / Creatures Inc. / GAME FREAK Inc.; see `assets/credits.txt`). Their names
   and descriptions come from [PokeAPI](https://pokeapi.co).
 - **Super Training stadium and hover board:** original art by Wooble for PlayNav.
+- **Balloon Bot sprites:** the Gen 9 Pack's Pokémon battler sprites — Gen 1-5 Pokémon by
+  veekun, Gen 6 Pokémon by all contributors to the Smogon X/Y Sprite Project.
 
 ## 💡 Inspirations
 

@@ -5,6 +5,13 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Every Super-Training Balloon Bot is now drawn from its own sprite, the Gen 9 Pack's battler
+  sprites, packed into one small image with the mod: no Balloon Bot falls back to its course
+  badge any more (Axew, Noibat, Aegislash, Hydreigon and the other newer Pokémon used to need
+  a sprite mod), and the final course's Mega Aggron is Mega Aggron, not plain Aggron.
+
 ### Fixed
 
 - On high-resolution screens (the AYN Thor, phones), Pokémon in Pokémon-Amie's Play screen

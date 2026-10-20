@@ -118,4 +118,41 @@ do
   T.eq(C.byId.lv2_hp.goals.chance.odds, 1.0, "Relicanth always offers the Chance Goal")
 end
 
+-- the Balloon Bots' own sprites (tools/balloon_atlas.py): a cell for every bot of every course,
+-- Mega Aggron its own, each palette parsable and in the atlas's rows
+do
+  local BB = loadFile("mods/play_nav/data/balloon_bots.lua")
+  T.eq(BB.size, 96, "the bots' cells are 96 square")
+  local missing, maxRow = {}, -1
+  for _, c in ipairs(C.courses) do
+    for _, b in ipairs(c.bots) do
+      local key = tostring(b.national) .. (b.mega and "-mega" or "")
+      local cell = BB.cells[key]
+      if not cell then missing[#missing + 1] = key
+      elseif cell.row > maxRow then maxRow = cell.row end
+    end
+  end
+  T.eq(#missing, 0, "every Balloon Bot has a sprite (missing: " .. table.concat(missing, ", ") .. ")")
+  T.check(BB.cells["306-mega"] and BB.cells["306"] and BB.cells["306-mega"].row ~= BB.cells["306"].row,
+    "Mega Aggron is its own sprite, not Aggron's")
+  local okPal, n = true, 0
+  for _, cell in pairs(BB.cells) do
+    n = n + 1
+    if #cell.pal < 1 or #cell.pal > 255 then okPal = false end
+    for _, hex in ipairs(cell.pal) do if not hex:match("^%x%x%x%x%x%x%x%x$") then okPal = false end end
+  end
+  T.check(okPal, "every palette is 1..255 rrggbbaa colours")
+  T.eq(maxRow, n - 1, "the cells fill the atlas's rows one each")
+  local f = io.open("mods/play_nav/assets/balloon_bots.png", "rb")
+  local png = f and f:read("*a")
+  if f then f:close() end
+  T.check(png ~= nil, "the atlas image is there")
+  if png then
+    -- the PNG header's size: 96 wide, a cell per bot tall
+    local function u32(p) local a, b2, c2, d = png:byte(p, p + 3); return ((a * 256 + b2) * 256 + c2) * 256 + d end
+    T.eq(u32(17), 96, "...96 wide")
+    T.eq(u32(21), 96 * n, "...a cell per bot tall")
+  end
+end
+
 T.finish()

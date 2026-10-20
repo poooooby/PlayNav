@@ -72,9 +72,13 @@ local function body(game, log)
     local ok, why = S.startCourse(id)
     log("start", id, tostring(ok), tostring(why))
     if ok then
+      -- the regimen fades in and builds its sim after the transition; then the intro plays
+      for _ = 1, 3000 do if S.sim then break end; U.wait(1) end
+      for _ = 1, 3000 do if S.sim and S.sim.phase == "play" then break end; U.wait(1) end
       local sim = S.sim
+      if not sim then log("  FAIL no sim"); break end
       log(("  shape for bot 1: %s"):format(sim.shape and (#sim.shape.list .. " cells") or "none (badge)"))
-      waitSecs(4.2)   -- the countdown, then the first goals
+      waitSecs(1.5)   -- the first goals
       for k = 1, 3 do
         local offs, n = 0, 0
         for _, g in ipairs(sim.goals) do

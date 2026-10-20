@@ -92,6 +92,11 @@ The in-game decoders are tested against the same data with
   titles. Recipe version 4 carries 121 of them under `training/`.
 - `shot_types.py` downloads Bulbapedia's "List of Pokemon by Super Training Energy Shot" and
   writes `data/training_shot_types.lua` (386 species, no gaps).
+- `balloon_atlas.py [--pack <Gen 9 Pack>/Graphics/Pokemon/Front]` (needs Pillow) bakes every
+  Balloon Bot in `data/training_courses.lua` (Mega Aggron too) from the Gen 9 Pack's battler
+  fronts into `assets/balloon_bots.png` (one greyscale column of 96x96 cells, value = colour
+  number, the 192 originals halved) and `data/balloon_bots.lua` (cells and palettes). A new
+  course's bot needs its pack name in `NAMES`; training_courses_test fails until it is baked.
 - `items_pokeapi.py` writes `data/training_items.lua` from PokeAPI (names, effects, flavour text)
   with the X/Y era "Wing" names and Bulbapedia's prices; the icons come from PokéSprite (images © Nintendo / Creatures / GAME FREAK; credited in `assets/credits.txt`).
 - `gen6_text.py <romfs> a/0/7/3 [--find text] [--file N] [--vars]` decodes Gen 6 text files.
