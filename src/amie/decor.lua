@@ -162,27 +162,54 @@ return function(CATALOG, Rules)
   D.PUFF_LIFT = 20
   -- released this close to a free spot, an item settles exactly on it (the game's "perfect fit")
   D.SNAP = 22
-  -- the game's no-go areas while an item is held (customize 6z: area_ng 9x, 120 x 50 about
-  -- 160,105 - the middle, all three seats inside it - and 9v, 576 x 20 about y 140), in the
-  -- layout's units; an item's point is SEAT_DY above its seat pane's middle (6t 160,103 holds
-  -- the item at 160,94). Inside them an item can only settle on a free seat, so each seat holds
-  -- one; anywhere else it stands where it is let go.
+  -- Where a dropped item settles, as the game's DECORATE code does it (DllKawaigariArrange,
+  -- read 2026-10-20): on a 10-unit grid (0x4e84), held inside the room (0x5ec8: x 0..320,
+  -- screen y 40..220); items may overlap. A CUSHION let go inside a seat's 28 x 18 box (the
+  -- area_seat panes 6t / 6v / 6x, tested in that order; an item's point is SEAT_DY above its
+  -- seat pane's middle) takes the seat exactly; on a taken seat it is pushed half the seat's
+  -- width aside, keeping its own height - off 6t to the side it came from, off 6v right, off
+  -- 6x left (0x5fd8..0x6110) - so a seat holds one. Objects ignore the seats. The layout's
+  -- area_ng panes 9v / 9x are never shown nor tested by the code.
   D.SEAT_DY = 9
-  D.NO_GO = { { x0 = 100, y0 = 80, x1 = 220, y1 = 130 }, { x0 = -128, y0 = 130, x1 = 448, y1 = 150 } }
-  function D.inNoGo(x, y)
-    local py = y + D.SEAT_DY
-    for _, r in ipairs(D.NO_GO) do
-      if x >= r.x0 and x <= r.x1 and py >= r.y0 and py <= r.y1 then return true end
-    end
-    return false
+  D.GRID = 10
+  D.ROOM_BOUNDS = { x0 = 0, x1 = 320, y0 = 40, y1 = 220 }
+  D.SEAT_BOX = { w = 28, h = 18 }
+  local SEAT_PUSH = { 0, 1, -1 }   -- off a taken seat: 6t by side (0), 6v right, 6x left
+  function D.isCushion(id)
+    local r = D.BY_ID[id]
+    return r ~= nil and r.kind == "cushion"
   end
-  -- where an item let go at (x, y) can go: a free seat within SNAP, else there unless that is a
-  -- no-go area -> x, y, seat index (or nil); nil when it cannot be put down there
-  function D.settle(room, x, y, skip)
-    local sx, sy, seat = D.snap(room, x, y, skip)
-    if seat then return sx, sy, seat end
-    if D.inNoGo(x, y) then return nil end
-    return x, y, nil
+  -- the seat whose box holds (x, y), or nil
+  function D.seatAt(x, y)
+    local py = y + D.SEAT_DY
+    for i, sp in ipairs(D.SEATS) do
+      local cy = sp.y + D.SEAT_DY
+      local inX = math.abs(x - sp.x) <= D.SEAT_BOX.w / 2
+      if inX and math.abs(py - cy) <= D.SEAT_BOX.h / 2 then return i end
+      -- the game retries the top seat one pixel higher
+      if i == 1 and inX and math.abs(py - 1 - cy) <= D.SEAT_BOX.h / 2 then return i end
+    end
+    return nil
+  end
+  -- where an item `id` let go at (x, y) settles -> x, y, seat index (or nil)
+  function D.settle(room, x, y, skip, id)
+    if id == nil or D.isCushion(id) then
+      local i = D.seatAt(x, y)
+      if i then
+        local sp = D.SEATS[i]
+        local free = false
+        for _, f in ipairs(D.freeSeats(room, skip)) do if f.i == i then free = true end end
+        if free then return sp.x, sp.y, i end
+        local dir = SEAT_PUSH[i]
+        if dir == 0 then dir = (x < sp.x) and -1 or 1 end
+        return sp.x + dir * D.SEAT_BOX.w / 2, y, nil
+      end
+    end
+    local g = D.GRID
+    local B = D.ROOM_BOUNDS
+    local gx = math.floor(x / g + 0.5) * g
+    local gy = math.floor(y / g + 0.5) * g
+    return math.max(B.x0, math.min(B.x1, gx)), math.max(B.y0, math.min(B.y1, gy)), nil
   end
 
   -- where a 320x240 wallpaper goes on a screen LH layout units tall whose room sits roomDy

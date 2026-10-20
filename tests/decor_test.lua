@@ -142,19 +142,33 @@ do
   T.eq(fx, 190, "...it stays where it was let go")
   local ox, oy = D.snap(r2, 60, 200)
   T.eq(ox + oy, 260, "far from any seat: where it was let go")
-  -- one per seat: the game's no-go areas (area_ng) cover the middle round the seats and a band
-  -- below them, so there an item settles only on a free seat
-  T.eq(D.settle(r2, 190, 125), nil, "let go on a taken seat: it cannot be put down (one per seat)")
-  T.eq(D.settle(r2, 210, 90), nil, "...nor elsewhere in the middle, out of a free seat's reach")
-  T.eq(D.settle(r2, 60, 125), nil, "...nor on the band below them")
-  local qx, qy, qseat = D.settle(r2, 157, 96)
-  T.eq(qseat, 1, "a free seat nearby still takes it")
+  -- the game's DECORATE code (DllKawaigariArrange): a cushion inside a seat's 28 x 18 box takes
+  -- it; on a taken seat it is pushed half a seat aside, so a seat holds one; objects ignore the
+  -- seats; elsewhere the 10-unit grid inside the room; items may overlap
+  local C = "cushion/leaf_cushion"     -- (on seat 2 already)
+  local cushion2
+  for _, r in ipairs(CATALOG) do if r.kind == "cushion" and r.id ~= C then cushion2 = r.id; break end end
+  local object
+  for _, r in ipairs(CATALOG) do if r.kind == "object" then object = r.id; break end end
+  T.check(cushion2 and object, "the catalogue has another cushion and an object")
+  local qx, qy, qseat = D.settle(r2, 158, 97, nil, cushion2)
+  T.eq(qseat, 1, "a cushion inside a free seat's box takes it")
   T.eq(qx + qy, 160 + 94, "...exactly on it")
-  local gx, gy, gseat = D.settle(r2, 60, 200)
-  T.eq(gseat, nil, "the open floor, away from the seats: where it was let go")
-  T.eq(gx + gy, 260, "...")
-  T.check(D.inNoGo(160, 94) and D.inNoGo(195, 119) and D.inNoGo(125, 119), "all three seats lie inside the no-go middle")
-  T.check(not D.inNoGo(60, 200) and not D.inNoGo(280, 60), "the corners of the floor are open")
+  local px, py, pseat = D.settle(r2, 197, 121, nil, cushion2)
+  T.eq(pseat, nil, "a cushion on the taken right-hand seat does not take it (one per seat)")
+  T.eq(px, 195 + 14, "...it is pushed half a seat to the right")
+  T.eq(py, 121, "...keeping its own height")
+  local lx2 = D.settle(r2, 120, 118, nil, cushion2)
+  T.eq(lx2, 125, "the left-hand seat is free: it takes that one")
+  local ox2, oy2, oseat = D.settle(r2, 197, 121, nil, object)
+  T.eq(oseat, nil, "an object ignores the seats")
+  T.eq(ox2 + oy2, 200 + 120, "...settling on the 10-unit grid, even on a seat")
+  local gx, gy, gseat = D.settle(r2, 63, 197, nil, cushion2)
+  T.eq(gseat, nil, "the open floor: no seat")
+  T.eq(gx + gy, 60 + 200, "...on the 10-unit grid")
+  local bx, by = D.settle(r2, 330, 10, nil, object)
+  T.eq(bx + by, 320 + 40, "held inside the room (x 0..320, y 40..220)")
+  T.check(D.isCushion(C) and not D.isCushion(object), "cushions and objects told apart by the catalogue")
   -- the wallpaper under the spots: its Poke Ball's middle (the picture's 160, 116) on the
   -- puff's spot, covering the screen
   local sc, ox, oy = D.wallPlace(240, 0)

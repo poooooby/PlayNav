@@ -206,15 +206,13 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     P:set("6z", "visible", holding)
     P:set("9t", "visible", holding and held and held.puff or false)
     P:set("ad", "visible", holding and held and held.puff or false)
-    -- the no-go areas (area_ng) while an item is held: where it cannot be put down
-    local item = holding and held and not held.puff or false
-    P:set("9v", "visible", item)
-    P:set("9x", "visible", item)
-    local free = {}
-    if holding and held and not held.puff then
-      for _, sp in ipairs(Decor.freeSeats(room, held.fromRoom)) do free[sp.i] = true end
-    end
-    for i, n in ipairs(SEAT_PANES) do P:set(n, "visible", free[i] or false) end
+    -- the layout's area_ng panes (9v / 9x) stay hidden: the game's code never shows them
+    P:set("9v", "visible", false)
+    P:set("9x", "visible", false)
+    -- the three seats while a cushion is held (the game's 0x4f78: all three, taken or not; none
+    -- for an object, which ignores them)
+    local seats = holding and held and not held.puff and Decor.isCushion(held.id) or false
+    for _, n in ipairs(SEAT_PANES) do P:set(n, "visible", seats) end
     -- the session's words in the game's bottom bar
     P:set("b4", "visible", words ~= nil)
     P:set("1x", "visible", words ~= nil)
@@ -287,14 +285,9 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       held, mode = nil, "browse"
       return
     end
-    -- a free seat, or the open floor; never a no-go area (the middle round the seats and the band
-    -- below them), so a seat holds one item. There it stays held, as a puff off its spot does.
-    local sx, sy = Decor.settle(room, x, y, h.fromRoom)
-    if not sx then
-      h.x, h.y = x, y
-      if mod.haptics then mod.haptics.pattern("bad") end
-      return
-    end
+    -- as the game's code: a cushion on a seat's box takes the seat (one per seat: off a taken one
+    -- it is pushed aside), anywhere else the 10-unit grid inside the room (Decor.settle)
+    local sx, sy = Decor.settle(room, x, y, h.fromRoom, h.id)
     if h.fromRoom then
       Decor.move(room, h.fromRoom, sx, sy)
     else
@@ -657,6 +650,8 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     if what == "pageRight" then return centre("ap") end
     if what == "cell" then return centre(MID[i or 1]) end
     if what == "seat" then local sp = Decor.SEATS[i or 1]; return fromLyt(sp.x, sp.y + D / 2) end
+    -- where to bring the "held" point (8 above the item's foot) so the item lands on seat i
+    if what == "seatHold" then local sp = Decor.SEATS[i or 1]; return fromLyt(sp.x, sp.y - 8 + D / 2) end
     if what == "puffSpot" then return fromLyt(Decor.PUFF_SPOT.x, Decor.PUFF_SPOT.y - Decor.PUFF_LIFT + D / 2) end
     if what == "held" and held then
       if held.puff then return fromLyt(held.x, held.y - Decor.PUFF_LIFT + D / 2) end

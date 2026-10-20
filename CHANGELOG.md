@@ -14,10 +14,11 @@ All notable changes to this mod are documented here. The format follows
 
 ### Fixed
 
-- DECORATE: two pieces of furniture could be put on the same seat. Now, as in the game, the
-  red areas shown while you hold an item - the middle round the three seats and the band
-  below them - take nothing but an item on a free seat, so each seat holds one; let go there
-  and the item stays in your hand to put somewhere else.
+- DECORATE places items as the game's own code does: a cushion let go on a seat takes it, and
+  on a seat that already has one it is moved half a seat aside, so each seat holds one item;
+  other objects ignore the seats (and no seats light up for them); anywhere else an item sits
+  on the game's 10-unit grid inside the room, and items may overlap. The red areas shown
+  briefly while holding an item are gone: the game never shows them.
 
 ## [0.5.3] - 2026-10-20 (alpha)
 
