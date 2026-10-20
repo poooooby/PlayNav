@@ -84,3 +84,4 @@ imgs/banner.png
 imgs/st-bags1.png
 imgs/st-balloons1.png
 imgs/st-home.png
+tests/drivers/gear_store_probe.lua

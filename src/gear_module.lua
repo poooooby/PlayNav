@@ -1,10 +1,96 @@
--- PlayNav in Kanto Gear's Silph Store: the spec for the Gear's third-party module
--- hook (kanto_gear exports.modules.register, api 1). Everything the store shows is
--- PlayNav's own: the engine-drawn boxing glove (the Gear's 24x24 pal/rows pixel
--- format), the words, the translations, and the callbacks main.lua passes in -
--- `open` (the press: the Super Training session, or the PLAYNAV import screen) and
+-- PlayNav in Kanto Gear's Silph Store: the specs for the Gear's third-party module
+-- hook (kanto_gear exports.modules.register, api 1), one an app: Super Training (the
+-- default) and Pokemon-Amie (`deps.app = "amie"`). Everything the store shows is
+-- PlayNav's own: the engine-drawn icons (the Gear's 24x24 pal/rows pixel format; `o`
+-- is the Gear's outline), the words, the translations, and the callbacks main.lua
+-- passes in - `open` (the press: the app's session, or the PLAYNAV import screen) and
 -- `shown` (true while PlayNav's surface is up, so the Gear stands down).
+
+local function amie(deps)
+  return {
+    id = "pokemon_amie",
+    label = "POKEMON-AMIE",
+    category = "FRIENDSHIP",
+    description = {
+      "BOND WITH YOUR POKEMON.",
+      "PET, FEED AND PLAY MINIGAMES.",
+      "POWERED BY THE PLAYNAV MOD.",
+    },
+    -- a Poke Puff: cherry, pink frosting in tiers, a speckled cake cup
+    icon = { pal = { a = "ffe0ec", b = "f8a0c4", c = "e070a0", d = "b04878",
+      r = "e83848", h = "ffffff", s = "a82030", g = "58a838",
+      t = "f8e0a8", u = "e0b068", v = "b07838" }, rows = {
+      "........................",
+      "...........og...........",
+      "..........ogo...........",
+      ".........orrro..........",
+      "........orhrrso.........",
+      "........orrrrso.........",
+      ".......ooossssooo.......",
+      ".....oaaabbbbbbbco......",
+      "....oaabbbbbbbbbcco.....",
+      "....obbbbbbbbbbbccdo....",
+      "...oaaccccccccccccdo....",
+      "..oaaabbbbbbbbbbbbbco...",
+      ".oaabbbbbbbbbbbbbbbccdo.",
+      ".obbbbbbbbbbbbbbbbbccdo.",
+      ".odcccccccccccccccccddo.",
+      "..ooooooooooooooooooo...",
+      "..otttuttttuttttutttvo..",
+      "..ottutttuttttutttuvvo..",
+      "...otttuttttuttttuvvo...",
+      "...ottutttuttttuttvvo...",
+      "....otttuttttuttuvvo....",
+      "....ouuuuuuuuuuuuvvo....",
+      ".....oooooooooooooo.....",
+      "........................",
+    } },
+    accent = "amber",
+    available = function(ctx) return ctx ~= nil and ctx.gen3 == true end,
+    shown = deps.shown,
+    open = deps.open,
+    translations = {
+      de = {
+        ["POKEMON-AMIE"] = "POKéMON-AMI",
+        ["FRIENDSHIP"] = "FREUNDSCHAFT",
+        ["BOND WITH YOUR POKEMON."] = "Schließe Freundschaft mit deinen Pokémon.",
+        ["PET, FEED AND PLAY MINIGAMES."] = "Streicheln, füttern und Minispiele spielen.",
+        ["POWERED BY THE PLAYNAV MOD."] = "Eine PlayNav-App.",
+      },
+      es = {
+        ["POKEMON-AMIE"] = "POKé RECREO",
+        ["FRIENDSHIP"] = "AMISTAD",
+        ["BOND WITH YOUR POKEMON."] = "Estrecha lazos con tus Pokémon.",
+        ["PET, FEED AND PLAY MINIGAMES."] = "Acarícialos, dales de comer y juega a minijuegos.",
+        ["POWERED BY THE PLAYNAV MOD."] = "Una aplicación de PlayNav.",
+      },
+      fr = {
+        ["POKEMON-AMIE"] = "POKéMON-RÉCRÉ",
+        ["FRIENDSHIP"] = "AMITIÉ",
+        ["BOND WITH YOUR POKEMON."] = "Tisse des liens avec tes Pokémon.",
+        ["PET, FEED AND PLAY MINIGAMES."] = "Caresse-les, nourris-les et joue à des mini-jeux.",
+        ["POWERED BY THE PLAYNAV MOD."] = "Une application PlayNav.",
+      },
+      it = {
+        ["POKEMON-AMIE"] = "POKé IO E TE",
+        ["FRIENDSHIP"] = "AMICIZIA",
+        ["BOND WITH YOUR POKEMON."] = "Stringi amicizia con i tuoi Pokémon.",
+        ["PET, FEED AND PLAY MINIGAMES."] = "Accarezzali, nutrili e gioca ai minigiochi.",
+        ["POWERED BY THE PLAYNAV MOD."] = "Un'app di PlayNav.",
+      },
+      ja = {
+        ["POKEMON-AMIE"] = "ポケパルレ",
+        ["FRIENDSHIP"] = "なかよし",
+        ["BOND WITH YOUR POKEMON."] = "ポケモンと なかよくなろう。",
+        ["PET, FEED AND PLAY MINIGAMES."] = "なでたり ポフレをあげたり ミニゲームで遊ぼう。",
+        ["POWERED BY THE PLAYNAV MOD."] = "PlayNav提供のアプリ。",
+      },
+    },
+  }
+end
+
 return function(deps)
+  if deps and deps.app == "amie" then return amie(deps) end
   return {
     id = "super_training",
     label = "SUPER TRAINING",

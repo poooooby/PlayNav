@@ -731,34 +731,42 @@ return function(mod)
     end
     return false
   end
-  -- Kanto Gear's Silph Store: PlayNav registers Super Training as a third-party
-  -- module through the Gear's hook (exports.modules, api 1). Without Kanto Gear,
-  -- or on a Gear without the hook, this is a no-op; the START menu entry remains.
-  if Training then
+  -- Kanto Gear's Silph Store: PlayNav registers Super Training and Pokemon-Amie as
+  -- third-party modules through the Gear's hook (exports.modules, api 1). Without
+  -- Kanto Gear, or on a Gear without the hook, this is a no-op; the START menu
+  -- entries remain.
+  do
     local gear = mod.find and mod:find("kanto_gear")
     local modules = gear and gear.exports and gear.exports.modules
-    local makeGearModule = modules and loadSibling(mod, "src/gear_module.lua")
-    if makeGearModule and type(modules.register) == "function" then
+    local makeGearModule = modules and type(modules.register) == "function"
+      and loadSibling(mod, "src/gear_module.lua")
+    -- true while PlayNav's surface is up: the Gear stands down meanwhile
+    local function shown() return state.mode ~= nil and state.mode ~= "off" end
+    local function register(app, session)
+      if not (makeGearModule and session) then return end
       local okSpec, spec = pcall(makeGearModule, {
-        -- the press: Super Training opens, or the PLAYNAV import screen takes
-        -- over first; both count as taking the bottom screen
+        app = app,
+        -- the press: the app opens, or the PLAYNAV import screen takes over
+        -- first; both count as taking the bottom screen
         open = function()
           if importGate() then return true end
-          local ok = Training.open()
+          local ok = session.open()
           return ok == true
         end,
-        -- true while PlayNav's surface is up: the Gear stands down meanwhile
-        shown = function() return state.mode ~= nil and state.mode ~= "off" end,
+        shown = shown,
       })
       if okSpec and spec then
         local okReg, registered, why = pcall(modules.register, spec)
         if okReg and registered == true then
-          mod.log:info("registered in Kanto Gear's store")
+          mod.log:info("registered %s in Kanto Gear's store", spec.id)
         else
-          mod.log:warn("Kanto Gear store registration refused: %s", tostring(okReg and why or registered))
+          mod.log:warn("Kanto Gear store registration of %s refused: %s", tostring(spec.id),
+            tostring(okReg and why or registered))
         end
       end
     end
+    register("training", Training)
+    register("amie", Amie)
   end
 
   do
