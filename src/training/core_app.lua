@@ -149,10 +149,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   local function inRect(x, y, r) return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h end
-  -- PlayNav's return button (message layout pane ab, 27x27 at 305,224) leaves Super Training;
-  -- the strip's arrows switch to Pokemon-Amie (T.onSwitch, set by main)
+  -- PlayNav's return button (message layout pane ab, 27x27 at 305,224) leaves Super Training
   local RETURN_PANE = { 305, 224, 27, 27 }
-  local ARROWS = { { x = 0, y = -BLEED, w = 34, h = 21 }, { x = 256 - 34, y = -BLEED, w = 34, h = 21 } }
 
   -- the party list once a frame: T.party asks the engine for every member's key, name and
   -- icon, and the screen wanted it eight times a frame (each slot, the active icon, the row)
@@ -222,11 +220,6 @@ return function(mod, Pointer, T, Rules, Radar, host)
     end
     -- the finishing move plays out before anything else is taken
     if T.finishing and T.finishing() then return end
-    if inRect(x, y, ARROWS[1]) or inRect(x, y, ARROWS[2]) then
-      if H then H.pulse("tick") end
-      if T.onSwitch then T.onSwitch() end
-      return
-    end
     if inRect(x, y, BAG) then T.hitBag("tap"); return end
     if inRect(x, y, PIC) then
       if s.rec.resting then T.wake() else T.hitBag("tap") end
@@ -1048,11 +1041,6 @@ return function(mod, Pointer, T, Rules, Radar, host)
     -- upside down along the bottom, its recessed middle on the buttons' flat edge
     G.draw(strip, 0, LH, 0, (w / 2) / sw, -BOTTOM_STRIP_H / sh)
     G.draw(strip, w, LH, 0, -(w / 2) / sw, -BOTTOM_STRIP_H / sh)
-    local arrow = art("training/home_arrow")
-    if arrow then
-      fit(G, arrow, { 14, 11, 18, 18 })
-      fit(G, arrow, { 320 - 14, 11, 18, 18 }, true)
-    end
   end
 
   function app:draw(G, w, h)

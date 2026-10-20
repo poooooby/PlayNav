@@ -173,8 +173,8 @@ local function body(game, log)
   U.wait(20)
   local StartMenu = require("src.ui.game3.start_menu")
   local idx
-  for i, e in ipairs(StartMenu.ENTRIES or {}) do if e.id == "play_nav_amie" then idx = i end end
-  log("start menu open:", topId(), "AMIE entry at", tostring(idx), "cursor", StartMenu.cursor)
+  for i, e in ipairs(StartMenu.ENTRIES or {}) do if e.id == "play_nav" then idx = i end end
+  log("start menu open:", topId(), "PLAYNAV entry at", tostring(idx), "cursor", StartMenu.cursor)
   if idx then
     local moves = idx - (StartMenu.cursor or 1)
     for _ = 1, math.abs(moves) do
@@ -182,6 +182,11 @@ local function body(game, log)
       U.wait(6)
     end
     U.tap(game, "a")
+    U.wait(30)
+    -- the PlayNav menu: its Pokemon-Amie card
+    for _, c in ipairs(X.menu and X.menu.app.cards() or {}) do
+      if c.id == "amie" then log("menu card amie:", tostring(c.open())) end
+    end
     U.wait(30)
     local st = R.state()
     log("after menu AMIE: top", topId(), "session", st and st.phase, st and st.source,

@@ -28,8 +28,6 @@ for _, generation in ipairs({ 3 }) do
   if exports then
     T.check(type(exports.pointer) == "table" and type(exports.pointer.begin) == "function",
       "the pointer stream is exported")
-    -- the engine root's options.lua (the dev machine's launcher choices) is
-    -- read headlessly too, so a DEV: SCRATCH APP toggle may add a third app
     local apps = type(exports.apps) == "table" and exports.apps.list or {}
     local ids = {}
     for _, a in ipairs(apps) do ids[a.id] = true end

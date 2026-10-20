@@ -52,6 +52,10 @@ on a touch screen below the game or on a device's second display.
   effects and English text from your own Alpha Sapphire card image. The import is required:
   until it has run, opening Pokémon-Amie or Super Training shows the PlayNav screen with a
   **Begin extraction** button — or a warning that the card image is missing.
+- 🧭 **The PlayNav menu:** **PLAYNAV** on the START menu opens PlayNav on the touch screen,
+  with a card for each app (**Pokémon-Amie** and **Super Training**) as the game's PlayNav lists
+  them. Tap one to open it; closing an app brings you back to the menu, and the x (or PLAYNAV
+  again) closes it.
 - 📳 **Haptics:** On a phone or handheld you feel your touches: a tick for menu presses, a
   pulse for a good stroke, a bite or a hit that lands, two knocks when your Pokémon doesn't like
   it or you miss, and a burst for a cleared bag, a finished puzzle or a popped Balloon Bot. Set
@@ -63,7 +67,7 @@ on a touch screen below the game or on a device's second display.
 
 ### Pokémon-Amie 💕
 
-- 🏠 **The Amie room:** **AMIE** on the START menu opens a room where your Pokémon wanders,
+- 🏠 **The Amie room:** **Pokémon-Amie** in the PlayNav menu opens a room where your Pokémon wanders,
   plays and naps. It's laid out from the game's own screen, scalloped frame and all. Tap your
   Pokémon for **PLAY**, **DECORATE** or **SWITCH** (another party member); while the menu is
   up, bubbles over it show how much it wants Poké Puffs and play, and how fond of you it is.
@@ -124,9 +128,9 @@ on a touch screen below the game or on a device's second display.
 
 ### Super Training 🎈
 
-- 🥊 **Core Training:** **TRAINING** on the START menu puts your Pokémon beside a punching bag on
-  the touch screen while you keep exploring on the top screen (the blue return button, or TRAINING
-  again, closes it; the arrows at the top switch to Pokémon-Amie and back), with the Effort-o-Meter for its base stats and EVs. Tap anywhere in the room to punch the
+- 🥊 **Core Training:** **Super Training** in the PlayNav menu puts your Pokémon beside a punching bag on
+  the touch screen while you keep exploring on the top screen (the blue return button goes back
+  to the menu; PLAYNAV on the START menu closes it all), with the Effort-o-Meter for its base stats and EVs. Tap anywhere in the room to punch the
   bag, one punch at a time. Your Pokémon also punches the bag once a minute on its own, even with the screen
   closed.
 - 😴 **Resting:** After half an hour to an hour, or every 3 to 5 bags it clears, whichever comes
@@ -184,18 +188,14 @@ Open **OPTIONS → MODS → PlayNav**.
 
 | Option | Choices | Default | What it does |
 |---|---|---|---|
-| **POKEMON-AMIE** | On / Off | On | Pokémon-Amie: the AMIE menu entry, and the stat changes from walking and battling. Poké Puffs come from the Amie minigames only, as in the game. |
 | **AFFECTION BENEFITS** | On / Off | On | Affection's bonuses in battle. Off for vanilla battles. |
-| **SUPER TRAINING** | On / Off | On | Super Training: the TRAINING menu entry. |
 | **TOUCH SCREEN** | Auto / Second Screen / Split Screen / Off | Auto | Where the touch screen goes. Auto uses a second display when there is one, otherwise splits the window. |
-| **SHOW TOUCH SCREEN** | When Needed / Always | When Needed | Only while Amie or Super Training is open, or all the time. |
+| **SHOW TOUCH SCREEN** | Only When Needed / Always | Only When Needed | Only while the PlayNav menu, Amie or Super Training is open, or all the time. |
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
 | **EXTRACT AMIE ART ON BOOT** | On / Off | On | Unpack the art from your card image automatically on the first start after you add it. |
-| **USE EXTRACTED ART** | On / Off | On | Draw with your game's art and text. Off: simple shapes and PlayNav's own wording. |
 | **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
 | **HAPTICS** | High / Medium / Low / Off | Medium | How strongly your phone or handheld vibrates for touches and play: menu presses, petting, bites, high fives, minigame hits, punching bags and Balloon Bot hits. No effect on a PC. |
-| **DEV: SCRATCH APP** | On / Off | Off | A touch test screen for mod makers. |
 
 ## 💾 Installation
 

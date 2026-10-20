@@ -14,7 +14,7 @@
 --   src/surface.lua        the 256x192 canvas, blit, readback for the second screen
 --   src/pointer.lua        per-pointer records, velocity, path, gesture helpers
 --   src/apps/init.lua      app registry + tab strip + pointer dispatch
---   src/apps/scratch.lua   free-touch demo (dev option)
+--   src/apps/menu.lua      the PlayNav menu (START -> PLAYNAV)
 --   src/apps/import.lua    the Alpha Sapphire extraction progress panel
 --   src/amie/rules.lua     pure Amie stat rules (data/amie_rules.lua holds the numbers)
 --   src/amie/petting.lua   zones over the sprite + per-species spots (data/petting_gen3.lua)
@@ -57,18 +57,14 @@ end
 
 return function(mod)
   mod.options:define({
-    { key = "refresh", label = "POKEMON-AMIE", type = "toggle", default = true },
     { key = "affection_benefits", label = "AFFECTION BENEFITS", type = "toggle", default = true },
-    { key = "training", label = "SUPER TRAINING", type = "toggle", default = true },
     { key = "display", label = "TOUCH SCREEN", type = "choice", default = "auto",
       choices = { { "AUTO", "auto" }, { "SECOND SCREEN", "second_screen" },
         { "SPLIT SCREEN", "split" }, { "OFF", "off" } } },
     { key = "surface", label = "SHOW TOUCH SCREEN", type = "choice", default = "when_needed",
-      choices = { { "WHEN NEEDED", "when_needed" }, { "ALWAYS", "always" } } },
+      choices = { { "ONLY WHEN NEEDED", "when_needed" }, { "ALWAYS", "always" } } },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
-    { key = "dev_scratch", label = "DEV: SCRATCH APP", type = "toggle", default = false },
     { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
-    { key = "use_rom_art", label = "USE EXTRACTED ART", type = "toggle", default = true },
     -- an action: switching it on clears the cache, then it switches itself back off
     -- a button as far as the options screen allows (it has no button row): a two-way choice
     -- that reads PRESS TO CLEAR; pressed in the game it clears at once and reads PRESS TO CLEAR
@@ -332,7 +328,7 @@ return function(mod)
     local Recipe = loadSibling(mod, "data/oras_recipe.lua")
     if makeAssets then
       Assets = makeAssets(mod)
-      Assets.enabled = mod.options:get("use_rom_art") ~= false
+      Assets.enabled = true
       for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile",
         "training_core", "training_bags", "training_courses", "training_aim" }) do
         local a = Apps:get(id)
@@ -382,18 +378,19 @@ return function(mod)
     end
   end
 
-  if mod.options:get("dev_scratch") then
-    local make = loadSibling(mod, "src/apps/scratch.lua")
-    if make then
-      local ok, app = pcall(make, mod, Pointer)
-      if ok and type(app) == "table" then
-        app.wantsSurface = function() return true end
-        Apps:register(app)
-      end
+  -- the PlayNav menu (START -> PLAYNAV): its apps and callbacks are filled in below, once
+  -- the import gate exists
+  local menuDeps = { Assets = Assets }
+  do
+    local makeMenu = loadSibling(mod, "src/apps/menu.lua")
+    if makeMenu then
+      local ok, app = pcall(makeMenu, mod, Pointer, menuDeps)
+      if ok and type(app) == "table" then Apps:register(app) else mod.log:warn("menu failed to build: %s", tostring(app)) end
     end
   end
+
   -- the session screens switch apps themselves; no tab strip over them
-  for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile", "import" }) do
+  for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile", "import", "menu" }) do
     local a = Apps:get(id)
     if a then a.hideTabs = true end
   end
@@ -790,18 +787,58 @@ return function(mod)
     local gateApp = Apps:get("import")
     if gateApp then
       gateApp.close = function() Apps:setActive("play", state.game) end
-      -- its play button: Super Training's home screen opens behind the closed shutters
-      gateApp.openTraining = function()
-        if not Training then return false, "training off" end
+      -- its play button: the PlayNav menu opens behind the closed shutters
+      gateApp.openMenu = function()
+        local menu = Apps:get("menu")
+        if not menu then return false, "menu missing" end
         if Assets then Assets.refresh() end
-        local ok, why = Training.open()
-        if ok and Training.session then
-          local X = Training.TRANS or { CLOSE = 20, OPEN = 10 }
-          Training.session.trans = { to = "core", from = "gate", t = X.CLOSE + 2, switched = true }
-        end
-        return ok, why
+        return menu.show({ shutters = true })
       end
     end
+  end
+
+  -- the PlayNav menu's apps, in the game's order (its Player Search System left out)
+  do
+    menuDeps.setActive = function(id) Apps:setActive(id, state.game) end
+    menuDeps.inBattle = function() return Amie ~= nil and Amie.inBattle ~= nil and Amie.inBattle() end
+    local makeGearModule = loadSibling(mod, "src/gear_module.lua")
+    local function iconFor(which)
+      if not makeGearModule then return nil end
+      local ok, spec = pcall(makeGearModule, { app = which })
+      return ok and type(spec) == "table" and spec.icon or nil
+    end
+    local apps = {}
+    if Amie and mod.generation == 3 and amieHost and amieHost.available() then
+      apps[#apps + 1] = {
+        id = "amie", caption = "Play with your Pokémon", name = "Pokémon-Amie",
+        icon = iconFor("amie"),
+        colours = { left = { 0.55, 0.15, 0.36 }, right = { 0.95, 0.47, 0.67 }, edge = { 1, 0.72, 0.84 },
+          word = { 1, 1, 1 }, wordEdge = { 0.5, 0.1, 0.3 } },
+        open = function()
+          if importGate() then return true end
+          return Amie.open()
+        end,
+      }
+    end
+    if Training and mod.generation == 3 and trainHost and trainHost.available() then
+      apps[#apps + 1] = {
+        id = "training", caption = "Train your Pokémon", name = "Super Training",
+        icon = iconFor("training"), shutters = true, slant = 0.18,
+        colours = { left = { 0.04, 0.3, 0.34 }, right = { 0.16, 0.7, 0.68 }, edge = { 0.6, 0.95, 0.92 },
+          word = { 1, 0.8, 0.25 }, wordEdge = { 0.36, 0.16, 0.04 } },
+        open = function()
+          if importGate() then return true end
+          local ok, why = Training.open()
+          if ok and Training.session then
+            -- its home screen opens behind the shutters the menu closed
+            local X = Training.TRANS or { CLOSE = 20, OPEN = 10 }
+            Training.session.trans = { to = "core", from = "gate", t = X.CLOSE + 2, switched = true }
+          end
+          return ok, why
+        end,
+      }
+    end
+    menuDeps.apps = apps
   end
 
   -- CLEAR EXTRACTED ART: wipe the cache, close any session that was drawing from it, and
@@ -880,9 +917,6 @@ return function(mod)
     state.game = game
     local dt = frameDt()
     if mod.haptics then mod.haptics.update(dt) end
-    -- the USE EXTRACTED ART option once a frame, for every screen's art() (reading an option
-    -- walks the schema; the screens ask for art dozens of times a frame)
-    if Assets then Assets.enabled = mod.options:get("use_rom_art") ~= false end
     tickExtract()
     -- CLEAR EXTRACTED ART switched on in the launcher, before PlayNav loaded: no change event
     -- reaches us then, so it is honoured once, on the first frame in the field
@@ -1129,40 +1163,12 @@ return function(mod)
         if not ok then mod.log:warn("amie after battle failed: %s", tostring(err)) end
       end)
       mod.events:on("battle.started", function()
-        if mod.options:get("refresh") == false then return end
         pcall(Amie.onBattleStarted)
       end)
       mod.events:on("world.stepped", function()
-        if mod.options:get("refresh") == false then return end
         pcall(Amie.onStep)
       end)
       if Benefits then Benefits.install() end
-      mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
-        local out = next(game, items)
-        if type(out) ~= "table" or mod.options:get("refresh") == false then return out end
-        for _, e in ipairs(out) do
-          if type(e) == "table" and e.id == "play_nav_amie" then return out end
-        end
-        local entry = {
-          id = "play_nav_amie", label = "AMIE", text = "AMIE",
-          onSelect = function()
-            local ok, StartMenu = pcall(require, "src.ui.game3.start_menu")
-            if ok and StartMenu and StartMenu.close then pcall(StartMenu.close, true) end
-            if importGate() then return end
-            local okO, why = Amie.open()
-            if not okO then mod.log:info("amie from the menu: %s", tostring(why)) end
-          end,
-        }
-        local at = #out + 1
-        for i, e in ipairs(out) do
-          if type(e) == "table" and (e.id == "save" or e.id == "option" or e.id == "exit") then
-            at = i
-            break
-          end
-        end
-        table.insert(out, at, entry)
-        return out
-      end)
     else
       mod.log:warn("Pokemon-Amie needs the Gen 3 UI stack and pokemon modules; it stays off")
     end
@@ -1170,60 +1176,55 @@ return function(mod)
     mod.log:info("Pokemon-Amie runs on Gen 3 in this version")
   end
 
-  -- the strip's arrows switch between Super Training and Pokemon-Amie, as PlayNav's do
-  if Training and Amie then
+  -- the PlayNav strip across the top of Amie's room, as over Super Training's home
+  if Amie then
     local makeStrip = loadSibling(mod, "src/strip.lua")
     local Strip = makeStrip and makeStrip(function() return Assets end)
-    Training.onSwitch = function()
-      if Training.session then Training.finish() end
-      if importGate() then return end
-      local ok, why = Amie.open()
-      if not ok then mod.log:info("switch to Amie: %s", tostring(why)) end
-    end
     local home = Apps:get("home")
     if Strip and home then
-      local draw0, pointer0 = home.draw, home.pointer
+      local draw0 = home.draw
       home.draw = function(self, G, w, h)
         draw0(self, G, w, h)
         if Amie.session and Amie.session.mode == "home" then Strip.draw(G, w, self.bleed or 14) end
       end
-      home.pointer = function(self, ev, rec)
-        if Amie.session and Amie.session.mode == "home" and ev.phase == "released"
-            and Pointer.isTap(rec, 16, 1.0) and Strip.hit(ev.x, ev.y, 256, self.bleed or 14) then
-          if mod.haptics then mod.haptics.pulse("tick") end
-          Amie.finish()
-          if importGate() then return end
-          local ok, why = Training.open()
-          if not ok then mod.log:info("switch to Super Training: %s", tostring(why)) end
-          return
-        end
-        return pointer0(self, ev, rec)
-      end
     end
   end
 
-  -- Super Training from the Gen 3 start menu, right after AMIE
   if Training and mod.generation == 3 and trainHost.available() then
     TStore.migrate()
     -- registered at load (the registry closes afterwards); national_dex_gen3 is an optional
     -- dependency so it loads first and its Gen 4 stones are found and shared, not fought
     if TItems then TItems.install() end
+  elseif Training then
+    mod.log:info("Super Training runs on Gen 3 in this version")
+  end
+
+  -- one START menu entry, PLAYNAV: the menu of PlayNav's apps (src/apps/menu.lua). It
+  -- toggles: with an app or the menu up, it closes them.
+  local menuApp = Apps:get("menu")
+  if menuApp and mod.generation == 3 and #(menuDeps.apps or {}) > 0 then
     mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
       local out = next(game, items)
-      if type(out) ~= "table" or mod.options:get("training") == false then return out end
+      if type(out) ~= "table" or #menuApp.cards() == 0 then return out end
       for _, e in ipairs(out) do
-        if type(e) == "table" and e.id == "play_nav_training" then return out end
+        if type(e) == "table" and e.id == "play_nav" then return out end
       end
       local entry = {
-        id = "play_nav_training", label = "TRAINING", text = "TRAINING",
+        id = "play_nav", label = "PLAYNAV", text = "PLAYNAV",
         onSelect = function()
           local ok, StartMenu = pcall(require, "src.ui.game3.start_menu")
           if ok and StartMenu and StartMenu.close then pcall(StartMenu.close, true) end
-          -- the entry toggles: Super Training stays open while the player walks
-          if Training.session then Training.finish(); return end
+          local open = (Amie and Amie.session) or (Training and Training.session)
+            or (menuApp.shown() and Apps:active() == menuApp)
+          if open then
+            menuApp.hide()
+            if Amie and Amie.session then Amie.finish() end
+            if Training and Training.session then Training.finish() end
+            Apps:setActive("play", state.game)
+            return
+          end
           if importGate() then return end
-          local okO, why = Training.open()
-          if not okO then mod.log:info("training from the menu: %s", tostring(why)) end
+          menuApp.show()
         end,
       }
       local at = #out + 1
@@ -1236,8 +1237,6 @@ return function(mod)
       table.insert(out, at, entry)
       return out
     end)
-  elseif Training then
-    mod.log:info("Super Training runs on Gen 3 in this version")
   end
 
   -- ------- what other mods (future minigames) can reach
@@ -1253,6 +1252,21 @@ return function(mod)
     return { mode = state.mode, rect = state.rect, tabHeight = Apps.TAB_H, pushK = state.pushK }
   end
   mod.exports.assets = Assets
+  if menuApp then
+    -- the PlayNav menu: open lands on the import screen first while the art is missing
+    mod.exports.menu = {
+      open = function()
+        if importGate() then return false, "import_needed" end
+        return menuApp.show()
+      end,
+      close = function()
+        menuApp.hide()
+        Apps:setActive("play", state.game)
+      end,
+      shown = function() return menuApp.shown() end,
+      app = menuApp,
+    }
+  end
   if Extract then
     mod.exports.import = {
       state = function() return Extract.state end,

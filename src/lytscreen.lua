@@ -11,7 +11,7 @@ return function(mod, Files, Player)
   local S = { layouts = {}, clips = {} }
   if Player and Files then Player.setFiles(Files) end
 
-  -- the USE EXTRACTED ART option, as main reads it into the loader once a frame
+  -- the art loader's switch (always on in play; a test may turn it off)
   local function useArt()
     return not (S.assets and S.assets.enabled == false)
   end

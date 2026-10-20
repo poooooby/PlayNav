@@ -107,7 +107,28 @@ local function body(game, log)
       if X.training and X.training.session and X.training.finish then X.training.finish() end
     end
     U.wait(30)
-    log(("  closed: Gear stands down %s"):format(tostring(M.anyShown())))
+    local st2 = X.state and X.state() or {}
+    log(("  closed: Gear stands down %s; surface %s; active app %s"):format(tostring(M.anyShown()),
+      tostring(st2.mode), tostring(X.apps:active() and X.apps:active().id)))
+  end
+
+  -- the PlayNav menu up: the Gear stands down and refuses its tiles; the x gives it back
+  if X.menu then
+    log("menu open:", tostring(X.menu.open()))
+    U.wait(30)
+    log(("  menu up: surface %s; Gear stands down %s; a tile press %s"):format(tostring((X.state() or {}).mode),
+      tostring(M.anyShown()), tostring(M.open("super_training"))))
+    U.shot(game, (os.getenv("SHOT_DIR") or "/tmp/play_nav") .. "/g03_menu_over_gear.png")
+    X.menu.close()
+    U.wait(30)
+    log(("  menu closed: surface %s; Gear stands down %s"):format(tostring((X.state() or {}).mode), tostring(M.anyShown())))
+    local opened = M.open("pokemon_amie")
+    U.wait(30)
+    log(("  then a tile press: %s; amie %s"):format(tostring(opened), tostring(amieState() and amieState().mode)))
+    if X.amie.session.finish then X.amie.session.finish() end
+    U.wait(30)
+    log(("  closed: surface %s; active app %s"):format(tostring((X.state() or {}).mode),
+      tostring(X.apps:active() and X.apps:active().id)))
   end
 end
 

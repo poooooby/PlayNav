@@ -5,7 +5,24 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The PlayNav menu: the START menu has one **PLAYNAV** entry in place of AMIE and TRAINING. It
+  opens a menu on the touch screen, drawn in the style of the extraction screen, with a card for
+  each app (Pokémon-Amie, Super Training) as the game's PlayNav lists them. Tap a card to open
+  that app; closing the app returns to the menu, and the x (or PLAYNAV again) closes everything.
+  The extraction screen's play button now opens this menu.
+
 ### Changed
+
+- The arrows at the top of Amie's room and Super Training's home that switched between the two
+  are gone; the PlayNav menu is the way between them.
+- SHOW TOUCH SCREEN's default reads **ONLY WHEN NEEDED**.
+
+### Removed
+
+- The options POKEMON-AMIE and SUPER TRAINING (both are always on), USE EXTRACTED ART (the
+  game's art is always used) and DEV: SCRATCH APP, along with the scratch screen itself.
 
 - Visitors to the Amie room come as in the game again, with no waits: the next as soon as no
   one is walking in, so groups form and a set-out Poké Puff is eaten sooner (one portion per

@@ -769,15 +769,30 @@ T.check(not X._test.surfaceWanted(), "the surface goes dormant")
 T.check(X.amie.open(), "Amie opens again")
 X.amie.session.finish()
 
--- ------- the strip's arrows switch to Pokemon-Amie
+-- ------- the PlayNav menu: its cards open the apps, and closing one comes back to it
 
 do
-  T.check(TR.open(party[1]), "open again")
-  T.check(type(S.onSwitch) == "function", "the arrows have somewhere to go")
-  S.onSwitch()
-  T.eq(S.session, nil, "an arrow leaves Super Training")
-  T.check(X.amie.session.session ~= nil, "...and opens Pokemon-Amie")
+  T.check(S.onSwitch == nil, "no switch arrows between the apps")
+  T.check(X.menu ~= nil, "the menu is exported")
+  local M = X.menu.app
+  T.check(X.menu.open(), "the menu opens")
+  T.check(X.menu.shown() and X.apps:active() == M, "...and is the active app")
+  T.check(X._test.surfaceWanted(), "...and wants the surface")
+  local cards = {}
+  for _, c in ipairs(M.cards()) do cards[c.id] = c end
+  T.check(cards.training and cards.amie, "a card for each app")
+  T.check(M.tapPoint("card", "training") ~= nil, "...with a tap point")
+  T.check(cards.training.open(), "the Super Training card opens it")
+  T.check(S.session ~= nil, "...a session")
+  S.finish()
+  T.eq(X.apps:active(), M, "closing Super Training comes back to the menu")
+  T.check(cards.amie.open(), "the Pokemon-Amie card opens it")
+  T.check(X.amie.session.session ~= nil, "...a session")
   X.amie.session.finish()
+  T.eq(X.apps:active(), M, "closing Pokemon-Amie comes back to the menu")
+  X.menu.close()
+  T.check(not X.menu.shown(), "the menu closes")
+  T.check(not X._test.surfaceWanted(), "...and the surface goes dormant")
 end
 
 -- ------- the save

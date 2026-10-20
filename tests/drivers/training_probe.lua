@@ -136,16 +136,20 @@ local function body(game, log)
   U.tap(game, "start")
   U.wait(20)
   local StartMenu = require("src.ui.game3.start_menu")
-  local idx, amieIdx
+  local idx
   for i, e in ipairs(StartMenu.ENTRIES or {}) do
-    if e.id == "play_nav_training" then idx = i end
-    if e.id == "play_nav_amie" then amieIdx = i end
+    if e.id == "play_nav" then idx = i end
   end
-  log("start menu:", topId(), "TRAINING entry at", tostring(idx), "AMIE at", tostring(amieIdx), "cursor", StartMenu.cursor)
+  log("start menu:", topId(), "PLAYNAV entry at", tostring(idx), "cursor", StartMenu.cursor)
   if idx then
     local moves = idx - (StartMenu.cursor or 1)
     for _ = 1, math.abs(moves) do U.tap(game, moves > 0 and "down" or "up"); U.wait(6) end
     U.tap(game, "a")
+    U.wait(30)
+    -- the PlayNav menu: its Super Training card
+    for _, c in ipairs(X.menu and X.menu.app.cards() or {}) do
+      if c.id == "training" then log("menu card training:", tostring(c.open())) end
+    end
     U.wait(30)
   else
     U.tap(game, "b"); U.wait(10)
