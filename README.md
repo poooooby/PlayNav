@@ -190,7 +190,6 @@ Open **OPTIONS → MODS → PlayNav**.
 |---|---|---|---|
 | **AFFECTION BENEFITS** | On / Off | On | Affection's bonuses in battle. Off for vanilla battles. |
 | **TOUCH SCREEN** | Auto / Second Screen / Split Screen / Off | Auto | Where the touch screen goes. Auto uses a second display when there is one, otherwise splits the window. |
-| **SHOW TOUCH SCREEN** | Only When Needed / Always | Only When Needed | Only while the PlayNav menu, Amie or Super Training is open, or all the time. |
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
 | **EXTRACT AMIE ART ON BOOT** | On / Off | On | Unpack the art from your card image automatically on the first start after you add it. |
 | **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
@@ -222,9 +221,9 @@ Open **OPTIONS → MODS → PlayNav**.
 ## 🔗 Works With
 
 - [Kanto Gear](https://github.com/AverageConsumer/kanto-gear): touch battle commands, bag and
-  pad. PlayNav doesn't do controls; the two share the second display. With **SHOW TOUCH
-  SCREEN** on When Needed, PlayNav has the second display while Amie or Super Training is open
-  and Kanto Gear is back on it the moment you close them. Pokémon-Amie and Super Training are
+  pad. PlayNav doesn't do controls; the two share the second display. PlayNav has it only while
+  the PlayNav menu, Amie or Super Training is open, and Kanto Gear is back on it the moment you
+  close them. Pokémon-Amie and Super Training are
   also apps in the Gear's Silph Store: get them, put them on the Gear's home screen, and open
   them from there.
 - [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3): the real Dusk, Shiny and

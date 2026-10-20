@@ -605,9 +605,9 @@ local function body(game, log)
     end
   end
 
-  -- ------- pinned on: landscape split and the second display
+  -- ------- held up by the PlayNav menu: landscape split and the second display
   loader.modOptions.play_nav.display = "auto"
-  loader.modOptions.play_nav.surface = "always"
+  if X.menu then X.menu.open() end
   love.window.setMode(1280, 720, { resizable = true, highdpi = true })
   U.wait(15)
   log("pinned landscape: mode", state().mode, "rect", rectStr())
@@ -623,7 +623,7 @@ local function body(game, log)
     "frames pushed", X._test.state.pushAt > 0)
   shot("12_second_screen_main")
   loader.modOptions.play_nav.display = "auto"
-  loader.modOptions.play_nav.surface = "when_needed"
+  if X.menu then X.menu.close() end
   U.wait(5)
   log("released: mode", state().mode)
 

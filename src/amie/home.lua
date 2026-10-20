@@ -135,12 +135,21 @@ return function(mod, Pointer, G, Rules, Store, host)
     end
   end
 
-  -- a point in the floor band, away from the current spot
+  -- the guest seats are the visitors': the Pokemon does not stop on one
+  local SEAT_CLEAR = 22
+  local function onGuestSeat(x, y)
+    for _, sp in ipairs(G.Decor and G.Decor.SEATS or {}) do
+      if math.abs(x - sp.x) < SEAT_CLEAR and math.abs(y - sp.y) < SEAT_CLEAR then return true end
+    end
+    return false
+  end
+
+  -- a point in the floor band, away from the current spot and off the guest seats
   local function pickTarget()
-    for _ = 1, 8 do
+    for _ = 1, 12 do
       local tx = FLOOR.x0 + math.random() * (FLOOR.x1 - FLOOR.x0)
       local ty = FLOOR.y0 + math.random() * (FLOOR.y1 - FLOOR.y0)
-      if math.abs(tx - pet.x) + math.abs(ty - pet.y) > 50 then return tx, ty end
+      if math.abs(tx - pet.x) + math.abs(ty - pet.y) > 50 and not onGuestSeat(tx, ty) then return tx, ty end
     end
     return (FLOOR.x0 + FLOOR.x1) / 2, (FLOOR.y0 + FLOOR.y1) / 2
   end
@@ -741,23 +750,41 @@ return function(mod, Pointer, G, Rules, Store, host)
   -- a visitor's words in the game's talk bubble (talk_bubble_L and its symbols)
   local TALK = { ["?"] = "talk_question", ["..."] = "talk_silent", ["!"] = "talk_exc1", ["!!"] = "talk_exc2",
     ["!!!"] = "talk_exc3", note = "talk_onpu", heart = "talk_heart" }
-  local function drawTalk(G2, x, y, word)
+  -- k: the bubble's scale, a: its alpha (the talk clips pop it in and fade it out)
+  local function drawTalk(G2, x, y, word, k, a)
+    k, a = k or 1, a or 1
     local bub = art("lyt/amie_room/talk_bubble_L")
     local sym = TALK[word] and art("lyt/amie_room/" .. TALK[word])
     if bub then
       local bw, bh = bub:getDimensions()
-      G2.setColor(1, 1, 1, 1)
-      G2.draw(bub, x, y, 0, 32 / bw, 32 / bh, bw / 2, bh / 2)
+      G2.setColor(1, 1, 1, a)
+      G2.draw(bub, x, y, 0, 32 * k / bw, 32 * k / bh, bw / 2, bh / 2)
       if sym then
         local sw, sh = sym:getDimensions()
-        G2.draw(sym, x, y, 0, 32 / sw, 32 / sh, sw / 2, sh / 2)
+        G2.draw(sym, x, y, 0, 32 * k / sw, 32 * k / sh, sw / 2, sh / 2)
         return
       end
     else
-      G2.setColor(1, 1, 1, 0.95); G2.circle("fill", x, y, 15, 16)
+      G2.setColor(1, 1, 1, 0.95 * a); G2.circle("fill", x, y, 15 * k, 16)
     end
-    G2.setColor(0.1, 0.1, 0.15, 1)
+    G2.setColor(0.1, 0.1, 0.15, a)
     G2.printf(word, x - 25, y - 8, 50 * L, "center", 0, 1 / L, 1 / L)
+  end
+
+  -- where a visitor's bubble goes: centred over the visitor (the game's talk panes 2o / 2r / 2w
+  -- sit 1 right of seats 5d / 5b / 5c), its foot just on the head of the icon as we draw it
+  -- (feet at y + 10, the icon's figure ~30 tall). The side seats land 4 above the game's 94;
+  -- the middle pane (160,78) would cover our taller sprite's head, so it rides above it too.
+  local TALK_DX, TALK_DY = 1, -33
+  function app.talkAt(v)
+    return v.x + TALK_DX, v.y + TALK_DY
+  end
+  -- the talk clips (30 fps): scale 0 -> 1.1 at frame 3 -> 1 at 5; the last 3 frames fade out
+  local function talkPose(age, left)
+    local f = age * 30
+    local k = f < 3 and (1.1 * f / 3) or (f < 5 and (1.1 - 0.1 * (f - 3) / 2) or 1)
+    local a = math.max(0, math.min(1, left * 10))
+    return k, a
   end
 
   local function drawShadow(G2, x, y, w)
@@ -884,8 +911,13 @@ return function(mod, Pointer, G, Rules, Store, host)
     end
     local grp = G.Visitors and G.Visitors.group
     if grp and grp.bubble then
-      local v = G.Visitors.present[grp.bubble.who]
-      if v then drawTalk(G2, v.x + 12, v.y - 44, grp.bubble.word) end
+      local b = grp.bubble
+      local v = G.Visitors.present[b.who]
+      if v then
+        local tx, ty = app.talkAt(v)
+        local k, a = talkPose((b.life or 1.4) - b.t, b.t)
+        drawTalk(G2, tx, ty, b.word, k, a)
+      end
     end
     -- gift boxes waiting on the floor (the game's gift panes 1j..1r, 1h)
     local gifts = G.Visitors and G.Visitors.pending() or {}

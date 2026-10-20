@@ -168,7 +168,7 @@ return function(mod, deps)
     local set = req.set or "D"
     local words = V.CONVERSATION[set] or V.CONVERSATION.A
     local who = math.floor(V.rng() * #V.present) + 1
-    V.group.bubble = { who = who, word = words[math.floor(V.rng() * #words) + 1], t = 1.4 }
+    V.group.bubble = { who = who, word = words[math.floor(V.rng() * #words) + 1], t = 1.4, life = 1.4 }
   end
 
   function V.update(dt)

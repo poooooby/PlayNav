@@ -68,7 +68,6 @@ local function body(game, log)
 
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   loader.modOptions.play_nav.display = "second_screen"
-  loader.modOptions.play_nav.surface = "when_needed"
   local detected = waitFor(function() local ok, d = pcall(SS.detected); return ok and d end, 600)
   log("companion detected", detected, "usable", SS.usable())
   if X.import then

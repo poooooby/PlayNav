@@ -118,6 +118,13 @@ T.eq(idx, 1, "the leaf cushion is found under its point")
 T.eq(D.move(room, 1, 60, 130), true, "...and moved")
 T.eq(room.items[1].x, 60, "...to the new spot")
 T.eq(D.nearestCushion(room, 60, 130).id, "cushion/leaf_cushion", "the nearest cushion is the leaf one")
+do
+  -- the guest seats are the visitors': a cushion there is never the Pokemon's spot
+  local seated = { items = { { id = "cushion/leaf_cushion", x = D.SEATS[1].x, y = D.SEATS[1].y } } }
+  T.eq(D.nearestCushion(seated, D.SEATS[1].x, D.SEATS[1].y), nil, "a cushion on a guest seat is not the Pokemon's")
+  seated.items[2] = { id = "cushion/leaf_cushion", x = 60, y = 180 }
+  T.eq(D.nearestCushion(seated, D.SEATS[1].x, D.SEATS[1].y).x, 60, "...one elsewhere is, however far")
+end
 
 -- the game's units and spots (customize.bclyt: seats 6t / 6v / 6x, the puff's ad)
 do

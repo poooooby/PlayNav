@@ -33,7 +33,7 @@ return {
       "Balloon Bots are the ORAS course badges (regular courses) or the Gen 3 front sprite in a balloon; the secret courses' badges are not mapped yet.",
       "The second display reports one pointer and no pressure; the desktop companion window reports press and release only.",
       "Gen 3 single-screen touch is routed by wrapping the engine's touch controls, because Game3 has no input.pointer seam.",
-      "When Kanto Gear also drives the Thor's second display, the two mods alternate during a session; keep SHOW TOUCH SCREEN on WHEN NEEDED.",
+      "When Kanto Gear also drives the Thor's second display, the two mods take turns: PlayNav has it only while one of its screens is open.",
     },
   },
   credits = { "Petting spots, the Amie stat tables, the Super Training course table and the Energy Shot colours are derived from Bulbapedia (bulbapedia.bulbagarden.net), text under CC BY-NC-SA 2.5.",

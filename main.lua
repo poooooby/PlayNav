@@ -61,8 +61,6 @@ return function(mod)
     { key = "display", label = "TOUCH SCREEN", type = "choice", default = "auto",
       choices = { { "AUTO", "auto" }, { "SECOND SCREEN", "second_screen" },
         { "SPLIT SCREEN", "split" }, { "OFF", "off" } } },
-    { key = "surface", label = "SHOW TOUCH SCREEN", type = "choice", default = "when_needed",
-      choices = { { "ONLY WHEN NEEDED", "when_needed" }, { "ALWAYS", "always" } } },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
     { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
     -- an action: switching it on clears the cache, then it switches itself back off
@@ -438,10 +436,9 @@ return function(mod)
     return ok and name or "?"
   end
 
-  -- the surface shows only while the active app asks for it, unless the
-  -- player pinned it on; this is what lets Kanto Gear keep the bottom screen
+  -- the surface shows only while the active app asks for it; this is what lets
+  -- Kanto Gear keep the bottom screen
   local function surfaceWanted()
-    if mod.options:get("surface") == "always" then return true end
     local app = Apps:active()
     if app and app.wantsSurface then
       local ok, wants = pcall(app.wantsSurface, app)
@@ -1358,6 +1355,6 @@ return function(mod)
     keepArt = function() state.keepArt = true end,
   }
 
-  mod.log:info("PlayNav ready (gen %s, touch screen %s, shown %s)", tostring(mod.generation),
-    tostring(mod.options:get("display")), tostring(mod.options:get("surface")))
+  mod.log:info("PlayNav ready (gen %s, touch screen %s)", tostring(mod.generation),
+    tostring(mod.options:get("display")))
 end

@@ -340,11 +340,13 @@ return function(CATALOG, Rules)
   end
 
   -- a cushion the Pokemon may sit on, nearest to (x, y)
+  -- the room's Pokemon's favourite spot: the nearest cushion, but never one on a guest seat
+  -- (D.SEATS are the visitors')
   function D.nearestCushion(room, x, y)
     local best, bd
     for _, it in ipairs(room.items or {}) do
       local r = D.BY_ID[it.id]
-      if r and r.kind == "cushion" then
+      if r and r.kind == "cushion" and not D.seatOf(it) then
         local d = (it.x - x) ^ 2 + (it.y - y) ^ 2
         if not bd or d < bd then best, bd = it, d end
       end

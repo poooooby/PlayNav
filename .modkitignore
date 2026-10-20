@@ -93,3 +93,4 @@ tests/haptics_test.lua
 tests/drivers/pad_probe.lua
 tests/drivers/menu_probe.lua
 tests/drivers/pic_dump_probe.lua
+tests/drivers/visitors_probe.lua

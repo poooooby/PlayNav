@@ -5,6 +5,19 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The Amie room's visitors: each "?" / "…" bubble now sits right over the visitor who is
+  talking (the left, middle and right seats as the game places them), popping in and fading
+  out as the game's do; before, it floated up and to the right of them.
+- Your Pokémon no longer sits on the three guest seats (or stops on one while wandering):
+  those are for visitors. It still curls up on cushions placed anywhere else in the room.
+
+### Removed
+
+- The SHOW TOUCH SCREEN option: the touch screen always shows only while the PlayNav menu,
+  Pokémon-Amie or Super Training is open.
+
 ## [0.5.6] - 2026-10-20 (alpha)
 
 ### Changed
