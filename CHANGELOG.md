@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-10-20 (alpha)
+
 ### Fixed
 
 - The Amie room's visitors: each "?" / "…" bubble now sits right over the visitor who is
