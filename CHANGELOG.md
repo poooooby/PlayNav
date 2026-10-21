@@ -5,6 +5,8 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-21 (beta)
+
 ### Changed
 
 - PlayNav's music sits at gen1recomp's own music level. The minigames' music played about 10 dB
@@ -17,6 +19,8 @@ All notable changes to this mod are documented here. The format follows
 
 - PlayNav's music and sound effects follow the game's SOUND option: on Mono they play in mono,
   as the game's own music and effects do (they stayed in stereo).
+- Super Training's Wings and evolution stones show their own icons in the Bag (they had the
+  Bag's blank icon on the current gen1recomp).
 
 ## [0.6.1] - 2026-10-20 (beta)
 
