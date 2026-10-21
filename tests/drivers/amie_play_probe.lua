@@ -174,7 +174,15 @@ local function body(game, log)
       U.wait(3)
       log("five held:", tostring(st().fiveHeld), "left", ("%.2f"):format(st().fiveLeft or -1), "wake", st().wake, "hand", st().hand)
       -- (the countdown was rolled at the visit's start, at that affection: up to ~7 s)
-      while R.state().meters.enjoyment <= e0 and love.timer.getTime() - t0 < 12 do U.wait(1) end
+      -- (screen time runs behind the wall clock in a driver run: the countdown is logged as it goes)
+      local nextLog = t0 + 2
+      while R.state().meters.enjoyment <= e0 and not st().jumping and love.timer.getTime() - t0 < 20 do
+        U.wait(1)
+        if love.timer.getTime() >= nextLog then
+          nextLog = nextLog + 2
+          log(("  five: %.1f s held, countdown %.2f, hand %s"):format(love.timer.getTime() - t0, st().fiveLeft or -1, tostring(st().hand)))
+        end
+      end
       log(("high five after %.2f s: enjoyment %d -> %d; jumping %s"):format(love.timer.getTime() - t0, e0,
         R.state().meters.enjoyment, tostring(st().jumping)))
       -- the leap at the hand: on its way, at the top, landing

@@ -551,8 +551,7 @@ local function body(game, log)
   log("give wings:", TR.items.give(400, 2), "pretty:", TR.items.give(406, 1), "has 400:", Bag.has(s.bag, 400, 1))
   log("dusk stone resolves to", tostring(TR.items.index("dusk-stone")), "(own 407; national_dex_gen3 902 when present)",
     "ST_DUSK_STONE", tostring(ItemsData.toNumericId("ST_DUSK_STONE")), "DUSK_STONE", tostring(ItemsData.toNumericId("DUSK_STONE")))
-  local okBC, BagChrome = pcall(require, "src.ui.game3.rse.bag_chrome")
-  log("rse icon hook:", okBC and type(BagChrome.modIcon(400)) or "no chrome")
+  log("bag icon draws wrapped (FRLG + RSE skins):", TR.items.wrapBagIcons())
   local ItemUse = require("src.core.game3.item_use")
   local okU, kind, text = ItemUse.useField(s, s.bag, 400, 1)
   local evs3 = Pokemon.evsOf(lead)
@@ -573,8 +572,8 @@ local function body(game, log)
     U.tap(game, "a")
     U.wait(40)
     log("bag open: top", tostring(topId()))
-    -- the Wings are the last items of the ITEMS pocket: move the cursor down a few
-    for _ = 1, 4 do U.tap(game, "down"); U.wait(6) end
+    -- the cursor on the first Wing in the ITEMS pocket (its icon beside the bag)
+    U.wait(6)
     shot("t09_bag_wings")
     U.tap(game, "b"); U.wait(15); U.tap(game, "b"); U.wait(10)
   end

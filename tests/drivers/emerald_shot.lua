@@ -372,18 +372,22 @@ local function body(game, log)
     shot("07b_refresh_puff_row")
     local sx, sy = playApp.tapPoint("slot", 2)
     local mx, my = playApp.tapPoint("pet")
-    press("bean", sx, sy)
-    for i = 1, 12 do move("bean", sx + (mx - sx) * i / 12, sy + (my - sy) * i / 12); U.wait(1) end
+    -- pulled down out of the drawer (sideways would scroll it), carried to the mouth and held
+    -- there: it eats only while the puff stays at its mouth, and a puff let go falls away
+    press("bean", sx, sy); U.wait(1)
+    for k = 1, 4 do move("bean", sx, sy + k * 6); U.wait(1) end
+    local by = sy + 24
+    for i = 1, 12 do move("bean", sx + (mx - sx) * i / 12, by + (my - by) * i / 12); U.wait(1) end
     shot("08_refresh_bean_drag")
-    release("bean", mx, my)
     -- the meal: the flash, the close-up, bite by bite, back out
     local bitesSeen = 0
     for _ = 1, 4800 do
       U.wait(1)
       local f = R.state() and R.state().feeding
       if f and f.taken > bitesSeen then bitesSeen = f.taken; if bitesSeen == 1 then shot("08b_refresh_biting") end end
-      if pst().feed == nil and bitesSeen > 0 then break end
+      if pst().feed == "after" or (pst().feed == nil and bitesSeen > 0) then break end
     end
+    release("bean", mx, my)
     waitFor(function() return not playApp.busy() end, 2400)
     log("bean: fullness", fullBefore, "->", R.state().meters.fullness, "bites", bitesSeen, "jar", #jar,
       "second", tostring(second), secondBefore, "->", Rules.jarCount(jar, second), "message", tostring(R.state().message))

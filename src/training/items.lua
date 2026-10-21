@@ -1,8 +1,10 @@
 -- The items Super Training hands out that Gen 3 never had (data/training_items.lua):
 -- registered with the engine's content registry (mod.content.items, indices 400..409) so
 -- the bag, marts and the save carry them like any item; the Wings' +1 EV effect runs
--- through the `item.use` hook (vanilla refuses ids it does not know); icons through the
--- `item.icon` hook the engine's bag skins ask before falling back to their own art.
+-- through the `item.use` hook (vanilla refuses ids it does not know). No hook gives an item
+-- its bag icon (and the item record has no icon field), so the bag skins' own icon draw is
+-- wrapped, as national_dex_gen3 does (src/item_art.lua there): both read the numeric item
+-- id, ours draw from the atlas, any other id falls through to the original.
 --
 -- The three Gen 4 stones are registered as ST_DUSK_STONE etc. so they never fight another
 -- mod over the plain id: national_dex_gen3 registers DUSK_STONE / SHINY_STONE / DAWN_STONE
@@ -53,7 +55,7 @@ return function(mod, deps)
   end
 
   -- the icons live in one atlas (assets/items.png, 32x32 cells, five to a row; `iconCell`
-  -- in the data); the bag skins want an Image per item, so each is cut out once
+  -- in the data); each is cut out into an Image of its own once
   local CELL, COLS = 32, 5
   local atlasData
   local function cellImage(path, cell)
@@ -121,6 +123,54 @@ return function(mod, deps)
     return host.giveItem(index, qty)
   end
 
+  -- the bag's icon for one of ours (by its own index): the 32x32 cell drawn 1:1, centred on
+  -- the bag's 24x24 icon (the art is at most 19 across, as Gen 3's own items)
+  local function bagIcon(id)
+    local def = I.def(id)
+    if not (def and tonumber(id) == def.ownIndex) then return nil end
+    return I.icon(id)
+  end
+  local INSET = (CELL - 24) / 2
+  local wrapped = setmetatable({}, { __mode = "k" })
+  -- FireRed / LeafGreen: drawItemIcon(itemId, px, py, scale); Ruby / Sapphire / Emerald:
+  -- drawItemIcon(index, x, y, rotation, ox, oy) (ox / oy in the 24x24 icon's pixels)
+  local SKINS = {
+    { path = "src.ui.game3.bag_chrome", make = function(orig)
+      return function(itemId, px, py, scale)
+        local img = bagIcon(itemId)
+        if not img then return orig(itemId, px, py, scale) end
+        local k = scale or 1
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(img, (px or 0) - INSET * k, (py or 0) - INSET * k, 0, k, k)
+        return true
+      end
+    end },
+    { path = "src.ui.game3.rse.bag_chrome", make = function(orig)
+      return function(index, x, y, rotation, ox, oy)
+        local img = bagIcon(index)
+        if not img then return orig(index, x, y, rotation, ox, oy) end
+        love.graphics.setColor(1, 1, 1, 1)
+        love.graphics.draw(img, x or 0, y or 0, rotation or 0, 1, 1, (ox or 0) + INSET, (oy or 0) + INSET)
+      end
+    end },
+  }
+  function I.wrapBagIcons()
+    local n = 0
+    for _, skin in ipairs(SKINS) do
+      local ok, BagChrome = pcall(require, skin.path)
+      local fn = ok and type(BagChrome) == "table" and BagChrome.drawItemIcon
+      if type(fn) == "function" and not wrapped[fn] then
+        local mine = skin.make(fn)
+        wrapped[mine] = true
+        BagChrome.drawItemIcon = mine
+        n = n + 1
+      elseif type(fn) == "function" then
+        n = n + 1
+      end
+    end
+    return n
+  end
+
   function I.install()
     if I.installed then return true end
     if mod.generation ~= 3 then return false, "gen3 only" end
@@ -142,14 +192,7 @@ return function(mod, deps)
       end
       return next(game, extra, id, partySlot, bag)
     end)
-    mod.hooks:wrap("item.icon", function(next, game, id)
-      local def = I.def(id)
-      if def and tonumber(id) == def.ownIndex then
-        local img = I.icon(id)
-        if img then return img end
-      end
-      return next(game, id)
-    end)
+    I.wrapBagIcons()
     I.installed = n > 0
     mod.log:info("super training: %d items registered", n)
     return I.installed
