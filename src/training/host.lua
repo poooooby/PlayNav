@@ -71,6 +71,13 @@ return function(mod, base)
     return level and H.MUSIC_FILTER[level] or nil
   end
 
+  -- the game's SOUND option: true on Mono, when the engine mixes its own music and effects to
+  -- one channel; PlayNav's music and effects follow it
+  function H.soundMono()
+    local A = H.Audio
+    return A ~= nil and A._mono == true
+  end
+
   -- the effects volume, 0..1 (for sounds PlayNav plays itself; host.playSe goes through the
   -- engine, which applies it already)
   function H.sfxGain()

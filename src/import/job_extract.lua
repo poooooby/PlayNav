@@ -54,6 +54,8 @@ if item1 and item1.kind == "stream" then
   local results = {}
   local wav, info = nil, "no stream reader"
   if Bcstm then wav, info = Bcstm.wav(read(aOff, aLen)) end
+  -- its level (recipe gain, dB): Super Training's streams sit with gen1recomp's own music
+  if wav and item1.gain and Seq and Seq.scaleWav then wav = Seq.scaleWav(wav, item1.gain) end
   if not wav then
     results[1] = { id = item1.id, ok = false, err = "stream: " .. tostring(info) }
   else
@@ -87,6 +89,7 @@ if item1 and (item1.kind == "sfx" or item1.kind == "song") then
       local ok, res = pcall(function()
         local snd = assert(ar:sound(item.name))
         local L, R, n, loop = Seq.render(snd, ar, { dsp = Bcstm.dspBlock, music = song, tempoScale = item.tempo or 1 })
+        if song and item.gain then Seq.level(L, R, n, item.gain) end
         local wav, mono = Seq.wav(L, R, n)
         return { wav = wav, n = n, loop = loop, channels = mono and 1 or 2 }
       end)

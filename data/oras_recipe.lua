@@ -1221,8 +1221,14 @@ add("a/0/1/7", 8, 0, 3, "lyt/head_bg/cloud_04", 50, 10, "ETC1A4")
 -- them). Matched against a capture of a Lv. 1 regimen: menu on the regimen picker, gamestart with
 -- the title, stage from the balloon's inflating, clear / gameover with the banner and on through
 -- the results.
+-- gain (dB, Seq.scaleWav): what is heard is the file at music.lua's MIX (0.505, -5.9 dB, the
+-- game's music against its effects); gen1recomp's own music is heard at its file level (its
+-- Emerald songs through its player: rms -17.4..-21.6 dB, median -19.5; measured 2026-10-20,
+-- tests/drivers/music_level_probe.lua). So PlayNav's files aim 5.9 dB over that, at -13.6: one
+-- cut for all the streams keeps the game's balance between them (their median -11.2 -> -13.6)
+local STREAM_GAIN = -2.4
 local function stream(path, id, note)
-  A[#A + 1] = { kind = "stream", archive = path, entry = 0, sub = 0, id = id, note = note }
+  A[#A + 1] = { kind = "stream", archive = path, entry = 0, sub = 0, id = id, note = note, gain = STREAM_GAIN }
 end
 stream("sound/bgm_xy_sp_menu.dspadpcm.bcstm", "bgm/sp_menu", "the regimen picker")
 stream("sound/bgm_xy_sp_gamestart.dspadpcm.bcstm", "bgm/sp_gamestart", "a regimen's title")
@@ -1304,15 +1310,18 @@ sfx("SEQ_SE_RELEASE", "se/release")
 -- rendered at the tempos it plays at (x1.125 from 30 s left, x1.25 from 10 s), the player moving
 -- between them at the same point in the song. GAME02 = Head It (its FEVER is a pitch on the
 -- player, not a render) and GAME03 = Tile Puzzle, both matched to Wooble's captures.
-local function song(name, id, tempo)
+-- gain (dB, Seq.level): each sequence is raised from its own render (rms GAME01 -23.5, GAME02
+-- -26.1, GAME03 -24.7 dB, measured 2026-10-20) to the streams' -13.6 (heard at -19.5 through
+-- MIX, gen1recomp's own music's median), so every mode sits level under the one music volume.
+local function song(name, id, tempo, gain)
   A[#A + 1] = { kind = "song", archive = "sound/sango_sound.bcsar", entry = 0, sub = 0, id = id, name = name,
-    tempo = tempo or 1 }
+    tempo = tempo or 1, gain = gain }
 end
-song("SEQ_BGM_KW_GAME01", "bgm/kw_game01")
-song("SEQ_BGM_KW_GAME01", "bgm/kw_game01_fast", 1.125)
-song("SEQ_BGM_KW_GAME01", "bgm/kw_game01_faster", 1.25)
-song("SEQ_BGM_KW_GAME02", "bgm/kw_game02")
-song("SEQ_BGM_KW_GAME03", "bgm/kw_game03")
+song("SEQ_BGM_KW_GAME01", "bgm/kw_game01", 1, 9.9)
+song("SEQ_BGM_KW_GAME01", "bgm/kw_game01_fast", 1.125, 9.9)
+song("SEQ_BGM_KW_GAME01", "bgm/kw_game01_faster", 1.25, 9.9)
+song("SEQ_BGM_KW_GAME02", "bgm/kw_game02", 1, 12.5)
+song("SEQ_BGM_KW_GAME03", "bgm/kw_game03", 1, 11.1)
 
 -- Pokemon-Amie's sound effects, the game's 104 SEQ_SE_KW_* (the same archive). Their names say
 -- what they are for; data/amie_sounds.lua says which plays when.
@@ -1556,7 +1565,7 @@ bchtex("a/1/5/2", 320, "skytrip_alpha_a_yoru", "tile/trees_night", 256, 256)
 bchtex("a/1/5/2", 321, "star", "tile/night_star", 32, 32)
 
 return {
-  version = 34,
+  version = 35,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

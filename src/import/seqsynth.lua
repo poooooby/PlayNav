@@ -545,6 +545,67 @@ function M.render(sound, archive, deps)
   return L, R, math.min(size, last + 1)
 end
 
+-- a song's level (recipe `gain`, dB): the game's sequenced songs render far quieter than its
+-- streams (they are mixed by its sound engine, not mastered), so each is raised to sit with the
+-- streams. The few peaks that pushes past LEVEL_CEIL are turned down by a limiter, both channels
+-- together: each sample's needed gain (CEIL / its peak, at most 1), eased into ahead of the peak
+-- (down at most LEVEL_ATTACK a sample, a backward pass) and out after it (up at most
+-- LEVEL_RELEASE a sample, a forward pass), so nothing is clipped and the waveform keeps its shape.
+-- A song that stays under the ceiling is only raised.
+M.LEVEL_CEIL = 0.95
+M.LEVEL_ATTACK = 1 / 64      -- ~2 ms at 32728 Hz from 1 to 0.5
+M.LEVEL_RELEASE = 1 / 2618   -- ~80 ms back to 1
+function M.level(L, R, n, gainDb)
+  local k = 10 ^ ((tonumber(gainDb) or 0) / 20)
+  if k == 1 then return end
+  local ceil, att, rel = M.LEVEL_CEIL, M.LEVEL_ATTACK, M.LEVEL_RELEASE
+  local g = {}
+  for i = 0, n - 1 do
+    local l, r = L[i] * k, R[i] * k
+    L[i], R[i] = l, r
+    local p = math.max(math.abs(l), math.abs(r))
+    g[i] = p > ceil and ceil / p or 1
+  end
+  -- out of each cut: up at most rel a sample
+  for i = 1, n - 1 do
+    local up = g[i - 1] + rel
+    if g[i] > up then g[i] = up end
+  end
+  -- into each cut: down at most att a sample, ahead of the peak
+  for i = n - 2, 0, -1 do
+    local up = g[i + 1] + att
+    if g[i] > up then g[i] = up end
+  end
+  for i = 0, n - 1 do
+    L[i], R[i] = L[i] * g[i], R[i] * g[i]
+  end
+end
+
+-- a stream's level (recipe `gain`, dB, a cut): every 16-bit sample of a decoded WAV (the
+-- 44-byte header, as Bcstm.wav and M.wav write it) scaled, rounded half up as M.wav does
+function M.scaleWav(wav, gainDb)
+  local k = 10 ^ ((tonumber(gainDb) or 0) / 20)
+  if k == 1 or #wav <= 44 then return wav end
+  local out, bytes, j = { wav:sub(1, 44) }, {}, 0
+  local byte = string.byte
+  for i = 45, #wav - 1, 2 do
+    local lo, hi = byte(wav, i, i + 1)
+    local v = lo + hi * 256
+    if v >= 32768 then v = v - 65536 end
+    local x = floor(v * k + 0.5)
+    if x < -32768 then x = -32768 elseif x > 32767 then x = 32767 end
+    if x < 0 then x = x + 65536 end
+    bytes[j + 1], bytes[j + 2] = x % 256, floor(x / 256)
+    j = j + 2
+    if j >= 4096 then
+      out[#out + 1] = string.char(unpack(bytes, 1, j))
+      j = 0
+    end
+  end
+  if j > 0 then out[#out + 1] = string.char(unpack(bytes, 1, j)) end
+  return table.concat(out)
+end
+
 -- 16-bit WAV; mono when the channels are the same
 function M.wav(L, R, n)
   local mono = true

@@ -94,6 +94,20 @@ return function(mod, T, host)
     local tk, src = v.track, v.src
     local bpf = 2 * tk.channels
     local ok, res = false, nil
+    -- the game's SOUND option on Mono: both channels carry their mix, as the engine's music does
+    if tk.channels == 2 and host.soundMono and host.soundMono() then
+      ok, res = pcall(function()
+        local buf = love.sound.newSoundData(n, tk.rate, 16, 2)
+        local sd = tk.sd
+        for i = 0, n - 1 do
+          local m = (sd:getSample(from + i, 1) + sd:getSample(from + i, 2)) * 0.5
+          buf:setSample(i, 1, m)
+          buf:setSample(i, 2, m)
+        end
+        return src:queue(buf)
+      end)
+      return ok and res ~= false
+    end
     if v.pointer ~= false then
       ok, res = pcall(src.queue, src, tk.sd:getPointer(), from * bpf, n * bpf, tk.rate, 16, tk.channels)
       if not ok then v.pointer = false end

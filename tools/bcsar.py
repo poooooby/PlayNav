@@ -3,7 +3,7 @@
 Usage:
   python tools/bcsar.py list <file.bcsar> [prefix]               # effects: volume, notes, commands
   python tools/bcsar.py render <file.bcsar> <name> <out.wav>       # one effect (e.g. SEQ_SE_SP_001)
-  python tools/bcsar.py music <file.bcsar> <name> <out.wav> [tempo]  # a song to its loop's end (SEQ_BGM_KW_GAME01), tempo x
+  python tools/bcsar.py music <file.bcsar> <name> <out.wav> [tempo] [gainDb]  # a song to its loop's end (SEQ_BGM_KW_GAME01), tempo x, raised gainDb (soft knee)
   python tools/bcsar.py renderall <file.bcsar> <prefix> <dir>      # every SEQ_<prefix>* to <dir>/<name>.wav
   python tools/bcsar.py match <dir> <capture.raw> [rate]           # find the effects in a capture
                                                                    # (mono s16le, default 8000 Hz)
@@ -605,6 +605,37 @@ def mix_voice(L, R, wav, reg, st, tl, t0, key, vel, length, tick_s, sound_gain):
     return last
 
 
+LEVEL_CEIL = 0.95
+LEVEL_ATTACK = 1 / 64
+LEVEL_RELEASE = 1 / 2618
+
+
+def level(L, R, gain_db):
+    """a song's level (recipe gain, dB): raised, the peaks past LEVEL_CEIL turned down by a
+    limiter with both channels linked (the twin of seqsynth's M.level)"""
+    k = 10 ** (gain_db / 20)
+    if k == 1:
+        return
+    n = len(L)
+    g = [1.0] * n
+    for i in range(n):
+        l, r = L[i] * k, R[i] * k
+        L[i], R[i] = l, r
+        p = max(abs(l), abs(r))
+        g[i] = LEVEL_CEIL / p if p > LEVEL_CEIL else 1
+    for i in range(1, n):
+        up = g[i - 1] + LEVEL_RELEASE
+        if g[i] > up:
+            g[i] = up
+    for i in range(n - 2, -1, -1):
+        up = g[i + 1] + LEVEL_ATTACK
+        if g[i] > up:
+            g[i] = up
+    for i in range(n):
+        L[i] *= g[i]
+        R[i] *= g[i]
+
+
 def write_wav(path, L, R):
     mono = all(abs(a - b) < 1e-6 for a, b in zip(L, R))
     frames = bytearray()
@@ -639,6 +670,8 @@ def main(argv):
     if cmd in ('render', 'music'):
         scale = float(argv[4]) if cmd == 'music' and len(argv) > 4 else 1.0
         L, R = render(ar.sound(argv[2]), ar, music=cmd == 'music', tempo_scale=scale)
+        if cmd == 'music' and len(argv) > 5:
+            level(L, R, float(argv[5]))
         write_wav(argv[3], L, R)
         print('wrote', argv[3], '%.2f s' % (len(L) / OUT_RATE), 'loop (samples)', render.loop)
         return 0

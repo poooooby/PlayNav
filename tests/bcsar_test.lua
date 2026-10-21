@@ -86,7 +86,48 @@ for _, case in ipairs({ { 1, "x1", 65456, 1112752 }, { 1.25, "x1.25", 52365, 890
       if dlt > worst then worst = dlt end
     end
     T.check(worst <= 1, ("GAME01 x%s: sample for sample with tools/bcsar.py (worst %d LSB, %.1f s to render)"):format(case[1], worst, secs))
+    -- raised to the recipe's level (Seq.level), against `bcsar.py music ... 1 12.3`
+    local refG = case[1] == 1 and slurp(work .. "/bgm_kw/SEQ_BGM_KW_GAME01_x1_gain12.3.wav")
+    if refG then
+      Seq.level(L, R, n, 12.3)
+      local mineG, theirsG = samples(Seq.wav(L, R, n)), samples(refG)
+      local worstG, peak = 0, 0
+      for i = 1, math.min(#mineG, #theirsG) do
+        local dlt = math.abs(mineG[i] - theirsG[i])
+        if dlt > worstG then worstG = dlt end
+        if math.abs(mineG[i]) > peak then peak = math.abs(mineG[i]) end
+      end
+      T.eq(#mineG, #theirsG, "GAME01 x1 +12.3 dB: the same length")
+      T.check(worstG <= 1, ("GAME01 x1 +12.3 dB: sample for sample with tools/bcsar.py (worst %d LSB)"):format(worstG))
+      T.check(peak <= math.floor(Seq.LEVEL_CEIL * 32767 + 1), ("GAME01 x1 +12.3 dB: the limiter holds it at the ceiling (peak %d)"):format(peak))
+    end
   end
+end
+
+-- the level: a song under the ceiling is only raised; a peak over it is turned down to the
+-- ceiling, the gain easing in ahead of it and back out after it
+do
+  local n = 400
+  local L, R = {}, {}
+  for i = 0, n - 1 do L[i], R[i] = 0.1, -0.1 end
+  Seq.level(L, R, n, 6)
+  local k = 10 ^ (6 / 20)
+  T.check(math.abs(L[0] - 0.1 * k) < 1e-12 and math.abs(R[n - 1] + 0.1 * k) < 1e-12, "level: under the ceiling, the gain alone")
+  for i = 0, n - 1 do L[i], R[i] = 0.1, 0.1 end
+  L[200] = 0.5   -- x2 = 1.0, over the ceiling
+  Seq.level(L, R, n, 20 * math.log10(2))
+  T.check(math.abs(L[200] - Seq.LEVEL_CEIL) < 1e-9, ("level: the peak held at the ceiling (%.4f)"):format(L[200]))
+  T.check(L[198] < 0.2 and L[198] > 0.19 and R[198] == L[198], ("level: eased in ahead of the peak, both channels (%.5f)"):format(L[198]))
+  T.check(R[260] < 0.2 and R[260] > R[201], ("level: easing back out after it (%.5f)"):format(R[260]))
+  T.check(math.abs(L[0] - 0.2) < 1e-12 and math.abs(L[n - 1] - 0.2) < 1e-12, "level: far from it, the gain alone")
+  -- a stream's cut: every sample of the WAV scaled, the header kept
+  local L2, R2 = { [0] = 0.5, [1] = -0.5, [2] = 0.25 }, { [0] = 0.5, [1] = -0.5, [2] = 0.25 }
+  local wav = Seq.wav(L2, R2, 3)
+  local cut = Seq.scaleWav(wav, 20 * math.log10(0.5))
+  local a, b = samples(wav), samples(cut)
+  T.eq(cut:sub(1, 44), wav:sub(1, 44), "scaleWav: the header kept")
+  T.check(math.abs(b[1] - a[1] / 2) <= 1 and math.abs(b[2] - a[2] / 2) <= 1 and math.abs(b[3] - a[3] / 2) <= 1,
+    ("scaleWav: -6 dB halves each sample (%d %d %d -> %d %d %d)"):format(a[1], a[2], a[3], b[1], b[2], b[3]))
 end
 f:close()
 T.finish()

@@ -5,6 +5,19 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- PlayNav's music sits at gen1recomp's own music level. The minigames' music played about 10 dB
+  quieter than the game's own songs; it now plays at their level, as Super Training's does (a
+  touch lower than before, under the battle themes), so moving between the field, Super Training
+  and the minigames keeps one level under your music volume. Your art is re-extracted once (a
+  few seconds) to apply it.
+
+### Fixed
+
+- PlayNav's music and sound effects follow the game's SOUND option: on Mono they play in mono,
+  as the game's own music and effects do (they stayed in stereo).
+
 ## [0.6.1] - 2026-10-20 (beta)
 
 ### Fixed
