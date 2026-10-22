@@ -29,13 +29,20 @@
   "optional_imports": [
     {
       "id": "oras_cci",
-      "name": "Pokemon Alpha Sapphire (USA) Rev 2, decrypted .cci",
+      "name": "Alpha Sapphire or Omega Ruby (USA), decrypted .cci / .3ds / .cia",
       "file": "alpha_sapphire_rev2.cci",
+      "verify": "mod",
+      "extensions": [
+        ".cci",
+        ".3ds",
+        ".cia",
+        ".cxi"
+      ],
       "md5": [
         "0563f9dee1b95de32d579e40c20e2bfc"
       ],
-      "size": 2147483648,
-      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Optional: without it, simple drawn shapes and PlayNav's own wording are used. The copy can be removed from Imported files once the art has been extracted."
+      "max_size": 2147483648,
+      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Any decrypted dump works (card image, trimmed or not, or CIA); PlayNav checks each piece it uses against Alpha Sapphire (USA) Rev 2 and draws its own for any that differ. Optional: without it, simple drawn shapes and PlayNav's own wording are used. The copy can be removed from Imported files once the art has been extracted."
     }
   ],
   "github": "poooooby/PlayNav"

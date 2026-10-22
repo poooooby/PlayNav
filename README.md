@@ -210,7 +210,10 @@ Open **OPTIONS → MODS → PlayNav**.
 3. Enable **PlayNav**.
 4. **For the 3DS art and text (recommended):** open the mod in the launcher, choose
    **Imported files**, then **Choose file**. Pick your own decrypted **Pokémon Alpha Sapphire
-   (USA) Rev 2** card image. The launcher accepts only this exact file:
+   (USA)**: a card image (`.cci` / `.3ds`, trimmed or not) or a decrypted `.cia`. PlayNav
+   checks each piece it uses against Alpha Sapphire (USA) Rev 2 as it unpacks them, and draws
+   its own art for any piece your copy holds differently. On Gen1Recomp builds from before
+   mod-checked imports, the launcher accepts only this exact file:
 
    | | |
    |---|---|
@@ -218,7 +221,7 @@ Open **OPTIONS → MODS → PlayNav**.
    | **Size** | 2,147,483,648 bytes (2 GiB) |
    | **MD5** | `0563f9dee1b95de32d579e40c20e2bfc` |
 
-   The launcher checks it and keeps a private copy. On the next start the PlayNav screen
+   The launcher keeps a private copy. On the next start the PlayNav screen
    unpacks the art, music, sound effects and text with a progress bar — a few seconds, in the
    background while you play — then tells you the copy can be removed under Imported files.
    If the automatic start is off, the same screen offers **Begin extraction** whenever you
@@ -244,8 +247,8 @@ Open **OPTIONS → MODS → PlayNav**.
   damage, timings and bag odds are best guesses and may change.
 - 🎮 **Generation 3 only.** Ruby, Sapphire, Emerald, FireRed and LeafGreen.
 - 💾 **Your game is never part of the mod.** The art and text come from the card image you
-  supply, unpacked on your own device. Encrypted or compressed images (such as Azahar's `.zcci`)
-  aren't accepted yet; supply the plain `.cci`.
+  supply, unpacked on your own device. Encrypted dumps (a raw cartridge dump, an eShop `.cia`)
+  and compressed images (such as Azahar's `.zcci`) can't be read; supply a decrypted one.
 - 🖱️ **On a PC with a second-display window,** strokes don't come through, only taps, so
   petting needs Split Screen there. A real second panel, like the AYN Thor's, works
   fully.

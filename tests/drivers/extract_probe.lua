@@ -34,6 +34,21 @@ local function body(game, log)
   U.wait(10)
   log("state after boot:", Extract.state, "complete:", tostring(Extract.cacheComplete()),
     "import present:", tostring(Extract.importPresent()))
+  -- PROBE_DIFFER=<key,key,...> | all: alter those fingerprints first, as a dump whose bytes
+  -- differ there would (src/import/fingerprint.lua's keys); a plain PROBE_FORCE run restores
+  local differ = os.getenv("PROBE_DIFFER")
+  if differ and differ ~= "" then
+    local rows = Extract.fingerprints and Extract.fingerprints()
+    if not rows then log("FAIL fingerprints are off"); return end
+    local n = 0
+    for key, fp in pairs(rows) do
+      if differ == "all" or ("," .. differ .. ","):find("," .. key .. ",", 1, true) then
+        rows[key] = { size = fp.size, crc = fp.crc == "00000000" and "00000001" or "00000000" }
+        n = n + 1
+      end
+    end
+    log("fingerprints altered:", n)
+  end
   -- PROBE_FORCE=1: extract again even though the cache reads complete
   if not Extract.cacheComplete() or os.getenv("PROBE_FORCE") == "1" then
     if not Extract.importPresent() then log("FAIL the card image is not imported"); return end
@@ -41,7 +56,9 @@ local function body(game, log)
     waitFor(function() return Extract.state ~= "running" and Extract.state ~= "finishing" end, 60 * 300)
     U.wait(10)
   end
-  log("state:", Extract.state, "complete:", tostring(Extract.cacheComplete()))
+  log("state:", Extract.state, "complete:", tostring(Extract.cacheComplete()),
+    "differ:", tostring(Extract.differs), "failed:", tostring(Extract.failed))
+  log("message:", tostring(Extract.message))
   local m = Extract.cacheManifest and Extract.cacheManifest()
   local n = 0
   for id, why in pairs(m and m.missing or {}) do n = n + 1; if n <= 5 then log("missing", id, why) end end
