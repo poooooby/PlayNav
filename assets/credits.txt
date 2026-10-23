@@ -54,3 +54,54 @@ tools/balloon_atlas.py). From the pack's credits, "Pokemon Battler Sprites":
 The Gen 6 bots are Noibat, Noivern, Dragalge, Tyrantrum, Aurorus, Aegislash, Scatterbug,
 Spewpa, Vivillon and Mega Aggron; the rest are Gen 1-5. Pokemon and their designs are
 (c) Nintendo / Creatures Inc. / GAME FREAK Inc.; PlayNav is an unofficial fan project.
+
+Pokemon-Amie Decoration sprites (assets/amie_decor.png)
+-------------------------------------------------------
+The 172 Decor cushions and objects, packed into one atlas of colour numbers with the palettes
+in data/amie_decor.lua (by tools/decor_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Pokemon-Amie backgrounds (assets/amie_walls.png)
+------------------------------------------------
+The 34 room wallpapers and their drawer thumbnails, packed into one atlas of 16-bit colour
+numbers with the palettes in data/amie_walls.lua (by tools/wall_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Poke Puffs (assets/amie_puffs.png)
+----------------------------------
+The 26 Poke Puffs, packed into one atlas of colour numbers with the palettes in
+data/amie_puffs.lua (by tools/puff_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Pokemon-Amie hand (assets/amie_hand.png)
+----------------------------------------
+The hand you pet and feed with in PLAY, every frame of it (its reactions to a burn, a shock,
+a freeze, water, junk, a hit and a hurt, and the tap sparkle), packed into one atlas of colour
+numbers with the palettes in data/amie_hand.lua (by tools/hand_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Berry Picker (assets/amie_berry.png)
+------------------------------------
+Berry Picker's tree and bush backdrops, the berries and their heaps, the grass, the bubbles,
+notes and star, the score digits, the HIGH SCORE stamp and the stylus, packed into one atlas of
+16-bit colour numbers with the palettes in data/amie_berry.lua (by tools/berry_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Head It (assets/amie_head.png)
+------------------------------
+Head It's sky and touch-screen backdrops, the rainbows, the yarn balls (the giant ones too),
+the "!" and "!!" bubbles, the head-hit puff, the score digits and the stylus, packed into one
+atlas of 16-bit colour numbers with the palettes in data/amie_head.lua (by tools/head_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource

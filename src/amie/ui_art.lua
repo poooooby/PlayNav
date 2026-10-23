@@ -671,4 +671,300 @@ return function(mod, K, gen)
     curvedArrow(G, 32, 6, 40, 19, { 3, -2 })
     G.pop()
   end)
+
+  -- ------- the minigames' sparkles: a four-pointed twinkle with a soft glow, and a small dot
+  -- (Berry Picker's and Head It's rewards white, Head It's head-hit ones pale blue)
+  local function twinkle(G, size, core, glow)
+    local c = size / 2
+    -- a faint haze, then the four rays: a wide soft pair under a thin bright one
+    for i = 1, 5 do
+      col(G, glow, 0.05); circle(G, "fill", c, c, size * 0.07 * i)
+    end
+    local function rays(r, t, colour, a)
+      col(G, colour, a)
+      fillShape(G, { c, c - r, c + t, c - t, c + r, c, c + t, c + t, c, c + r, c - t, c + t, c - r, c, c - t, c - t })
+    end
+    rays(size * 0.5, size * 0.09, glow, 0.6)
+    rays(size * 0.44, size * 0.045, core, 1)
+    G.setColor(1, 1, 1, 1); circle(G, "fill", c, c, size * 0.06)
+  end
+  local function dot(G, size, core, glow)
+    local c = size / 2
+    for i = 5, 1, -1 do
+      col(G, glow, 0.16); circle(G, "fill", c, c, size * 0.09 * i)
+    end
+    col(G, core); circle(G, "fill", c, c, size * 0.32)
+  end
+  local SPARKLE = {
+    { "lyt/berry_reward/", C.white, c255(220, 236, 255) },
+    { "lyt/head_reward/", C.white, c255(220, 236, 255) },
+    { "lyt/head_effect/", c255(210, 244, 255), c255(120, 206, 240) },
+  }
+  for _, sp in ipairs(SPARKLE) do
+    gen(sp[1] .. "twinkle0", 20, 20, function(G) twinkle(G, 20, sp[2], sp[3]) end)
+    gen(sp[1] .. "twinkle1", 10, 10, function(G) dot(G, 10, sp[2], sp[3]) end)
+  end
+
+  -- ------- the minigames' cards, windows, stars, medals and smoke (Berry Picker and Head It)
+
+  local function each(packs, name, w, h, draw)
+    for _, p in ipairs(packs) do gen("lyt/" .. p .. "/" .. name, w, h, draw) end
+  end
+  local BOTH_WINDOWS = { "berry_demo", "berry_front", "berry_score", "head_demo", "head_down", "head_front" }
+  local PAPER_TOP, PAPER_LOW = c255(252, 246, 205), c255(242, 232, 158)
+  local TAPE, TAPE_LO = c255(246, 222, 126), c255(190, 166, 86)
+
+  -- the message window: cream note paper (corner, top edge, middle) with a soft shadow above
+  -- and to the left, and a strip of tape across its corner
+  local function paperGrain(G, x, y, w, h, seed)
+    local rng = love.math.newRandomGenerator(seed)
+    for _ = 1, math.floor(w * h * 0.35) do
+      local c = rng:random() < 0.5 and PAPER_TOP or PAPER_LOW
+      col(G, c, 0.35)
+      G.rectangle("fill", x + rng:random() * w, y + rng:random() * h, 0.8, 0.8)
+    end
+  end
+  local function shadowEdge(G, x, y, w, h, vertical)
+    for i = 0, 2 do
+      G.setColor(0, 0, 0, 0.11 * (i + 1))
+      if vertical then G.rectangle("fill", x + i, y, 1, h) else G.rectangle("fill", x, y + i, w, 1) end
+    end
+  end
+  each(BOTH_WINDOWS, "msg_win_ul", 16, 16, function(G)
+    shadowEdge(G, 3, 0, 13, 3); shadowEdge(G, 0, 3, 3, 13, true)
+    within(G, { 3, 3, 16, 3, 16, 16, 3, 16 }, function()
+      vgrad(G, 3, 3, 13, 13, PAPER_TOP, PAPER_LOW)
+      paperGrain(G, 3, 3, 13, 13, 3)
+    end)
+    -- the tape, across the corner
+    local t = { 0.6, 6.4, 6.4, 0.6, 10.8, 4.2, 4.2, 10.8 }
+    G.setColor(0, 0, 0, 0.18); fillShape(G, scaled(t, 5.7, 6.3, 1.08))
+    within(G, t, function() vgrad(G, 0, 0, 12, 12, TAPE, TAPE_LO) end)
+    G.setColor(1, 1, 1, 0.35); G.setLineWidth(0.6); G.line(1.8, 6.2, 6.2, 1.8)
+  end)
+  each(BOTH_WINDOWS, "msg_win_u", 16, 16, function(G)
+    shadowEdge(G, 0, 0, 16, 3)
+    vgrad(G, 0, 3, 16, 13, PAPER_TOP, PAPER_LOW)
+    paperGrain(G, 0, 3, 16, 13, 5)
+    -- the tape's far end, as the corner's runs into it
+    local t = { 5, 2.2, 8.6, 2.2, 11.4, 6.4, 9.6, 7.6 }
+    within(G, t, function() vgrad(G, 4, 2, 8, 6, TAPE, TAPE_LO) end)
+  end)
+  each(BOTH_WINDOWS, "msg_win_c", 32, 32, function(G)
+    vgrad(G, 0, 0, 32, 32, c255(250, 242, 190), c255(244, 236, 176))
+    paperGrain(G, 0, 0, 32, 32, 9)
+  end)
+
+  -- the number window's border: half see-through orange bumps, lit cream on their outer edge
+  local NUM_PACKS = { "berry_score", "head_front" }
+  local BUMP, BUMP_HI, BUMP_LO = c255(250, 187, 87), c255(254, 242, 222), c255(160, 120, 60)
+  local function bump(G, cx, cy, r, ang)
+    -- a disc, shaded from its outer edge (toward ang) inward
+    within(G, radial(cx, cy, r, r, 24, function() return 1 end), function()
+      col(G, BUMP, 0.55); G.rectangle("fill", cx - r, cy - r, 2 * r, 2 * r)
+      for i = 1, 4 do
+        col(G, BUMP_HI, 0.18)
+        circle(G, "fill", cx + math.cos(ang) * r * (0.2 + 0.12 * i), cy + math.sin(ang) * r * (0.2 + 0.12 * i), r * (0.9 - 0.15 * i))
+      end
+    end)
+    col(G, BUMP_LO, 0.4); G.setLineWidth(0.6)
+    G.arc("line", "open", cx, cy, r - 0.3, ang + math.pi * 0.55, ang + math.pi * 1.45)
+  end
+  each(NUM_PACKS, "win_number_L", 10, 8, function(G) bump(G, 10, 4, 5, math.pi) end)
+  each(NUM_PACKS, "win_number_R", 10, 8, function(G) bump(G, 0, 4, 5, 0) end)
+  each(NUM_PACKS, "win_number_up", 8, 10, function(G) bump(G, 4, 10, 5, -math.pi / 2) end)
+  each(NUM_PACKS, "win_number_dw", 8, 10, function(G) bump(G, 4, 0, 5, math.pi / 2) end)
+  each(NUM_PACKS, "win_number_Lu", 10, 10, function(G) bump(G, 9, 9, 6, -math.pi * 0.75) end)
+  each(NUM_PACKS, "win_number_Ld", 10, 10, function(G) bump(G, 9, 1, 6, math.pi * 0.75) end)
+  each(NUM_PACKS, "win_number_Ru", 10, 10, function(G) bump(G, 1, 9, 6, -math.pi * 0.25) end)
+  each(NUM_PACKS, "win_number_Rd", 10, 10, function(G) bump(G, 1, 1, 6, math.pi * 0.25) end)
+
+  -- a five-pointed star's outline
+  local function starPts(cx, cy, r, inner, turn)
+    local pts = {}
+    for i = 0, 9 do
+      local a = -math.pi / 2 + i * math.pi / 5 + (turn or 0)
+      local rr = i % 2 == 0 and r or r * inner
+      pts[#pts + 1] = cx + math.cos(a) * rr
+      pts[#pts + 1] = cy + math.sin(a) * rr
+    end
+    return pts
+  end
+  -- the difficulty stars: glossy, glowing white at the middle; the "h" ones only their left half
+  local DIFF_STAR = {
+    easy = { c255(250, 196, 30), c255(214, 150, 10) }, normal = { c255(250, 140, 36), c255(210, 96, 20) },
+    hard = { c255(232, 30, 80), c255(180, 10, 56) }, infinite = { c255(190, 80, 230), c255(136, 44, 190) },
+  }
+  local function glossStar(G, s, half)
+    local pts = starPts(10, 10.6, 9.4, 0.5)
+    local function body()
+      col(G, s[2]); fillShape(G, scaled(pts, 10, 10.6, 1.08))
+      rings(G, pts, 10, 10.6, s[1], c255(255, 252, 236), 10, 0.15)
+    end
+    if half then
+      within(G, { 0, 0, 10, 0, 10, 20, 0, 20 }, body)
+    else
+      body()
+    end
+  end
+  for name, s in pairs(DIFF_STAR) do
+    each(NUM_PACKS, "star_" .. name, 20, 20, function(G) glossStar(G, s) end)
+    each(NUM_PACKS, "star_" .. name .. "h", 20, 20, function(G) glossStar(G, s, true) end)
+  end
+
+  -- Head It's mark on the Pokemon's head: a white star outline, a small star in it, sparks round
+  gen("lyt/head_down/target", 32, 32, function(G)
+    local outer = starPts(16, 17, 13.5, 0.5)
+    G.setColor(0.1, 0.4, 0.42, 0.45); fillShape(G, scaled(outer, 16, 18, 1.1))
+    G.setColor(1, 1, 1, 1); fillShape(G, outer)
+    G.setColor(0.18, 0.5, 0.52, 1); fillShape(G, starPts(16, 17, 10, 0.5))
+    G.setColor(1, 1, 1, 1); fillShape(G, starPts(16, 17, 4.6, 0.5))
+    for i = 0, 4 do
+      local a = -math.pi / 2 + (i + 0.5) * math.pi * 2 / 5
+      G.setColor(1, 1, 1, 0.9); circle(G, "fill", 16 + math.cos(a) * 14.5, 17 + math.sin(a) * 14.5, 1)
+    end
+  end)
+  -- the score's bubble: a pale oval in a teal ring
+  gen("lyt/head_down/scorewindow", 64, 64, function(G)
+    local o = radial(32, 34, 30, 20, 64, function() return 1 end)
+    G.setColor(0.05, 0.3, 0.3, 0.3); fillShape(G, scaled(o, 32, 38, 1.04))
+    rings(G, o, 32, 34, c255(40, 140, 140), c255(110, 200, 196), 6, 0.86)
+    local i = radial(32, 33, 26, 16.5, 64, function() return 1 end)
+    rings(G, i, 32, 33, c255(170, 226, 226), c255(230, 248, 246), 10, 0.3)
+    G.setColor(1, 1, 1, 0.5); G.ellipse("fill", 30, 27, 15, 4.5)
+  end)
+
+  -- the reward medals: a ring with diagonal stripes round a pale disc; the special one gold with
+  -- coloured stars and a red bow
+  local MEDAL = { { 238, 136, 187 }, { 150, 204, 60 }, { 250, 196, 50 }, { 214, 170, 110 }, { 110, 64, 30 } }
+  local function medalRing(G, c, cLo)
+    G.setColor(0, 0, 0, 0.15); circle(G, "fill", 30, 31, 29)
+    within(G, radial(30, 30, 28.4, 28.4, 64, function() return 1 end), function()
+      col(G, c); G.rectangle("fill", 0, 0, 60, 60)
+      col(G, cLo)
+      for k = -60, 60, 7 do fillShape(G, { k, 0, k + 3.5, 0, k + 63.5, 60, k + 60, 60 }) end
+      vgrad(G, 0, 0, 60, 30, { 1, 1, 1, 0.25 }, { 1, 1, 1, 0 })
+    end)
+  end
+  local function medalFace(G, top, low)
+    col(G, c255(221, 204, 153)); circle(G, "fill", 30, 30, 22.4)
+    within(G, radial(30, 30, 21.4, 21.4, 64, function() return 1 end), function()
+      vgrad(G, 0, 8, 60, 44, top, low)
+    end)
+  end
+  for i, m in ipairs(MEDAL) do
+    local c = c255(m[1], m[2], m[3])
+    local lo = c255(math.floor(m[1] * 0.78), math.floor(m[2] * 0.78), math.floor(m[3] * 0.78))
+    local hi = c255(math.min(255, m[1] + 40), math.min(255, m[2] + 40), math.min(255, m[3] + 40))
+    each({ "berry_reward", "head_reward" }, ("wappen_%02d"):format(i), 60, 60, function(G)
+      medalRing(G, hi, c)
+      medalFace(G, c255(255, 255, 255), c255(255, 246, 204))
+      col(G, lo, 0.5); G.setLineWidth(0.8); G.circle("line", 30, 30, 28.2, 64)
+    end)
+  end
+  each({ "berry_reward", "head_reward" }, "wappen_special", 60, 60, function(G)
+    medalRing(G, c255(255, 230, 120), c255(250, 214, 80))
+    medalFace(G, c255(224, 246, 252), c255(196, 236, 246))
+    local stars = { { 250, 70, 200 }, { 40, 200, 140 }, { 250, 130, 40 }, { 60, 170, 250 }, { 230, 60, 220 }, { 40, 200, 160 }, { 250, 140, 30 } }
+    for k, sc in ipairs(stars) do
+      local a = math.pi * (0.95 - 0.9 * (k - 1) / (#stars - 1))
+      local x, y = 30 + math.cos(a) * 25, 31 + math.sin(a) * 25
+      col(G, c255(sc[1], sc[2], sc[3])); fillShape(G, starPts(x, y, 4.2, 0.5))
+      G.setColor(1, 1, 1, 0.6); circle(G, "fill", x - 0.6, y - 0.8, 1)
+    end
+    -- the bow on top
+    local red, redLo = c255(232, 40, 40), c255(170, 20, 20)
+    for s = -1, 1, 2 do
+      local tail = { 30, 6, 30 + s * 18, 4, 30 + s * 26, 10, 30 + s * 16, 11 }
+      col(G, redLo); fillShape(G, tail)
+      local loop = { 30, 6, 30 + s * 4, 0.5, 30 + s * 12, 1, 30 + s * 12, 8, 30 + s * 4, 9 }
+      col(G, red); fillShape(G, loop)
+    end
+    col(G, redLo); circle(G, "fill", 30, 5.5, 3)
+  end)
+
+  -- the reward smoke: soft white puffs, solid at their middles, fading out
+  local function smoke(G, w, h, blobs)
+    for _, b in ipairs(blobs) do
+      for i = 10, 1, -1 do
+        G.setColor(1, 1, 1, 0.1 + 0.02 * (10 - i))
+        circle(G, "fill", b[1] * w, b[2] * h, b[3] * math.min(w, h) * i / 10)
+      end
+    end
+  end
+  each({ "berry_reward", "head_reward" }, "smoke0", 54, 46, function(G, w, h)
+    smoke(G, w, h, { { 0.5, 0.5, 0.42 }, { 0.3, 0.45, 0.3 }, { 0.7, 0.5, 0.3 }, { 0.5, 0.3, 0.3 } })
+  end)
+  each({ "berry_reward", "head_reward" }, "smoke1", 117, 93, function(G, w, h)
+    smoke(G, w, h, { { 0.5, 0.52, 0.42 }, { 0.28, 0.4, 0.3 }, { 0.72, 0.42, 0.3 }, { 0.36, 0.72, 0.28 }, { 0.68, 0.72, 0.28 } })
+  end)
+  each({ "berry_reward", "head_reward" }, "smoke2", 80, 73, function(G, w, h)
+    smoke(G, w, h, { { 0.5, 0.5, 0.42 }, { 0.32, 0.36, 0.3 }, { 0.68, 0.4, 0.3 }, { 0.5, 0.72, 0.3 } })
+  end)
+
+  -- Head It's sky clouds: white, flat underneath, a light blue line along their tops
+  local function cloud(G, w, h, bumps)
+    local base = h - 3
+    local function shape(grow)
+      for _, b in ipairs(bumps) do circle(G, "fill", b[1] * w, base - b[2] * h, b[3] * h + grow) end
+      G.ellipse("fill", w / 2, base, w / 2 - 1 + grow, 2.4 + grow)
+    end
+    G.setColor(0.62, 0.82, 0.92, 1); shape(1)
+    G.setColor(1, 1, 1, 1); shape(0)
+    G.setColor(0.86, 0.94, 1, 1)
+    for _, b in ipairs(bumps) do
+      G.setLineWidth(0.8); G.arc("line", "open", b[1] * w, base - b[2] * h, b[3] * h - 1.6, math.pi * 1.15, math.pi * 1.6)
+    end
+  end
+  for _, p in ipairs({ "head_rear", "head_bg" }) do
+    gen("lyt/" .. p .. "/cloud_01", 114, 38, function(G, w, h)
+      cloud(G, w, h, { { 0.26, 0.28, 0.24 }, { 0.42, 0.5, 0.34 }, { 0.6, 0.48, 0.32 }, { 0.75, 0.3, 0.22 } })
+    end)
+    gen("lyt/" .. p .. "/cloud_03", 66, 18, function(G, w, h)
+      cloud(G, w, h, { { 0.42, 0.42, 0.34 }, { 0.6, 0.5, 0.4 }, { 0.75, 0.32, 0.28 } })
+    end)
+  end
+
+  -- the RESULTS banner: an orange ribbon with its ends folded back, the word in red
+  each({ "berry_lang", "head_front" }, "result_title", 230, 44, function(G)
+    local orange, orangeLo, cream = c255(255, 153, 68), c255(204, 102, 34), c255(255, 204, 136)
+    for s = -1, 1, 2 do
+      local cx = 115 + s * 95
+      local tail = { cx, 14, cx + s * 22, 6, cx + s * 14, 22, cx + s * 22, 38, cx, 34 }
+      col(G, orangeLo); fillShape(G, tail)
+    end
+    within(G, { 18, 4, 212, 4, 212, 36, 18, 36 }, function()
+      vgrad(G, 0, 4, 230, 32, orange, c255(255, 120, 60))
+      col(G, cream); G.rectangle("fill", 22, 9, 186, 22, 3, 3)
+      vgrad(G, 22, 9, 186, 10, { 1, 1, 1, 0.35 }, { 1, 1, 1, 0 })
+    end)
+    col(G, orangeLo); G.setLineWidth(1); G.rectangle("line", 18.5, 4.5, 193, 31)
+    heavy(G, "RESULTS", 115, 20, 20, c255(200, 20, 30), C.white, 1.3, 1.2)
+  end)
+
+  -- Head It's results card: see-through white with a sketched tan border, a rule across and
+  -- two short ticks down the right
+  gen("lyt/head_front/win_heading", 258, 116, function(G, w, h)
+    local tan = c255(241, 191, 117)
+    local box = { 4, 6, w - 4, 4, w - 3, h - 5, 5, h - 4 }
+    local r = K.roundPts(box, 10)
+    G.setColor(1, 1, 1, 1 / 3); fillShape(G, r)
+    G.setLineJoin("bevel")
+    G.setLineWidth(3.2); col(G, c255(252, 211, 145), 0.7); G.line(closed(r))
+    G.setLineWidth(1.4); col(G, tan); G.line(closed(r))
+    G.setLineWidth(1.2); col(G, tan, 0.9)
+    G.line(6, 50, w - 6, 50.6)
+    G.line(222, 16, 222.6, 30); G.line(222, 64, 222.4, 104)
+  end)
+
+  -- Berry Picker's results panel: a see-through white rounded card
+  gen("lyt/berry_score/result", 400, 240, function(G, w, h)
+    G.setColor(1, 1, 1, 136 / 255)
+    G.rectangle("fill", 8, 8, w - 16, h - 16, 14, 14)
+  end)
+
+  -- Head It's hit and miss marks: plain blocks of colour
+  gen("lyt/head_ball/Hit01", 40, 60, function(G) G.setColor(0.95, 0.6, 0, 1); G.rectangle("fill", 0, 0, 40, 60) end)
+  gen("lyt/head_ball/Hit02", 40, 60, function(G) G.setColor(0.9, 0, 0.06, 1); G.rectangle("fill", 0, 0, 40, 60) end)
+  gen("lyt/head_ball/Miss", 40, 60, function(G) G.setColor(0.63, 0.63, 0.63, 1); G.rectangle("fill", 0, 0, 40, 60) end)
 end

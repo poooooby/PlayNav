@@ -239,6 +239,21 @@ return function(mod)
 
   local Training, TRules, TStore, TItems, trainHost = nil, nil, nil, nil, nil
   local UiArt, Chip, TrainingWords = nil, nil, nil
+  local DecorArt, AdaptArt = {}, nil
+  -- the engine's art first: Amie's Decor (PlayNav's atlases), the pictures made from them, then
+  -- the drawn UI
+  local function engineArt(id)
+    for _, art in ipairs(DecorArt) do
+      local img, owned = art.image(id)
+      if owned then return img, true end
+    end
+    if AdaptArt then
+      local img, owned = AdaptArt.image(id)
+      if owned then return img, true end
+    end
+    if UiArt then return UiArt.image(id) end
+    return nil
+  end
   do
     local TrainingNumbers = loadSibling(mod, "data/training_rules.lua")
     local ShotTypes = loadSibling(mod, "data/training_shot_types.lua")
@@ -344,6 +359,34 @@ return function(mod)
           if makeAmieArt then
             local okA, errA = pcall(makeAmieArt, mod, ui.kit, ui.gen)
             if not okA then mod.log:warn("amie ui art failed to build: %s", tostring(errA)) end
+          end
+          -- and its Decor (cushions, objects, wallpapers), Poke Puffs, hand and Berry Picker's
+          -- and Head It's art come from PlayNav's own atlases
+          local makeDecorArt = loadSibling(mod, "src/amie/decor_art.lua")
+          for _, set in ipairs({ { "data/amie_decor.lua", "assets/amie_decor.png" },
+              { "data/amie_walls.lua", "assets/amie_walls.png" },
+              { "data/amie_puffs.lua", "assets/amie_puffs.png" },
+              { "data/amie_hand.lua", "assets/amie_hand.png" },
+              { "data/amie_berry.lua", "assets/amie_berry.png" },
+              { "data/amie_head.lua", "assets/amie_head.png" } }) do
+            local cells = makeDecorArt and loadSibling(mod, set[1])
+            if type(cells) == "table" then
+              local okD, art = pcall(makeDecorArt, mod, cells, set[2])
+              if okD and type(art) == "table" then
+                DecorArt[#DecorArt + 1] = art
+                Assets.engine = engineArt
+              else
+                mod.log:warn("amie decor art (%s) failed to build: %s", set[1], tostring(art))
+              end
+            end
+          end
+          -- the minigames' pictures the pages lack, made from the atlases' (data/amie_adapt.lua)
+          local makeAdapt = loadSibling(mod, "src/amie/adapt_art.lua")
+          local adaptList = loadSibling(mod, "data/amie_adapt.lua")
+          if makeAdapt and type(adaptList) == "table" then
+            local okA2, adapt = pcall(makeAdapt, mod, adaptList, function(id) return (engineArt(id)) end)
+            if okA2 and type(adapt) == "table" then AdaptArt = adapt
+            else mod.log:warn("amie adapted art failed to build: %s", tostring(adapt)) end
           end
         else
           mod.log:warn("training ui art failed to build: %s", tostring(ui))
@@ -1492,7 +1535,7 @@ return function(mod)
       return Training and Training.words
     end,
     engineUi = function(on)
-      if Assets then Assets.engine = (on ~= false and UiArt) and UiArt.image or nil end
+      if Assets then Assets.engine = (on ~= false and UiArt) and engineArt or nil end
       return UiArt
     end,
   }
