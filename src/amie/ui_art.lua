@@ -1,6 +1,7 @@
 -- Pokemon-Amie's room drawn by the engine: each id the room asks Assets for (the scalloped
 -- frame, the menu's PLAY / DECORATE / SWITCH buttons and its dim, the bubbles over the
--- Pokemon, the hearts, the visitors' talk bubbles, the gift box, the shadow) is drawn here
+-- Pokemon, the hearts, the visitors' talk bubbles, the gift box, the shadow, and SWITCH's
+-- party list: ribbons, bar, title tab, ruled card, medallions, meter icons, buttons) is drawn here
 -- once at the texture's own size, through Super Training's maker (src/training/ui_art.lua:
 -- gen, the kit). The room keeps its layout and animation: only where the pixels come from
 -- changes.
@@ -423,5 +424,251 @@ return function(mod, K, gen)
     col(G, ribLo); circle(G, "fill", bx, by - 0.4, 2.8)
     col(G, rib); circle(G, "fill", bx - 0.2, by - 0.8, 2.2)
     G.setColor(1, 1, 1, 0.5); circle(G, "fill", bx - 0.8, by - 1.5, 0.7)
+  end)
+
+  -- ------- SWITCH: the party list (kawaii_windows): a pink striped room, lilac gingham ribbons
+  -- with wavy edges, a striped lilac bar, a paper tab for the title, a ruled cream card, gold
+  -- medallions for the party, the meters' little icons, the green Switch button, the return
+
+  local LILAC_A, LILAC_B = c255(216, 208, 233), c255(206, 190, 223)
+  local LILAC_EDGE, LILAC_LIP = c255(123, 106, 157), c255(180, 156, 205)
+
+  -- a smooth curve through (x, y) knots, sampled every unit
+  local function curve(knots, w)
+    local out = {}
+    for x = 0, w do
+      local i = 1
+      while knots[i + 1] and knots[i + 1][1] < x do i = i + 1 end
+      local p1, p2 = knots[i], knots[i + 1] or knots[i]
+      local p0, p3 = knots[i - 1] or p1, knots[i + 2] or p2
+      local t = p2[1] > p1[1] and (x - p1[1]) / (p2[1] - p1[1]) or 0
+      local t2, t3 = t * t, t * t * t
+      out[x] = 0.5 * (2 * p1[2] + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2
+        + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3)
+    end
+    return out
+  end
+  -- lilac gingham: 8-unit bands both ways, darker where they cross
+  local function gingham(G, x, y, w, h)
+    col(G, LILAC_A); G.rectangle("fill", x, y, w, h)
+    col(G, LILAC_B, 0.75)
+    for xx = x + 8, x + w, 16 do G.rectangle("fill", xx, y, 8, h) end
+    for yy = y + 8, y + h, 16 do G.rectangle("fill", x, yy, w, 8) end
+  end
+  -- a gingham ribbon with one wavy edge (edge[x] its y); below: the ribbon runs down from it
+  local function ribbon(G, w, h, edge, below)
+    local pts = {}
+    for x = 0, w do pts[#pts + 1] = x; pts[#pts + 1] = edge[x] end
+    local fy = below and h or 0
+    local band, sh = {}, {}
+    for i = 1, #pts do band[i] = pts[i] end
+    band[#band + 1] = w; band[#band + 1] = fy; band[#band + 1] = 0; band[#band + 1] = fy
+    -- a soft shadow past the edge
+    for x = 0, w do sh[#sh + 1] = x; sh[#sh + 1] = edge[x] + (below and -1.4 or 1.4) end
+    sh[#sh + 1] = w; sh[#sh + 1] = fy; sh[#sh + 1] = 0; sh[#sh + 1] = fy
+    G.setColor(0.1, 0.05, 0.2, 0.22); fillShape(G, sh)
+    within(G, band, function() gingham(G, 0, -8, w, h + 16) end)
+    -- the purple lip along the edge, lit on its inner side
+    G.setLineJoin("bevel")
+    G.setLineWidth(1.8); col(G, LILAC_EDGE); G.line(pts)
+    local lip = {}
+    for x = 0, w do lip[#lip + 1] = x; lip[#lip + 1] = edge[x] + (below and 1.6 or -1.6) end
+    G.setLineWidth(1); col(G, LILAC_LIP); G.line(lip)
+  end
+  gen("lyt/amie_room/goods_win_line_dw", 320, 24, function(G, w, h)
+    ribbon(G, w, h, curve({ { 0, 15 }, { 60, 15 }, { 120, 11 }, { 190, 9 }, { 240, 13 }, { 290, 17 }, { 320, 16 } }, w), true)
+  end)
+  gen("lyt/amie_room/goods_win_line_up", 320, 24, function(G, w, h)
+    ribbon(G, w, h, curve({ { 0, 8 }, { 30, 6.5 }, { 60, 8 }, { 100, 13 }, { 140, 14 }, { 200, 12 }, { 250, 9 },
+      { 300, 8 }, { 320, 9 } }, w), false)
+  end)
+
+  -- the room behind the list: soft pink stripes
+  gen("lyt/amie_room/goods_win_c", 16, 16, function(G)
+    col(G, c255(244, 211, 211)); G.rectangle("fill", 0, 0, 16, 16)
+    col(G, c255(239, 198, 190)); G.rectangle("fill", 0, 0, 4, 16); G.rectangle("fill", 12, 0, 4, 16)
+  end)
+
+  -- the bar across the top (a window corner, mirrored): lilac stripes, a torn foot
+  gen("lyt/amie_room/bar_title", 32, 36, function(G)
+    local body = { 0, 0, 32, 0 }
+    for x = 32, 0, -2 do
+      body[#body + 1] = x; body[#body + 1] = 29.4 + ((x * 7) % 5) * 0.35
+    end
+    local sh = {}
+    for i = 1, #body, 2 do sh[i] = body[i]; sh[i + 1] = body[i + 1] > 1 and body[i + 1] + 1.6 or body[i + 1] end
+    G.setColor(0, 0, 0, 0.2); fillShape(G, sh)
+    within(G, body, function()
+      col(G, LILAC_A); G.rectangle("fill", 0, 0, 32, 36)
+      col(G, LILAC_B); G.rectangle("fill", 8, 0, 16, 36)
+      vgrad(G, 0, 22, 32, 10, { 1, 1, 1, 0 }, { 0.6, 0.5, 0.75, 0.25 })
+    end)
+  end)
+
+  -- a pinked edge: a zigzag from y0 to y1 at x (dir +1: the paper lies to the right)
+  local function pinked(y0, y1, x, dir, step, depth)
+    local pts = {}
+    local n = math.floor((y1 - y0) / step)
+    for i = 0, n do
+      pts[#pts + 1] = x + (i % 2 == 0 and 0 or depth) * dir
+      pts[#pts + 1] = y0 + (y1 - y0) * i / n
+    end
+    return pts
+  end
+  -- the title's paper tab (a window corner, mirrored): pink paper, its pinked end, a pink rule
+  gen("lyt/amie_room/bg_tab", 140, 18, function(G)
+    local edge = pinked(2, 18, 3.6, 1, 2, 1.6)
+    local shape = { 140, 2, 140, 18 }
+    for i = #edge - 1, 1, -2 do shape[#shape + 1] = edge[i]; shape[#shape + 1] = edge[i + 1] end
+    G.setColor(0.4, 0.4, 0.4, 0.25); G.rectangle("fill", 4, 1, 136, 1.2)
+    within(G, shape, function()
+      col(G, c255(255, 231, 221)); G.rectangle("fill", 0, 0, 140, 18)
+      col(G, c255(251, 227, 215)); G.rectangle("fill", 3, 0, 4, 18)
+      col(G, c255(242, 169, 176)); G.rectangle("fill", 9.6, 0, 2.2, 18)
+      vgrad(G, 0, 2, 140, 3, c255(240, 200, 196, 140), c255(255, 231, 221, 0))
+    end)
+  end)
+
+  -- the ruled card: cream paper, pinked ends each with a pink band, a red rule down after the
+  -- picture and two across between the meters' rows
+  gen("lyt/amie_room/win_pokelist", 298, 80, function(G, w, h)
+    local L = pinked(5, 75, 2.2, 1, 2.4, 1.8)
+    local R = pinked(5, 75, w - 2.2, -1, 2.4, 1.8)
+    local shape = {}
+    for i = 1, #L do shape[i] = L[i] end
+    for i = #R - 1, 1, -2 do shape[#shape + 1] = R[i]; shape[#shape + 1] = R[i + 1] end
+    G.setColor(0.25, 0.2, 0.2, 0.25); G.rectangle("fill", 4, 74.5, w - 8, 2)
+    within(G, shape, function()
+      col(G, c255(249, 249, 216)); G.rectangle("fill", 0, 0, w, h)
+      for _, x in ipairs({ 3, w - 9 }) do
+        col(G, c255(247, 222, 214)); G.rectangle("fill", x, 0, 6, h)
+        col(G, c255(238, 172, 178)); G.rectangle("fill", x + 2, 0, 2.2, h)
+      end
+      -- warm light along the top and the foot
+      vgrad(G, 0, 4, w, 4, c255(255, 236, 196), c255(249, 249, 216, 0))
+      vgrad(G, 0, 70, w, 5, c255(255, 249, 216, 0), c255(255, 236, 187))
+      col(G, c255(162, 145, 111)); G.rectangle("fill", 0, 4, w, 0.8)
+      col(G, c255(120, 100, 96)); G.rectangle("fill", 0, 74.2, w, 0.8)
+      -- the rules, a little uneven as if drawn by hand
+      for pass = 1, 2 do
+        if pass == 1 then G.setLineWidth(2.2); col(G, c255(255, 214, 190, 160))
+        else G.setLineWidth(0.8); col(G, c255(214, 150, 128)) end
+        G.line(112.6, 7, 112.8, 72); G.line(118, 26.6, 287, 27.2); G.line(118, 50.8, 287, 51.4)
+      end
+    end)
+  end)
+
+  -- a party member's medallion: gold rim, a striped cream face
+  local function disc(cx, cy, r) return radial(cx, cy, r, r, 64, function() return 1 end) end
+  gen("lyt/amie_room/button_pokemon", 42, 42, function(G)
+    G.setColor(0, 0, 0, 0.22); circle(G, "fill", 21, 22, 20.4)
+    col(G, c255(102, 68, 0)); circle(G, "fill", 21, 21, 20.2)
+    within(G, disc(21, 21, 19.2), function()
+      vgrad(G, 0, 1, 42, 40, c255(250, 232, 160), c255(221, 187, 85))
+      vgrad(G, 0, 26, 42, 16, c255(150, 110, 30, 0), c255(150, 110, 30))
+    end)
+    col(G, c255(170, 136, 60)); circle(G, "fill", 21, 21, 15.8)
+    within(G, disc(21, 21, 15), function()
+      col(G, c255(255, 240, 210)); G.rectangle("fill", 0, 0, 42, 42)
+      col(G, c255(238, 216, 150))
+      for x = 9, 34, 8 do G.rectangle("fill", x, 0, 4, 42) end
+      vgrad(G, 0, 6, 42, 14, { 1, 1, 1, 0.55 }, { 1, 1, 1, 0 })
+      vgrad(G, 0, 28, 42, 10, { 0.8, 0.6, 0.2, 0 }, { 0.8, 0.6, 0.2, 0.3 })
+    end)
+    G.setColor(1, 1, 1, 0.6); G.setLineWidth(1)
+    G.arc("line", "open", 21, 21, 17.6, math.pi * 1.1, math.pi * 1.6)
+  end)
+
+  -- the return: a pale blue button with a dark blue arrow turning right
+  gen("lyt/amie_room/button_back", 30, 30, function(G)
+    col(G, c255(10, 70, 90)); circle(G, "fill", 15, 15, 14.4)
+    within(G, disc(15, 15, 13.2), function() vgrad(G, 0, 1, 30, 28, c255(176, 232, 244), c255(88, 184, 206)) end)
+    col(G, c255(112, 190, 210)); G.setLineWidth(1); G.circle("line", 15, 15, 10.4, 48)
+    within(G, disc(15, 15, 9.8), function() vgrad(G, 0, 4, 30, 22, c255(220, 246, 252), c255(150, 214, 228)) end)
+    local blue = c255(14, 64, 168)
+    G.setLineJoin("miter")
+    G.setLineWidth(3.6); G.setColor(1, 1, 1, 0.9); G.line(19.6, 19.6, 9.6, 19.6, 9.6, 11.4, 15.2, 11.4)
+    G.setLineWidth(2.2); col(G, blue); G.line(19.6, 19.6, 9.6, 19.6, 9.6, 11.4, 15.6, 11.4)
+    local head = { 20.4, 11.4, 15.4, 7.4, 15.4, 15.4 }
+    G.setColor(1, 1, 1, 0.9); fillShape(G, scaled(head, 17, 11.4, 1.3))
+    col(G, blue); fillShape(G, head)
+    G.setColor(1, 1, 1, 0.45); G.ellipse("fill", 12, 7.4, 5, 2)
+  end)
+
+  -- the meters' icons, full and spent
+  local function smallHeart(G, c, line)
+    local pts = heartPts(8, 8.4, 14, 12)
+    col(G, line); fillShape(G, scaled(pts, 8, 8, 1.14))
+    col(G, c); fillShape(G, pts)
+  end
+  gen("lyt/amie_room/heart_00", 16, 16, function(G)
+    smallHeart(G, c255(255, 120, 200), c255(226, 40, 170))
+    G.setColor(1, 1, 1, 0.85); G.ellipse("fill", 11, 5.6, 1.6, 1.1)
+    G.setColor(1, 1, 1, 0.3); G.ellipse("fill", 6, 6.6, 3, 1.6)
+  end)
+  gen("lyt/amie_room/heart_01", 16, 16, function(G)
+    smallHeart(G, c255(78, 78, 82), c255(60, 60, 64))
+  end)
+  -- a little round cake with a cherry
+  local function bun(G, body, top, line, cherry)
+    col(G, line); G.ellipse("fill", 8, 11.4, 7.4, 6.2); circle(G, "fill", 8, 4, 2.2)
+    col(G, body); G.ellipse("fill", 8, 11.4, 6.6, 5.4)
+    if top then
+      within(G, radial(8, 11.4, 6.6, 5.4, 32, function() return 1 end), function()
+        col(G, top); G.rectangle("fill", 0, 5, 16, 6)
+        for i = 0, 4 do circle(G, "fill", 2.4 + i * 2.8, 11.2, 1.5) end
+        G.setColor(1, 1, 1, 0.4); G.ellipse("fill", 5.6, 8.4, 2.6, 1.2)
+      end)
+    end
+    col(G, cherry or body); circle(G, "fill", 8, 4.2, 1.6)
+  end
+  gen("lyt/amie_room/ic_hungry", 16, 18, function(G)
+    bun(G, c255(255, 214, 230), c255(242, 120, 172), c255(206, 80, 136), c255(220, 30, 50))
+  end)
+  gen("lyt/amie_room/ic_hungry_black", 16, 18, function(G)
+    bun(G, c255(78, 78, 82), nil, c255(60, 60, 64))
+  end)
+  gen("lyt/amie_room/ic_asobu", 18, 18, function(G)
+    note(G, 9, 9, 0.75, c255(30, 168, 150), c255(120, 230, 210), c255(14, 110, 100))
+  end)
+  gen("lyt/amie_room/ic_asobu_black", 18, 18, function(G)
+    note(G, 9, 9, 0.75, c255(78, 78, 82), nil, c255(60, 60, 64))
+  end)
+
+  -- the green Switch button: a pill, its rims, a soft diamond pattern, the swap at its left
+  gen("lyt/amie_room/button_change", 278, 52, function(G, w, h)
+    local function pill(inset)
+      local r = h / 2 - inset
+      local pts = {}
+      for i = 0, 24 do
+        local a = math.pi / 2 + i / 24 * math.pi
+        pts[#pts + 1] = h / 2 + math.cos(a) * r; pts[#pts + 1] = h / 2 + math.sin(a) * r
+      end
+      for i = 0, 24 do
+        local a = -math.pi / 2 + i / 24 * math.pi
+        pts[#pts + 1] = w - h / 2 + math.cos(a) * r; pts[#pts + 1] = h / 2 + math.sin(a) * r
+      end
+      return pts
+    end
+    G.setColor(0.1, 0.1, 0.1, 0.25); fillShape(G, scaled(pill(0.6), w / 2, h / 2 + 1.4, 1))
+    col(G, c255(55, 106, 21)); fillShape(G, pill(0.6))
+    col(G, c255(167, 224, 142)); fillShape(G, pill(2.2))
+    col(G, c255(80, 140, 50)); fillShape(G, pill(3.8))
+    within(G, pill(4.8), function()
+      vgrad(G, 0, 4, w, h - 8, c255(222, 244, 208), c255(158, 216, 125))
+      -- the diamonds
+      G.setColor(1, 1, 1, 0.22)
+      for y = 4, h, 8 do
+        for x = ((y - 4) / 8 % 2) * 8, w, 16 do fillShape(G, { x, y - 4, x + 4, y, x, y + 4, x - 4, y }) end
+      end
+      vgrad(G, 0, 4, w, 12, { 1, 1, 1, 0.45 }, { 1, 1, 1, 0 })
+      vgrad(G, 0, h - 12, w, 8, { 0.3, 0.55, 0.2, 0 }, { 0.3, 0.55, 0.2, 0.35 })
+    end)
+    -- the swap: two heads and their arrows, small
+    G.push(); G.translate(10, 3); G.scale(0.85, 0.85)
+    pikachu(G, 20, 16); pikachu(G, 31, 37)
+    curvedArrow(G, 14, 46, 9, 33, { -3, 1 })
+    curvedArrow(G, 32, 6, 40, 19, { 3, -2 })
+    G.pop()
   end)
 end

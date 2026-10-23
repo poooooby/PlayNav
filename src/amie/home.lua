@@ -274,6 +274,8 @@ return function(mod, Pointer, G, Rules, Store, host)
     { "ah", { "aj", "al", "an", "ap", "ar" }, "ic_asobu", "ic_asobu_black", "enjoyment" },
   }
   local SLIDE_S = 6 / FPS
+  local SWITCH_FOOT = 212     -- where the list's foot bar begins (the window's lower frame)
+  local changeShown = false   -- the Switch button is up (another Pokemon chosen)
   local PRESS = { 1, 0.9, 0.8, 0.9, 1, 0.95, 0.9, 0.95, 1 }   -- pokelist_select's bounce
   local function ease(f) f = math.max(0, math.min(1, f)); return 1 - (1 - f) ^ 3 end
 
@@ -326,6 +328,7 @@ return function(mod, Pointer, G, Rules, Store, host)
       end
     end
     local other = i ~= activeSlot(party) and not egg
+    changeShown = other
     for _, n in ipairs({ "at", "av", "az" }) do W:set(n, "visible", other) end
   end
 
@@ -478,15 +481,35 @@ return function(mod, Pointer, G, Rules, Store, host)
     W.adjust = D > 0 and { ["7b"] = { dy = -down }, cf = { dy = -down }, ca = { dy = -down } } or nil
     if D > 0 then
       local heart = hx ~= nil
-      for _, n in ipairs({ "7b", "cf", "ca", "9e" }) do W:set(n, "visible", false) end
+      local button = changeShown
+      for _, n in ipairs({ "7b", "cf", "ca", "9e", "at", "av", "az" }) do W:set(n, "visible", false) end
       G2.push()
       G2.translate(0, D)
       W:draw(G2)
       G2.pop()
       for _, n in ipairs({ "7b", "cf", "ca" }) do W:set(n, "visible", true) end
+      for _, n in ipairs({ "at", "av", "az" }) do W:set(n, "visible", button) end
       W:set("9e", "visible", heart)
+      -- the list's own pass stops above its foot bar (SWITCH_FOOT): the lower pass's pink runs
+      -- on down to its ribbon, whose wavy edge then sits on the room as the game's does
       for _, n in ipairs(FOOT) do W:set(n, "visible", false) end
+      local sx0, sy0, sw0, sh0 = G2.getScissor()
+      local _, footY = G2.transformPoint(0, SWITCH_FOOT)
+      G2.intersectScissor(-10000, -10000, 20000, footY + 10000)
       W:draw(G2)
+      G2.setScissor(sx0, sy0, sw0, sh0)
+      -- the Switch button reaches a little past that line: its foot drawn again below it
+      local bx, by, bw, bh = W:box("at")
+      local img = changeShown and bx and art("lyt/amie_room/button_change")
+      if img and by + bh > SWITCH_FOOT then
+        local k = 1
+        if sw.press and sw.press.pane == "at" then k = PRESS[math.min(#PRESS, math.floor(sw.press.t * FPS) + 1)] end
+        local iw, ih = img:getDimensions()
+        G2.intersectScissor(-10000, footY, 20000, 20000)
+        G2.setColor(1, 1, 1, 1)
+        G2.draw(img, bx + bw / 2, by + bh / 2, 0, bw * k / iw, bh * k / ih, iw / 2, ih / 2)
+        G2.setScissor(sx0, sy0, sw0, sh0)
+      end
       for _, n in ipairs(FOOT) do W:set(n, "visible", true) end
     else
       W:draw(G2)
