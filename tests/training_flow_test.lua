@@ -689,9 +689,11 @@ do
   local st = S.state()
   T.check(st.regimen and st.regimen.target == 500, "state carries the regimen (target 500)")
   -- the layer forwards the pad
-  S.layer.handleInput({ wasPressed = function(_, k) return k == "l" end, isDown = function(_, k) return k == "right" end })
+  S.layer.handleInput({ wasPressed = function(_, k) return k == "l" end, isDown = function(_, k) return k == "right" or k == "l" end })
   T.check(S.sim.player.mx == 1, "right is held")
-  T.check(S.sim.player.shield > 0, "L raised the shield")
+  T.check(S.sim.player.shield > 0, "L held raises the guard")
+  S.layer.handleInput({ wasPressed = function() return false end, isDown = function(_, k) return k == "right" end })
+  T.check(S.sim.player.shield == 0 and S.sim.player.shieldCd > 0, "...let go, it drops and cools down")
   T.check(S.forceEnd({ clear = true, remaining = 160 }), "a forced clear")
   T.eq(S.state().mode, "result", "the result shows")
   local r = S.session.result

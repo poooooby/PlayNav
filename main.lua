@@ -400,7 +400,9 @@ return function(mod)
       if makeUiArt then
         local okU, ui = pcall(makeUiArt, mod, { Rules = TRules, statRgb = Training.STAT_RGB, courses = Training.Courses,
           botSprite = Training.Draw and Training.Draw.botSprite,
-          shapeFor = Training.Draw and Training.Draw.shapeFor, drawBalloon = Training.Draw and Training.Draw.drawBalloon })
+          shapeFor = Training.Draw and Training.Draw.shapeFor, drawBalloon = Training.Draw and Training.Draw.drawBalloon,
+          -- the final course's picture shows the version's line
+          gameVersion = function() return trainHost and trainHost.gameVersion and trainHost.gameVersion() end })
         if okU and type(ui) == "table" then
           UiArt = ui
           Assets.engine = ui.image
@@ -1685,6 +1687,24 @@ return function(mod)
     Surface.dirty = true
     if Assets and Assets.refresh then pcall(Assets.refresh) end
     if HdTop then HdTop.standDown() end
+  end
+
+  -- Super Training's regimens run at 1X whatever the game's speed (fast-forward) is set to: the
+  -- regimen, its fade in and its results tick on the engine's logic steps (their layer is a
+  -- menu layer), so a GAME SPEED above NORMAL would play the balloon, the attacks and the timer
+  -- that many times faster
+  local function regimenUp()
+    local s = Training and Training.session
+    if type(s) ~= "table" then return false end
+    if s.mode == "regimen" or s.mode == "result" then return true end
+    local tr = s.trans
+    return type(tr) == "table" and (tr.to == "regimen" or tr.from == "result")
+  end
+  if not (mod.supports and not mod:supports("hooks", "core.logic_speed")) then
+    mod.hooks:wrap("core.logic_speed", function(next, game)
+      if regimenUp() then return 1 end
+      return next(game)
+    end)
   end
 
   mod.hooks:wrap("render.hud", function(next, game, viewport)

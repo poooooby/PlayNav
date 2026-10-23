@@ -281,9 +281,14 @@ return function(mod, T, Rules, Sim)
       H.score = sim.score
     end
     local stage = sim:chargeStage()
-    if stage >= 3 and not H.full then H.full = true; H.fullAt = H.clock end
+    if stage >= 2 and not H.full then H.full = true; H.fullAt = H.clock end
     if stage == 0 then H.full = false end
+    if stage >= 1 and (H.charge or 0) == 0 then H.chargeAt = H.clock end
     H.charge = stage
+    -- the two rings: shown while the meter covers a shot, turning in from a pop
+    local ready = sim.shotReady and sim:shotReady() and sim.phase == "play" or false
+    if ready and not H.ready then H.readyAt = H.clock end
+    H.ready = ready
     for _, e in ipairs(events or {}) do
       if e.kind == "goal_hit" and (e.points or 0) > 0 then
         local bx, by = sim:botOffset()
@@ -323,6 +328,12 @@ return function(mod, T, Rules, Sim)
     setNumber(P, TARGET_PANES, sim.bot and sim.bot.target or 0, SCORE)
     local st = P:entry("stamina")
     if st then st.frame = math.max(0, math.min(1, sim.guts or 0)) * (st.clip.frames - 1) end
+    -- the two rings round the meter (6u: 6j / 6l turning, the looping guts_shot): the game shows
+    -- them while the meter covers a shot (its ready flag)
+    local ready = sim.shotReady and sim:shotReady() and sim.phase == "play" and not o or false
+    if ready and not H.ready and not P:entry("guts_shot") then P:play("guts_shot", { loop = true }) end
+    P:set("6u", "visible", ready)
+    H.ready = ready
     -- the reticle and its charge
     local aim = sim.player.aim
     local rx, ry, rz = T.toScreen(Sim.project(aim.x, aim.y, 1))
@@ -330,9 +341,11 @@ return function(mod, T, Rules, Sim)
     P:set("13", "sx", rz)
     P:set("13", "sy", rz)
     P:set("13", "visible", sim.phase == "play" and not o)
+    -- Charged (frame 50): the yellow ring and the second crosshair closing in over the clip's
+    -- 16 frames, which is when the full charge comes (frame 66): red
     local stage = sim:chargeStage()
     if stage > 0 and H.charge == 0 then P:play("charge") end
-    if stage >= 3 and not H.full then H.full = true; P:play("just_charge") end
+    if stage >= 2 and not H.full then H.full = true; P:play("just_charge") end
     if stage == 0 and H.charge > 0 then P:play("no_charge"); H.full = false end
     H.charge = stage
     for _, e in ipairs(events or {}) do
@@ -511,6 +524,9 @@ return function(mod, T, Rules, Sim)
   local WHITE3, BLACK3, INK_TEAL, INK_SCORE, INK_POP = { 255, 255, 255 }, { 0, 0, 0 }, { 0, 40, 36 }, { 10, 90, 80 }, { 20, 60, 60 }
   local LOW_RED, GLOW, WORD, INK_WORD = { 255, 110, 90 }, { 60, 230, 200 }, { 200, 255, 245 }, { 6, 90, 84 }
   local CORNERS = { { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }
+  -- the meter's rings: a turn every 100 frames (guts_shot's 6j / 6l), drawn by pointedRing
+  local RING_TURN_S = 100 / 30
+  local pointedRing
   local fonts = {}
   local function font(px)
     local f = fonts[px]
@@ -650,22 +666,48 @@ return function(mod, T, Rules, Sim)
     say(G2, txt, x1 - 6 * kh, y1 - 29 * kh - (dh - 16 * kh) / 2, dh, "right", WHITE3, INK_SCORE)
     say(G2, s.name or "", x1 - 6 * kh, y1 - 11 * kh, 6 * kh, "right", WHITE3, BLACK3)
     G2.pop()
-    -- the guts, bottom left: a ring filling with orange, bright when full
+    -- the energy meter, bottom left: as the game's (its fill scales from the middle out with the
+    -- meter), a red-orange core in a yellow rim; the two pointed rings turn round it, one each
+    -- way, while it covers a shot
     G2.push()
     G2.translate(-slide, 0)
     local gx, gy, gr = x0 + 18 * kh, y1 - 18 * kh, 10 * kh
     local guts = math.max(0, math.min(1, sim.guts or 0))
     G2.setColor(0, 0, 0, 0.45); G2.circle("fill", gx, gy, gr + 2 * kh, 32)
     if guts > 0 then
-      G2.setColor(0.98, 0.55, 0.12, 1)
-      G2.arc("fill", gx, gy, gr, -math.pi / 2, -math.pi / 2 + guts * 2 * math.pi, 32)
+      local r = gr * guts
+      G2.setColor(1, 0.82, 0.22, 1); G2.circle("fill", gx, gy, r, 32)
+      G2.setColor(0.98, 0.45, 0.1, 1); G2.circle("fill", gx, gy, r * 0.78, 32)
+      G2.setColor(0.86, 0.12, 0.08, 1); G2.circle("fill", gx, gy, r * 0.45, 24)
     end
     if guts >= 1 then
       local p = 0.5 + 0.5 * math.sin(H.clock * 10)
-      G2.setColor(1, 0.85, 0.3, 0.35 + 0.35 * p); G2.circle("fill", gx, gy, gr * (1.05 + 0.15 * p), 32)
+      G2.setColor(1, 0.85, 0.3, 0.25 + 0.25 * p); G2.circle("fill", gx, gy, gr * (1.05 + 0.12 * p), 32)
     end
     c(G2, TEAL_HI); G2.setLineWidth(1.5 * kh); G2.circle("line", gx, gy, gr + 1 * kh, 32)
+    if H.ready then
+      local pop = math.min(1, (H.clock - (H.readyAt or H.clock)) / 0.2)
+      local turn = H.clock * 2 * math.pi / RING_TURN_S
+      G2.setLineWidth(1.3 * kh)
+      pointedRing(G2, gx, gy, gr * (1.75 - 0.25 * pop), turn, 0.85 * pop, kh)
+      pointedRing(G2, gx, gy, gr * (1.45 - 0.2 * pop), -turn, 0.95 * pop, kh)
+    end
     G2.pop()
+  end
+
+  -- a ring with three points outward (the game's just_charge01 rings), turned by `rot`
+  function pointedRing(G2, x, y, r, rot, a, kh)
+    G2.setColor(0.55, 1, 0.95, 0.75 * a)
+    G2.circle("line", x, y, r, 40)
+    G2.setColor(0.75, 1, 0.97, a)
+    for i = 0, 2 do
+      local ang = rot + i * 2 * math.pi / 3
+      local cx, cy = math.cos(ang), math.sin(ang)
+      local px, py = -cy, cx
+      local w, l = 2.2 * kh, 4.2 * kh
+      G2.polygon("fill", x + cx * (r + l), y + cy * (r + l),
+        x + cx * r + px * w, y + cy * r + py * w, x + cx * r - px * w, y + cy * r - py * w)
+    end
   end
 
   local function reticle(G2, sim)
@@ -681,12 +723,32 @@ return function(mod, T, Rules, Sim)
     end
     c(G2, TEAL_HI); G2.circle("line", rx, ry, 5.5 * k, 24)
     G2.line(rx - 3 * k, ry, rx + 3 * k, ry); G2.line(rx, ry - 3 * k, rx, ry + 3 * k)
+    -- Charged: a yellow ring round the crosshair and a second crosshair closing in on it over
+    -- the 16 frames to the full charge, which turns it red and glowing
     local stage = H.charge or 0
-    if stage > 0 then
-      local f = math.min(1, sim.player.chargeT / Rules.N.CHARGE.OVER_S)
-      G2.setColor(1, stage >= 3 and 0.4 or 0.7, 0.15, 0.95)
+    if stage == 1 then
+      local rise = sim:chargeRise() or 0
+      G2.setColor(1, 0.86, 0.2, 0.95)
       G2.setLineWidth(2)
-      G2.arc("line", "open", rx, ry, 8 * k, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 28)
+      G2.circle("line", rx, ry, 8 * k, 28)
+      local far = h * (1 + 3 * (1 - rise))
+      G2.setColor(1, 0.9, 0.25, 0.4 + 0.6 * rise)
+      G2.setLineWidth(1.6)
+      for _, sgn in ipairs(CORNERS) do
+        local cx, cy = rx + sgn[1] * far, ry + sgn[2] * far
+        G2.line(cx, cy - sgn[2] * 5 * k, cx, cy, cx - sgn[1] * 5 * k, cy)
+      end
+    elseif stage >= 2 then
+      local p = 0.5 + 0.5 * math.sin(H.clock * 14)
+      G2.setColor(1, 0.15, 0.1, 0.25 + 0.2 * p)
+      G2.circle("fill", rx, ry, (10 + 2 * p) * k, 28)
+      G2.setColor(1, 0.2, 0.12, 1)
+      G2.setLineWidth(2.2)
+      G2.circle("line", rx, ry, 8 * k, 28)
+      for _, sgn in ipairs(CORNERS) do
+        local cx, cy = rx + sgn[1] * h, ry + sgn[2] * h
+        G2.line(cx, cy - sgn[2] * 5 * k, cx, cy, cx - sgn[1] * 5 * k, cy)
+      end
     end
     if H.fullAt and H.clock - H.fullAt < 0.3 then
       local a = 1 - (H.clock - H.fullAt) / 0.3

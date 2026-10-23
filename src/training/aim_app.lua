@@ -204,6 +204,8 @@ return function(mod, Pointer, T, Rules, Sim)
       if role == "aim" then
         sim:aim(aimAt(sim, x, y))
         sim:releaseFire()
+      elseif role == "block" then
+        sim:unblock()
       elseif role == "exit" then
         app.exitHeld = false
         if P then P:play("release") end
@@ -383,9 +385,9 @@ return function(mod, Pointer, T, Rules, Sim)
     G.circle("line", lx, ly, 6.5, 24)
     G.circle("line", lx, ly, 3, 16)
     if sim.player.charging then
-      local f = math.min(1, sim.player.chargeT / N.CHARGE.OVER_S)
+      local f = math.min(1, sim.player.chargeT * N.CHARGE.FPS / N.CHARGE.FIZZLE_F)
       local stage = sim:chargeStage()
-      G.setColor(rgb(250, stage >= 3 and 90 or 200, 40))
+      G.setColor(rgb(250, stage >= 2 and 90 or 200, 40))
       G.setLineWidth(2.2)
       G.arc("line", "open", lx, ly, 10, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 24)
     end
@@ -521,8 +523,8 @@ return function(mod, Pointer, T, Rules, Sim)
       local rx, ry = app.padPointFor(sim.player.aim.x, sim.player.aim.y)
       local stage = sim:chargeStage()
       if sim.player.charging then
-        local f = math.min(1, sim.player.chargeT / N.CHARGE.OVER_S)
-        G.setColor(stage >= 3 and 1 or 0.98, stage >= 3 and 0.3 or 0.75, 0.2, 0.9)
+        local f = math.min(1, sim.player.chargeT * N.CHARGE.FPS / N.CHARGE.FIZZLE_F)
+        G.setColor(stage >= 2 and 1 or 0.98, stage >= 2 and 0.3 or 0.75, 0.2, 0.9)
         G.arc("line", rx, ry, 14, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 20)
       end
       local ring = art("training/aim")

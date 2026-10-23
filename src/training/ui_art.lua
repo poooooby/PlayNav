@@ -1515,8 +1515,11 @@ return function(mod, deps)
   local function botForArt(id)
     if not courseBot then
       courseBot = {}
-      for _, c in ipairs((deps.courses and deps.courses.courses) or {}) do
-        local b = c.bots and c.bots[1]
+      local C = deps.courses
+      local version = deps.gameVersion and deps.gameVersion() or nil
+      for _, c in ipairs((C and C.courses) or {}) do
+        local bots = (C.botsFor and C.botsFor(c, version)) or c.bots
+        local b = bots and bots[1]
         if b and b.art and not courseBot[b.art] then courseBot[b.art] = { bot = b, stat = c.stat } end
       end
     end

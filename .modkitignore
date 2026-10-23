@@ -119,3 +119,5 @@ tests/drivers/amie_art_compare.lua
 tests/drivers/se_timing_probe.lua
 tests/drivers/display_mode_probe.lua
 tests/drivers/output_probe.lua
+tests/drivers/speed_probe.lua
+tests/drivers/charge_probe.lua

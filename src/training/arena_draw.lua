@@ -957,6 +957,51 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return st.a
   end
 
+  -- the Charged Shot's fire, drawn: tongues of flame rising over the rider's box (w x h, feet at
+  -- fx, fy), flickering; stage 2 taller, wider and orange at the edges. Added light.
+  local drawFire, drawSmoke
+  D.FIRE = { TONGUES = 7, HEIGHT = { 1.05, 1.45 }, WIDTH = { 1.0, 1.3 }, ALPHA = { 0.55, 0.7 } }
+  local FIRE_OUTER = { { 1, 0.92, 0.3 }, { 1, 0.5, 0.08 } }
+  local FIRE_INNER = { { 1, 1, 0.7 }, { 1, 0.9, 0.35 } }
+  local function tongue(G2, x, base, w, h, lean)
+    G2.polygon("fill", x - w, base, x - w * 0.55, base - h * 0.45, x + lean * w, base - h,
+      x + w * 0.55, base - h * 0.45, x + w, base)
+  end
+  function drawFire(G2, sim, fx, fy, w, h, k, stage)
+    local F = D.FIRE
+    local st = math.min(2, stage)
+    local W, H = math.max(w, 18 * k) * F.WIDTH[st], math.max(h, 24 * k) * F.HEIGHT[st]
+    local t = sim.t
+    G2.push("all")
+    G2.setBlendMode("add")
+    for layer = 1, 2 do
+      local col = layer == 1 and FIRE_OUTER[st] or FIRE_INNER[st]
+      local sc = layer == 1 and 1 or 0.62
+      for i = 0, F.TONGUES - 1 do
+        local u = (i + 0.5) / F.TONGUES - 0.5
+        local flick = 0.75 + 0.25 * math.sin(t * (9 + i * 1.7) + i * 2.1)
+        local hi = H * sc * (1 - 1.3 * u * u) * flick
+        local x = fx + u * W * 0.9 * sc
+        G2.setColor(col[1], col[2], col[3], F.ALPHA[st] * (layer == 1 and 0.75 or 0.9))
+        tongue(G2, x, fy + 2 * k, W / F.TONGUES * 0.85 * sc, hi, 0.35 * math.sin(t * 6 + i))
+      end
+    end
+    G2.pop()
+  end
+  -- the smoke after a fizzle: grey puffs drifting up and fading over the stop (`left` seconds)
+  function drawSmoke(G2, sim, fx, fy, w, h, k, left)
+    local total = N.CHARGE.STUN_F / N.CHARGE.FPS
+    local u = 1 - math.max(0, math.min(1, left / total))
+    for i = 0, 5 do
+      local ang = i * 1.05
+      local x = fx + math.sin(ang * 2.3) * w * 0.35
+      local y = fy - h * (0.3 + 0.12 * (i % 3)) - u * 26 * k
+      local r = (7 + 3 * (i % 2)) * k * (0.7 + 0.8 * u)
+      G2.setColor(0.6, 0.6, 0.62, 0.55 * (1 - u))
+      G2.circle("fill", x, y, r, 14)
+    end
+  end
+
   local function drawPlayer(G2, sim, s)
     local p = sim.player
     local px, py, k = Sim.project(p.x, p.y or 0, p.z)
@@ -980,17 +1025,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     local pic = playerPic(s)
     local stage = sim:chargeStage()
-    if p.charging and stage > 0 then
-      local ring = art("training/charge")
-      if ring then
-        local sc = (36 + 10 * stage) * k / 64
-        G2.setColor(1, 1, 1, 0.5 + 0.15 * stage)
-        G2.draw(ring, px, py - 20 * k, sim.t * 4, sc, sc, 32, 32)
-      else
-        G2.setColor(1, 0.9, 0.4, 0.3 + 0.1 * stage)
-        G2.circle("fill", px, py - 20 * k, (16 + 6 * stage) * k, 24)
-      end
-    end
     if p.shield > 0 then
       G2.setColor(0.4, 0.9, 1, 0.5)
       G2.arc("fill", px, py - 18 * k, 26 * k, -math.pi * 0.9, -math.pi * 0.1, 16)
@@ -1036,6 +1070,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0.95, 0.6, 0.2, see)
       G2.circle("fill", px, py - 14 * k, 12 * k, 16)
     end
+    -- the charge's fire over the Pokemon (yellow when Charged, a bigger yellow-orange at full),
+    -- and the smoke it leaves when the charge fizzles
+    if p.charging and stage > 0 then drawFire(G2, sim, px, feetY, x1 - x0, feetY - y0, k, stage) end
+    if (p.smoke or 0) > 0 then drawSmoke(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.smoke) end
     -- the reticle (the game's HUD draws its own)
     if s and s.hudReticle then return end
     local rx, ry = Sim.project(p.aim.x, p.aim.y, 1)
@@ -1116,11 +1154,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0, 0, 0, 0.5)
       G2.circle("fill", gx, gy, 10, 20)
     end
-    local full = sim.guts >= N.GUTS.FULL_AT
+    -- the meter grows from the middle out, as the game's
+    local full = sim.guts >= 1
     G2.setColor(full and 1 or 0.98, full and 0.85 or 0.6, full and 0.3 or 0.15, 1)
-    if sim.guts > 0.001 then
-      G2.arc("fill", gx, gy, 9, -math.pi / 2, -math.pi / 2 + sim.guts * 2 * math.pi, 20)
-    end
+    if sim.guts > 0.001 then G2.circle("fill", gx, gy, 9 * sim.guts, 20) end
     G2.setColor(1, 1, 1, 0.8)
     G2.circle("line", gx, gy, 10, 20)
     if sim.bot and sim.bot.aura > 0 then

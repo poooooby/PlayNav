@@ -15,6 +15,7 @@ end
 local N = loadFile("mods/play_nav/data/training_rules.lua")
 local C = loadFile("mods/play_nav/data/training_courses.lua")
 local Sim = loadFile("mods/play_nav/src/training/sim.lua")(N)
+local Rules = loadFile("mods/play_nav/src/training/rules.lua")(N, loadFile("mods/play_nav/data/training_shot_types.lua"))
 
 local function lcg(seed)
   local s = seed or 1
@@ -25,7 +26,9 @@ local function make(id, opts)
   opts = opts or {}
   local course = C.byId[id]
   local sim = Sim.new(course, { anchors = C.anchors[course.goals.anchors], library = C.attacks,
-    shotType = opts.shotType or "black", mods = opts.mods, level = course.level, shapes = opts.shapes }, opts.rng or lcg(7))
+    shotType = opts.shotType or "black", mods = opts.mods, level = course.level, shapes = opts.shapes,
+    -- the balloon held still (aimed shots take most of a second to arrive); opts.sway lets it move
+    still = not opts.sway }, opts.rng or lcg(7))
   return sim, course
 end
 
@@ -91,20 +94,25 @@ do
   local st = sim:state()
   T.eq(st.target, 500, "the target is 500")
   T.check(near(st.remaining, 180, 0.2), "the clock starts at 3:00 when play starts")
-  -- aim at the first goal and fire a plain shot
-  local g = st.goals[1]
-  sim:aim(g.x, g.y)
-  sim:pressFire()
-  sim:update(1 / 60)
-  sim:releaseFire()
-  local hit
-  run(sim, 1.5, function(e) if e.kind == "goal_hit" then hit = e end end)
-  T.check(hit ~= nil, "the shot scores")
+  -- aim at the first goal and fire plain shots until one lands (the goal rides the balloon's
+  -- sway, and a shot takes most of a second to get there)
+  local hit, tries = nil, 0
+  while not hit and tries < 8 do
+    tries = tries + 1
+    local g = sim:state().goals[1]
+    sim.guts = 1
+    sim:aim(g.x, g.y)
+    sim:pressFire()
+    sim:update(1 / 60)
+    sim:releaseFire()
+    run(sim, 1.2, function(e) if e.kind == "goal_hit" then hit = e end end)
+  end
+  T.check(hit ~= nil, "a shot scores (" .. tries .. " fired)")
   T.eq(hit and hit.points, 20, "...20 points on Lv1")
   T.eq(sim.score, 20, "score 20")
   T.eq(#sim.goals, 1, "the goal is gone")
   T.check(sim.bot.scale > 1, "the balloon grew")
-  T.check(sim.stats.shots == 1 and sim.stats.hits == 1, "stats count the shot and the hit")
+  T.check(sim.stats.shots == tries and sim.stats.hits == 1, "stats count the shots and the hit")
 end
 
 -- ------- yellow at 8 s, gone at 12 s, the next group
@@ -216,27 +224,51 @@ do
   T.check(top < 0, ("it goes up off the top of the screen (y %.0f)"):format(top))
 end
 
--- ------- charge: stage 3 is 3x, overcharging stuns
+-- ------- charge (the game's frames at 30 a second): Charged at 50, full at 66 (x3), fizzles
+-- at 96 into a 30-frame stop; a Charged Shot is followed by 15 frames with no shot
 
 do
+  local F = N.CHARGE.FPS
   local sim = make("lv1_hp")
   run(sim, 3.1)
+  sim.guts = 1
   local g = sim:state().goals[1]
   sim:aim(g.x, g.y)
   sim:pressFire()
-  run(sim, N.CHARGE.STAGE_S[3] + 0.05)
-  T.eq(sim:chargeStage(), 3, "stage 3 after holding")
+  run(sim, (N.CHARGE.STAGE_F[1] - 2) / F)
+  T.eq(sim:chargeStage(), 0, "not Charged before frame 50")
+  run(sim, 3 / F)
+  T.eq(sim:chargeStage(), 1, "Charged at frame 50")
+  run(sim, (N.CHARGE.STAGE_F[2] - N.CHARGE.STAGE_F[1]) / F)
+  T.eq(sim:chargeStage(), 2, "full at frame 66")
   g = sim:state().goals[1]
   sim:aim(g.x, g.y)
   sim:releaseFire()
+  T.check(math.abs(sim.guts - (1 - N.SHOT.black.chargedCost)) < 1e-6, "the Charged Shot used the meter (180 of 500)")
+  T.check(sim.player.lock and sim.player.lock > 0, "a Charged Shot is followed by a pause")
+  T.eq(sim:pressFire(), false, "...with no charge meanwhile")
   local hit
   run(sim, 1.5, function(e) if e.kind == "goal_hit" then hit = e end end)
-  T.eq(hit and hit.points, 60, "a max charge scores 3x (60)")
+  T.eq(hit and hit.points, 60, "a full charge scores 3x (60)")
+  -- a release halfway between stage 1 and full: x2
+  sim.guts = 1
+  run(sim, 0.6)
+  g = sim:state().goals[1]
+  sim:aim(g.x, g.y)
   sim:pressFire()
-  local ev = run(sim, N.CHARGE.OVER_S + 0.1)
-  T.eq(ev.overcharge, 1, "holding too long breaks the charge")
-  T.check(sim.player.stun > 0, "...and stuns")
+  run(sim, (N.CHARGE.STAGE_F[1] + (N.CHARGE.STAGE_F[2] - N.CHARGE.STAGE_F[1]) / 2 + 0.5) / F)
+  local rise = sim:chargeRise()
+  T.check(rise and rise > 0.4 and rise < 0.6, "halfway to full (" .. tostring(rise) .. ")")
+  local shot = (sim:releaseFire() and sim.shots[#sim.shots])
+  T.check(shot and shot.points >= 38 and shot.points <= 42, "...scores about 2x (" .. tostring(shot and shot.points) .. ")")
+  -- held too long
+  run(sim, 1.0)
+  sim:pressFire()
+  local ev = run(sim, (N.CHARGE.FIZZLE_F + 1) / F)
+  T.eq(ev.overcharge, 1, "holding past frame 96 breaks the charge")
+  T.check(math.abs(sim.player.stun - N.CHARGE.STUN_F / F) < 0.05, "...and stops the Pokemon for 30 frames")
   T.eq(ev.shot_fired, nil, "...with no shot")
+  T.eq(sim:releaseFire(), false, "...and the release fires nothing")
 end
 
 -- ------- guts: shooting empties it, a dry shot is weak
@@ -266,7 +298,7 @@ do
   sim:pressFire()
   local ev = run(sim, 1.0)
   T.eq((ev.shot_fired or 0) + (ev.weak_shot or 0), 0, "holding fires nothing until it is let go")
-  run(sim, N.CHARGE.STAGE_S[3] - 1.0 + 0.05)
+  run(sim, N.CHARGE.STAGE_F[2] / N.CHARGE.FPS - 1.0 + 0.05)
   sim:releaseFire()
   T.eq(sim.player.burst, 7, "a max-charge release bursts seven")
   ev = run(sim, 1.5)
@@ -287,11 +319,12 @@ do
   T.check(tele ~= nil and launch ~= nil, "the first attack is telegraphed then launched")
   T.check(launch and tele and near(launch - tele, N.ATTACK.TELEGRAPH_S, 0.02), "...one second apart")
   -- the player stands still: the big ball lands
-  local hit
-  run(sim, 2.5, function(e) if e.kind == "player_hit" then hit = e end end)
+  local hit, safeAt
+  run(sim, 2.5, function(e) if e.kind == "player_hit" then hit = e; safeAt = sim.player.safe end end)
   T.check(hit ~= nil, "standing still gets hit")
-  T.eq(hit and hit.loss, N.DAMAGE.big, "a big ball costs 150")
-  T.eq(sim.score, 150, "score 300 -> 150")
+  T.eq(hit and hit.loss, 40, "a hit costs Wailmer's 40 (the game's course data)")
+  T.eq(sim.score, 260, "score 300 -> 260")
+  T.check(safeAt and safeAt > 0.9, "...then 30 frames untouchable")
   T.eq(sim.stats.playerHits, 1, "...one hit on record")
   -- the next one: wait until a ball is close, then block
   local blocked
@@ -304,7 +337,7 @@ do
   T.check(sim:block(), "the shield goes up")
   run(sim, 1.0, function(e) if e.kind == "blocked" then blocked = e end end)
   T.check(blocked ~= nil, "the ball is blocked")
-  T.eq(sim.score, 150, "...no points lost")
+  T.eq(sim.score, 260, "...no points lost")
   T.check(not sim:block(), "the shield has a cooldown")
 end
 
@@ -434,27 +467,76 @@ do
   T.check(last[#last] and last[#last].kind == "clear" and last[#last].remaining == 160, "...with the remaining time asked")
 end
 
--- ------- the energy meter: a full meter fires the species' Energy Shot, then plain balls
+-- ------- the energy meter (the game's 500): a shot costs its colour's share; one it cannot
+-- cover is the weak shot, free; the rings' ready flag follows the plain shot's cost
 
 do
   local sim = make("lv1_hp", { shotType = "green" })
   run(sim, 3.1)
+  sim.guts = 1
   sim:aim(0, 0.45)
+  T.check(sim:shotReady(), "a full meter covers a shot")
   local kinds = {}
-  for _ = 1, 3 do
+  for _ = 1, 2 do
     sim:pressFire(); sim:update(1 / 60); sim:releaseFire()
     for _, e in ipairs(sim:update(1 / 60)) do if e.kind == "shot_fired" or e.kind == "weak_shot" then kinds[#kinds + 1] = e.type end end
   end
-  T.eq(kinds[1], "green", "the first shot, meter full: the Energy Shot")
-  T.check(kinds[2] == "black" or kinds[2] == "weak", "the second, meter down: a plain ball (" .. tostring(kinds[2]) .. ")")
+  T.eq(kinds[1], "green", "the first green shot (300 of 500)")
+  T.eq(kinds[2], "weak", "the second, the meter short: the weak shot")
   T.check(sim.shots[1].points > sim.shots[2].points, "...worth less")
-  run(sim, 1 / N.GUTS.RATE + 0.1)
-  T.check(sim:state().energy, "the meter refills to full")
+  T.check(not sim:shotReady(), "the rings go with the meter below the cost")
+  local g0 = sim.guts
+  run(sim, 0.5)
+  T.check(sim.guts > g0, "it refills with time")
+end
+
+-- ------- the guard: up while held, for at most its length, a cooldown after; half-speed moving
+
+do
+  local sim = make("lv1_hp", { mods = { pointMult = 1, shotSize = 1, lossMult = 1, gutsRate = 1, blockLen = 1,
+    moveMult = 1, ballSpeedMult = 1, blockS = 40 / 30 } })
+  run(sim, 3.1)
+  T.eq(sim:block(), true, "the guard rises")
+  T.eq(sim:pressFire(), true, "...a press still charges")
+  T.eq(sim:releaseFire(), false, "...but nothing fires while it is up")
+  sim:setMove(1, 0)
+  local x0 = sim.player.x
+  run(sim, 0.5)
+  local guarded = sim.player.x - x0
+  T.check(sim.player.shield > 0, "held, it stays up")
+  T.eq(sim:unblock(), true, "let go, it drops")
+  T.eq(sim:block(), false, "...and cannot rise again during the cooldown")
+  x0 = sim.player.x
+  run(sim, 0.5)
+  T.check(math.abs((sim.player.x - x0) - 2 * guarded) < 1e-6 or sim.player.x >= N.PLAYER.X_MAX - 1e-6, "it moves at half speed while up")
+  sim:setMove(0, 0)
+  run(sim, 0.6)
+  T.eq(sim:block(), true, "after the cooldown it rises again")
+  run(sim, 40 / 30 + 0.05)
+  T.check(sim.player.shield == 0 and sim.player.shieldCd > 0, "held past its length it drops on its own")
+end
+
+-- ------- the game's shot power and refill from the Pokemon's stats
+
+do
+  -- Latias-like bases (Atk 80, SpA 110, Def 90, SpD 130) and 252 Atk / 252 SpA / 6 HP EVs
+  local base = { hp = 80, atk = 80, def = 90, spe = 110, spa = 110, spd = 130 }
+  local evs = { hp = 6, atk = 252, spa = 252 }
+  local st = Rules.shotStats(base, evs, nil)
+  -- (80 + 110) div 5 = 38, 504 div 4 = 126, 0.5 x 50 + 0.2 x 50 + 0.1 x 410 = 76 -> 240
+  T.eq(st.power, 240, "the shot power is the game's formula")
+  T.eq(Rules.shotStats(base, evs, "strength").power, 360, "...x1.5 with Strength")
+  -- DEFv = 90 + 130, EV total 510: int(4 x (1 + 730 x 0.0025)) = 11 a frame, 330 a second
+  T.check(math.abs(st.gutsPerS - 11 * 30 / 500) < 1e-9, "the refill a frame from Def / Sp. Def and the EVs")
+  local sim = make("lv1_hp", { mods = Rules.modifiers(evs, nil, { base = base }) })
+  run(sim, 3.1)
+  sim.guts = 1
+  local g = sim:state().goals[1]
+  sim:aim(g.x, g.y)
   sim:pressFire(); sim:update(1 / 60); sim:releaseFire()
-  local last
-  for _, e in ipairs(sim:update(1 / 60)) do if e.kind == "shot_fired" then last = e end end
-  T.check(last and last.energy == true and last.type == "green", "...and the next shot is an Energy Shot again")
-  T.eq(sim.stats.energyShots, 2, "two Energy Shots counted")
+  local hit
+  run(sim, 1.5, function(e) if e.kind == "goal_hit" then hit = e end end)
+  T.eq(hit and hit.points, 240, "a plain black hit scores the shot power")
 end
 
 -- ------- bits regenerate, Aerodactyl bobs, Probopass's goals roam, levels hit harder
@@ -499,7 +581,10 @@ do
   run(lv3, 3.1)
   lv3.score = 1000
   lv3:playerHit({ kind = "big" })
-  T.eq(lv3.score, 1000 - N.DAMAGE.big * N.DAMAGE.LEVEL_MULT[3], "a Lv3 hit costs the level multiple")
+  T.eq(lv3.score, 1000 - 450, "a Lv3 Wailord hit costs its 450")
+  lv3.score = 1000
+  lv3:playerHit({ kind = "bit" })
+  T.eq(lv3.score, 1000 - math.floor(450 * N.DAMAGE.BIT_SHARE), "...a bitbot's shot its share")
 end
 
 -- ------- Aegislash rages past 2400: faster, stronger shots
@@ -519,7 +604,10 @@ do
   T.check(math.abs(sim.balls[1].vz) > math.abs(calm.balls[1].vz), "its balls fly faster")
   sim.score = 2400
   sim:playerHit({ kind = "big" })
-  T.eq(sim.score, 2400 - math.floor(N.DAMAGE.big * N.DAMAGE.LEVEL_MULT.secret * N.BOT.RAGE_DAMAGE + 0.5), "...and hit harder")
+  T.eq(sim.score, 0, "...and hit with its second form's 2500")
+  calm.score = 2000
+  calm:playerHit({ kind = "big" })
+  T.eq(calm.score, 800, "calm, Aegislash's 1200")
 end
 
 
@@ -666,9 +754,12 @@ end
 
 do
   local base = make("lv1_hp")
+  T.check(base.guts < 0.01, "the energy meter starts empty")
   run(base, 3.1)
+  base.guts = 1
   local strong = make("lv1_hp", { mods = { pointMult = 2, shotSize = 1, lossMult = 0.5, gutsRate = 1, blockLen = 1, moveMult = 1, ballSpeedMult = 1 } })
   run(strong, 3.1)
+  strong.guts = 1
   local function firstHit(sim)
     local g = sim:state().goals[1]
     sim:aim(g.x, g.y); sim:pressFire(); sim:update(1 / 60); sim:releaseFire()

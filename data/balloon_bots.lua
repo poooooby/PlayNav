@@ -42,5 +42,9 @@ return {
     ["305"] = { row = 35, pal = { "6a6a7bff", "7b8394ff", "ffffffff", "c5cdd5ff", "000000ff", "414a52ff", "9c9cacff", "414141ff", "6a6a6aff", "acacacff", "8b8b8bff", "6abdffff", "ac394aff", "de6a6aff" } },  -- LAIRON
     ["306"] = { row = 36, pal = { "838394ff", "5a5a62ff", "000000ff", "ffffffff", "cdcdcdff", "a4a4acff", "acacacff", "8b8b8bff", "6a6a6aff", "6abdffff", "52524aff", "9c3141ff", "de5252ff" } },  -- AGGRON
     ["306-mega"] = { row = 37, pal = { "52524aff", "6a6a6aff", "101010ff", "5a5a62ff", "acacacff", "838394ff", "fefefeff", "8b8b8bff", "cdcdcdff", "a4a4acff", "6abdffff", "9c3141ff", "de5252ff" } },  -- AGGRON
+    ["246"] = { row = 38, pal = { "7b9c62ff", "4a5a39ff", "d5e6cdff", "accd9cff", "101010ff", "6a2000ff", "ffffffff", "bd3920ff", "ee5229ff", "ffa45aff" } },  -- LARVITAR
+    ["247"] = { row = 39, pal = { "295a83ff", "101010ff", "8bc5eeff", "bde6ffff", "739cc5ff", "acacacff", "ffffffff", "b44100ff" } },  -- PUPITAR
+    ["248"] = { row = 40, pal = { "4a5a39ff", "accd9cff", "101010ff", "dee6cdff", "739c62ff", "ffffffff", "c5c5c5ff", "737373ff", "942900ff", "d55200ff", "207bbdff", "004a8bff", "4a9ce6ff" } },  -- TYRANITAR
+    ["248-mega"] = { row = 41, pal = { "4a5a39ff", "101010ff", "dee6cdff", "accd9cff", "739c62ff", "942900ff", "fefefeff", "c5c5c5ff", "d55200ff", "d0243bff", "ff3e40ff", "821610ff", "737373ff" } },  -- TYRANITAR
   },
 }

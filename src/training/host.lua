@@ -26,6 +26,13 @@ return function(mod, base)
   -- LeafGreen, "emerald", "rs" for Ruby / Sapphire), and playing one through the game's music
   -- player (faded over, as the game changes map music)
   local FAMILY = { firered = "frlg", leafgreen = "frlg", emerald = "emerald", ruby = "rs", sapphire = "rs" }
+  -- the GBA game being played ("ruby", "sapphire", "emerald", "firered", "leafgreen"), or nil
+  function H.gameVersion()
+    local R = H.Runtime3
+    local ok, session = pcall(function() return R and R.getSession() end)
+    local v = ok and type(session) == "table" and session.version or nil
+    return v and tostring(v):lower() or nil
+  end
   function H.songFamily()
     local R = H.Runtime3
     local ok, session = pcall(function() return R and R.getSession() end)

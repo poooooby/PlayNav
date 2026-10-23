@@ -139,7 +139,7 @@ local COURSES = {
   [28] = { "Scatterbug's Big Comeback!", "Scatterbug, then Spewpa, then Vivillon. Three rounds, one clock." },
   [29] = { "Bitbot Storm!", "Bitbots everywhere! Clear a path and keep the balloon in your sights." },
   [30] = { "Bring Down Hydreigon!", "Deino grows into Hydreigon over three rounds, and there's no room for mistakes." },
-  [31] = { "Clash of the Champions!", "Aron's whole line, all the way to its Mega form. The ultimate test!" },
+  [31] = { "Clash of the Champions!", "A whole evolution line, all the way to its Mega form. The ultimate test!" },
 }
 for order, row in pairs(COURSES) do
   C[20 + order] = row[1]
@@ -151,7 +151,7 @@ W.training_courses = C
 W.species = {
   [3] = "Venusaur", [6] = "Charizard", [9] = "Blastoise", [72] = "Tentacool", [73] = "Tentacruel",
   [74] = "Geodude", [75] = "Graveler", [76] = "Golem", [81] = "Magnemite", [82] = "Magneton",
-  [142] = "Aerodactyl", [304] = "Aron", [305] = "Lairon", [306] = "Aggron", [320] = "Wailmer",
+  [142] = "Aerodactyl", [246] = "Larvitar", [247] = "Pupitar", [248] = "Tyranitar", [304] = "Aron", [305] = "Lairon", [306] = "Aggron", [320] = "Wailmer",
   [321] = "Wailord", [369] = "Relicanth", [407] = "Roserade", [462] = "Magnezone", [475] = "Gallade",
   [476] = "Probopass", [610] = "Axew", [611] = "Fraxure", [612] = "Haxorus", [618] = "Stunfisk",
   [633] = "Deino", [634] = "Zweilous", [635] = "Hydreigon", [664] = "Scatterbug", [665] = "Spewpa",

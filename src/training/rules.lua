@@ -165,7 +165,39 @@ return function(N, ShotTypes)
     return math.min(1, sum / (N.LIMITS.EV_CAP * n))
   end
 
-  -- opts = { pokerus = bool }
+  -- the game's shot power and meter refill from the Pokemon's base stats and EVs
+  -- (DllSparring.cro 0x5a5c..0x6004; data/training_rules.lua N.POINTS / N.GUTS):
+  -- { power = P, gutsPerS = the meter's share refilled a second } or nil without base stats
+  function R.shotStats(base, evs, pending)
+    if type(base) ~= "table" then return nil end
+    local function b(k) return tonumber(base[k]) or 0 end
+    local total = 0
+    for _, k in ipairs({ "hp", "atk", "def", "spe", "spa", "spd" }) do total = total + evOf(evs, k) end
+    local p = math.floor((b("atk") + b("spa")) / 5) + math.floor((evOf(evs, "atk") + evOf(evs, "spa")) / 4)
+    local from = 0
+    for _, step in ipairs(N.POINTS.EV_STEPS) do
+      p = p + step[2] * math.max(0, math.min(total, step[1]) - from)
+      from = step[1]
+    end
+    if pending == "strength" then p = p * N.POINTS.STRENGTH_MULT end
+    local defv = b("def") + b("spd") + 2 * (evOf(evs, "def") + evOf(evs, "spd"))
+    local perFrame = math.floor(N.GUTS.PER_FRAME * (1 + (defv + total) * N.GUTS.DEF_K))
+    local spev = b("spe") + 2 * evOf(evs, "spe")
+    local hpv = b("hp") + 2 * evOf(evs, "hp")
+    local ref = N.SHOT.STAT_REF
+    local swift = pending == "swiftness" and N.PLAYER.SWIFT_MULT or 1
+    return { power = p, gutsPerS = perFrame * N.CHARGE.FPS / N.GUTS.CAP, evTotal = total,
+      -- moving: the game's 2 x (1 + SPEv x 0.001) against our stand's speed (taken at STAT_REF),
+      -- x1.5 Swiftness; the guard's longest hold from Def / Sp. Def
+      moveMult = (1 + spev * N.PLAYER.SPE_K) / (1 + ref * N.PLAYER.SPE_K) * swift,
+      blockS = math.floor(N.BLOCK.MAX_F * (1 + defv * N.BLOCK.DEF_K)) / N.CHARGE.FPS,
+      -- shot speed and size against our table's (taken at STAT_REF); a hit's loss as the game's
+      speedMult = (1 + spev * N.SHOT.SPE_K) / (1 + ref * N.SHOT.SPE_K),
+      sizeMult = (1 + hpv * N.SHOT.HP_K) / (1 + ref * N.SHOT.HP_K),
+      lossMult = 1 / (1 + (hpv + total) * N.DAMAGE.LOSS_K) }
+  end
+
+  -- opts = { pokerus = bool, base = base stats (the game's shot power and refill, R.shotStats) }
   function R.modifiers(evs, pending, opts)
     opts = opts or {}
     local atk = frac(evs, "atk", "spa")
@@ -176,7 +208,7 @@ return function(N, ShotTypes)
       pointMult = 1 + N.POINTS.ATK_BONUS * atk,
       shotSize = 1 + N.SHOT.HP_SIZE_BONUS * hp,
       lossMult = 1 - N.DAMAGE.HP_REDUCE * hp,
-      gutsRate = 1 + N.GUTS.DEF_BONUS * def,
+      gutsRate = 1,
       blockLen = 1 + N.BLOCK.DEF_BONUS * def,
       moveMult = 1 + N.PLAYER.SPE_BONUS * spe,
       ballSpeedMult = 1 + N.SHOT.SPE_SPEED_BONUS * spe,
@@ -188,6 +220,16 @@ return function(N, ShotTypes)
     elseif pending == "swiftness" then m.moveMult = m.moveMult * N.PLAYER.SWIFT_MULT
     elseif pending == "toughen_up" then m.lossMult = m.lossMult * N.DAMAGE.TOUGHEN_MULT
     elseif pending == "double_up" then m.evMult = N.LIMITS.DOUBLE_UP_MULT end
+    -- with the Pokemon's stats, the game's: the points are its shot power (Strength inside it)
+    local st = R.shotStats(opts.base, evs, pending)
+    if st then
+      m.power, m.gutsPerS = st.power, st.gutsPerS
+      m.pointMult = 1
+      m.ballSpeedMult = st.speedMult
+      m.shotSize = st.sizeMult * (pending == "big_shot" and N.SHOT.BIG_SHOT_SIZE or 1)
+      m.lossMult = st.lossMult * (pending == "toughen_up" and N.DAMAGE.TOUGHEN_MULT or 1)
+      m.moveMult, m.blockS = st.moveMult, st.blockS
+    end
     return m
   end
 

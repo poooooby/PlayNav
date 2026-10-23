@@ -64,6 +64,12 @@ local function body(game, log)
   -- every course open for the probe
   S.session.rec.fully = true
   for _, c in ipairs(S.courseList()) do TR.store.cleared()[c.id] = true end
+  -- BALLOON_VERSION=sapphire etc.: the GBA game the courses are for (the final course's line)
+  if os.getenv("BALLOON_VERSION") and TR.host then
+    local v = os.getenv("BALLOON_VERSION")
+    TR.host.gameVersion = function() return v end
+    log("version stood in:", v)
+  end
   local ids = { os.getenv("BALLOON_COURSES") or "lv1_hp,lv2_spe,lv2_def,lv3_def,secret_04,secret_10" }
   for id in ids[1]:gmatch("[^,]+") do
     S.session.rec.resting = nil

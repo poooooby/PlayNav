@@ -126,6 +126,7 @@ return function(N)
     local s = setmetatable({}, Sim)
     s.course = course
     s.rng = rng or math.random
+    s.still = params.still == true
     s.mods = params.mods or { pointMult = 1, shotSize = 1, lossMult = 1, gutsRate = 1, blockLen = 1, moveMult = 1, ballSpeedMult = 1 }
     s.shotType = params.shotType or "black"
     s.level = course.level or 1
@@ -171,7 +172,7 @@ return function(N)
     self.botIndex = self.botIndex + 1
     local b = self.course.bots[self.botIndex]
     if not b then return false end
-    self.bot = { national = b.national, species = b.species, art = b.art, mega = b.mega, target = b.score,
+    self.bot = { national = b.national, species = b.species, art = b.art, mega = b.mega, target = b.score, damage = b.damage, damage2 = b.damage2,
       scale = 1, flinch = 0, aura = 0, mood = "normal", goalsScored = 0 }
     self.shape = self.shapes[self.botIndex]
     self.score = 0
@@ -205,30 +206,63 @@ return function(N)
   function Sim:botCY() return self.shape and N.BOT.SHAPE_CY or N.BOT.CY end
   function Sim:pause(on) self.paused = on and true or false end
 
+  -- the guard (DllSparring.cro 0x23d0-0x2594): raised while L / R (or the block button) is
+  -- held, for at most its length; let go or run out, the cooldown before it can rise again.
+  -- Not while stopped, hit or in the pause after a Charged Shot.
   function Sim:block()
     local p = self.player
-    if self.phase ~= "play" or p.shieldCd > 0 or p.stun > 0 then return false end
-    p.shield = N.BLOCK.LEN * (self.mods.blockLen or 1)
-    p.shieldCd = N.BLOCK.COOLDOWN
+    if self.phase ~= "play" or p.shield > 0 or p.shieldCd > 0 or p.stun > 0 or (p.lock or 0) > 0 then return false end
+    p.shield = self.mods.blockS or (N.BLOCK.LEN * (self.mods.blockLen or 1))
     emit(self, "block_up")
     return true
   end
 
+  function Sim:unblock()
+    local p = self.player
+    if p.shield <= 0 then return false end
+    p.shield = 0
+    p.shieldCd = self.mods.blockS and N.BLOCK.COOLDOWN_F / N.CHARGE.FPS or N.BLOCK.COOLDOWN
+    emit(self, "block_down")
+    return true
+  end
+
+  -- the game's charge (DllSparring.cro 0x2598-0x29ac): a press starts it whatever the meter
+  -- holds; frames held from the press make it Charged (stage 1) then full (stage 2); held past
+  -- FIZZLE_F it breaks and the Pokemon stops for STUN_F; a Charged Shot is followed by AFTER_F
+  -- with no shot or charge (p.lock)
+  local CF = N.CHARGE.FPS
   function Sim:pressFire()
     local p = self.player
-    if self.phase ~= "play" or p.stun > 0 then return false end
+    if self.phase ~= "play" or p.stun > 0 or (p.lock or 0) > 0 then return false end
     p.charging = true
     p.chargeT = 0
     p.rapidT = 0
     return true
   end
 
+  -- 0 (a plain shot), 1 (Charged), 2 (full)
   function Sim:chargeStage()
     local p = self.player
     if not p.charging then return 0 end
-    local stage = 0
-    for i, t in ipairs(N.CHARGE.STAGE_S) do if p.chargeT >= t then stage = i end end
-    return stage
+    local f = p.chargeT * CF
+    if f >= N.CHARGE.STAGE_F[2] then return 2 end
+    if f >= N.CHARGE.STAGE_F[1] then return 1 end
+    return 0
+  end
+
+  -- how far a Charged Shot has risen from stage 1 to full: 0..1 (nil before stage 1)
+  function Sim:chargeRise()
+    local p = self.player
+    if not p.charging then return nil end
+    local f = p.chargeT * CF
+    if f < N.CHARGE.STAGE_F[1] then return nil end
+    return math.min(1, (f - N.CHARGE.STAGE_F[1]) / (N.CHARGE.STAGE_F[2] - N.CHARGE.STAGE_F[1]))
+  end
+
+  -- the meter covers a plain shot (the game's ready flag, [r4+0x2a5]: the two rings)
+  function Sim:shotReady()
+    local species = N.SHOT[self.shotType] or N.SHOT.black
+    return self.guts >= species.cost - 1e-9
   end
 
   function Sim:releaseFire()
@@ -236,15 +270,16 @@ return function(N)
     if not p.charging then return false end
     -- where this shot was aimed: the top screen marks it so the next one can be corrected
     p.lastShot = { x = p.aim.x, y = p.aim.y }
-    local stage = math.max(1, self:chargeStage())
+    local stage, rise = self:chargeStage(), self:chargeRise()
     p.charging = false
     if self.phase ~= "play" or p.stun > 0 or p.shield > 0 then return false end
-    if self.shotType == N.SHOT.RAPID and stage >= 3 then
+    if self.shotType == N.SHOT.RAPID and stage >= 2 then
       p.burst = N.CHARGE.YELLOW_BURST
       p.firing = 0
       return true
     end
-    self:fire(stage)
+    self:fire(stage, nil, rise)
+    if stage >= 1 then p.lock = N.CHARGE.AFTER_F / CF end
     return true
   end
 
@@ -266,30 +301,33 @@ return function(N)
     return best
   end
 
-  -- the energy meter decides the ball: full -> the species' Energy Shot, otherwise a plain
-  -- black ball worth less the emptier the meter, and a weak ball when it is nearly dry
-  function Sim:fire(stage, spread)
+  -- the game's shot (DllSparring.cro 0x2f08-0x3180): the species' colour while the meter covers
+  -- its cost (a Charged Shot's from table B), else the weak shot, free; the points are the
+  -- shot's power - P x the colour's power, at least 1 - a Charged Shot's rising from x1 at
+  -- stage 1 to x(1 + MULT_RISE) at full (`rise` 0..1); P unknown (a fake host): the level's base
+  function Sim:fire(stage, spread, rise)
     local p = self.player
+    stage = stage or 0
+    local charged = stage >= 1
     local species = N.SHOT[self.shotType] or N.SHOT.black
-    local g = self.guts
+    local cost = charged and species.chargedCost or species.cost
     local def, kind, weak = species, self.shotType, false
-    local mult
-    if g >= N.GUTS.FULL_AT then
-      mult = species.mult
-    elseif g < N.GUTS.WEAK_BELOW then
-      def, kind, weak = N.SHOT.weak, "weak", true
-      mult = N.SHOT.weak.mult
-    else
-      def, kind = N.SHOT.black, "black"
-      local f = (g - N.GUTS.WEAK_BELOW) / math.max(1e-6, N.GUTS.FULL_AT - N.GUTS.WEAK_BELOW)
-      mult = N.SHOT.weak.mult + (N.SHOT.black.mult - N.SHOT.weak.mult) * f
+    if cost > self.guts + 1e-9 then
+      def, kind, weak, cost = N.SHOT.weak, "weak", true, 0
+      charged = false
     end
-    self.guts = math.max(0, self.guts - species.cost)
-    stage = stage or 1
-    local base = self.isSecret and N.POINTS.BASE.secret or (N.POINTS.BASE[self.level] or N.POINTS.BASE[1])
-    local points = base * mult * (N.CHARGE.MULT[stage] or 1) * (self.mods.pointMult or 1)
-    local r = def.r * (N.CHARGE.SIZE[stage] or 1) * (self.mods.shotSize or 1)
-    local speed = def.speed * (self.mods.ballSpeedMult or 1)
+    self.guts = math.max(0, self.guts - cost)
+    local points
+    if self.mods.power then
+      points = math.max(1, math.floor(self.mods.power * def.mult))
+    else
+      local base = self.isSecret and N.POINTS.BASE.secret or (N.POINTS.BASE[self.level] or N.POINTS.BASE[1])
+      points = base * def.mult
+    end
+    if charged then points = points * (1 + N.CHARGE.MULT_RISE * (rise or 0)) end
+    points = points * (self.mods.pointMult or 1)
+    local r = def.r * (self.mods.shotSize or 1)
+    local speed = def.speed * (charged and def.chargedSpeed or 1) * (self.mods.ballSpeedMult or 1)
     local ax = p.aim.x + (spread or 0)
     local ay = p.aim.y
     local x0, y0, z0 = p.x, (p.y or 0) + 0.15, p.z
@@ -303,11 +341,11 @@ return function(N)
       vx, vy = (bit.x - x0) / bz * speed, (bit.y - y0) / bz * speed
     end
     local shot = { x = x0, y = y0, z = z0, vz = speed, vx = vx, vy = vy,
-      r = r, points = math.floor(points + 0.5), type = kind, stage = stage, weak = weak, energy = kind == self.shotType }
+      r = r, points = math.floor(points + 0.5), type = kind, stage = charged and stage or 0, weak = weak, energy = charged }
     self.shots[#self.shots + 1] = shot
     self.stats.shots = self.stats.shots + 1
     if shot.energy then self.stats.energyShots = (self.stats.energyShots or 0) + 1 end
-    emit(self, weak and "weak_shot" or "shot_fired", { stage = stage, type = shot.type, energy = shot.energy })
+    emit(self, weak and "weak_shot" or "shot_fired", { stage = shot.stage, type = shot.type, energy = shot.energy })
     return shot
   end
 
@@ -341,7 +379,8 @@ return function(N)
   function Sim:botOffset()
     local x, y = 0, 0
     local _, _, _, hw, hu = Sim.view()
-    local sway = N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]
+    -- (`still`: a test's balloon that does not sway)
+    local sway = not self.still and N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]
     if sway and self.phase ~= "countdown" then
       local w = 2 * math.pi * (self.t - (self.swayT0 or 0)) / sway.period
       x = x + math.sin(w) * sway.ax * 0.6 / hw
@@ -855,15 +894,27 @@ return function(N)
 
   function Sim:playerHit(ball)
     local p = self.player
-    local levelMult = self.isSecret and N.DAMAGE.LEVEL_MULT.secret or (N.DAMAGE.LEVEL_MULT[self.level] or 1)
-    local loss = (N.DAMAGE[ball.kind] or N.DAMAGE.small) * (self.mods.lossMult or 1) * levelMult
-    if self.bot and self.bot.mood == "rage" then loss = loss * N.BOT.RAGE_DAMAGE end
+    -- the balloon's own damage (the game's course data; its second form's once enraged), a
+    -- bitbot's shot a share of it; without it, ours by the ball's kind and the level
+    local bot = self.bot
+    local loss
+    if bot and bot.damage then
+      loss = (bot.mood == "rage" and bot.damage2) or bot.damage
+      if ball.kind == "bit" then loss = loss * N.DAMAGE.BIT_SHARE end
+      loss = math.max(1, math.floor(loss * (self.mods.lossMult or 1)))
+    else
+      local levelMult = self.isSecret and N.DAMAGE.LEVEL_MULT.secret or (N.DAMAGE.LEVEL_MULT[self.level] or 1)
+      loss = (N.DAMAGE[ball.kind] or N.DAMAGE.small) * (self.mods.lossMult or 1) * levelMult
+      if bot and bot.mood == "rage" then loss = loss * N.BOT.RAGE_DAMAGE end
+    end
     if self.course.suddenDeath then loss = N.DAMAGE.SUDDEN_DEATH end
     loss = math.floor(loss + 0.5)
     local before = self.score
     self.score = math.max(0, self.score - loss)
     self.totalScore = math.max(0, self.totalScore - (before - self.score))
+    -- knocked back (no moving or charging), then untouchable a moment
     p.stun = N.PLAYER.HIT_STUN_S
+    p.safe = N.PLAYER.HIT_SAFE_F / N.CHARGE.FPS
     p.charging = false
     p.burst = 0
     self.stats.damageTaken = self.stats.damageTaken + (before - self.score)
@@ -908,10 +959,12 @@ return function(N)
         local overlapX = math.abs(b.x - p.x) <= hw + N.PLAYER.R
         local py = p.y or 0
         local overlapY = (b.y - hh) <= py + N.PLAYER.H and (b.y + hh) >= py
-        if overlapX and overlapY then
+        if overlapX and overlapY and (p.safe or 0) <= 0 then
           alive = false
           if p.shield > 0 then
+            -- a stopped ball: untouchable a moment
             self.stats.blocked = self.stats.blocked + 1
+            p.safe = N.BLOCK.SAFE_F / N.CHARGE.FPS
             emit(self, "blocked", { ball = b.kind })
           else
             self:playerHit(b)
@@ -954,11 +1007,20 @@ return function(N)
   function Sim:updatePlayer(step)
     local p = self.player
     if p.stun > 0 then p.stun = math.max(0, p.stun - step) end
-    if p.shield > 0 then p.shield = math.max(0, p.shield - step) end
+    if (p.lock or 0) > 0 then p.lock = math.max(0, p.lock - step) end
+    if (p.smoke or 0) > 0 then p.smoke = math.max(0, p.smoke - step) end
+    if p.shield > 0 then
+      p.shield = math.max(0, p.shield - step)
+      if p.shield <= 0 then
+        p.shieldCd = self.mods.blockS and N.BLOCK.COOLDOWN_F / N.CHARGE.FPS or N.BLOCK.COOLDOWN
+        emit(self, "block_down")
+      end
+    end
+    if (p.safe or 0) > 0 then p.safe = math.max(0, p.safe - step) end
     if p.shieldCd > 0 then p.shieldCd = math.max(0, p.shieldCd - step) end
     local canMove = p.stun <= 0 and p.burst <= 0
     if canMove then
-      local v = N.PLAYER.SPEED * (self.mods.moveMult or 1)
+      local v = N.PLAYER.SPEED * (self.mods.moveMult or 1) * (p.shield > 0 and N.BLOCK.MOVE_MULT or 1)
       -- "Those Long Shots Are No Long Shot!": the player is kept at the far end of the box
       -- across and up / down on the stand's plane; "Those Long Shots Are No Long Shot!" keeps
       -- the stand at the far end
@@ -968,9 +1030,11 @@ return function(N)
     end
     if p.charging and p.stun <= 0 then
       p.chargeT = p.chargeT + step
-      if p.chargeT >= N.CHARGE.OVER_S then
+      if p.chargeT * CF >= N.CHARGE.FIZZLE_F then
+        -- held too long: the charge fizzles into smoke and the Pokemon stops
         p.charging = false
-        p.stun = N.CHARGE.STUN_S
+        p.stun = N.CHARGE.STUN_F / CF
+        p.smoke = p.stun
         emit(self, "overcharge")
       end
       -- (holding only charges, for every colour: a shot leaves on release, as in the game)
@@ -980,10 +1044,15 @@ return function(N)
       if p.firing <= 0 then
         p.firing = N.SHOT.yellow.rapid
         p.burst = p.burst - 1
-        self:fire(3, (self.rng() - 0.5) * 0.2)
+        self:fire(2, (self.rng() - 0.5) * 0.2, 1)
       end
     end
-    self.guts = math.min(1, self.guts + N.GUTS.RATE * (self.mods.gutsRate or 1) * step)
+    -- the meter refills every frame (the game's per-frame amount from Def / Sp. Def, the EVs);
+    -- a yellow shot's held touch stops it (it streams)
+    if not (p.charging and self.shotType == N.SHOT.RAPID) then
+      local rate = self.mods.gutsPerS or (N.GUTS.RATE * (self.mods.gutsRate or 1))
+      self.guts = math.min(1, self.guts + rate * step)
+    end
   end
 
   -- ------- one fixed step
@@ -1073,7 +1142,7 @@ return function(N)
       player = { x = self.player.x, y = self.player.y, z = self.player.z, stun = self.player.stun, shield = self.player.shield, shieldCd = self.player.shieldCd },
       goals = goals, shots = #self.shots, balls = #self.balls, bits = #self.bits, barrier = self.barrier ~= nil,
       liveBits = (function() local n = 0; for _, b in ipairs(self.bits) do if not b.dead then n = n + 1 end end; return n end)(),
-      energy = self.guts >= N.GUTS.FULL_AT,
+      ready = self:shotReady(),
       botScale = self.bot and self.bot.scale, aura = self.bot and self.bot.aura, mood = self.bot and self.bot.mood,
       stats = self.stats, countdown = self.countdown,
     }
