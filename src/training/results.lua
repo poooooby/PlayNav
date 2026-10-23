@@ -16,6 +16,8 @@ return function(mod, T, Rules, Radar)
   local N = Rules.N
   -- the top screen: rows in at once, the stat's rise a second later
   R.TOP = { STATUS_IN = 0.2, STAT_UP = 1.2 }
+  -- the trained stat's label, +N and gauge arrow pulse on this beat (seconds)
+  R.BEAT_S = 0.4
   -- "And the results are..." stays this long before the next line on its own
   R.FIRST_S = 2.4
   -- the word window: two lines at least, its foot at 207 (above the band at 147)
@@ -568,7 +570,11 @@ return function(mod, T, Rules, Radar)
         G2.draw(arrow, 7, y + 2.5, 0, 1, 1)
       end
       say(G2, T.statWord and T.statWord(k) or k, 23, y + 4, 16, "left", STAT_RGB[k])
-      if up then say(G2, "+" .. tostring(r.ev), 128, y + 4, 16, "left", LIME) end
+      if up then
+        -- the +N hops on the radar's beat (highest as the label swells)
+        local hop = 3.2 * (0.5 + 0.5 * math.cos((t - R.TOP.STAT_UP) * 2 * math.pi / R.BEAT_S))
+        say(G2, "+" .. tostring(r.ev), 128, y + 4 - hop, 16, "left", LIME)
+      end
       G2.pop()
     end
     -- the meter on the right: the hexagon, the stats in it, the labels, the total's gauge
@@ -594,28 +600,36 @@ return function(mod, T, Rules, Radar)
         G2.setColor(0.05, 0.62, 0.45, 1); G2.polygon("fill", inner)
         G2.setLineWidth(2); G2.setColor(0.85, 1, 0.3, 1); G2.polygon("line", outer)
       end
+      -- the trained stat's beat (the game's: every 0.4 s its label, its +N on the burst and the
+      -- gauge's arrow swell and shrink together), with a pop as it first goes up
+      local up = R.cues.up and r.stat and LABEL_AT[r.stat] and true or false
+      local since = t - R.TOP.STAT_UP
+      local beat = up and (1 + 0.16 * math.cos(since * 2 * math.pi / R.BEAT_S)) or 1
+      local pop = up and (1 + 0.3 * (1 - ease(since / 0.2))) or 1
       for k, at in pairs(LABEL_AT) do
         local img = art("training/label_" .. k)
         if img then
           local iw, ih = img:getDimensions()
+          local ks = (up and k == r.stat) and beat * pop or 1
           G2.setColor(1, 1, 1, mk)
-          G2.draw(img, cx + at[1], cy + at[2], 0, 60 / iw, 19 / ih, iw / 2, ih / 2)
+          G2.draw(img, cx + at[1], cy + at[2], 0, 60 * ks / iw, 19 * ks / ih, iw / 2, ih / 2)
         end
       end
-      -- the trained stat's +N on its dark burst, under the label
-      if R.cues.up and r.stat and LABEL_AT[r.stat] then
+      -- the +N on its dark burst, under the label
+      if up then
         local at = LABEL_AT[r.stat]
-        local pop = 1 + 0.25 * (1 - ease((t - R.TOP.STAT_UP) / 0.25))
+        local ks = beat * pop
         local bx, by = cx + at[1], cy + at[2] + (at[2] < 0 and 21 or -21)
         local burst = art("training/point_up_win")
         if burst then
           local iw, ih = burst:getDimensions()
           G2.setColor(1, 1, 1, 1)
-          G2.draw(burst, bx, by, 0, 46 * pop / iw, 22 * pop / ih, iw / 2, ih / 2)
+          G2.draw(burst, bx, by, 0, 46 * ks / iw, 22 * ks / ih, iw / 2, ih / 2)
         end
-        say(G2, "+" .. tostring(r.ev), bx, by - 7 * pop, 14 * pop, "center", LIME)
+        say(G2, "+" .. tostring(r.ev), bx, by - 7 * ks, 14 * ks, "center", LIME)
       end
-      -- the total: the bar up the track at the right, the arrow riding its top
+      -- the total: the bar up the track at the right, the arrow just above its top (never over
+      -- the bar), pulsing on the same beat
       local gx, foot = cx + 79.5, cy + 47.5
       local hgt = (R.gaugeNow or 0)
       if hgt > 0 then
@@ -623,13 +637,13 @@ return function(mod, T, Rules, Radar)
         G2.rectangle("fill", gx - 2, foot - hgt, 4, hgt)
         G2.setColor(1, 1, 1, 0.5); G2.rectangle("fill", gx - 0.6, foot - hgt, 1.2, hgt)
       end
-      -- the block arrow, pale lime, centred on the track at the bar's top
       local block = art("training/arrow")
-      if R.cues.up and block then
-        local bob = math.sin(t * 6) * 1.2
+      if up and block then
         local bw = block:getDimensions()
+        local size = 15 * beat
+        -- the arrow's foot (its texture's y 15 of 16) on the bar's top
         G2.setColor(0.82, 1, 0.62, 1)
-        G2.draw(block, gx, foot - hgt - 6 + bob, 0, 15 / bw, 15 / bw, bw / 2, bw / 2)
+        G2.draw(block, gx, foot - hgt - 1, 0, size / bw, size / bw, bw / 2, bw * 15.5 / 16)
       end
     end
     G2.pop()

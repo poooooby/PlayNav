@@ -723,17 +723,18 @@ return function(mod, deps)
 
   -- the +N's plate: a black ragged burst
   gen("training/point_up_win", 40, 20, function(G)
+    -- a spiky dark teal burst, its points sharp, a slightly lighter edge
     local pts = {}
-    local n = 22
+    local n = 28
     for i = 0, n - 1 do
       local a = i / n * 2 * math.pi
-      local rr = (i % 2 == 0) and 1 or 0.86
+      local rr = (i % 2 == 0) and 1 or 0.76
       pts[#pts + 1] = 20 + math.cos(a) * 19.5 * rr
-      pts[#pts + 1] = 10 + math.sin(a) * 9.5 * rr
+      pts[#pts + 1] = 10 + math.sin(a) * 9.6 * rr
     end
-    G.setColor(0, 0, 0, 0.9)
-    G.polygon("fill", pts)
-    G.setLineJoin("bevel"); G.setLineWidth(0.6); G.setColor(0.6, 1, 0.5, 0.45); G.line(closed(pts))
+    G.setColor(0.07, 0.19, 0.18, 0.94)
+    fillShape(G, pts)
+    G.setLineJoin("bevel"); G.setLineWidth(0.5); G.setColor(0.2, 0.36, 0.34, 0.9); G.line(closed(pts))
   end)
   gen("training/arrow", 16, 16, function(G)
     -- a block arrow: a wide head on a short stem, white with a soft dark edge, corners rounded
