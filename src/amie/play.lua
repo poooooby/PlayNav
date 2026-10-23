@@ -106,6 +106,12 @@ return function(mod, Pointer, G, Rules, Petting, host)
     { "21", "23", 240, 0, 10, 10 },
     { "22", "23", 0, -200, 10, 10 },
   }
+  -- the session's words (a refusal: too few Pokemon for a game, no puffs left), in the
+  -- layout's message window across the middle, over everything
+  local LATE_PANES = {
+    { "5e", nil, 0, 0, 310, 50, window = "paper", hidden = true },
+    { "5o", "5e", 0, 0, 290, 20, text = { size = 19, color = { 0, 0, 0 } } },
+  }
   local STAR_X = { -39, -20, 0, 20, 39 }
   for i, name in ipairs(BADGE) do
     PANES[#PANES + 1] = { name, "21", 200 * (i - 1), 0, 154, 156, art = ("play_game%02d"):format(i) }
@@ -118,6 +124,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       PANES[#PANES + 1] = { star, name, STAR_X[j], -52, 18, 18, art = "star_" .. PLATE_TEX[d] }
     end
   end
+  for _, row in ipairs(LATE_PANES) do PANES[#PANES + 1] = row end
 
   -- ------- state
 
@@ -1473,6 +1480,12 @@ return function(mod, Pointer, G, Rules, Petting, host)
     G2.pop()
   end
 
+  local function dressMessage(s)
+    local words = s.message and (not s.messageUntil or now() < s.messageUntil) and s.message or nil
+    P:set("5e", "visible", words ~= nil)
+    if words then P:setText("5o", words) end
+  end
+
   local function dressButtons(s)
     local up = buttonsUp(s)
     local stripUp = s.tool == "beans" and not feed and not drag
@@ -1526,6 +1539,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       dressButtons(s)
       dressStrip(s)
       dressPicker(s)
+      dressMessage(s)
       Pl:draw(G2)
       drawStrip(G2, s)
     end

@@ -41,8 +41,11 @@ local function body(game, log)
   Player.targetX, Player.targetY = 14, 12
   if s0 and #(s0.party or {}) == 0 then
     Party.giveMon(s0, C:require("species", os.getenv("PROBE_SPECIES") and ("SPECIES_" .. os.getenv("PROBE_SPECIES")) or "SPECIES_TORCHIC"), 12)
-    Party.giveMon(s0, C:require("species", "SPECIES_ZIGZAGOON"), 6)
-    Party.giveMon(s0, C:require("species", "SPECIES_WURMPLE"), 5)
+    -- PROBE_PARTY=1: the lead alone (the games refuse: three Pokemon in good condition)
+    if os.getenv("PROBE_PARTY") ~= "1" then
+      Party.giveMon(s0, C:require("species", "SPECIES_ZIGZAGOON"), 6)
+      Party.giveMon(s0, C:require("species", "SPECIES_WURMPLE"), 5)
+    end
   end
   U.wait(60)
   local loader = game.mods
@@ -91,6 +94,14 @@ local function body(game, log)
     U.wait(20)
     shot("p04_awake")
     log("awake:", st().wake)
+    if os.getenv("PROBE_PARTY") == "1" then
+      tapAt("play", app.tapPoint("play_btn"))
+      U.wait(10)
+      local ss = R.state()
+      log("games with one Pokemon: tool", tostring(ss.tool), "message", tostring(ss.message))
+      shot("p04d_games_refused")
+      return
+    end
     -- its liveliness by mood: happy (hops), hungry (droops), and still while petted
     local m = R.state().meters
     local saved = { m.affection, m.enjoyment, m.fullness }
