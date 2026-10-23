@@ -111,3 +111,5 @@ tools/hand_atlas.py
 tools/berry_atlas.py
 tools/head_atlas.py
 tools/tile_trees.py
+tools/play_bushes.py
+tools/play_grass.py

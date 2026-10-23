@@ -361,7 +361,8 @@ return function(mod)
             if not okA then mod.log:warn("amie ui art failed to build: %s", tostring(errA)) end
           end
           -- and its Decor (cushions, objects, wallpapers), Poke Puffs, hand, Berry Picker's and
-          -- Head It's art and Tile Puzzle's trees come from PlayNav's own atlases
+          -- Head It's art, Tile Puzzle's trees and PLAY's treeline and lawn come from PlayNav's own
+          -- atlases
           local makeDecorArt = loadSibling(mod, "src/amie/decor_art.lua")
           for _, set in ipairs({ { "data/amie_decor.lua", "assets/amie_decor.png" },
               { "data/amie_walls.lua", "assets/amie_walls.png" },
@@ -369,7 +370,9 @@ return function(mod)
               { "data/amie_hand.lua", "assets/amie_hand.png" },
               { "data/amie_berry.lua", "assets/amie_berry.png" },
               { "data/amie_head.lua", "assets/amie_head.png" },
-              { "data/amie_tile.lua", "assets/amie_tile.png" } }) do
+              { "data/amie_tile.lua", "assets/amie_tile.png" },
+              { "data/amie_scene.lua", "assets/amie_scene.png" },
+              { "data/amie_grass.lua", "assets/amie_grass.png" } }) do
             local cells = makeDecorArt and loadSibling(mod, set[1])
             if type(cells) == "table" then
               local okD, art = pcall(makeDecorArt, mod, cells, set[2])

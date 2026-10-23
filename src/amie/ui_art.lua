@@ -1305,4 +1305,106 @@ return function(mod, K, gen)
       -- the bank joined up under the tall top
       { 118, 82, 24 }, { 140, 78, 26 }, { 162, 82, 26 }, { 104, 100, 22 }, { 160, 102, 24 }, { 205, 104, 20 } }, 118)
   end)
+
+  -- ------- Amie's shared pieces: the emotion bubbles over the Pokemon, the soap bubbles, the top
+  -- screen's fullness icon
+
+  -- an emotion: a white speech circle in a green ring (its tail down right), a face drawn in it
+  local INK = c255(20, 20, 24)
+  local function emoteBubble(G, ring, fill, face)
+    local tail = { 34, 36, 45, 46, 40, 32 }
+    col(G, ring, 0.35); circle(G, "fill", 25, 24, 23.5); fillShape(G, scaled(tail, 40, 40, 1.25))
+    col(G, ring); circle(G, "fill", 25, 24, 21.5); fillShape(G, scaled(tail, 40, 40, 1.08))
+    col(G, fill or C.white); circle(G, "fill", 25, 24, 18.5); fillShape(G, tail)
+    G.setLineJoin("bevel"); G.setLineWidth(2.4); col(G, INK)
+    face(G)
+  end
+  local GREEN_RING = c255(60, 176, 72)
+  local function dotEyes(G) G.ellipse("fill", 19.5, 19, 1.7, 3.2); G.ellipse("fill", 30.5, 19, 1.7, 3.2) end
+  local function grin(G, top)
+    fillShape(G, { 16, top, 34, top, 32.5, top + 5, 29, top + 8, 21, top + 8, 17.5, top + 5 })
+    G.setColor(1, 1, 1, 1); G.rectangle("fill", 18.5, top + 1.2, 13, 2.2)
+  end
+  gen("emote/love", 50, 50, function(G)
+    emoteBubble(G, GREEN_RING, nil, function()
+      for _, x in ipairs({ 18.5, 31.5 }) do
+        col(G, c255(226, 30, 40)); fillShape(G, heartPts(x, 18.5, 9, 8))
+      end
+      col(G, INK); grin(G, 25)
+    end)
+  end)
+  gen("emote/happy", 50, 50, function(G)
+    emoteBubble(G, GREEN_RING, nil, function()
+      dotEyes(G)
+      G.arc("line", "open", 25, 25, 7, 0.35, math.pi - 0.35)
+    end)
+  end)
+  gen("emote/smile", 50, 50, function(G)
+    emoteBubble(G, GREEN_RING, nil, function()
+      dotEyes(G)
+      G.arc("line", "open", 25, 26, 4.5, 0.3, math.pi - 0.3)
+    end)
+  end)
+  gen("emote/laugh", 50, 50, function(G)
+    emoteBubble(G, GREEN_RING, nil, function()
+      G.arc("line", "open", 19, 20, 3.4, math.pi + 0.3, math.pi * 2 - 0.3)
+      G.arc("line", "open", 31, 20, 3.4, math.pi + 0.3, math.pi * 2 - 0.3)
+      grin(G, 24)
+    end)
+  end)
+  gen("emote/angry", 50, 50, function(G)
+    emoteBubble(G, GREEN_RING, nil, function()
+      G.line(14.5, 15, 21.5, 19, 14.5, 23)
+      G.line(35.5, 15, 28.5, 19, 35.5, 23)
+      G.line(17, 31, 25, 27.5, 33, 31)
+    end)
+  end)
+  gen("emote/nervous", 50, 50, function(G)
+    emoteBubble(G, GREEN_RING, c255(250, 92, 56), function()
+      G.line(14, 21, 20, 16.5, 25, 19)
+      G.line(25, 19, 30, 16.5, 36, 21)
+      local pts = {}
+      for i = 0, 8 do pts[#pts + 1] = 16 + i * 2.25; pts[#pts + 1] = 29 + (i % 2 == 0 and 0 or 2.4) end
+      G.line(pts)
+    end)
+  end)
+  gen("emote/furious", 50, 50, function(G)
+    emoteBubble(G, c255(230, 16, 16), nil, function()
+      G.line(14, 14.5, 22, 19.5); G.line(36, 14.5, 28, 19.5)
+      fillShape(G, { 16.5, 19, 22, 21.5, 17.5, 23.5 }); fillShape(G, { 33.5, 19, 28, 21.5, 32.5, 23.5 })
+      G.line(16, 27, 20, 31, 25, 28, 30, 31, 34, 27)
+    end)
+  end)
+
+  -- the soap bubbles: four growing along the top, then a bubble and its pop below (32 squares)
+  local function soap(G, cx, cy, r, a)
+    a = a or 1
+    G.setColor(0.62, 0.84, 0.98, 0.55 * a); circle(G, "fill", cx, cy, r)
+    G.setColor(0.86, 0.95, 1, 0.8 * a); G.setLineWidth(math.max(0.6, r * 0.12)); G.circle("line", cx, cy, r - r * 0.06, 32)
+    G.setColor(1, 1, 1, 0.9 * a); G.ellipse("fill", cx - r * 0.35, cy - r * 0.38, r * 0.3, r * 0.2)
+  end
+  gen("scene/bubbles", 128, 64, function(G)
+    soap(G, 16, 16, 3.5); soap(G, 48, 16, 5.5); soap(G, 80, 16, 8.5); soap(G, 112, 16, 11)
+    soap(G, 16, 48, 11)
+    -- the pop: the bubble fading as rings spread
+    for k, r in ipairs({ 11, 12.5, 14 }) do
+      local cx = 16 + 32 * k
+      G.setColor(0.7, 0.88, 0.95, 0.5 / k); circle(G, "fill", cx, 48, r * (0.9 - 0.2 * k))
+      G.setLineWidth(0.8); G.setColor(0.86, 0.95, 1, 0.7 - 0.15 * k); G.circle("line", cx, 48, r, 32)
+      if k < 3 then G.circle("line", cx, 48, r * 0.65, 32) end
+    end
+  end)
+
+  -- the top screen's fullness meter: a blue swirl (its heart and note are the room's, data/amie_adapt.lua)
+  gen("ui/icon_full", 30, 30, function(G)
+    local pts = {}
+    for i = 0, 120 do
+      local a = i / 120 * math.pi * 5
+      local r = 1 + a * 0.82
+      pts[#pts + 1] = 15 + math.cos(a) * r; pts[#pts + 1] = 15 + math.sin(a) * r
+    end
+    G.setLineJoin("bevel")
+    G.setLineWidth(3.6); col(G, c255(10, 70, 160)); G.line(pts)
+    G.setLineWidth(2.2); col(G, c255(30, 120, 220)); G.line(pts)
+  end)
 end

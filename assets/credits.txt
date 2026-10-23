@@ -113,3 +113,17 @@ night), from TREE PIXEL PACK (128) by AstroCom (https://astrocom.space), shrunk 
 scene's sheet and packed into one atlas of 16-bit colour numbers with the palettes in
 data/amie_tile.lua (by tools/tile_trees.py). The rest of Tile Puzzle's picture - its sky, sea, night stars and photo
 frames - is drawn by PlayNav (src/amie/ui_art.lua).
+
+PLAY treeline (assets/amie_scene.png)
+-------------------------------------
+The band of trees along PLAY's horizon, built from PIXEL BUSHES PACK by AstroCom
+(https://astrocom.space): its round bushes, shrubs and berry bushes shrunk, turned to the
+scene's teal and arranged into the strip, packed into one atlas of 16-bit colour numbers with the
+palette in data/amie_scene.lua (by tools/play_bushes.py).
+
+PLAY lawn (assets/amie_grass.png)
+---------------------------------
+PLAY's lawn and the grass standing on it, from the GRASS+ tile sheet by SciGho: a ground tile
+turned to the lawn's bright green under the scene's lighter oval, and the sheet's grass tufts,
+clump and blades turned to the lawn's greens, packed into one atlas of 16-bit colour numbers
+with the palettes in data/amie_grass.lua (by tools/play_grass.py).

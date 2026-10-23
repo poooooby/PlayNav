@@ -58,6 +58,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   -- ------- the numbers (layout units)
 
+  local TUFT_KINDS = 4        -- the grass standing on the lawn (scene/tuft_1..4: tufts, reeds)
+  local TUFT_COLS, TUFT_ROWS = 8, 5   -- spread over a jittered grid, so none bunch up
+  local EDGE_STEP = 17       -- a row of tufts in front of the foot's bushes
+  -- the treeline (scene/bushes) in staggered layers, back to front: each lower, larger and
+  -- clearer than the one behind and set off sideways; the front one stands over the lawn's
+  -- edge (front = true: drawn after the lawn), its ragged foot breaking the straight line
+  local TREE_LAYERS = {
+    { dy = 4, width = 150, x0 = -70, step = 138, shade = { 0.8, 0.88, 0.92 } },
+    { dy = 14, width = 170, x0 = -30, step = 150, shade = { 0.9, 0.95, 0.96 } },
+    { dy = 25, width = 186, x0 = -100, step = 172, shade = { 1, 1, 1 }, front = true },
+  }
   local HORIZON = 0.55            -- the bushes' foot, as a share of LH from the top... of the 240 rows
   local FEET_UP = 20              -- the Pokemon's feet above the foot
   local MON_FILL = 0.68           -- its visible height as a share of the screen
@@ -1116,15 +1127,21 @@ return function(mod, Pointer, G, Rules, Petting, host)
       G2.setColor(1, 1, 1, 0.9)
       G2.draw(cu, -20, hz + 6, 0, k2, k2, 0, ch)
     end
-    -- the bush line along the horizon
+    -- the treeline along the horizon, its layers behind the lawn
     local bu = art("scene/bushes")
-    if bu then
+    local function treeLayer(ly)
       local bw, bh = bu:getDimensions()
-      local k = 170 / bw
-      G2.setColor(1, 1, 1, 1)
-      for i = 0, 2 do
-        G2.draw(bu, -30 + i * 150, hz + 14, 0, k * (i == 1 and -1 or 1), k, i == 1 and bw or 0, bh)
+      local k = ly.width / bw
+      G2.setColor(ly.shade[1], ly.shade[2], ly.shade[3], 1)
+      local i = 0
+      for x = ly.x0, 340, ly.step do
+        local flip = i % 2 == 1
+        G2.draw(bu, x, hz + ly.dy, 0, k * (flip and -1 or 1), k, flip and bw or 0, bh)
+        i = i + 1
       end
+    end
+    if bu then
+      for _, ly in ipairs(TREE_LAYERS) do if not ly.front then treeLayer(ly) end end
     end
     -- the lawn, a little lighter in soft ovals
     local gr = art("scene/grass")
@@ -1146,6 +1163,47 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local rx = 10 + 26 * row
       G2.setColor(0.75, 1, 0.55, 0.16)
       G2.ellipse("fill", 320 * hash(i, 2), y, rx, rx * 0.32)
+    end
+    -- the treeline's front layer over the lawn's edge, then a row of tufts before it, so the
+    -- edge is ragged and deep rather than one straight line
+    if bu then
+      for _, ly in ipairs(TREE_LAYERS) do if ly.front then treeLayer(ly) end end
+    end
+    local i = 0
+    for x = -6, 326, EDGE_STEP do
+      i = i + 1
+      local img = art("scene/tuft_" .. (1 + math.floor(hash(i, 21) * TUFT_KINDS)))
+      if img then
+        local iw, ih = img:getDimensions()
+        local k = (9 + 5 * hash(i, 22)) / ih
+        G2.setColor(1, 1, 1, 1)
+        G2.draw(img, x + 8 * hash(i, 23), hz + 27 + 3 * hash(i, 24), 0, k * (hash(i, 25) < 0.5 and -1 or 1), k, iw / 2, ih)
+      end
+    end
+    -- grass standing up out of the lawn: one in each cell of a grid jittered within it, smaller
+    -- toward the horizon, the nearer drawn last (spots from the hash, sorted once: fixed)
+    if not app.tufts then
+      local list = {}
+      for r = 0, TUFT_ROWS - 1 do
+        for c = 0, TUFT_COLS - 1 do
+          local n = r * TUFT_COLS + c + 1
+          list[#list + 1] = { depth = ((r + 0.15 + 0.7 * hash(n, 11)) / TUFT_ROWS) ^ 1.2,
+            x = 320 * (c + 0.1 + 0.8 * hash(n, 12)) / TUFT_COLS, kind = 1 + math.floor(hash(n, 13) * TUFT_KINDS),
+            flip = hash(n, 14) < 0.5 and -1 or 1 }
+        end
+      end
+      table.sort(list, function(a, b) return a.depth < b.depth end)
+      app.tufts = list
+    end
+    for _, tf in ipairs(app.tufts) do
+      local img = art("scene/tuft_" .. tf.kind)
+      if img then
+        local iw, ih = img:getDimensions()
+        local y = top + 10 + tf.depth * (LH - top - 10)
+        local k = (8 + 22 * tf.depth) / ih
+        G2.setColor(1, 1, 1, 1)
+        G2.draw(img, tf.x, y, 0, k * tf.flip, k, iw / 2, ih)
+      end
     end
     -- soap bubbles drifting up
     local bub = art("scene/bubbles")

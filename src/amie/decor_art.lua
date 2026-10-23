@@ -8,7 +8,9 @@
 -- alias table names the same picture under another layout pack), and Head It's
 -- (assets/amie_head.png + data/amie_head.lua, tools/head_atlas.py, 16-bit), and Tile
 -- Puzzle's shore trees (assets/amie_tile.png + data/amie_tile.lua, tools/tile_trees.py,
--- 16-bit). A picture is
+-- 16-bit), and PLAY's treeline (assets/amie_scene.png + data/amie_scene.lua,
+-- tools/play_bushes.py, 16-bit) and lawn with its standing grass (assets/amie_grass.png +
+-- data/amie_grass.lua, tools/play_grass.py, 16-bit). A picture is
 -- expanded into a full-colour image the first time it is asked for, then kept.
 --
 -- local Art = makeDecorArt(mod, data, file) ; Art.image(id) -> Image | nil, owned (true for an

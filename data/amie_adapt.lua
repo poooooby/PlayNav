@@ -41,6 +41,12 @@ A["lyt/head_prior/grass01"] = { from = "lyt/berry_rear/grass", crop = { 0, 33, 8
 -- Head It's grey yarn stand-ins: a yarn ball greyed
 A["lyt/head_ball/dummy00"] = { from = "lyt/head_ball/ball00_00", grey = true, tint = { 1.15, 1.15, 1.15 } }
 A["lyt/head_front/ball"] = { from = "lyt/head_ball/ball00_00", grey = true, tint = { 1.15, 1.15, 1.15 } }
+-- PLAY's floating hearts and notes and the top screen's affection and enjoyment icons are the
+-- room's drawn heart and notes
+A["fx/heart"] = { from = "lyt/amie_room/heart_00" }
+A["fx/note"] = { from = "lyt/amie_room/ic_asobu" }
+A["ui/icon_heart"] = { from = "lyt/amie_room/particle_01" }
+A["ui/icon_note"] = { from = "lyt/amie_room/talk_onpu" }
 -- Berry Picker's sky is plain white
 A["lyt/berry_rear/sky"] = { fill = { 1, 1, 1, 1 }, w = 2, h = 2 }
 
