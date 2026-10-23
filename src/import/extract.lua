@@ -25,9 +25,22 @@ return function(mod, deps)
 
   local function log(fmt, ...) mod.log:info("import: " .. fmt, ...) end
 
+  -- true, info; or false, nil, the engine's reason
   function E.importPresent()
-    local ok, info = pcall(mod.imports.info, mod.imports, IMPORT)
-    return ok and type(info) == "table", info
+    local ok, info, err = pcall(mod.imports.info, mod.imports, IMPORT)
+    if ok and type(info) == "table" then return true, info end
+    return false, nil, ok and err or info
+  end
+
+  -- why the card image cannot be used: "missing" (nothing imported) or "wrong" (a file is
+  -- there but it is not Alpha Sapphire: the engine's size or MD5 check refused it)
+  local function whyAbsent(err)
+    local s = tostring(err or "")
+    if s == "" or s:find("missing", 1, true) or s:find("undeclared", 1, true)
+        or s:find("unavailable", 1, true) then
+      return "missing"
+    end
+    return "wrong"
   end
 
   function E.cacheManifest()
@@ -62,14 +75,15 @@ return function(mod, deps)
   function E.check()
     if E.state == "running" or E.state == "finishing" then return "running" end
     if E.cacheComplete() then
-      E.state = "complete"
+      E.state, E.why = "complete", nil
       return "complete"
     end
-    if not E.importPresent() then
-      E.state = "absent"
+    local present, _, err = E.importPresent()
+    if not present then
+      E.state, E.why = "absent", whyAbsent(err)
       return "absent"
     end
-    E.state = "idle"
+    E.state, E.why = "idle", nil
     return "ready"
   end
 
@@ -90,7 +104,9 @@ return function(mod, deps)
 
   function E.start()
     if E.state == "running" or E.state == "finishing" then return false, "already running" end
-    if not E.importPresent() then E.state = "absent"; return false, "no import" end
+    local present, _, err = E.importPresent()
+    if not present then E.state, E.why = "absent", whyAbsent(err); return false, "no import" end
+    E.why = nil
     if not jobAvailable() then E.state = "failed"; E.message = "Background jobs are unavailable."; return false, "no jobs" end
     local sources, missing = moduleSources()
     if not sources then E.state = "failed"; E.message = "Reader module missing: " .. tostring(missing); return false, "module" end
@@ -112,7 +128,7 @@ return function(mod, deps)
     E.cancelled = false
     E.state = "running"
     E.startedAt = os.time()
-    E.message = "Extracting Pokemon-Amie art..."
+    E.message = "Extracting OR/AS assets..."
     log("start: %d textures from %d archives", E.total, #E.archives)
     onChange()
     return true
@@ -326,11 +342,16 @@ return function(mod, deps)
     if E.state == "running" and #E.archives == 0 and inflight() == 0 and #E.pending == 0 then
       E.state = "finishing"
       local ok, err, missing = writeManifest()
-      if ok then
+      if ok and E.total > 0 and missing >= E.total then
+        -- nothing in the card image matched the recipe: not Alpha Sapphire
+        E.state, E.why = "failed", "wrong"
+        E.message = "Nothing could be read from that card image."
+        log("no asset extracted: the card image is not the one the recipe reads")
+      elseif ok then
         E.state = "done"
         E.message = missing == 0
-          and "Pokemon-Amie art is ready. You can remove the ROM copy under Imported files."
-          or ("Art ready (%d of %d). You can remove the ROM copy under Imported files."):format(E.total - missing, E.total)
+          and "OR/AS assets are ready. You can remove the ROM copy under Imported files."
+          or ("OR/AS assets ready (%d of %d). You can remove the ROM copy under Imported files."):format(E.total - missing, E.total)
         log("done: %d ok, %d failed in %ds", E.total - E.failed, E.failed, os.time() - (E.startedAt or os.time()))
         if Assets then Assets.refresh() end
       else

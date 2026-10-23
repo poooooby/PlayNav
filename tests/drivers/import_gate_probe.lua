@@ -79,16 +79,87 @@ local function body(game, log)
   shot("g02_running")
   Extract.update = update0
 
-  Extract.state = "absent"
+  Extract.state, Extract.why = "absent", "missing"
   U.wait(5)
   shot("g03_absent")
   U.wait(50)   -- most of a flash period later: the warning at another brightness
   shot("g04_absent_pulse")
+  Extract.why = "wrong"
+  U.wait(5)
+  shot("g04b_wrong_rom")
+  Extract.state, Extract.why = "failed", "wrong"
+  Extract.message = "Nothing could be read from that card image."
+  U.wait(5)
+  shot("g04c_wrong_after_run")
+  Extract.why = nil
 
   Extract.state = "failed"
   Extract.message = "Background jobs are unavailable."
   U.wait(5)
   shot("g05_failed")
+
+  local function waitSecs0(secs)
+    local t0 = love.timer.getTime()
+    while love.timer.getTime() - t0 < secs do U.wait(1) end
+  end
+  local function tapApp(id, ax, ay)
+    local r = X.state().rect
+    local tab = X.state().tabHeight or 0
+    local x, y = r.x + ax * r.scale, r.y + (ay + tab) * r.scale
+    love.touchpressed(id, x, y, 0, 0, 1); U.wait(2)
+    love.touchreleased(id, x, y, 0, 0, 1); U.wait(2)
+  end
+
+  -- USE FALLBACK ASSETS (from the missing-ROM warning): the option goes off, the shutters
+  -- close and the PlayNav menu opens; with the option off the apps open without the gate.
+  -- options.lua is never written (writeOptions stubbed) and the option and the stored
+  -- choice are put back afterwards
+  do
+    local C = X._test.assetChoice()
+    local choice0 = C.read()
+    local opts = loader.modOptions["play_nav"]
+    local rom0 = opts.use_rom_assets
+    local saved = game.save and game.save.options and game.save.options.modOptions
+    local savedRom0 = saved and saved.play_nav and saved.play_nav.use_rom_assets
+    local write0 = game.writeOptions
+    game.writeOptions = function() end
+    Apps:setActive("import", game)
+    Extract.state, Extract.why = "absent", "missing"
+    U.wait(5)
+    local g = Apps:get("import")
+    local fb = g.FALLBACK_ABSENT
+    tapApp(11, fb.x + fb.w / 2, fb.y + fb.h / 2 + g.contentShift())
+    waitSecs0(0.05)
+    shot("g05b_fallback_pressed")
+    waitSecs0(0.25)
+    shot("g05c_fallback_shutters")
+    waitSecs0(1.0)
+    local ch = C.read()
+    log("after fallback: option", tostring(opts.use_rom_assets), "romOn", tostring(C.romOn()),
+      "choice", tostring(ch and ch.rom), tostring(ch and ch.why), "active", Apps:active().id)
+    shot("g05d_fallback_menu")
+    -- the gate stands down while the option is off
+    local okT = X.training.open()
+    log("training.open with the option off (stale cache):", tostring(okT), "active", Apps:active().id)
+    U.wait(10)
+    shot("g05e_training_fallback")
+    if X.training.session then X.training.finish() end
+    -- switched back on: checked again, the PLAYNAV screen asks
+    opts.use_rom_assets = true
+    loader.events:emit("mod.options_changed", { mod = "play_nav", key = "use_rom_assets", value = true })
+    U.wait(5)
+    log("option on again: active", Apps:active().id, "state", tostring(Extract.state))
+    Extract.state, Extract.why = "idle", nil
+    U.wait(5)
+    shot("g05f_option_on_again")
+    -- restore
+    opts.use_rom_assets = rom0
+    if saved and saved.play_nav then saved.play_nav.use_rom_assets = savedRom0 end
+    game.writeOptions = write0
+    if choice0 then C.write(choice0.rom, choice0.why) else C.remove() end
+    C.apply()
+    log("restored: option", tostring(opts.use_rom_assets), "choice", tostring(C.read() and C.read().rom))
+  end
 
   -- the finale: the bar fades into the play button; a tap sinks it, the shutters
   -- close and Super Training's home opens behind them

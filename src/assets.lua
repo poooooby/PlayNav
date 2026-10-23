@@ -13,7 +13,7 @@ return function(mod)
 
   -- the manifest the extractor writes when the set is complete
   function A.refresh()
-    local src = cacheRead("oras/manifest.lua")
+    local src = not A.cardOff and cacheRead("oras/manifest.lua") or nil
     if not src then
       -- no art (never extracted, or just cleared): nothing loaded earlier may still draw
       A.manifest = nil
@@ -29,7 +29,10 @@ return function(mod)
     return A.manifest
   end
 
+  -- A.cardOff (option USE ROM ASSETS off): the card image's cache is left unread, so every
+  -- caller takes PlayNav's own art, sounds and words
   function A.ready()
+    if A.cardOff then return false end
     if A.manifest == nil and A.loadedAt == nil then A.refresh() end
     return A.manifest ~= nil
   end

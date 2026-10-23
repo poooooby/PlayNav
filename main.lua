@@ -62,7 +62,10 @@ return function(mod)
       choices = { { "AUTO", "auto" }, { "SECOND SCREEN", "second_screen" },
         { "SPLIT SCREEN", "split" }, { "OFF", "off" } } },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
-    { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
+    -- off: PlayNav's own art, sounds and words, no card image needed (the PLAYNAV screen's
+    -- USE FALLBACK ASSETS turns it off; on again, the card image is checked again)
+    { key = "use_rom_assets", label = "USE ROM ASSETS", type = "toggle", default = true },
+    { key = "extract_on_boot", label = "EXTRACT OR/AS ASSETS ON BOOT", type = "toggle", default = true },
     -- an action: switching it on clears the cache, then it switches itself back off
     -- a button as far as the options screen allows (it has no button row): a two-way choice
     -- that reads PRESS TO CLEAR; pressed in the game it clears at once and reads PRESS TO CLEAR
@@ -844,6 +847,71 @@ return function(mod)
     return Layout.split(ww, wh, {}).surface
   end
 
+  -- USE ROM ASSETS: on, the card image's extracted assets (the PLAYNAV screen gates the apps
+  -- until they are there); off, PlayNav's own and no gate
+  local gateDisabled = false   -- the flow tests run on fake hosts, not the player's cache
+  local function romOn()
+    if state.forceRom ~= nil then return state.forceRom end   -- a driver's, never saved
+    return mod.options:get("use_rom_assets") ~= false
+  end
+  -- on: the card image's assets alone (its art, layouts, sounds, words and tracks; none of
+  -- PlayNav's drawn art, synthesized effects, own words or the GBA songs); off: PlayNav's own
+  local function applyRomOption()
+    if not Assets then return end
+    local off = not romOn()
+    if Assets.cardOff ~= off then
+      Assets.cardOff = off
+      Assets.refresh()
+    end
+    Assets.engine = (off and (UiArt or DecorArt[1] or AdaptArt)) and engineArt or nil
+    Assets.engineSound = (off and Chip) and Chip.sound or nil
+    if Training then
+      Training.words = off and TrainingWords or nil
+      if Training.music then Training.music.cardOnly = not off end
+    end
+    if Amie and Amie.text then Amie.text.ownText = off end
+    if amieMusic then amieMusic.cardOnly = not off end
+  end
+  applyRomOption()
+
+  -- an option written back, saved: mods get no options setter, so this writes where the Mod
+  -- Manager's own setOption does (the loader's table, the save's options) and has the engine
+  -- write options.lua
+  local function writeOption(key, value)
+    local game = state.game
+    local loader = game and game.mods
+    if loader then
+      loader.modOptions = loader.modOptions or {}
+      loader.modOptions[mod.id] = loader.modOptions[mod.id] or {}
+      loader.modOptions[mod.id][key] = value
+    end
+    local saved = game and game.save and game.save.options and game.save.options.modOptions
+    if saved then
+      saved[mod.id] = saved[mod.id] or {}
+      saved[mod.id][key] = value
+    end
+    if game and game.writeOptions then
+      local ok, err = pcall(game.writeOptions, game)
+      if not ok then mod.log:warn("saving option %s failed: %s", key, tostring(err)) end
+    end
+  end
+
+  -- the player's answer on the PLAYNAV screen, kept across boots and saves:
+  -- { rom = true } extract; { rom = false, why = "missing" | "wrong" | "declined" } fallback
+  -- (missing / wrong: the screen is offered again once a usable card image is there)
+  local CHOICE = "asset_choice.lua"
+  local function readChoice()
+    local ok, src = pcall(mod.cache.read, mod.cache, CHOICE)
+    local chunk = ok and type(src) == "string" and load(src, "=" .. CHOICE, "t", {}) or nil
+    local okC, t = pcall(chunk or error)
+    return okC and type(t) == "table" and t or nil
+  end
+  local function writeChoice(rom, why)
+    local body = rom == nil and "return {}\n"
+      or ("return { rom = %s, why = %q }\n"):format(tostring(rom), tostring(why or ""))
+    pcall(mod.cache.write, mod.cache, CHOICE, body)
+  end
+
   -- once per boot: if the player's card image is there and the art is not
   -- yet extracted, start the background extraction and show the IMPORT app
   local extractChecked = false
@@ -858,14 +926,31 @@ return function(mod)
       local booting = game and game.phase ~= nil and game.phase ~= "field"
       if booting or extractTicks < 30 then return end
       extractChecked = true
-      local what = Extract.check()
-      if what ~= "complete" and Extract.lastManifestError then
-        mod.log:info("import: manifest not usable yet (%s)", tostring(Extract.lastManifestError))
-      end
-      if what == "ready" and mod.options:get("extract_on_boot") ~= false then
-        if Extract.start() then Apps:setActive("import", state.game) end
-      elseif what == "complete" and Assets then
-        Assets.refresh()
+      applyRomOption()
+      local choice = readChoice()
+      if not romOn() then
+        -- the fallback was taken while the card image was missing or wrong: once a usable
+        -- one is there, the choice is offered again
+        local why = choice and choice.why
+        if (why == "missing" or why == "wrong") and Extract.check() == "ready" then
+          mod.log:info("import: a card image is there now; offering the OR/AS assets again")
+          Apps:setActive("import", state.game)
+        end
+      else
+        local what = Extract.check()
+        if what ~= "complete" and Extract.lastManifestError then
+          mod.log:info("import: manifest not usable yet (%s)", tostring(Extract.lastManifestError))
+        end
+        local chose = choice and choice.rom == true
+        if what == "ready" and chose and mod.options:get("extract_on_boot") ~= false then
+          if Extract.start() then Apps:setActive("import", state.game) end
+        elseif what == "complete" and Assets then
+          Assets.refresh()
+        elseif not chose and not gateDisabled then
+          -- nothing chosen yet (the first launch, or USE ROM ASSETS switched back on in the
+          -- launcher): the PLAYNAV screen asks
+          Apps:setActive("import", state.game)
+        end
       end
     end
     if Extract.state == "running" or Extract.state == "finishing" then
@@ -882,9 +967,8 @@ return function(mod)
   -- PlayNav needs its extracted art: any attempt to open Pokemon-Amie or Super Training
   -- with the cache missing or stale lands on the PLAYNAV screen instead (Begin extraction,
   -- the progress bar, or the missing-card-image warning). True = gated, the screen is up.
-  local gateDisabled = false   -- the flow tests run on fake hosts, not the player's cache
   local function importGate()
-    if not Extract or gateDisabled then return false end
+    if not Extract or gateDisabled or not romOn() then return false end
     if Extract.state == "running" or Extract.state == "finishing" or not Extract.cacheComplete() then
       Extract.check()
       Apps:setActive("import", state.game)
@@ -941,6 +1025,16 @@ return function(mod)
         if not menu then return false, "menu missing" end
         if Assets then Assets.refresh() end
         return menu.show({ shutters = true })
+      end
+      -- BEGIN EXTRACTION: remembered, so a paused run resumes on the next boot
+      gateApp.onExtract = function() writeChoice(true) end
+      -- USE FALLBACK ASSETS: USE ROM ASSETS goes off; why = "missing" / "wrong" / "declined"
+      gateApp.useFallback = function(why)
+        writeChoice(false, why)
+        writeOption("use_rom_assets", false)
+        if Extract then Extract.cancel() end
+        applyRomOption()
+        mod.log:info("import: fallback assets chosen (%s)", tostring(why))
       end
     end
   end
@@ -1004,30 +1098,30 @@ return function(mod)
     if Amie and Amie.session then pcall(Amie.finish) end
     local ok, err = pcall(Extract.clear)
     if not ok then mod.log:warn("clearing the extracted art failed: %s", tostring(err)) end
-    Apps:setActive("import", state.game)
+    if romOn() then Apps:setActive("import", state.game) end
   end
-  -- the option back to PRESS TO CLEAR, saved: mods get no options setter, so this writes
-  -- where the Mod Manager's own setOption does (the loader's table, the save's options) and
-  -- has the engine write options.lua
-  local function resetClearOption()
-    local game = state.game
-    local loader = game and game.mods
-    if loader then
-      loader.modOptions = loader.modOptions or {}
-      loader.modOptions[mod.id] = loader.modOptions[mod.id] or {}
-      loader.modOptions[mod.id].clear_rom_art = false
-    end
-    local saved = game and game.save and game.save.options and game.save.options.modOptions
-    if saved and saved[mod.id] then saved[mod.id].clear_rom_art = false end
-    if game and game.writeOptions then
-      local ok, err = pcall(game.writeOptions, game)
-      if not ok then mod.log:warn("saving CLEAR EXTRACTED ART back off failed: %s", tostring(err)) end
-    end
-  end
+  -- the option back to PRESS TO CLEAR, saved
+  local function resetClearOption() writeOption("clear_rom_art", false) end
   mod.events:on("mod.options_changed", function(ev)
-    if type(ev) ~= "table" or ev.mod ~= "play_nav" or ev.key ~= "clear_rom_art" or ev.value ~= true then return end
-    clearExtractedArt()
-    resetClearOption()
+    if type(ev) ~= "table" or ev.mod ~= "play_nav" then return end
+    if ev.key == "clear_rom_art" and ev.value == true then
+      clearExtractedArt()
+      resetClearOption()
+    elseif ev.key == "use_rom_assets" and Extract then
+      if ev.value == false then
+        -- PlayNav's own from now on; nothing more is asked
+        writeChoice(false, "declined")
+        Extract.cancel()
+        applyRomOption()
+        if Apps:active().id == "import" then Apps:setActive("play", state.game) end
+      else
+        -- on again: the card image is checked again and the PLAYNAV screen offers it (or says
+        -- it is missing / not Alpha Sapphire) unless its assets are already extracted
+        writeChoice(nil)
+        applyRomOption()
+        if Extract.check() ~= "complete" then Apps:setActive("import", state.game) end
+      end
+    end
   end)
 
   -- While a mouse pointer is down on the surface, follow the real cursor
@@ -1536,6 +1630,14 @@ return function(mod)
     assets = function() return Assets end,
     setImportGate = function(on) gateDisabled = on == false end,
     keepArt = function() state.keepArt = true end,
+    -- the PLAYNAV screen's stored choice and the USE ROM ASSETS option as PlayNav reads it
+    assetChoice = function()
+      return { read = readChoice, write = writeChoice, remove = function()
+        pcall(mod.cache.delete, mod.cache, CHOICE)
+      end, romOn = romOn, apply = applyRomOption }
+    end,
+    -- a driver's USE ROM ASSETS for this run only (options.lua untouched); nil = the option's
+    forceRom = function(on) state.forceRom = on; applyRomOption() end,
     -- false: the card image's UI art again (for side-by-side shots); true: the engine's
     -- false: the card image's effects again; true: PlayNav's own
     engineMusic = function(on)

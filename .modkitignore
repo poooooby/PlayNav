@@ -113,3 +113,7 @@ tools/head_atlas.py
 tools/tile_trees.py
 tools/play_bushes.py
 tools/play_grass.py
+tests/lyt_data_test.lua
+tools/lyt_data.lua
+tests/drivers/amie_art_compare.lua
+tests/drivers/se_timing_probe.lua

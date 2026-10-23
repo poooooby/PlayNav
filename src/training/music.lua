@@ -228,7 +228,8 @@ return function(mod, T, host)
   function M.update(dt)
     dt = dt or 0
     local s = M.session()
-    local fam = M.GAME_SONGS and host.songFamily and host.songFamily()
+    -- M.cardOnly (USE ROM ASSETS on): the card image's tracks alone, never the GBA songs
+    local fam = M.GAME_SONGS and not M.cardOnly and host.songFamily and host.songFamily()
     local set = fam and M.GAME_SONGS[fam]
     if set then
       -- a track with a game song plays it; one without (the picker) plays here on our own

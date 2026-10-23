@@ -76,14 +76,20 @@ return function()
     end
   end
 
-  -- the round x at c = { x, y }
+  -- the round x at c = { x, y }: a dark disc, a light ring, two thick strokes
   function B.close(G, c)
+    local r, d = 8.5, 3.2
     col(G, INK.track)
-    G.circle("fill", c.x, c.y, 7)
-    col(G, INK.line)
-    G.circle("line", c.x, c.y, 7)
-    col(G, INK.text)
-    G.printf("x", c.x - 10, c.y - 5.5, 20 / 0.7, "center", 0, 0.7, 0.7)
+    G.circle("fill", c.x, c.y, r)
+    G.setLineWidth(1.5)
+    col(G, INK.sheen, 0.8)
+    G.circle("line", c.x, c.y, r)
+    G.setLineWidth(2.2)
+    G.setLineStyle("smooth")
+    col(G, INK.bright)
+    G.line(c.x - d, c.y - d, c.x + d, c.y + d)
+    G.line(c.x - d, c.y + d, c.x + d, c.y - d)
+    G.setLineWidth(1)
   end
 
   return B

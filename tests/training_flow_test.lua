@@ -14,6 +14,8 @@ T.eq(#run.errors, 0, "the mod loads clean on gen 3 (" .. tostring(run.errors[1])
 local X = run.loader.exports.play_nav
 -- fake hosts, not the player's cache: the import gate stands aside
 if X and X._test and X._test.setImportGate then X._test.setImportGate(false) end
+-- fake hosts and PlayNav's own assets (its words, effects): USE ROM ASSETS off for the run
+if X and X._test and X._test.forceRom then X._test.forceRom(false) end
 local TR = X.training
 T.check(type(TR) == "table" and type(TR.open) == "function", "training is exported")
 local S, Rules, Store, Items = TR.session, TR.rules, TR.store, TR.items
