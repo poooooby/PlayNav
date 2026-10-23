@@ -492,6 +492,42 @@ return function(mod, deps)
     end
   end)
 
+  -- the charge ring: a quarter arc about a point off the texture's lower left (the image spins
+  -- about its middle, so the arc sweeps round the trainee), a solid yellow band with a soft
+  -- inside edge, a thinner see-through band inside it, soft edges; rounded ends
+  gen("training/charge", 64, 64, function(G)
+    local CX, CY, A0, A1, STEPS = 4.3, 58.4, math.rad(-87), math.rad(-3), 40
+    local YEL = c255(255, 224, 84)
+    -- per band: the middle radius and the alpha across it (offset from the middle, alpha)
+    local BANDS = {
+      { 32.7, { { -2.6, 0 }, { -1.8, 0.2 }, { -1.1, 0.47 }, { 1.1, 0.47 }, { 1.9, 0.13 }, { 2.6, 0 } } },
+      { 41, { { -4, 0 }, { -3, 0.3 }, { -2.2, 0.62 }, { -1.6, 1 }, { 1.6, 1 }, { 2.3, 0.35 }, { 3.1, 0.12 }, { 4, 0 } } },
+    }
+    for _, b in ipairs(BANDS) do
+      local rc, prof = b[1], b[2]
+      local hw = prof[#prof][1]
+      local cap = hw / rc
+      local lo, hi = A0 - cap, A1 + cap
+      local n = STEPS * 3
+      -- one strip per pair of profile points, the band narrowing round each end like a cap
+      for j = 1, #prof - 1 do
+        local o0, al0, o1, al1 = prof[j][1], prof[j][2], prof[j + 1][1], prof[j + 1][2]
+        local verts = {}
+        for i = 0, n do
+          local a = lo + (hi - lo) * i / n
+          local over = math.max(A0 - a, a - A1, 0) / cap
+          local s = math.sqrt(math.max(0, 1 - over * over))
+          local ca, sa = math.cos(a), math.sin(a)
+          local r0, r1 = rc + o0 * s, rc + o1 * s
+          verts[#verts + 1] = { CX + ca * r0, CY + sa * r0, 0, 0, YEL[1], YEL[2], YEL[3], al0 }
+          verts[#verts + 1] = { CX + ca * r1, CY + sa * r1, 0, 0, YEL[1], YEL[2], YEL[3], al1 }
+        end
+        G.setColor(1, 1, 1, 1)
+        G.draw(love.graphics.newMesh(verts, "strip", "static"))
+      end
+    end
+  end)
+
   -- the shutters: a stepped edge (repeated down the screen) and the glowing seam
   gen("training/ss_black_out", 32, 64, function(G)
     G.setColor(0, 0, 0, 1)
