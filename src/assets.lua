@@ -101,8 +101,25 @@ return function(mod)
   end
 
   -- a music track the extract decoded (recipe kind "stream", id "bgm/<name>"):
-  -- { sd = love SoundData, rate, channels, samples, loop, loopStart } or nil
+  -- { sd = love SoundData, rate, channels, samples, loop, loopStart } or nil. Without the
+  -- card image's, PlayNav's own file for the id (A.ownMusic[id] = a path in the mod, looping
+  -- whole) stands in.
   A.tracks = {}
+  A.ownMusic = { ["bgm/sp_menu"] = "assets/stmenu.ogg" }
+  local function ownTrack(id)
+    local path = A.ownMusic[id]
+    if not (path and love and love.sound and love.filesystem and mod.read) then return false end
+    local ok, sd = pcall(function()
+      local bytes = mod:read(path)
+      return bytes and love.sound.newSoundData(love.filesystem.newFileData(bytes, path:match("[^/]+$")))
+    end)
+    if not (ok and sd) then
+      mod.log:warn("music %s (%s) failed to load: %s", id, path, tostring(sd))
+      return false
+    end
+    return { sd = sd, rate = sd:getSampleRate(), channels = sd:getChannelCount(), samples = sd:getSampleCount(),
+      loop = true, loopStart = 0 }
+  end
   function A.music(id)
     -- PlayNav's own songs (src/chipmusic.lua) take their ids before the card image's
     if A.engineMusic then
@@ -130,6 +147,7 @@ return function(mod)
         end
       end
     end
+    if not track then track = ownTrack(id) end
     A.tracks[id] = track
     return track or nil
   end

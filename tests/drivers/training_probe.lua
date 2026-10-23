@@ -96,6 +96,12 @@ local function body(game, log)
     Audio._bgmVolume = (tonumber(os.getenv("PROBE_MUSIC_VOL")) or 7) / 7
     log("music volume set to", Audio._bgmVolume)
   end
+  -- PROBE_OWN_MENU=1: as without the card image's picker track (PlayNav's own stands in)
+  if os.getenv("PROBE_OWN_MENU") == "1" then
+    local A = X._test.assets()
+    if A and A.manifest and A.manifest.assets then A.manifest.assets["bgm/sp_menu"] = nil end
+    if A then A.tracks["bgm/sp_menu"] = nil end
+  end
   local function musicState()
     local M = TR.session and TR.session.music
     local v = M and M.voice
@@ -376,6 +382,12 @@ local function body(game, log)
   waitFor(function() return TR.session.session.trans == nil end, 4000)
   U.wait(5)
   log("courses mode:", TR.state().mode, "app", Apps:active().id)
+  do
+    local A = X._test.assets()
+    local tk = A and A.music("bgm/sp_menu")
+    log(("picker track: %s Hz, %s channels, %.1f s"):format(tostring(tk and tk.rate), tostring(tk and tk.channels),
+      tk and tk.samples / tk.rate or 0))
+  end
   shot("t05_courses")
   local coursesApp = Apps:get("training_courses")
   local tile = coursesApp.geometry().slots[2]

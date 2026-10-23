@@ -231,8 +231,19 @@ return function(mod, T, host)
     local fam = M.GAME_SONGS and host.songFamily and host.songFamily()
     local set = fam and M.GAME_SONGS[fam]
     if set then
-      if M.voice or #M.fading > 0 or M.holding then M.stopAll() end
-      return updateGame(s, set)
+      -- a track with a game song plays it; one without (the picker) plays here on our own
+      -- player, the game's song held under it like the field's; closed after a game song,
+      -- the game's player takes the field back
+      local want = M.wanted(s)
+      if (want and set[want]) or (want == nil and M.gameCurrent) then
+        if M.voice or #M.fading > 0 then
+          stopVoice(M.voice)
+          for _, f in ipairs(M.fading) do stopVoice(f) end
+          M.voice, M.fading, M.current = nil, {}, nil
+        end
+        if M.holding then M.holding = false; host.overworldMusic(true) end
+        return updateGame(s, set)
+      end
     end
     local on = M.available()
     local id, loop, fade, pitch = nil, false, 0, 1

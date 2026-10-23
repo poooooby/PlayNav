@@ -41,6 +41,11 @@ Hover board (assets/hoverboard.png)
 The board your Pokemon rides during a Super-Training Regimen: Wooble's own pixel art, made for
 PlayNav.
 
+Super Training regimen picker music (assets/stmenu.ogg)
+-------------------------------------------------------
+The music while you choose a Super-Training Regimen, when the card image's own track has not
+been extracted: Wooble's original music, made for PlayNav.
+
 Balloon Bot sprites (assets/balloon_bots.png)
 ---------------------------------------------
 The Pokemon every Super-Training Balloon Bot is made in the image of (Mega Aggron too): the
