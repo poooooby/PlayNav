@@ -135,6 +135,9 @@ return function(N)
     -- the balloon's shape per bot index (arena_draw.shapeFor): goals live on its cells
     s.shapes = params.shapes or {}
     s.library = params.library or {}
+    -- the game's own attack scripts (data/training_attacks.lua): with them the balloons attack as
+    -- the game's do; without (a test, an old data file) the course's hand-written script
+    s.gameAttacks = params.gameAttacks
     s.time = course.time or N.CLOCK.TIME
     s.remaining = s.time
     s.phase = "countdown"
@@ -180,6 +183,7 @@ return function(N)
     self.barrier = nil
     self.groupIndex, self.groupGap, self.groupScored, self.chanceDone = 0, 0, 0, false
     self.scheduleT0 = self.t
+    self:startScript()
     if self.botIndex > 1 then
       self.remaining = self.remaining + (self.course.extraBotSecs or N.CLOCK.EXTRA_BOT_S)
       self.schedule = compile(self.course.attacks, self.library, self.time)
@@ -217,12 +221,19 @@ return function(N)
     return true
   end
 
+  -- the shield drops: it shatters (the pieces fly for SHATTER_S), the cooldown starts
+  local function shieldDown(self, why)
+    local p = self.player
+    p.shield, p.breakT = 0, nil
+    p.shieldCd = self.mods.blockS and N.BLOCK.COOLDOWN_F / N.CHARGE.FPS or N.BLOCK.COOLDOWN
+    p.shatter = N.BLOCK.SHATTER_S
+    emit(self, "block_down", { why = why })
+  end
+
   function Sim:unblock()
     local p = self.player
     if p.shield <= 0 then return false end
-    p.shield = 0
-    p.shieldCd = self.mods.blockS and N.BLOCK.COOLDOWN_F / N.CHARGE.FPS or N.BLOCK.COOLDOWN
-    emit(self, "block_down")
+    shieldDown(self, "released")
     return true
   end
 
@@ -641,7 +652,7 @@ return function(N)
   -- a round ball's size for the level (N.ATTACK.BALL): its kind's radius times SIZE, capped
   local function sizeBall(self, ball)
     local B = N.ATTACK.BALL
-    if not B or ball.w or ball.h or ball.kind == "bit" then return ball end
+    if not B or ball.w or ball.h or ball.kind == "bit" or ball.game then return ball end
     local lv = self.isSecret and "secret" or self.level
     ball.r = math.min(ball.r * (B.SIZE[lv] or 1), (B.CAP[lv] or 1) * B.SPRITE_R)
     return ball
@@ -740,7 +751,180 @@ return function(N)
     end
   end
 
+  -- ------- the game's attack scripts (data/training_attacks.lua; DllSparring.cro's runner at
+  -- 0xb048): each balloon loops its step list - a telegraph (the warning mark), a pose, the
+  -- action (a volley, bits, a timed routine), its repeats, a recovery - its times in units the
+  -- phase's rate takes off a frame; between steps the second form is checked (score left %),
+  -- which swaps the list, rate and damage. A volley's shots leave their frames apart, each aimed
+  -- (or not) on its own; a projectile flies straight with its wave and homing added each frame.
+
+  local GA = N.ATTACK.GAME
+  local FPS = 30
+
+  -- this balloon's phase: the course's phase for the bot, the version's line for the finale
+  function Sim:startScript()
+    local D = self.gameAttacks
+    self.script = nil
+    if not (D and D.courses and D.phases) then return end
+    local ids = D.courses[self.course.id]
+    local b = self.course.bots and self.course.bots[1]
+    if ids and b and D.phases[ids[1]] and D.phases[ids[1]].species ~= b.national then
+      ids = D.courses[self.course.id .. "_omega"] or ids
+    end
+    local pid = ids and ids[self.botIndex]
+    local ph = pid and D.phases[pid]
+    if not ph then return end
+    self.script = { phase = ph, form = false, list = ph.list, idx = 0, stage = "next", left = 0, reps = 0 }
+  end
+
+  -- the second form: on while the score left is at most its entry % and not at most its exit %
+  local function formOn(self, ph)
+    if ph.formIn ~= 0 then return false end
+    local target = self.bot and self.bot.target or 1
+    local left = math.max(0, target - self.score) / math.max(1, target) * 100
+    return left <= ph.formInPct and not (left <= ph.formOutPct)
+  end
+
+  -- a shot of a volley, built when it leaves: aimed at where the trainee is now (per axis)
+  local function gameBall(self, shot)
+    local D = self.gameAttacks
+    local P = D.projectiles[shot.p]
+    if not P then return nil end
+    local p = self.player
+    local U = GA.UNIT
+    local lx, ly = shot.dx * U, self:botCY() + shot.dy * U
+    local tx = shot.aimX == 1 and p.x or lx
+    local ty = shot.aimY == 1 and ((p.y or 0) + N.PLAYER.H / 2) or ly
+    -- in the game's units: across, up, and the depth to the trainee; turned by the aim offsets
+    local gx, gy, gz = (tx - lx) / U, (ty - ly) / U, GA.DEPTH
+    local yaw, pitch = math.rad(shot.yaw or 0), math.rad(shot.pitch or 0)
+    gx, gz = gx * math.cos(yaw) + gz * math.sin(yaw), -gx * math.sin(yaw) + gz * math.cos(yaw)
+    gy, gz = gy * math.cos(pitch) + gz * math.sin(pitch), -gy * math.sin(pitch) + gz * math.cos(pitch)
+    local len = math.sqrt(gx * gx + gy * gy + gz * gz)
+    if len < 1e-6 then return nil end
+    local v = P.speed * FPS * (self.mods.botSpeedMult or 1)
+    local hw, hh = P.sx * GA.SIZE_UNIT, P.sy * GA.SIZE_UNIT
+    local ball = { x = lx, y = ly, z = 1, bx = lx, by = ly, t0 = self.t, game = P,
+      vx = gx / len * v * U, vy = gy / len * v * U, vz = -gz / len * v * GA.DEPTH_UNIT,
+      r = math.max(hw, hh), kind = (P.homeX > 0 or P.homeY > 0) and "homing" or (math.max(hw, hh) > 0.1 and "big" or "small") }
+    if math.abs(hw - hh) > 1e-6 then ball.w, ball.h = hw * 2, hh * 2 end
+    return ball
+  end
+  Sim.gameBall = gameBall
+
+  -- a projectile's lateral offset after n frames: its wave, and its homing on the trainee now
+  local function gameOffset(self, b, n)
+    local P, p = b.game, self.player
+    local U = GA.UNIT
+    local ox = P.ampX * math.cos(P.phase + n * P.freqX) * (1 + n * P.growX) * U
+    local oy = P.ampY * math.sin(P.phase + n * P.freqY) * (1 + n * P.growY) * U
+    if P.homeX > 0 then ox = ox + (p.x - b.bx) * n / (n + P.homeX) end
+    if P.homeY > 0 then oy = oy + ((p.y or 0) + N.PLAYER.H / 2 - b.by) * n / (n + P.homeY) end
+    return ox, oy
+  end
+
+  local function fireVolley(self, vid)
+    local shots = self.gameAttacks.volleys and self.gameAttacks.volleys[vid]
+    if not shots then return end
+    local delay = 0
+    for _, shot in ipairs(shots) do
+      self.spawnQueue[#self.spawnQueue + 1] = { at = self.t + delay / FPS, shot = shot }
+      delay = delay + (shot.next or 0)
+    end
+    emit(self, "attack_launch", { attack = "volley", volley = vid })
+  end
+
+  local function spawnBits(self, n)
+    local A = N.ATTACK.bit
+    local alive = 0
+    for _, bit in ipairs(self.bits) do if not bit.dead then alive = alive + 1 end end
+    local rec = self.script.phase.bits and self.gameAttacks.bits and self.gameAttacks.bits[self.script.phase.bits]
+    for _ = 1, math.min(n, GA.MAX_BITS - alive) do
+      local slot = #self.bits + 1
+      local x = ((slot - 1) % 3 - 1) * 0.5
+      self.bits[#self.bits + 1] = { id = slot, x = x, y = A.y, z = A.z, hp = A.hp, r = A.r,
+        fireT = GA.BIT_EVERY_F / FPS * (0.5 + 0.5 * self.rng()), damage = rec and rec.damage, game = true }
+    end
+    emit(self, "bits_spawned", { n = n })
+  end
+
+  function Sim:runScript(step)
+    local sc = self.script
+    local D = self.gameAttacks
+    local ph = sc.phase
+    local units = ((sc.form and ph.rateB) or ph.rate) * FPS * step
+    sc.left = sc.left - units
+    -- (a step of no time at all moves straight on; a list of only those waits a frame)
+    local guard = 0
+    while sc.left <= 0 and guard < 64 do
+      guard = guard + 1
+      local st = D.steps[(D.lists[sc.list] or {})[sc.idx]]
+      if sc.stage == "next" then
+        -- between steps: the second form (a new list, rate and damage), then the next step
+        local f = formOn(self, ph)
+        if f ~= sc.form then
+          sc.form = f
+          sc.list = f and ph.listB or ph.list
+          self.bot.mood = f and (ph.damageB or 0) >= (ph.damage or 0) and "rage" or "normal"
+          emit(self, "form_change", { form = f and "B" or "A" })
+        end
+        local list = D.lists[sc.list] or {}
+        if #list == 0 then sc.left = 1e9; return end
+        sc.idx = sc.idx % #list + 1
+        st = D.steps[list[sc.idx]]
+        sc.reps = st and st.repeats or 0
+        if st and st.warn > 0 and st.cmd ~= 0 then
+          sc.stage, sc.left = "warn", sc.left + st.warn
+          if st.mark == 1 then
+            self.bot.aura = st.warn / (((sc.form and ph.rateB) or ph.rate) * FPS)
+            emit(self, "attack_telegraph", { attack = "volley" })
+          end
+        else
+          sc.stage = "pose"
+        end
+      elseif sc.stage == "warn" then
+        sc.stage = "pose"
+      elseif sc.stage == "pose" then
+        if st and st.cmd ~= 0 then
+          sc.stage, sc.left = "act", sc.left + ((st.fire and st.fire >= 0) and st.fire or GA.FIRE_KEY_U)
+        else
+          sc.stage, sc.left = "recover", sc.left + (st and st.recover or 45)
+        end
+      elseif sc.stage == "act" then
+        if st.cmd >= 84 then fireVolley(self, st.cmd - 84)
+        elseif st.cmd == 3 then spawnBits(self, st.count)
+        elseif st.cmd == 2 then
+          -- the timed routine: the balloon waits it out (its frames, whatever the rate)
+          sc.left = sc.left + st.count * ((sc.form and ph.rateB) or ph.rate)
+        end
+        if sc.reps > 0 then
+          sc.reps = sc.reps - 1
+          sc.left = sc.left + math.max(1, st.repeatGap)
+        else
+          sc.stage, sc.left = "recover", sc.left + math.max(0, st.recover)
+        end
+      else
+        sc.stage = "next"
+      end
+    end
+  end
+
   function Sim:updateAttacks(step)
+    if self.script then
+      self:runScript(step)
+      -- a volley's shots leave on their frames, built then (aimed at the trainee as it is)
+      if #self.spawnQueue > 0 then
+        local keep = {}
+        for _, q in ipairs(self.spawnQueue) do
+          if self.t >= q.at then
+            local ball = q.ball or gameBall(self, q.shot)
+            if ball then self.balls[#self.balls + 1] = ball end
+          else keep[#keep + 1] = q end
+        end
+        self.spawnQueue = keep
+      end
+      return
+    end
     local rel = self.t - (self.scheduleT0 or 0)
     local e = self.schedule[self.scheduleIdx]
     local cadence = 1
@@ -898,7 +1082,16 @@ return function(N)
     -- bitbot's shot a share of it; without it, ours by the ball's kind and the level
     local bot = self.bot
     local loss
-    if bot and bot.damage then
+    local sc = self.script
+    if ball.damage then
+      -- a bitbot's own shot damage (the game's bit record)
+      loss = math.max(1, math.floor(ball.damage * (self.mods.lossMult or 1)))
+    elseif sc then
+      -- the phase's damage, its second form's while that is on
+      local ph = sc.phase
+      loss = (sc.form and ph.damageB and ph.damageB > 0) and ph.damageB or ph.damage
+      loss = math.max(1, math.floor(loss * (self.mods.lossMult or 1)))
+    elseif bot and bot.damage then
       loss = (bot.mood == "rage" and bot.damage2) or bot.damage
       if ball.kind == "bit" then loss = loss * N.DAMAGE.BIT_SHARE end
       loss = math.max(1, math.floor(loss * (self.mods.lossMult or 1)))
@@ -927,7 +1120,12 @@ return function(N)
     local keep = {}
     for _, b in ipairs(self.balls) do
       local pz = b.z
-      if b.lob then
+      if b.bounced then
+        -- knocked back off the shield: away, up and back toward the balloon; it hits nothing
+        b.x = b.x + b.vx * step
+        b.y = b.y + b.vy * step
+        b.z = b.z + b.vz * step
+      elseif b.lob then
         -- along its arc; past the landing it keeps falling forward
         local L = b.lob
         L.t = L.t + step
@@ -941,6 +1139,12 @@ return function(N)
         b.ring.angle = b.ring.angle + b.ring.spin * step
         b.x = b.ring.cx + math.cos(b.ring.angle) * b.ring.r
         b.y = b.ring.cy + math.sin(b.ring.angle) * b.ring.r
+      elseif b.game then
+        -- straight along its line, its wave and homing laid over (the game's 0x155ec)
+        b.bx = b.bx + b.vx * step
+        b.by = b.by + b.vy * step
+        local ox, oy = gameOffset(self, b, (self.t - b.t0) * FPS)
+        b.x, b.y = b.bx + ox, b.by + oy
       else
         if b.homing then
           local want = (p.x - b.x)
@@ -951,9 +1155,9 @@ return function(N)
         b.x = b.x + b.vx * step
         b.y = b.y + b.vy * step
       end
-      if not b.lob then b.z = b.z + b.vz * step end
+      if not b.lob and not b.bounced then b.z = b.z + b.vz * step end
       local alive = true
-      if pz > p.z and b.z <= p.z then
+      if not b.bounced and pz > p.z and b.z <= p.z then
         local hw = (b.w or b.r * 2) / 2
         local hh = (b.h or b.r * 2) / 2
         local overlapX = math.abs(b.x - p.x) <= hw + N.PLAYER.R
@@ -962,9 +1166,17 @@ return function(N)
         if overlapX and overlapY and (p.safe or 0) <= 0 then
           alive = false
           if p.shield > 0 then
-            -- a stopped ball: untouchable a moment
+            -- a stopped ball: it bounces off, the shield breaks a moment later, and the trainee
+            -- is untouchable a while
             self.stats.blocked = self.stats.blocked + 1
             p.safe = N.BLOCK.SAFE_F / N.CHARGE.FPS
+            p.breakT = p.breakT or N.BLOCK.BREAK_F / N.CHARGE.FPS
+            alive = true
+            b.bounced, b.game = true, nil
+            local side = (b.x >= p.x) and 1 or -1
+            b.vx = side * (0.6 + 0.4 * self.rng())
+            b.vy = 1.4
+            b.vz = math.abs(b.vz or 0.8) * 0.9 + 0.3
             emit(self, "blocked", { ball = b.kind })
           else
             self:playerHit(b)
@@ -972,6 +1184,7 @@ return function(N)
         end
       end
       if b.z < -0.2 then alive = false end
+      if b.bounced and (b.z > 1.4 or b.y > 3 or math.abs(b.x) > 3) then alive = false end
       if alive then keep[#keep + 1] = b end
     end
     self.balls = keep
@@ -990,10 +1203,22 @@ return function(N)
       elseif bit.hp > 0 then
         bit.fireT = bit.fireT - step
         if bit.fireT <= 0 then
-          bit.fireT = A.fire_every
-          local vx, vy = towardPlayer(self, bit.x, bit.y, N.ATTACK.small.speed)
-          self.balls[#self.balls + 1] = { x = bit.x, y = bit.y, z = bit.z, vx = vx, vy = vy, vz = -N.ATTACK.small.speed,
-            r = N.ATTACK.small.r, kind = "bit" }
+          if bit.game then
+            -- the game's: about once a second, straight at where the trainee is now
+            bit.fireT = GA.BIT_EVERY_F / FPS
+            local G = GA
+            local speed = G.BIT_SPEED * FPS * G.DEPTH_UNIT
+            local t = math.max(1e-3, (bit.z - self.player.z) / speed)
+            local vx = (self.player.x - bit.x) / t
+            local vy = ((self.player.y or 0) + N.PLAYER.H / 2 - bit.y) / t
+            self.balls[#self.balls + 1] = { x = bit.x, y = bit.y, z = bit.z, vx = vx, vy = vy, vz = -speed,
+              r = G.BIT_R * G.SIZE_UNIT, kind = "bit", damage = bit.damage }
+          else
+            bit.fireT = A.fire_every
+            local vx, vy = towardPlayer(self, bit.x, bit.y, N.ATTACK.small.speed)
+            self.balls[#self.balls + 1] = { x = bit.x, y = bit.y, z = bit.z, vx = vx, vy = vy, vz = -N.ATTACK.small.speed,
+              r = N.ATTACK.small.r, kind = "bit" }
+          end
           emit(self, "bit_fire", { id = bit.id })
         end
         keptBits[#keptBits + 1] = bit
@@ -1009,11 +1234,15 @@ return function(N)
     if p.stun > 0 then p.stun = math.max(0, p.stun - step) end
     if (p.lock or 0) > 0 then p.lock = math.max(0, p.lock - step) end
     if (p.smoke or 0) > 0 then p.smoke = math.max(0, p.smoke - step) end
+    if (p.shatter or 0) > 0 then p.shatter = math.max(0, p.shatter - step) end
     if p.shield > 0 then
       p.shield = math.max(0, p.shield - step)
-      if p.shield <= 0 then
-        p.shieldCd = self.mods.blockS and N.BLOCK.COOLDOWN_F / N.CHARGE.FPS or N.BLOCK.COOLDOWN
-        emit(self, "block_down")
+      -- a ball it stopped breaks it a moment later
+      if p.breakT then
+        p.breakT = p.breakT - step
+        if p.breakT <= 0 or p.shield <= 0 then shieldDown(self, "blocked") end
+      elseif p.shield <= 0 then
+        shieldDown(self, "held")
       end
     end
     if (p.safe or 0) > 0 then p.safe = math.max(0, p.safe - step) end
@@ -1082,8 +1311,11 @@ return function(N)
     if bot.flinch > 0 then bot.flinch = math.max(0, bot.flinch - step) end
     if (bot.shake or 0) > 0 then bot.shake = math.max(0, bot.shake - step) end
     if bot.aura > 0 then bot.aura = math.max(0, bot.aura - step) end
-    if self.course.rageAt and self.score >= self.course.rageAt then bot.mood = "rage" end
-    if self.course.calmAt and self.score >= self.course.calmAt then bot.mood = "calm" end
+    -- (the game's script sets the mood from its second form; this only without it)
+    if not self.script then
+      if self.course.rageAt and self.score >= self.course.rageAt then bot.mood = "rage" end
+      if self.course.calmAt and self.score >= self.course.calmAt then bot.mood = "calm" end
+    end
     if self.score >= bot.target then
       emit(self, "bot_pop", { index = self.botIndex, remaining = self.remaining })
       if not self:nextBot() then

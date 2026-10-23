@@ -309,6 +309,8 @@ return function(mod)
     local Radar = loadSibling(mod, "src/training/radar.lua")
     local makeCoreApp = loadSibling(mod, "src/training/core_app.lua")
     local Courses = loadSibling(mod, "data/training_courses.lua")
+    -- the balloons' attack scripts, from the game's course data (tools/st_attacks.py)
+    if Courses then Courses.gameAttacks = loadSibling(mod, "data/training_attacks.lua") end
     local makeSim = loadSibling(mod, "src/training/sim.lua")
     local makeRegimen = loadSibling(mod, "src/training/regimen.lua")
     local makeArenaDraw = loadSibling(mod, "src/training/arena_draw.lua")
@@ -1709,8 +1711,8 @@ return function(mod)
 
   mod.hooks:wrap("render.hud", function(next, game, viewport)
     syncHd()
-    local ok, err = pcall(tick, game, viewport)
-    if not ok then mod.log:warn("frame tick failed: %s", tostring(err)) end
+    -- the top screen first, PlayNav's touch screen over it: on the OVERLAY layout the panel sits
+    -- on the game's picture, and a filling top screen (a regimen) would otherwise paint it out
     if HdTop and mod.generation == 3 and state.mode == "handheld" then
       -- the top screen is the game's frame on the second display, drawn into it plainly
       HdTop.standDown()
@@ -1718,6 +1720,8 @@ return function(mod)
       local okT, errT = pcall(HdTop.draw, viewport)
       if not okT then mod.log:warn("top screen overlay failed: %s", tostring(errT)) end
     end
+    local ok, err = pcall(tick, game, viewport)
+    if not ok then mod.log:warn("frame tick failed: %s", tostring(err)) end
     return next(game, viewport)
   end)
 

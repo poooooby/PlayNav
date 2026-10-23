@@ -121,3 +121,5 @@ tests/drivers/display_mode_probe.lua
 tests/drivers/output_probe.lua
 tests/drivers/speed_probe.lua
 tests/drivers/charge_probe.lua
+tools/st_attacks.py
+tests/drivers/shield_probe.lua

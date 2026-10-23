@@ -628,8 +628,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local far = B and B.FAR or 1
     local r = b.r * hwNear * (far + (1 - far) * t)
     if B then
+      -- (the game's own projectiles keep their sizes: its giants are meant to be giant)
       local lv = sim.isSecret and "secret" or sim.level
-      r = math.min(r, (B.CAP[lv] or 1) * B.SPRITE_R * hwNear)
+      local cap = b.game and 4 or (B.CAP[lv] or 1)
+      r = math.min(r, cap * B.SPRITE_R * hwNear)
     end
     return math.max(1.5, r)
   end
@@ -659,7 +661,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
           G2.ellipse("fill", px, fy, r * 0.9, math.max(2, r * 0.25))
           if soccer then
             local iw = soccer:getWidth()
-            G2.setColor(1, 1, 1, 1)
+            -- a ball knocked back off the shield glows cyan
+            if b.bounced then G2.setColor(0.55, 1, 1, 1) else G2.setColor(1, 1, 1, 1) end
             G2.draw(soccer, px, py, sim.t * 5 + (b.x or 0) * 3, (r * 2) / iw, (r * 2) / iw, iw / 2, iw / 2)
           else
             G2.setColor(0.95, 0.95, 0.95, 1)
@@ -959,7 +962,73 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 
   -- the Charged Shot's fire, drawn: tongues of flame rising over the rider's box (w x h, feet at
   -- fx, fy), flickering; stage 2 taller, wider and orange at the edges. Added light.
-  local drawFire, drawSmoke
+  local drawFire, drawSmoke, drawShield, drawShatter
+  -- the shield (Wooble's capture 2026-10-23_17-28-44): a see-through green dome of hexagons
+  -- round the trainee and its stand, flaring bright as a stopped ball breaks it; the shatter a
+  -- white-pink flash and hexagon pieces drifting out and up
+  D.SHIELD = { HEX = 9, PAD = 1.6, ALPHA = 0.42, PIECES = 12 }
+  local function hexagon(G2, x, y, r, mode)
+    G2.polygon(mode or "line", x + r, y, x + r / 2, y - r * 0.866, x - r / 2, y - r * 0.866,
+      x - r, y, x - r / 2, y + r * 0.866, x + r / 2, y + r * 0.866)
+  end
+  local function domeBox(fx, fy, w, h, k)
+    local S = D.SHIELD
+    local rx = math.max(w, 26 * k) / 2 * S.PAD
+    local ry = math.max(h, 30 * k) / 2 * S.PAD
+    return fx, fy - ry * 0.85, rx, ry
+  end
+  function drawShield(G2, sim, fx, fy, w, h, k, breakT)
+    local S = D.SHIELD
+    local cx, cy, rx, ry = domeBox(fx, fy, w, h, k)
+    local flare = breakT and (1 - breakT / (N.BLOCK.BREAK_F / N.CHARGE.FPS)) or 0
+    local a = S.ALPHA + 0.35 * flare + 0.08 * math.sin(sim.t * 9)
+    G2.push("all")
+    G2.stencil(function() G2.ellipse("fill", cx, cy, rx, ry, 32) end, "replace", 1)
+    G2.setStencilTest("greater", 0)
+    G2.setBlendMode("add")
+    G2.setColor(0.25, 0.9, 0.55, 0.12 + 0.25 * flare)
+    G2.ellipse("fill", cx, cy, rx, ry, 32)
+    -- the net itself in front of the trainee: drawn over it, not added light
+    G2.setBlendMode("alpha")
+    local hr = S.HEX * k
+    G2.setLineWidth(math.max(1.2, 1.1 * k))
+    G2.setColor(0.35 + 0.5 * flare, 0.95, 0.55 + 0.3 * flare, math.min(1, a + 0.3))
+    local dx, dy = hr * 1.5, hr * 1.732
+    local row = 0
+    for y = cy - ry - dy, cy + ry + dy, dy / 2 do
+      local off = (row % 2) * dx / 2
+      for x = cx - rx - dx + off, cx + rx + dx, dx do hexagon(G2, x, y, hr * 0.95) end
+      row = row + 1
+    end
+    G2.setStencilTest()
+    G2.setColor(0.6, 1, 0.8, a)
+    G2.ellipse("line", cx, cy, rx, ry, 32)
+    G2.pop()
+  end
+  function drawShatter(G2, sim, fx, fy, w, h, k, left)
+    local S = D.SHIELD
+    local cx, cy, rx, ry = domeBox(fx, fy, w, h, k)
+    local u = 1 - math.max(0, math.min(1, left / N.BLOCK.SHATTER_S))
+    G2.push("all")
+    G2.setBlendMode("add")
+    -- the flash
+    local fa = math.max(0, 1 - u * 2.5)
+    G2.setColor(1, 0.75, 0.9, 0.6 * fa)
+    G2.ellipse("fill", cx, cy, rx * (1 + 0.3 * u), ry * (1 + 0.3 * u), 32)
+    G2.setColor(1, 1, 1, 0.5 * fa)
+    G2.ellipse("fill", cx, cy, rx * 0.6, ry * 0.6, 24)
+    -- the pieces
+    G2.setLineWidth(math.max(1, 0.9 * k))
+    for i = 0, S.PIECES - 1 do
+      local ang = i / S.PIECES * 2 * math.pi + 0.4
+      local d = 0.7 + 0.9 * u
+      local x = cx + math.cos(ang) * rx * d
+      local y = cy + math.sin(ang) * ry * d - u * 24 * k
+      G2.setColor(0.7, 1, 0.85, 0.8 * (1 - u))
+      hexagon(G2, x, y, S.HEX * k * (0.8 - 0.4 * u))
+    end
+    G2.pop()
+  end
   D.FIRE = { TONGUES = 7, HEIGHT = { 1.05, 1.45 }, WIDTH = { 1.0, 1.3 }, ALPHA = { 0.55, 0.7 } }
   local FIRE_OUTER = { { 1, 0.92, 0.3 }, { 1, 0.5, 0.08 } }
   local FIRE_INNER = { { 1, 1, 0.7 }, { 1, 0.9, 0.35 } }
@@ -1025,10 +1094,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     local pic = playerPic(s)
     local stage = sim:chargeStage()
-    if p.shield > 0 then
-      G2.setColor(0.4, 0.9, 1, 0.5)
-      G2.arc("fill", px, py - 18 * k, 26 * k, -math.pi * 0.9, -math.pi * 0.1, 16)
-    end
     local feetY = py + 2 - lift * k
     -- the rider's box on screen: its sprite as drawn, and the board under it
     local x0, y0, x1, y1 = px - 12 * k, feetY - 28 * k, px + 12 * k, feetY
@@ -1046,6 +1111,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       y1 = math.max(y1, feetY + (bh - D.BOARD.feetY) * bk)
     end
     local see = D.riderAlpha(sim, x0, y0, x1, y1)
+    -- the shield: a dome of hexagons between the trainee and the balloon - the camera is behind
+    -- the trainee, so it is drawn first and the trainee and its stand over it
+    if p.shield > 0 then drawShield(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.breakT) end
     if board then
       -- under the rider, rolling and pitching with it
       local pitch = boardPitch(sim)
@@ -1074,6 +1142,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     -- and the smoke it leaves when the charge fizzles
     if p.charging and stage > 0 then drawFire(G2, sim, px, feetY, x1 - x0, feetY - y0, k, stage) end
     if (p.smoke or 0) > 0 then drawSmoke(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.smoke) end
+    -- the shield's shatter when it goes (the shield itself is drawn behind the trainee)
+    if (p.shatter or 0) > 0 then drawShatter(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.shatter) end
     -- the reticle (the game's HUD draws its own)
     if s and s.hudReticle then return end
     local rx, ry = Sim.project(p.aim.x, p.aim.y, 1)

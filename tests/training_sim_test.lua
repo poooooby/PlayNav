@@ -341,6 +341,37 @@ do
   T.check(not sim:block(), "the shield has a cooldown")
 end
 
+-- ------- the shield (capture 2026-10-23_17-28-44): a stopped ball bounces off, the shield shatters
+-- BREAK_F frames later; held to its length it shatters too
+
+do
+  local F = N.CHARGE.FPS
+  local mods = { pointMult = 1, shotSize = 1, lossMult = 1, gutsRate = 1, blockLen = 1, moveMult = 1,
+    ballSpeedMult = 1, blockS = 45 / F }
+  local sim = make("lv1_hp", { mods = mods })
+  run(sim, 3.1)
+  sim.balls = {}
+  sim.score = 100
+  sim:block()
+  local ball = { x = 0, y = 0.15, z = 0.25, vx = 0, vy = 0, vz = -1.5, r = 0.06, kind = "small" }
+  sim.balls[#sim.balls + 1] = ball
+  local blocked
+  run(sim, 0.2, function(e) if e.kind == "blocked" then blocked = e end end)
+  T.check(blocked ~= nil and ball.bounced, "a blocked ball bounces off")
+  T.check(ball.vz > 0, "...back toward the balloon")
+  T.eq(sim.score, 100, "...and costs nothing")
+  T.check(sim.player.shield > 0, "the shield holds a moment after")
+  local down
+  run(sim, N.BLOCK.BREAK_F / F + 0.05, function(e) if e.kind == "block_down" then down = e end end)
+  T.check(down and down.why == "blocked" and sim.player.shield == 0, "...then shatters")
+  T.check(sim.player.shatter > 0 and sim.player.shieldCd > 0, "...its pieces fly and the cooldown starts")
+  run(sim, 2)
+  T.eq(sim:block(), true, "held, the next one")
+  down = nil
+  run(sim, 45 / F + 0.05, function(e) if e.kind == "block_down" then down = e end end)
+  T.check(down and down.why == "held", "...shatters at its length (1.5 s here)")
+end
+
 -- ------- moving away dodges
 
 do
@@ -794,6 +825,106 @@ do
   local b, sb = script(99)
   T.check(a == b and sa == sb, "the same seed and inputs replay the same events")
   T.check(#a > 20, "...and there were events (" .. #a .. " chars)")
+end
+
+-- ------- the game's attack scripts (data/training_attacks.lua from tools/st_attacks.py)
+
+do
+  local GA = loadFile("mods/play_nav/data/training_attacks.lua")
+  local function gameSim(id, opts)
+    opts = opts or {}
+    local course = C.byId[id]
+    return Sim.new(course, { anchors = C.anchors[course.goals.anchors], library = C.attacks,
+      shotType = "black", level = course.level, still = true, gameAttacks = GA }, opts.rng or lcg(11))
+  end
+  T.check(GA and GA.courses and GA.phases and GA.volleys and GA.projectiles, "the game's attack data loads")
+  -- every course runs a minute of its script without trouble, and attacks
+  local quiet = {}
+  for _, c in ipairs(C.courses) do
+    local sim = gameSim(c.id)
+    T.check(sim.script ~= nil, c.id .. " has the game's script")
+    run(sim, 3.1)
+    sim.player.safe = 1e9   -- untouchable: the clock and the balloon stay put
+    local launches, balls = 0, 0
+    local ok, err = pcall(run, sim, 60, function(e) if e.kind == "attack_launch" then launches = launches + 1 end end)
+    T.check(ok, c.id .. " runs (" .. tostring(err) .. ")")
+    for _, b in ipairs(sim.balls) do if b.game then balls = balls + 1 end end
+    if launches == 0 and #sim.bits == 0 then quiet[#quiet + 1] = c.id end
+  end
+  T.eq(#quiet, 0, "every course attacks within a minute (" .. table.concat(quiet, ", ") .. ")")
+
+  -- Wailmer (lv1_hp): a single aimed shot each loop; it flies at the game's speed, aimed at the trainee
+  local w = gameSim("lv1_hp")
+  run(w, 3.1)
+  w.player.x = 0.4
+  local launched
+  run(w, 20, function(e) if e.kind == "attack_launch" and not launched then launched = e end end)
+  T.check(launched ~= nil, "Wailmer fires")
+  local hitAt
+  local w2 = gameSim("lv1_hp")
+  run(w2, 3.1)
+  w2.player.x = 0.4
+  local t0
+  run(w2, 30, function(e)
+    if e.kind == "attack_launch" and not t0 then t0 = e.t end
+    if e.kind == "player_hit" and t0 and not hitAt then hitAt = e.t end
+  end)
+  T.check(hitAt and t0 and hitAt - t0 > 1.5 and hitAt - t0 < 3.5, ("an aimed shot reaches a still trainee (%.2f s; 240 / its speed)"):format((hitAt or 0) - (t0 or 0)))
+
+  -- homing: a homing projectile bends toward where the trainee is now
+  local P5 = GA.projectiles[5]
+  T.check(P5 and P5.homeX > 0, "projectile 5 homes")
+  local h = gameSim("lv1_hp")
+  run(h, 3.1)
+  h.player.x = -0.5
+  local ball = Sim.gameBall(h, { p = 5, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
+  h.balls[#h.balls + 1] = ball
+  h.player.x = 0.5   -- moves after the launch
+  for _ = 1, 20 do h:update(1 / 60) end
+  T.check(ball.x > ball.bx + 0.05, "...it bends toward the trainee's new place")
+
+  -- a stream: its shots leave on their frames, not together
+  local stream
+  for vid, shots in pairs(GA.volleys) do
+    if #shots >= 3 and shots[1].next and shots[1].next > 0 then stream = vid; break end
+  end
+  T.check(stream ~= nil, "the data has a stream")
+  local st = gameSim("lv1_hp")
+  run(st, 3.1)
+  st.spawnQueue = {}
+  st.balls = {}
+  local times = {}
+  for _, q in ipairs((function() local qq = {} local d = 0 for _, shot in ipairs(GA.volleys[stream]) do qq[#qq + 1] = d; d = d + shot.next end return qq end)()) do times[#times + 1] = q end
+  T.check(times[2] > times[1], "...shot 2 leaves frames after shot 1")
+
+  -- Aegislash (secret_06): below half its score left, its second form - the other list and 2500
+  local a = gameSim("secret_06")
+  run(a, 3.1)
+  a.player.safe = 1e9
+  T.eq(a.script.form, false, "Aegislash starts in its first form")
+  a.score = 2500   -- 2300 of 4800 left: under 50%
+  local changed
+  run(a, 40, function(e) if e.kind == "form_change" then changed = e end end)
+  T.check(changed and changed.form == "B" and a.script.form, "...below half, its second form")
+  a.player.safe = 0
+  a.score = 4000
+  a:playerHit({ kind = "small" })
+  T.eq(a.score, 1500, "...whose hits cost 2500")
+
+  -- Roserade (secret_07) starts fierce and calms at half
+  local r = gameSim("secret_07")
+  run(r, 3.1)
+  run(r, 6)
+  T.eq(r.script.form, true, "Roserade starts in its fierce form")
+
+  -- bitbots (lv2_spd, Tentacruel): spawned by the script, firing about once a second at the trainee
+  local b = gameSim("lv2_spd")
+  run(b, 3.1)
+  b.player.safe = 1e9
+  local fired = 0
+  run(b, 30, function(e) if e.kind == "bit_fire" then fired = fired + 1 end end)
+  T.check(#b.bits > 0 and #b.bits <= 3, "Tentacruel's bits come, three at most (" .. #b.bits .. ")")
+  T.check(fired >= 5, "...and fire (" .. fired .. ")")
 end
 
 T.finish()

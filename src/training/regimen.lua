@@ -131,6 +131,7 @@ return function(mod, T, deps)
     T.sim = Sim.new(course, {
       mods = mods, shotType = s.shot, level = course.level,
       anchors = Courses.anchors[course.goals.anchors], library = Courses.attacks, shapes = shapes,
+      gameAttacks = Courses.gameAttacks,
     }, T.rng)
     s.course = course
     s.result = nil

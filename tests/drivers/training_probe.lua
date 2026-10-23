@@ -427,6 +427,10 @@ local function body(game, log)
   if os.getenv("PROBE_EXIT") == "1" then
     local E = aim.geometry().EXIT
     local ex, ey = E.x + E.w / 2, E.y + E.h / 2
+    do
+      local st, r = X.state(), X.state().rect
+      log("exit run: mode", tostring(st.mode), "rect", r and ("%d,%d %dx%d"):format(r.x, r.y, r.w or 0, r.h or 0) or "none")
+    end
     tapAt("exit1", ex, ey)
     for _, at in ipairs({ { 0.1, "x01_ring_closing" }, { 0.5, "x02_ring_held" }, { 1.12, "x03_ring_spreading" } }) do
       waitUntil(function() local t = aim.exitRingT(); return t == nil or t >= at[1] end, 3)

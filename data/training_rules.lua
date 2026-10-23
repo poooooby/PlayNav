@@ -185,6 +185,16 @@ N.DAMAGE = {
 
 N.ATTACK = {
   TELEGRAPH_S = 1.0,
+  -- the game's attack scripts (data/training_attacks.lua, run by src/training/sim.lua): its units
+  -- to ours - the trainee moves on a sphere 240 out from the balloon, 30 degrees either side
+  -- (+-120 units across) and up to 45 degrees (170 units) up; our stand +-0.8 across, 1.25 up and
+  -- 0.9 deep - so UNIT for x / y (and sizes), DEPTH_UNIT along the flight; FIRE_KEY_U the units
+  -- a pose takes to its fire key (the step's -1; the game reads it from the pose's animation,
+  -- at most 90); a bitbot fires every BIT_EVERY_F frames at SPEED units a frame, radius R
+  -- SIZE_UNIT: a projectile's size (the game draws them in 3D, near the camera, so they look far
+  -- bigger than the field's scale): its normal ball (4.8) at our ball's 0.06, a giant (27) 0.34
+  GAME = { UNIT = 0.8 / 120, SIZE_UNIT = 0.06 / 4.8, DEPTH = 240, DEPTH_UNIT = 0.9 / 240, FIRE_KEY_U = 15,
+    BIT_EVERY_F = 32, BIT_SPEED = 3.5, BIT_R = 2.4, MAX_BITS = 3 },
   small = { speed = 1.19, r = 0.06, gap = 0.35 },
   big = { speed = 0.77, r = 0.16 },
   ring = { speed = 0.94, n = 8, r = 0.06, spin = 1.2, ring_r = 0.45 },
@@ -210,7 +220,10 @@ N.ATTACK = {
 -- DEFv = base Def + Sp. Def + 2 x their EVs; dropped (released, or run out) it cannot rise again
 -- for COOLDOWN_F; while up the Pokemon moves at MOVE_MULT and cannot shoot; a ball it stops
 -- leaves it untouchable for SAFE_F. LEN / COOLDOWN / DEF_BONUS only without the Pokemon's stats.
-N.BLOCK = { MAX_F = 20, DEF_K = 0.005, COOLDOWN_F = 30, SAFE_F = 25, MOVE_MULT = 0.5,
+-- A stopped ball bounces off the shield, which shatters BREAK_F frames later (Wooble's capture
+-- 2026-10-23_17-28-44: blocked at 3.4 s, shattered at 4.0); held to its length it shatters too
+-- (12.1 -> 13.6 s); the pieces fly for SHATTER_S.
+N.BLOCK = { MAX_F = 20, DEF_K = 0.005, COOLDOWN_F = 30, SAFE_F = 25, MOVE_MULT = 0.5, BREAK_F = 18, SHATTER_S = 0.6,
   LEN = 0.6, COOLDOWN = 1.5, DEF_BONUS = 0.5 }
 
 -- the trainee stands on a floating stand and moves across and up / down on a plane facing the
@@ -295,6 +308,8 @@ N.EVIDENCE = {
   ["GUTS.DEF_K"] = { class = "verified", source = "DllSparring.cro 0x5cec-0x5d0c (DEFv = stat+0x54)", confidence = "high" },
   ["GUTS.START"] = { class = "verified", source = "DllSparring.cro 0x5cd4: the meter starts at 0", confidence = "high" },
   ["GUTS.RATE"] = { class = "placeholder", source = "only without the Pokemon's stats", confidence = "low" },
+  ["BLOCK.BREAK_F"] = { class = "measured", source = "capture 2026-10-23_17-28-44 (10 fps): the ball bounces off at 3.4 s, the shield shatters at 4.0 s", confidence = "medium" },
+  ["BLOCK.SHATTER_S"] = { class = "measured", source = "capture 2026-10-23_17-28-44: the flash and pieces fade over ~0.6 s (4.0 -> 4.6, 13.6 -> 14.2)", confidence = "medium" },
   ["BLOCK.MAX_F"] = { class = "verified", source = "DllSparring.cro guard state [r4+0x280] 0x23d0-0x2594: up while button 0x100 is held, down at counter [0x298] = stat+0x44 = int(20 x (1 + 0.005 x DEFv)) (0x5e50-0x5e60)", confidence = "high" },
   ["BLOCK.DEF_K"] = { class = "verified", source = "DllSparring.cro 0x5e50-0x5e60 (DEFv = stat+0x54; no bag, no EV total)", confidence = "high" },
   ["BLOCK.COOLDOWN_F"] = { class = "verified", source = "DllSparring.cro state 2: [0x29c] cmp #0x1e at 0x256c, then the button must be let go (0x2578-0x2594)", confidence = "high" },
@@ -304,6 +319,7 @@ N.EVIDENCE = {
   ["SHOT.SPE_K"] = { class = "verified", source = "DllSparring.cro 0x2f84-0x2fcc: shot speed = rec.speed x (1 + SPEv x 0.005), SPEv = stat+0x58 (base Spe + 2 EV_Spe)", confidence = "high" },
   ["SHOT.HP_K"] = { class = "verified", source = "DllSparring.cro 0x2f84-0x2fcc: shot size = rec.size x (1 + HPv x 0.00125), HPv = stat+0x4c (base HP + 2 EV_HP); x1.5 Big-Shot", confidence = "high" },
   ["SHOT.STAT_REF"] = { class = "inferred", source = "ours: the stat value at which our shot table's absolute speeds and sizes hold", confidence = "low" },
+  ["ATTACK.GAME"] = { class = "inferred", source = "DllSparring.cro: the trainee on a sphere of radius 240 (0x6fbc), azimuth 60..120, elevation 0..45 (0x2004-0x2098); the scale to our stand is ours; FIRE_KEY_U a guess (the pose's own fire key, at most 90 units, 0xa96c); bits fire every ~32 frames at 3.5 a frame, radius 2.4 (a/2/1/2/4 #0, 0x9fcc), at most 3 (0xbb4c)", confidence = "medium" },
   ["DAMAGE.BIT_SHARE"] = { class = "placeholder", source = "ours: a bitbot's shot against a ball (the game's other attack classes not traced; one adds a flat 4 unblockable at 0x143c4)", confidence = "low" },
   ["PLAYER.HIT_SAFE_F"] = { class = "verified", source = "DllSparring.cro 0x2c14-0x2c2c: after an unblocked hit [0x1d4] = 30 frames untouchable, a knockback of 2 units back over 14 frames ([0x1ec], no moving or charging)", confidence = "high" },
   ["DAMAGE.LOSS_K"] = { class = "verified", source = "DllSparring.cro 0x5c54-0x5c80: stat+0 = 1 / (1 + (HPv + EV total) x 0.005), / 1.5 Toughen Up; applied to a hit's loss at 0x2b48-0x2b8c", confidence = "high" },

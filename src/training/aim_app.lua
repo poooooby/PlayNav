@@ -215,6 +215,9 @@ return function(mod, Pointer, T, Rules, Sim)
             T.quitRegimen()
           else
             app.exitArm = now()
+            app.exitClosed = false
+            -- the game's own ring (pane 1o): in from 2x as it fades in
+            if P then P:play("exit_open") end
             if T.playSe then T.playSe("exit_arm") end
           end
         end
@@ -293,6 +296,11 @@ return function(mod, Pointer, T, Rules, Sim)
     local t = sim and sim.t or 0
     if app.lastT then P:advance(math.max(0, math.min(0.25, t - app.lastT)) * 30) end
     app.lastT = t
+    -- the exit's ring out again (back to 2x, fading) when no second tap came
+    if app.exitArm and not app.exitClosed and now() - app.exitArm >= EXIT_RING.IN + EXIT_RING.HOLD then
+      app.exitClosed = true
+      P:play("exit_close")
+    end
     -- the return button lights once play begins (passive -> active)
     local live = sim and sim.phase ~= "countdown"
     if live ~= app.live then
