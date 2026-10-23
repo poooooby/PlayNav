@@ -175,6 +175,12 @@ return function(mod, Pointer, T, Rules, Store)
     if not inRect(x, y, g.DRAWER) then close() end
   end
 
+  -- only the active app is updated, so the mode it last saw would carry over to the next
+  -- visit (a close still pending then shut the drawer the moment it opened)
+  function app:leave()
+    lastMode, closeAt = nil, nil
+  end
+
   function app:update(dt)
     clock = clock + (dt or 0) * FPS
     if app.core and app.core.update then app.core:update(dt) end

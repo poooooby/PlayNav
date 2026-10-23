@@ -5,6 +5,14 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- On phones (and touchscreen PCs) in split screen, every tap reached PlayNav twice: once as the
+  touch and once as the mouse the system reports alongside it. Super Training's bag drawer
+  opened and shut at once (and then would not open), and a tap on the Pokemon in Pokemon-Amie's
+  room did nothing (its menu opened and closed). A tap now counts once.
+- The bag drawer no longer shuts the moment it opens when it was left mid-close on the last visit.
+
 ## [0.6.2] - 2026-10-21 (beta)
 
 ### Changed

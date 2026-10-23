@@ -99,3 +99,5 @@ tests/drivers/amie_music_probe.lua
 tests/drivers/demo_showcase.lua
 tests/drivers/benefits_probe.lua
 tests/drivers/music_level_probe.lua
+tests/bags_drawer_test.lua
+tests/drivers/touch_twin_probe.lua

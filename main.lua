@@ -934,9 +934,20 @@ return function(mod)
   -- per touch flag (see love.mousemoved in the engine's main.lua); polling
   -- makes a drag register the same way everywhere. A move that events
   -- already delivered is a zero-length step here and changes nothing.
+  -- A finger is also reported as a mouse (LÖVE's touch-to-mouse emulation, on by default on
+  -- iOS, Android and touchscreen PCs); polled, every tap reached the apps twice - the touch,
+  -- then a "mouse" tap at the same spot, which toggled the bag drawer and Amie's menu straight
+  -- back shut. Phones have no mouse to poll, and elsewhere a press with a touch down is a finger.
+  local MOBILE = { iOS = true, Android = true }
+  local function fingerDown()
+    if not (love.touch and love.touch.getTouches) then return false end
+    local ok, touches = pcall(love.touch.getTouches)
+    return ok and type(touches) == "table" and #touches > 0
+  end
+
   local function pollMouse()
     if not (love and love.mouse and love.mouse.getPosition) then return end
-    if state.mode ~= "split" then
+    if state.mode ~= "split" or MOBILE[osName()] then
       state.polledX, state.polledY, state.mouseWasDown = nil, nil, nil
       return
     end
@@ -948,7 +959,7 @@ return function(mod)
       -- Desktop Gen 3 never delivers the mouse to mods as events (the game
       -- instance keeps its own handler, found 2026-10-17), so the poll starts
       -- the pointer itself the frame the button goes down on the surface.
-      if down and not state.mouseWasDown then
+      if down and not state.mouseWasDown and not fingerDown() then
         feedWindow("pressed", "mouse", mx, my, nil, "mouse")
       end
       state.mouseWasDown = down
