@@ -337,7 +337,7 @@ return function(mod, deps)
   -- ------- the generators: id -> { w, h, draw(G, w, h) } in the texture's own units
 
   local GEN = {}
-  local function gen(id, w, h, draw) GEN[id] = { w = w, h = h, draw = draw } end
+  local function gen(id, w, h, draw, prepare) GEN[id] = { w = w, h = h, draw = draw, prepare = prepare } end
 
   -- the top frame's left half (mirrored for the right): the bolted steel plate at the left,
   -- the dark rim along the teal name band, the band, and the light-blue wire under it
@@ -468,7 +468,8 @@ return function(mod, deps)
   -- the round buttons
   gen("training/btn_return", 48, 48, function(G)
     limeButton(G, 24, 24, 22.5)
-    col(G, c255(10, 58, 12)); returnArrow(G, 25, 25, 1, true, true)
+    -- the arrow's extent (x -9.2..12.9, y -13..8.2 about its point) centred on the button's
+    col(G, c255(10, 58, 12)); returnArrow(G, 22.15, 26.4, 1, true, true)
   end)
   -- PlayNav's small return: a dark blue ring, a white face shaded to grey at its lower right,
   -- the blue return arrow

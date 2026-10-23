@@ -1,4 +1,5 @@
--- Super Training's and Pokemon-Amie's minigame sound effects, PlayNav's own: each made on the
+-- Super Training's and Pokemon-Amie's sound effects (its room, PLAY, DECORATE and minigames),
+-- PlayNav's own: each made on the
 -- chip synth (src/chipsynth.lua M.effect; the layer fields are described there), under the ids
 -- data/training_sounds.lua and data/amie_sounds.lua map the events to. The ones the game loops
 -- while something lasts (the charge, the wind-up, a ball in the air; the berry rain, a score
@@ -244,5 +245,87 @@ S["se/kw_swap"] = { peak = 0.55, layers = {
 S["se/kw_setpanel"] = { peak = 0.55, layers = {
   { dur = 0.08, wave = "pulse25", f0 = 700, f1 = 400, decay = 30, vol = 0.5 },
   { dur = 0.04, wave = "noise", lp = 3500, decay = 60, vol = 0.35 } } }
+
+-- ------- Pokemon-Amie's room, PLAY and DECORATE (each shaped as the game's: its length, its
+-- pitch rising or falling, noise or tone)
+
+-- the room's menu and DECORATE's pills: a low knock, a bright tick over it
+S["se/decide1"] = { peak = 0.55, layers = {
+  { dur = 0.08, wave = "sine", f0 = 600, f1 = 180, decay = 25, vol = 0.6 },
+  { at = 0.03, dur = 0.12, wave = "pulse25", f0 = hz("A6"), decay = 28, vol = 0.35 } } }
+-- DECORATE: an item taken into the finger (a quick rising pip), and let go (a pip up, then down)
+S["se/catch"] = { peak = 0.5, layers = { { dur = 0.09, wave = "sine", f0 = 650, f1 = 1250, vol = 0.5, release = 0.03 } } }
+S["se/release"] = { peak = 0.5, layers = {
+  { dur = 0.05, wave = "sine", f0 = 800, f1 = 950, vol = 0.5 },
+  { at = 0.05, dur = 0.07, wave = "sine", f0 = 950, f1 = 560, vol = 0.45, release = 0.03 } } }
+
+-- PLAY: a finger lands on the Pokemon (a soft pat), a stroke (a soft brush and a lifting tone)
+S["se/kw_touch"] = { peak = 0.45, layers = { { dur = 0.04, wave = "sine", f0 = 580, decay = 50, vol = 0.5 } } }
+S["se/kw_stroke"] = { peak = 0.5, layers = {
+  { dur = 0.08, wave = "sine", f0 = 220, f1 = 260, vol = 0.5, attack = 0.03, release = 0.03 },
+  { at = 0.08, dur = 0.1, wave = "tri", f0 = 850, f1 = 1300, vol = 0.25, release = 0.05 } } }
+-- happy: a skipping run upward (a step of its dance, its reward's hop); the longer one runs
+-- up, then lands with a sparkle
+S["se/kw_heart1"] = { peak = 0.55, layers = {
+  { dur = 0.32, wave = "pulse25", steps = { 250, 350, 775, 1050, 1300, 1825 }, step = 0.045, vol = 0.45, release = 0.08 },
+  { at = 0.2, dur = 0.17, wave = "tri", f0 = 1150, f1 = 2050, vol = 0.2, release = 0.1 } } }
+S["se/kw_heart2"] = { peak = 0.6, layers = {
+  { dur = 0.2, wave = "pulse25", steps = { 250, 350, 775, 1050 }, step = 0.05, vol = 0.5, release = 0.04 },
+  { at = 0.18, dur = 0.24, wave = "tri", steps = { 350, 575, 375, 250 }, step = 0.06, vol = 0.4, release = 0.06 },
+  { at = 0.4, dur = 0.4, wave = "noise", lp = 4000, lp1 = 9000, vol = 0.1, release = 0.3 },
+  { at = 0.42, dur = 0.35, wave = "sine", f0 = 1000, decay = 8, vol = 0.15, vib = { 0.4, 14 } } } }
+-- disliked: a buzzing shock; a hurt yelp down; burning: a long crackling hiss
+S["se/kw_elshock"] = { peak = 0.6, layers = {
+  { dur = 0.38, wave = "saw", f0 = 125, vol = 0.45, trem = { 0.6, 28 }, release = 0.12 },
+  { dur = 0.38, wave = "noise", lp = 6000, vol = 0.25, trem = { 0.8, 17 }, release = 0.12 } } }
+S["se/kw_injure"] = { peak = 0.6, layers = {
+  { dur = 0.17, wave = "pulse25", f0 = 380, f1 = 220, vol = 0.5, release = 0.05 },
+  { at = 0.03, dur = 0.12, wave = "noise", lp = 1500, decay = 18, vol = 0.3 } } }
+S["se/kw_burn"] = { peak = 0.5, layers = {
+  { dur = 0.68, wave = "noise", lp = 6000, lp1 = 9000, vol = 0.4, trem = { 0.5, 23 }, attack = 0.02, release = 0.2 } } }
+-- tapped too hard: a slap; the high five: a bright clap with a ringing tail
+S["se/kw_smack"] = { peak = 0.6, layers = {
+  { dur = 0.05, wave = "sine", f0 = 160, f1 = 90, decay = 40, vol = 0.6 },
+  { dur = 0.15, wave = "noise", lp = 7000, lp1 = 3000, decay = 25, vol = 0.5 } } }
+S["se/kw_snap"] = { peak = 0.65, layers = {
+  { dur = 0.08, wave = "noise", lp = 3000, decay = 40, vol = 0.7 },
+  { at = 0.2, dur = 0.08, wave = "noise", lp = 6500, decay = 35, vol = 0.35 },
+  { dur = 0.4, wave = "tri", f0 = 1575, f1 = 1100, decay = 7, vol = 0.25 } } }
+-- the Poke Puff drawer opening (a rising swish into a held note) and closing (a short swish down)
+S["se/kw_selsweet"] = { peak = 0.55, layers = {
+  { dur = 0.16, wave = "noise", lp = 900, lp1 = 2500, vol = 0.35, attack = 0.05, release = 0.04 },
+  { at = 0.04, dur = 0.37, wave = "tri", steps = { 450, 525, 600, 775 }, step = 0.06, vol = 0.45, release = 0.2 } } }
+S["se/kw_closesweet"] = { peak = 0.5, layers = {
+  { dur = 0.1, wave = "noise", lp = 2500, lp1 = 900, vol = 0.35, release = 0.03 },
+  { at = 0.06, dur = 0.24, wave = "tri", f0 = 600, f1 = 450, vol = 0.45, release = 0.12 } } }
+-- eating: a bite (a soft munch), the last one swallowed (a gulp rising)
+S["se/kw_eat"] = { peak = 0.55, layers = {
+  { dur = 0.1, wave = "pulse50", f0 = 500, f1 = 580, vol = 0.4, decay = 18 },
+  { dur = 0.06, wave = "noise", lp = 1800, decay = 40, vol = 0.3 } } }
+S["se/kw_eatswallow"] = { peak = 0.55, layers = {
+  { dur = 0.1, wave = "sine", f0 = 320, vol = 0.55, release = 0.02 },
+  { at = 0.1, dur = 0.14, wave = "sine", f0 = 330, f1 = 900, vol = 0.5, release = 0.06 } } }
+-- it will not eat: a low double buzz
+S["se/kw_fault"] = { peak = 0.6, layers = {
+  { dur = 0.1, wave = "pulse50", f0 = 125, vol = 0.5, release = 0.02 },
+  { at = 0.11, dur = 0.12, wave = "pulse50", f0 = 125, f1 = 150, vol = 0.35, release = 0.06 } } }
+-- turning round to face you, and a visitor's chat: little blips
+S["se/kw_face1"] = { peak = 0.45, layers = { { dur = 0.07, wave = "pulse25", f0 = 425, decay = 25, vol = 0.45 } } }
+S["se/kw_face2"] = { peak = 0.5, layers = {
+  { dur = 0.05, wave = "pulse25", f0 = 1200, decay = 30, vol = 0.3 },
+  { at = 0.04, dur = 0.06, wave = "pulse25", f0 = 250, decay = 25, vol = 0.5 },
+  { at = 0.08, dur = 0.05, wave = "pulse25", f0 = 2075, decay = 35, vol = 0.25 } } }
+-- the "..." bubble: three notes wandering up
+S["se/kw_think"] = { peak = 0.5, layers = {
+  { dur = 0.24, wave = "tri", steps = { 325, 400, 550, 475 }, step = 0.05, vol = 0.5, release = 0.08 } } }
+-- dozing off: a soft high whistle falling
+S["se/kw_sleep"] = { peak = 0.35, layers = {
+  { dur = 0.55, wave = "sine", f0 = 3200, f1 = 1300, vol = 0.35, attack = 0.25, release = 0.2, vib = { 0.4, 6 } } } }
+-- a gift: a fanfare of fifths, a chime held over it
+S["se/kw_bonus"] = { peak = 0.6, layers = {
+  { dur = 0.24, wave = "pulse25", steps = { hz("C5"), hz("G5") }, step = 0.08, vol = 0.45, release = 0.03 },
+  { at = 0.16, dur = 0.08, wave = "pulse25", f0 = hz("C5"), vol = 0.4 },
+  chime(hz("C6"), 0.24, 0.45, 0.45),
+  { at = 0.22, dur = 0.2, wave = "noise", lp = 6000, vol = 0.08, release = 0.15 } } }
 
 return S

@@ -47,6 +47,23 @@ A["fx/heart"] = { from = "lyt/amie_room/heart_00" }
 A["fx/note"] = { from = "lyt/amie_room/ic_asobu" }
 A["ui/icon_heart"] = { from = "lyt/amie_room/particle_01" }
 A["ui/icon_note"] = { from = "lyt/amie_room/talk_onpu" }
+-- PLAY's return is the room's, its difficulty stars the minigames' cards', its puff drawer the
+-- minigames' note paper (its taped edge is drawn: src/amie/ui_art.lua)
+A["lyt/amie_play/button_back"] = { from = "lyt/amie_room/button_back" }
+for _, d in ipairs({ "easy", "normal", "hard", "infinite" }) do
+  A["lyt/amie_play/star_" .. d] = { from = "lyt/berry_score/star_" .. d }
+  A["lyt/amie_play/star_" .. d .. "h"] = { from = "lyt/berry_score/star_" .. d .. "h" }
+end
+A["lyt/amie_play/kokashi_LT"] = { from = "lyt/head_down/msg_win_ul" }
+A["lyt/amie_play/kokashi_C"] = { from = "lyt/head_down/msg_win_c" }
+-- DECORATE's bars, tab and lines are the room's (SWITCH's), its wallpaper arrows PLAY's, its
+-- drawer white
+for _, n in ipairs({ "bar_title", "bg_tab", "goods_win_line_up", "goods_win_line_dw" }) do
+  A["lyt/amie_deco/" .. n] = { from = "lyt/amie_room/" .. n }
+end
+A["lyt/amie_deco/bgbutton_L"] = { from = "lyt/amie_play/play_left" }
+A["lyt/amie_deco/bgbutton_R"] = { from = "lyt/amie_play/play_right" }
+A["lyt/amie_deco/goods_win_c"] = { fill = { 1, 0.976, 0.976, 1 }, w = 2, h = 2 }
 -- Berry Picker's sky is plain white
 A["lyt/berry_rear/sky"] = { fill = { 1, 1, 1, 1 }, w = 2, h = 2 }
 

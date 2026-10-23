@@ -131,6 +131,8 @@ return function(mod)
   local makeStore = loadSibling(mod, "src/amie/store.lua")
   local makeHost = loadSibling(mod, "src/refresh/host_gen3.lua")
   local makeSession = loadSibling(mod, "src/amie/session.lua")
+  -- PLAY's and DECORATE's screens are laid out in Lua (src/amie/panes.lua)
+  mod.panes = loadSibling(mod, "src/amie/panes.lua")
   local makePlayApp = loadSibling(mod, "src/amie/play.lua")
   local makeHomeApp = loadSibling(mod, "src/amie/home.lua")
   local DecorCatalog = loadSibling(mod, "data/decor_catalog.lua")
@@ -357,7 +359,7 @@ return function(mod)
           -- Pokemon-Amie's room draws through the same maker
           local makeAmieArt = ui.gen and loadSibling(mod, "src/amie/ui_art.lua")
           if makeAmieArt then
-            local okA, errA = pcall(makeAmieArt, mod, ui.kit, ui.gen)
+            local okA, errA = pcall(makeAmieArt, mod, ui.kit, ui.gen, function(id) return (engineArt(id)) end)
             if not okA then mod.log:warn("amie ui art failed to build: %s", tostring(errA)) end
           end
           -- and its Decor (cushions, objects, wallpapers), Poke Puffs, hand, Berry Picker's and

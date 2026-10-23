@@ -1,12 +1,13 @@
 -- Pokemon-Amie's room drawn by the engine: each id the room asks Assets for (the scalloped
 -- frame, the menu's PLAY / DECORATE / SWITCH buttons and its dim, the bubbles over the
 -- Pokemon, the hearts, the visitors' talk bubbles, the gift box, the shadow, and SWITCH's
--- party list: ribbons, bar, title tab, ruled card, medallions, meter icons, buttons) is drawn here
+-- party list: ribbons, bar, title tab, ruled card, medallions, meter icons, buttons; PLAY's
+-- buttons, arrows, title tab and game badges; DECORATE's pills, tab, corner buttons and marks) is drawn here
 -- once at the texture's own size, through Super Training's maker (src/training/ui_art.lua:
 -- gen, the kit). The room keeps its layout and animation: only where the pixels come from
 -- changes.
 
-return function(mod, K, gen)
+return function(mod, K, gen, resolve)
   local c255, col, circle, vgrad = K.c255, K.col, K.circle, K.vgrad
   local fillShape, within, closed, outlined, font = K.fillShape, K.within, K.closed, K.outlined, K.font
 
@@ -751,6 +752,16 @@ return function(mod, K, gen)
     local t = { 5, 2.2, 8.6, 2.2, 11.4, 6.4, 9.6, 7.6 }
     within(G, t, function() vgrad(G, 4, 2, 8, 6, TAPE, TAPE_LO) end)
   end)
+  -- PLAY's puff drawer: the same paper, its edge taped down every tile
+  gen("lyt/amie_play/kokashi_B", 16, 16, function(G)
+    shadowEdge(G, 0, 0, 16, 3)
+    vgrad(G, 0, 3, 16, 13, PAPER_TOP, PAPER_LOW)
+    paperGrain(G, 0, 3, 16, 13, 6)
+    local t = { 4.4, 0.4, 7.4, 0.4, 13.2, 8.6, 10.2, 8.6 }
+    G.setColor(0, 0, 0, 0.16); fillShape(G, scaled(t, 8.8, 5, 1.08))
+    within(G, t, function() vgrad(G, 4, 0, 10, 9, TAPE, TAPE_LO) end)
+    G.setColor(1, 1, 1, 0.35); G.setLineWidth(0.6); G.line(5.4, 0.8, 10.4, 7.8)
+  end)
   each(BOTH_WINDOWS, "msg_win_c", 32, 32, function(G)
     vgrad(G, 0, 0, 32, 32, c255(250, 242, 190), c255(244, 236, 176))
     paperGrain(G, 0, 0, 32, 32, 9)
@@ -1407,4 +1418,279 @@ return function(mod, K, gen)
     G.setLineWidth(3.6); col(G, c255(10, 70, 160)); G.line(pts)
     G.setLineWidth(2.2); col(G, c255(30, 120, 220)); G.line(pts)
   end)
+
+  -- ------- PLAY: the round buttons (puffs, games, back to the room), the picker's arrows, its
+  -- title tab, and the game badges and their difficulty ribbons
+  do
+    -- a round button: a dark rim, a glossy ring, a face of upright stripes lit from the top
+    local function roundButton(G, s, rim, ringHi, ringLo, faceA, faceB, stripe)
+      local c = s / 2
+      G.setColor(0, 0, 0, 0.25); circle(G, "fill", c, c + 0.8, c - 0.3)
+      col(G, rim); circle(G, "fill", c, c, c - 0.6)
+      within(G, disc(c, c, c - 1.8), function() vgrad(G, 0, 1, s, s - 2, ringHi, ringLo) end)
+      G.setColor(1, 1, 1, 0.5); G.setLineWidth(1.2)
+      G.arc("line", "open", c, c, c - 3, math.pi * 1.08, math.pi * 1.62)
+      col(G, rim, 0.6); circle(G, "fill", c, c, c * 0.79)
+      within(G, disc(c, c, c * 0.79 - 0.9), function()
+        col(G, faceA); G.rectangle("fill", 0, 0, s, s)
+        col(G, faceB)
+        for x = c - stripe * 0.5 - stripe * 6, s, stripe * 2 do G.rectangle("fill", x, 0, stripe, s) end
+        vgrad(G, 0, 0, s, s * 0.5, { 1, 1, 1, 0.45 }, { 1, 1, 1, 0 })
+        vgrad(G, 0, s * 0.62, s, s * 0.38, { 0, 0, 0, 0 }, { 0, 0, 0, 0.1 })
+      end)
+    end
+    gen("lyt/amie_play/button_food", 54, 54, function(G)
+      roundButton(G, 54, c255(113, 36, 30), c255(240, 186, 182), c255(196, 112, 108), c255(249, 210, 226), c255(240, 150, 176), 4)
+      G.push(); G.translate(27, 28); G.scale(1.2, 1.2); G.translate(-27, -28)
+      cupcake(G, 27, 30)
+      G.setColor(1, 0.9, 0.94, 0.3); circle(G, "fill", 27, 27, 20)
+      G.pop()
+    end)
+    gen("lyt/amie_play/button_play", 54, 54, function(G)
+      roundButton(G, 54, c255(34, 75, 62), c255(196, 236, 186), c255(92, 170, 84), c255(214, 240, 200), c255(160, 216, 140), 4)
+      note(G, 28.5, 27, 1.55, c255(20, 150, 76), c255(110, 214, 140), c255(14, 96, 52))
+    end)
+    -- back to the room: a Poke Ball over the room's blue return arrow
+    gen("lyt/amie_play/button_ball", 42, 42, function(G)
+      roundButton(G, 42, c255(0, 72, 96), c255(170, 232, 240), c255(70, 160, 180), c255(214, 242, 246), c255(150, 214, 224), 3.4)
+      local bx, by, r = 24.5, 16.5, 10.5
+      within(G, disc(bx, by, r), function()
+        vgrad(G, bx - r, by - r, 2 * r, r, c255(236, 104, 112), c255(196, 52, 62))
+        vgrad(G, bx - r, by, 2 * r, r, c255(252, 252, 252), c255(214, 224, 232))
+        col(G, c255(80, 52, 56)); G.rectangle("fill", bx - r, by - 1.1, 2 * r, 2.2)
+      end)
+      col(G, c255(80, 52, 56)); G.setLineWidth(1); G.circle("line", bx, by, r, 40)
+      circle(G, "fill", bx, by, 3.8)
+      col(G, C.white); circle(G, "fill", bx, by, 2.5)
+      G.setColor(1, 1, 1, 0.55); G.ellipse("fill", bx - 4, by - 6, 3.4, 1.6)
+      -- the arrow: up from the foot, then right
+      local blue = c255(14, 72, 168)
+      G.setLineJoin("miter")
+      G.setLineWidth(5.4); G.setColor(1, 1, 1, 0.95); G.line(16, 33, 9.5, 33, 9.5, 24.5, 18, 24.5)
+      G.setLineWidth(3.4); col(G, blue); G.line(16, 33, 9.5, 33, 9.5, 24.5, 18.6, 24.5)
+      local head = { 24.5, 24.5, 17.5, 19, 17.5, 30 }
+      G.setColor(1, 1, 1, 0.95); fillShape(G, scaled(head, 20, 24.5, 1.3))
+      col(G, blue); fillShape(G, head)
+    end)
+    -- the picker's arrows: gold buttons with a brown chevron, a white edge round it
+    local function arrowButton(G, dir)
+      roundButton(G, 42, c255(108, 86, 6), c255(240, 224, 150), c255(196, 168, 70), c255(250, 246, 226), c255(236, 222, 160), 3.4)
+      local x0, x1 = 21 + 5.5 * dir, 21 - 4 * dir
+      local pts = { x1, 11.5, x0, 21, x1, 30.5 }
+      G.setLineJoin("bevel")
+      G.setLineWidth(8.6); G.setColor(1, 1, 1, 1); G.line(pts)
+      G.setLineWidth(5.6); col(G, c255(130, 108, 8)); G.line(pts)
+    end
+    gen("lyt/amie_play/play_left", 42, 42, function(G) arrowButton(G, -1) end)
+    gen("lyt/amie_play/play_right", 42, 42, function(G) arrowButton(G, 1) end)
+
+    -- the title tab hanging from the top: green with a lighter wave, a white rim on three sides
+    gen("lyt/amie_play/play_tab", 260, 50, function(G, w, h)
+      col(G, C.white); G.rectangle("fill", 0, -8, w, h + 8, 6, 6)
+      within(G, { 3, 0, w - 3, 0, w - 3, h - 3, 3, h - 3 }, function()
+        col(G, c255(134, 175, 51)); G.rectangle("fill", 0, 0, w, h)
+        local pts = { 0, 0 }
+        for x = 0, w, 4 do pts[#pts + 1] = x; pts[#pts + 1] = 22 + 5 * math.sin(x / w * math.pi * 2.2 + 0.6) end
+        pts[#pts + 1] = w; pts[#pts + 1] = 0
+        col(G, c255(146, 196, 55)); fillShape(G, pts)
+        vgrad(G, 0, h - 12, w, 10, { 0, 0, 0, 0 }, { 0, 0, 0, 0.06 })
+      end)
+    end)
+
+    -- the badges: a ring round a picture of the game, a ribbon across its foot (its game's colour,
+    -- or the difficulty's with five stars pressed into it)
+    local BADGE = {   -- ring hi, ring lo, ring rim; ribbon hi, ribbon lo, ribbon rim
+      game01 = { c255(196, 240, 190), c255(110, 200, 100), c255(47, 98, 47), c255(150, 222, 130), c255(110, 196, 98), c255(44, 110, 36) },
+      game02 = { c255(214, 236, 246), c255(140, 190, 210), c255(42, 93, 110), c255(132, 210, 226), c255(96, 180, 204), c255(12, 97, 114) },
+      game03 = { c255(226, 214, 240), c255(180, 160, 216), c255(94, 77, 111), c255(208, 184, 226), c255(176, 150, 210), c255(100, 66, 117) },
+      easy = { c255(255, 244, 168), c255(222, 194, 104), c255(115, 98, 47), c255(244, 210, 40), c255(214, 160, 6), c255(131, 97, 12) },
+      normal = { c255(250, 206, 172), c255(222, 150, 116), c255(118, 67, 33), c255(248, 186, 120), c255(230, 130, 60), c255(145, 60, 9) },
+      hard = { c255(250, 206, 226), c255(222, 150, 186), c255(132, 64, 98), c255(246, 178, 216), c255(222, 112, 160), c255(158, 56, 107) },
+      infinite = { c255(232, 196, 248), c255(196, 140, 232), c255(92, 24, 109), c255(232, 160, 248), c255(190, 96, 220), c255(102, 17, 136) },
+    }
+    local BX, BY, BR = 77, 76, 66
+    local function ribbonEdge(x, mid, ends) local u = (x - BX) / 65; return mid + (ends - mid) * u * u end
+    local function ribbonPts()
+      local pts = {}
+      for x = 12, 142, 5 do pts[#pts + 1] = x; pts[#pts + 1] = ribbonEdge(x, 93, 104) end
+      for x = 142, 12, -5 do pts[#pts + 1] = x; pts[#pts + 1] = ribbonEdge(x, 144, 140) end
+      return pts
+    end
+    local function badge(G, c, picture, stars)
+      -- the ring and its window
+      G.setColor(0, 0, 0, 0.25); circle(G, "fill", BX, BY + 1.5, BR + 0.4)
+      col(G, c[3]); circle(G, "fill", BX, BY, BR)
+      within(G, disc(BX, BY, BR - 1.4), function() vgrad(G, BX - BR, BY - BR, 2 * BR, 2 * BR, c[1], c[2]) end)
+      G.setColor(1, 1, 1, 0.5); G.setLineWidth(1.6)
+      G.arc("line", "open", BX, BY, BR - 3.4, math.pi * 1.05, math.pi * 1.95)
+      col(G, c[3], 0.75); circle(G, "fill", BX, BY, BR - 8)
+      local wr = BR - 9.2
+      within(G, disc(BX, BY, wr), function()
+        G.setColor(0.86, 0.95, 1, 1); G.rectangle("fill", BX - wr, BY - wr, 2 * wr, 2 * wr)
+        picture(G, wr)
+        -- the window's soft white edge
+        for i = 0, 6 do
+          G.setColor(1, 1, 1, 0.16 - i * 0.02); G.setLineWidth(1.6)
+          G.circle("line", BX, BY, wr - 0.8 - i * 1.4, 64)
+        end
+      end)
+      -- the ribbon's tails behind its ends, folded under
+      for _, sx in ipairs({ 1, -1 }) do
+        local function X(x) return sx == 1 and x or 2 * BX - x end
+        col(G, c[3]); fillShape(G, { X(15), 105, X(1), 110, X(8), 128, X(3), 152, X(19), 147, X(17), 139 })
+        within(G, { X(15), 106.5, X(2.6), 111, X(9.4), 128, X(4.8), 150, X(18), 145.6, X(16), 139 }, function()
+          vgrad(G, 0, 104, 154, 48, c[5], c[6])
+        end)
+        col(G, c[6]); fillShape(G, { X(13.5), 139, X(17.5), 148.5, X(23), 141.5 })
+      end
+      -- the ribbon: an arch, lit from the top, with light diagonal stripes
+      local rp = ribbonPts()
+      G.setColor(0, 0, 0, 0.2); fillShape(G, scaled(rp, BX, 120, 1.01))
+      col(G, c[6]); fillShape(G, rp)
+      within(G, scaled(rp, BX, 119, 0.975), function()
+        vgrad(G, 0, 92, 154, 54, c[4], c[5])
+        G.setColor(1, 1, 1, 0.1)
+        for x = -40, 180, 11 do fillShape(G, { x, 150, x + 5, 150, x + 41, 88, x + 36, 88 }) end
+        G.setColor(1, 1, 1, 0.3); G.setLineWidth(1.4)
+        local top = {}
+        for x = 14, 140, 4 do top[#top + 1] = x; top[#top + 1] = ribbonEdge(x, 95.6, 106.4) end
+        G.line(top)
+      end)
+      if stars then
+        for i = -2, 2 do
+          local sx = BX + i * 19
+          col(G, c[6], 0.8); fillShape(G, starPts(sx, 130, 8.8, 0.48))
+          col(G, mix(c[5], c[6], 0.45)); fillShape(G, starPts(sx, 130.8, 7.4, 0.48))
+        end
+      end
+    end
+
+    -- the pictures: Berry Picker's tree with berries on it, Head It's sky with its rainbow and
+    -- yarn, Tile Puzzle's shuffled tiles
+    local pics = {}
+    local function fetch(key, id) if pics[key] == nil then pics[key] = resolve and resolve(id) or false end end
+    local function prepareBerry()
+      fetch("tree", "lyt/berry_rear/game01_bgUp")
+      for _, k in ipairs({ "00", "01", "03", "04" }) do fetch("b" .. k, "lyt/berry_balloon/kinomi" .. k) end
+    end
+    local function prepareHead()
+      fetch("sky", "lyt/head_rear/sky"); fetch("rainbow", "lyt/head_rear/signal_blue")
+      fetch("pink", "lyt/head_ball/ball00_00"); fetch("yellow", "lyt/head_ball/ball02_00")
+    end
+    local function place(G, img, cx, cy, w, sx, sy, sw, sh, a)
+      if not img then return end
+      local iw, ih = img:getDimensions()
+      sx, sy, sw, sh = sx or 0, sy or 0, sw or iw, sh or ih
+      local k = w / sw
+      G.setColor(1, 1, 1, a or 1)
+      G.draw(img, G.newQuad(sx, sy, sw, sh, iw, ih), cx - sw * k / 2, cy - sh * k / 2, 0, k, k)
+    end
+    local function berryPic(G, wr)
+      place(G, pics.tree, BX, BY - 35, 2 * wr, 0, 170, 320, 330)
+      local B = { { "b00", -7, -41 }, { "b01", -30, -26 }, { "b03", 6, -21 }, { "b04", 30, -28 } }
+      for _, b in ipairs(B) do place(G, pics[b[1]], BX + b[2], BY + b[3], 18) end
+    end
+    local function headPic(G, wr)
+      place(G, pics.sky, BX, BY, 2 * wr * 1.4, 150, 20, 230, 200)
+      G.setColor(1, 1, 1, 0.5)
+      place(G, pics.rainbow, BX + 30, BY - 12, 62, 0, 0, 400, 170, 0.5)
+      -- clouds along the foot
+      for i, cxy in ipairs({ { -40, 22, 16 }, { -18, 30, 18 }, { 8, 26, 17 }, { 32, 30, 18 }, { 52, 20, 15 } }) do
+        G.setColor(0.8, 0.9, 0.98, 1); circle(G, "fill", BX + cxy[1], BY + cxy[2] + 2, cxy[3])
+        G.setColor(1, 1, 1, 1); circle(G, "fill", BX + cxy[1], BY + cxy[2], cxy[3] - 1.5 + (i % 2) * 0.5)
+      end
+      place(G, pics.pink, BX - 22, BY - 30, 24)
+      place(G, pics.yellow, BX + 6, BY - 4, 26)
+    end
+    local TILES = { c255(30, 110, 210), c255(60, 170, 60), c255(130, 220, 240), c255(20, 80, 180), c255(100, 200, 90), c255(170, 236, 250) }
+    local function tilePic(G, wr)
+      local rng = love.math.newRandomGenerator(7)
+      local step = 20
+      for y = BY - wr - 4, BY + wr, step do
+        for x = BX - wr - 6, BX + wr, step do
+          col(G, TILES[rng:random(1, #TILES)])
+          G.rectangle("fill", x, y, step - 1, step - 1)
+          G.setColor(1, 1, 1, 0.18); G.rectangle("fill", x, y, step - 1, 3)
+          G.setColor(0, 0, 0, 0.12); G.rectangle("fill", x, y + step - 4, step - 1, 3)
+        end
+      end
+      G.setColor(0.2, 0.3, 0.5, 0.35); G.setLineWidth(1)
+      for x = BX - wr - 7, BX + wr, step do G.line(x, BY - wr, x, BY + wr) end
+    end
+    -- ------- DECORATE: the pills along the foot (Interior Items, Poke Puffs; pale while their
+    -- drawer is open), the drawer's category tab and its arrow, the corner's check and tray, and
+    -- the seats' and the puff spot's glowing marks
+    local function sparkles(G, w, h, c, step)
+      col(G, c)
+      for y = 3, h, step * 0.8 do
+        local odd = math.floor(y / (step * 0.8)) % 2
+        for x = odd * step / 2, w, step do
+          local r, t = 3.6, 0.9
+          fillShape(G, { x, y - r, x + t, y - t, x + r, y, x + t, y + t, x, y + r, x - t, y + t, x - r, y, x - t, y - t })
+        end
+      end
+    end
+    local function patternPill(G, w, h, rim, edge, hi, lo, star)
+      G.setColor(0, 0, 0, 0.22); fillShape(G, pillPts(1, 2, w - 2, h - 2.4))
+      col(G, rim); fillShape(G, pillPts(0.6, 0.6, w - 1.2, h - 2.2))
+      col(G, edge); fillShape(G, pillPts(2, 2, w - 4, h - 5))
+      within(G, pillPts(3.6, 3.6, w - 7.2, h - 8.2), function()
+        vgrad(G, 0, 3.6, w, h - 8, hi, lo)
+        sparkles(G, w, h, star, 14)
+        G.setColor(1, 1, 1, 0.35); G.rectangle("fill", 0, 3.6, w, 2)
+      end)
+    end
+    gen("lyt/amie_deco/button_system", 110, 32, function(G, w, h)
+      patternPill(G, w, h, c255(6, 83, 1), c255(74, 145, 1), c255(205, 232, 186), c255(144, 220, 102), c255(255, 255, 255, 72))
+    end)
+    gen("lyt/amie_deco/button_system_02", 110, 32, function(G, w, h)
+      patternPill(G, w, h, c255(65, 95, 46), c255(154, 198, 109), c255(242, 249, 238), c255(209, 239, 194), c255(255, 255, 255, 100))
+    end)
+    gen("lyt/amie_deco/tab_goods", 136, 32, function(G, w, h)
+      patternPill(G, w, h, c255(52, 18, 76), c255(78, 58, 123), c255(204, 196, 224), c255(145, 123, 198), c255(255, 255, 255, 56))
+    end)
+    -- the tab's arrow: a yellow triangle pointing right, an amber rim
+    gen("lyt/amie_deco/tab_arrow", 16, 22, function(G)
+      local tri = { 2.5, 2, 14.5, 11, 2.5, 20 }
+      G.setLineJoin("bevel")
+      col(G, c255(213, 156, 6)); G.setLineWidth(3); G.line(closed(tri)); fillShape(G, tri)
+      within(G, scaled(tri, 6.5, 11, 0.8), function() vgrad(G, 0, 2, 16, 18, c255(255, 251, 205), c255(255, 246, 140)) end)
+    end)
+    -- the corner's buttons: the red check (leave) and the gold tray (put back), round as PLAY's
+    gen("lyt/amie_deco/button_exit", 30, 30, function(G)
+      roundButton(G, 30, c255(129, 9, 9), c255(246, 196, 196), c255(220, 104, 104), c255(250, 214, 214), c255(240, 176, 176), 2.4)
+      G.setLineJoin("miter")
+      local pts = { 8.6, 14.6, 13.2, 19.4, 21.8, 9.6 }
+      G.setLineWidth(5); G.setColor(1, 1, 1, 0.95); G.line(pts)
+      G.setLineWidth(3.2); col(G, c255(158, 24, 24)); G.line(pts)
+    end)
+    gen("lyt/amie_deco/button_itemreturn", 30, 30, function(G)
+      roundButton(G, 30, c255(124, 101, 18), c255(246, 230, 160), c255(214, 190, 110), c255(253, 248, 230), c255(240, 226, 170), 2.4)
+      local brown = c255(151, 119, 27)
+      -- a tray, and the arrow down into it
+      G.setLineJoin("miter")
+      G.setLineWidth(4.4); G.setColor(1, 1, 1, 0.95); G.line(8, 15.5, 8, 21.5, 22, 21.5, 22, 15.5)
+      G.setLineWidth(2.6); col(G, brown); G.line(8, 15.5, 8, 21.5, 22, 21.5, 22, 15.5)
+      G.setColor(1, 1, 1, 0.95); G.rectangle("fill", 13, 6.5, 4, 7.5); fillShape(G, { 9.4, 12.6, 20.6, 12.6, 15, 19.2 })
+      col(G, brown); G.rectangle("fill", 13.9, 7.2, 2.2, 6.4); fillShape(G, { 10.8, 13.2, 19.2, 13.2, 15, 17.8 })
+    end)
+    -- the marks where an item can go: a soft glowing oval, blue for a seat, pink for the puff
+    local function glowOval(G, w, h, rim, mid)
+      local o = radial(w / 2, h / 2 - 0.5, w / 2 - 0.6, h / 2 - 1, 48, function() return 1 end)
+      rings(G, o, w / 2, h / 2 - 0.5, rim, c255(255, 255, 255), 10, 0)
+      col(G, mid, 0.5); G.setLineWidth(1); G.line(closed(scaled(o, w / 2, h / 2, 0.86)))
+    end
+    gen("lyt/amie_deco/area_seat", 28, 18, function(G, w, h) glowOval(G, w, h, c255(3, 126, 221), c255(81, 214, 232)) end)
+    gen("lyt/amie_deco/area_okashi", 28, 18, function(G, w, h) glowOval(G, w, h, c255(243, 114, 109), c255(254, 162, 159)) end)
+
+    local GAMES = { { "play_game01", berryPic, prepareBerry }, { "play_game02", headPic, prepareHead },
+      { "play_game03", tilePic } }
+    for i, g in ipairs(GAMES) do
+      local own = BADGE["game0" .. i]
+      gen("lyt/amie_play/" .. g[1], 154, 156, function(G) badge(G, own, g[2]) end, g[3])
+      for _, d in ipairs({ "easy", "normal", "hard", "infinite" }) do
+        gen("lyt/amie_play/" .. g[1] .. "_" .. d, 154, 156, function(G) badge(G, BADGE[d], g[2], true) end, g[3])
+      end
+    end
+  end
 end
