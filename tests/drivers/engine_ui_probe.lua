@@ -42,8 +42,8 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   local opts = loader.modOptions.play_nav
-  local savedDisplay = opts.display
-  opts.display = "split"
+  local savedDisplay = opts.display_mode
+  opts.display_mode = "combined"
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function both(name)
     X._test.engineUi(true); U.wait(3); shot("e_" .. name)
@@ -112,7 +112,7 @@ local function body(game, log)
     both("04_picker")
     X.training.finish()
   end)
-  opts.display = savedDisplay
+  opts.display_mode = savedDisplay
   if not ok then log("probe body failed:", tostring(err)) end
   log("DONE")
 end

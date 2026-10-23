@@ -38,6 +38,33 @@ for _, generation in ipairs({ 3 }) do
       "super training is exported")
     T.check(type(exports.import) == "table" and type(exports.import.check) == "function",
       "the import flow is exported")
+    -- DISPLAY MODE (Kanto Gear's set): K-GEAR follows the Gear's display_mode; without the Gear it
+    -- looks for a second display ("detect"); the old `display` key carries over while
+    -- display_mode was never set
+    local X = exports._test
+    X.setGame({ mods = run.loader })   -- the loader, as the game hands it, for what is stored
+    local opts3 = run.loader.modOptions
+    opts3.play_nav = opts3.play_nav or {}
+    local mode0, old0 = opts3.play_nav.display_mode, opts3.play_nav.display
+    opts3.play_nav.display_mode = "kanto_gear"
+    for gear, want in pairs({ separate = "separate", combined = "combined", fullscreen = "fullscreen",
+        phone = "combined", none = "detect" }) do
+      X.gearMode(gear ~= "none" and gear or nil)
+      T.eq(X.displayChoice(), want, "K-GEAR with Kanto Gear on " .. gear)
+    end
+    X.gearMode(nil)
+    for _, v in ipairs({ "fullscreen", "combined", "separate" }) do
+      opts3.play_nav.display_mode = v
+      T.eq(X.displayChoice(), v, v .. " is itself")
+    end
+    opts3.play_nav.display_mode = nil
+    for old, want in pairs({ split = "combined", combined = "combined", second_screen = "separate",
+        off = "detect", auto = "detect" }) do
+      opts3.play_nav.display = old
+      T.eq(X.displayChoice(), want, "the old DISPLAY MODE " .. old .. " carries over")
+    end
+    opts3.play_nav.display_mode, opts3.play_nav.display = mode0, old0
+    X.setGame(nil)
     T.check(exports.import.check() ~= "running", "nothing runs headless without a card image")
     T.check(type(exports.refresh) == "table", "refresh is exported under its old name")
     T.eq(exports._test.surfaceWanted(), false, "the surface is dormant with no session")

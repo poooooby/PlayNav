@@ -51,7 +51,7 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   local TR = X.training
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
-  loader.modOptions.play_nav.display = "split"
+  loader.modOptions.play_nav.display_mode = "combined"
   if X.import then
     waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120)
   end

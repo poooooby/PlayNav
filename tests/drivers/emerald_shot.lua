@@ -98,7 +98,7 @@ local function body(game, log)
   -- the care phases must run on the window, not on a companion window a
   -- previous run may have left behind
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
-  loader.modOptions.play_nav.display = "split"
+  loader.modOptions.play_nav.display_mode = "combined"
   -- PLAYNAV_HD=0 compares against the plain low-resolution path
   loader.modOptions.play_nav.hd_render = os.getenv("PLAYNAV_HD") ~= "0"
   local function press(id, ax, ay)
@@ -610,7 +610,7 @@ local function body(game, log)
   end
 
   -- ------- held up by the PlayNav menu: landscape split and the second display
-  loader.modOptions.play_nav.display = "auto"
+  loader.modOptions.play_nav.display_mode = "kanto_gear"
   if X.menu then X.menu.open() end
   love.window.setMode(1280, 720, { resizable = true, highdpi = true })
   U.wait(15)
@@ -618,7 +618,7 @@ local function body(game, log)
   shot("11_landscape_pinned")
   love.window.setMode(shotW, shotH, { resizable = true, highdpi = true })
   U.wait(5)
-  loader.modOptions.play_nav.display = "second_screen"
+  loader.modOptions.play_nav.display_mode = "separate"
   U.wait(5)
   local SS = require("src.render.SecondScreen")
   local detected = waitFor(function() local ok, d = pcall(SS.detected); return ok and d end, 600)
@@ -626,7 +626,7 @@ local function body(game, log)
   log("second screen: mode", state().mode, "companion detected", detected,
     "frames pushed", X._test.state.pushAt > 0)
   shot("12_second_screen_main")
-  loader.modOptions.play_nav.display = "auto"
+  loader.modOptions.play_nav.display_mode = "kanto_gear"
   if X.menu then X.menu.close() end
   U.wait(5)
   log("released: mode", state().mode)

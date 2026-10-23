@@ -41,8 +41,8 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   local opts = loader.modOptions.play_nav
-  local savedDisplay = opts.display
-  opts.display = "split"
+  local savedDisplay = opts.display_mode
+  opts.display_mode = "combined"
   local Apps = X.apps
 
   local function win(ax, ay)
@@ -139,7 +139,7 @@ local function body(game, log)
   Apps.pointer = realPointer
   love.system.getOS, love.mouse.isDown, love.mouse.getPosition = real.getOS, real.isDown, real.getPosition
   if love.touch then love.touch.getTouches = real.getTouches end
-  opts.display = savedDisplay
+  opts.display_mode = savedDisplay
   if not ok then log("probe body failed:", tostring(err)); failures = failures + 1 end
   log(failures == 0 and "PASS" or ("FAILURES " .. failures))
   log("DONE")

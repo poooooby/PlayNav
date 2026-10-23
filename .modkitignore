@@ -117,3 +117,5 @@ tests/lyt_data_test.lua
 tools/lyt_data.lua
 tests/drivers/amie_art_compare.lua
 tests/drivers/se_timing_probe.lua
+tests/drivers/display_mode_probe.lua
+tests/drivers/output_probe.lua

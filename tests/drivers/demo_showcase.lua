@@ -95,8 +95,8 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   local opts = loader.modOptions.play_nav
-  local savedDisplay = opts.display
-  opts.display = "split"
+  local savedDisplay = opts.display_mode
+  opts.display_mode = "combined"
   local Apps = X.apps
   local Extract = X._test.extract and X._test.extract()
   if Extract then
@@ -1053,7 +1053,7 @@ local function body(game, log)
     hidePad = false
     if TC.applyOptions and type(game.options) == "table" then pcall(TC.applyOptions, TC, game.options) end
   end
-  opts.display = savedDisplay
+  opts.display_mode = savedDisplay
   log("DONE")
 end
 

@@ -83,8 +83,8 @@ local function body(game, log)
   -- PLAYNAV_DISPLAY=second_screen runs it on the second display (the desktop companion
   -- window): touches go in through feedSecond in the pushed frame's pixels
   local SECOND = os.getenv("PLAYNAV_DISPLAY") == "second_screen"
-  loader.modOptions[MOD_ID].display = SECOND and "second_screen" or "split"
-  log("display:", loader.modOptions[MOD_ID].display)
+  loader.modOptions[MOD_ID].display_mode = SECOND and "separate" or "combined"
+  log("display:", loader.modOptions[MOD_ID].display_mode)
   loader.modOptions[MOD_ID].prompt_always = false
   if X.import then
     waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120)

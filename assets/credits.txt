@@ -1,5 +1,5 @@
-PlayNav - credits for the files in assets/
-==========================================
+PlayNav - credits for the files in assets/ and for adapted code
+===============================================================
 
 Item icons (assets/items.png)
 ----------------------------
@@ -132,3 +132,32 @@ PLAY's lawn and the grass standing on it, from the GRASS+ tile sheet by SciGho: 
 turned to the lawn's bright green under the scene's lighter oval, and the sheet's grass tufts,
 clump and blades turned to the lawn's greens, packed into one atlas of 16-bit colour numbers
 with the palettes in data/amie_grass.lua (by tools/play_grass.py).
+
+Split-screen layout (src/layout.lua Layout.gear, Layout.fitRect)
+-----------------------------------------------------------------
+How the split screen shares the window between the game and the touch screen - the shares,
+the gap, the bottom safe area, the swap and the fit - is adapted from Kanto Gear's
+THEME:windowLayout and THEME:fitRect, by AverageConsumer, used with the author's permission:
+https://github.com/AverageConsumer/kanto-gear
+
+  MIT License
+
+  Copyright (c) 2026 AverageConsumer
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.

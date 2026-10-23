@@ -405,27 +405,35 @@ S["se/kw_alert"] = { peak = 0.55, layers = {
   { dur = 0.17, wave = "sine", f0 = 2800, f1 = 3100, attack = 0.005, decay = 15, vol = 0.5 },
   { dur = 0.17, wave = "sine", f0 = 5000, f1 = 7200, attack = 0.005, decay = 15, vol = 0.35 },
 } }
--- a combo begins: an E held a moment, then let go
-S["se/kw_combo"] = { peak = 0.55, layers = {
-  { dur = 0.33, wave = "pulse25", f0 = 660, attack = 0.01, release = 0.2, vol = 0.45 },
-  { dur = 0.33, wave = "tri", f0 = 1320, attack = 0.01, release = 0.2, vol = 0.3 },
+-- a combo reaches 3: a soft round tone and its octave (the game's 660 / 1320, as quiet)
+S["se/kw_combo"] = { peak = 0.32, layers = {
+  { dur = 0.33, wave = "tri", f0 = 660, attack = 0.01, release = 0.2, vol = 0.5 },
+  { dur = 0.33, wave = "pulse50", f0 = 660, attack = 0.01, release = 0.2, vol = 0.08 },
+  { dur = 0.33, wave = "sine", f0 = 1320, attack = 0.01, release = 0.2, vol = 0.22 },
 } }
--- a 10-hit combo: a bright chord held, then let go
-S["se/kw_combo2"] = { peak = 0.6, layers = {
-  { dur = 0.43, wave = "pulse25", f0 = 660, attack = 0.01, release = 0.13, vol = 0.3 },
+-- a 10-hit combo: the chord held, then let go, soft-edged
+S["se/kw_combo2"] = { peak = 0.36, layers = {
+  { dur = 0.43, wave = "tri", f0 = 660, attack = 0.01, release = 0.13, vol = 0.35 },
   { dur = 0.43, wave = "tri", f0 = 831, attack = 0.01, release = 0.13, vol = 0.3 },
-  { dur = 0.43, wave = "tri", f0 = 988, attack = 0.01, release = 0.13, vol = 0.3 },
-  { dur = 0.43, wave = "noise", poles = 2, lp = 3000, attack = 0.01, release = 0.13, trem = { 0.5, 14 }, vol = 0.25 },
+  { dur = 0.43, wave = "tri", f0 = 988, attack = 0.01, release = 0.13, vol = 0.28 },
+  { dur = 0.43, wave = "pulse50", f0 = 660, attack = 0.01, release = 0.13, vol = 0.05 },
+  { dur = 0.43, wave = "noise", poles = 2, lp = 1500, attack = 0.01, release = 0.13, trem = { 0.5, 14 }, vol = 0.08 },
 } }
--- a 50-hit combo: tones stacking up, pulsing, to a sudden stop
-S["se/kw_combo3"] = { peak = 0.6, layers = {
-  { dur = 0.5, wave = "pulse25", steps = { 330, 660, 740, 820, 980, 1000, 1320 }, step = 0.075, attack = 0.4, release = 0.08, trem = { 0.5, 14 }, vol = 0.4 },
-  { dur = 0.5, wave = "tri", steps = { 660, 740, 980, 1320, 1660, 1660, 1660 }, step = 0.075, attack = 0.4, release = 0.08, vol = 0.3 },
-  { at = 0.5, dur = 0.15, wave = "tri", f0 = 1320, decay = 18, vol = 0.2 },
-} }
--- a 100-hit combo: a long pulsing build of stacked tones to a sudden stop, a shimmer after
-S["se/kw_combo4"] = { peak = 0.65, layers = { chime(hz("G6"), 0, 0.2), chime(hz("B6"), 0.05, 0.2), chime(hz("D7"), 0.1, 0.2), chime(hz("G7"), 0.15, 0.5),
-  { at = 0.2, dur = 0.4, wave = "noise", lp = 8000, vol = 0.1, release = 0.3 } } }
+-- a combo climbing (50 and 100 hits): round tones stacking up, pulsing, to a sudden stop and a
+-- soft shimmer; the 100's runs longer
+local function climb(step, peak)
+  local lo = { 330, 660, 740, 820, 980, 1000, 1320 }
+  local hi = { 660, 740, 980, 1320, 1660, 1660, 1660 }
+  local len = step * #lo
+  return { peak = peak, layers = {
+    { dur = len, wave = "tri", steps = lo, step = step, attack = len * 0.8, release = 0.08, trem = { 0.4, 14 }, vol = 0.45 },
+    { dur = len, wave = "sine", steps = hi, step = step, attack = len * 0.8, release = 0.08, vol = 0.25 },
+    { at = len, dur = 0.3, wave = "sine", f0 = 1320, decay = 10, vol = 0.12 },
+    { at = len, dur = 0.3, wave = "noise", poles = 2, lp = 3000, decay = 12, vol = 0.04 },
+  } }
+end
+S["se/kw_combo3"] = climb(0.075, 0.4)
+S["se/kw_combo4"] = climb(0.1, 0.42)
 
 -- the RESULTS card comes in: a noisy burst settling low
 S["se/kw_number"] = { peak = 0.5, layers = {

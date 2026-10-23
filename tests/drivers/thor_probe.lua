@@ -63,8 +63,8 @@ local function body(game, log)
   SS.setEnabled = function() return true end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   local opts = loader.modOptions.play_nav
-  local savedDisplay = opts.display
-  opts.display = "second_screen"
+  local savedDisplay = opts.display_mode
+  opts.display_mode = "separate"
   local TR = X.training
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
 
@@ -157,7 +157,7 @@ local function body(game, log)
     U.wait(5)
   end)
   if not ok then log("probe body failed:", tostring(err)) end
-  opts.display = savedDisplay
+  opts.display_mode = savedDisplay
   for k, v in pairs(saved) do SS[k] = v end
   log("DONE")
 end

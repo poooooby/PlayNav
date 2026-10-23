@@ -49,7 +49,7 @@ local function body(game, log)
   local X = loader and loader.exports and loader.exports.play_nav
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
-  loader.modOptions.play_nav.display = "split"
+  loader.modOptions.play_nav.display_mode = "combined"
   local Extract = X._test.extract and X._test.extract()
   if Extract then
     waitFor(function() return Extract.state ~= "running" and Extract.state ~= "finishing" end, 60 * 300)

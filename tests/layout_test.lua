@@ -214,4 +214,55 @@ do
   Pointer:finish("s")
 end
 
+-- Kanto Gear's split (Layout.gear, from THEME:windowLayout / fitRect)
+do
+  local near = function(a, b) return math.abs(a - b) < 1e-6 end
+  -- landscape 1280x720: side by side, the touch screen 34% of the width after the 7 px gap
+  local L = Layout.gear(1280, 720, {})
+  local gap = math.max(2, math.floor(720 * 0.01))
+  local gearW = math.floor((1280 - gap) * 0.34)
+  T.eq(L.mode, "side", "landscape is side by side")
+  T.eq(L.game.w, 1280 - gearW - gap, "the game's part is what the touch screen leaves")
+  T.check(near(L.surface.scale, math.min(gearW / Layout.W, 720 / Layout.H)), "the touch screen fits its part at one scale")
+  T.check(L.surface.x >= L.game.w + gap and L.surface.x + L.surface.w <= 1280 + 1e-6, "...inside its part, right of the game")
+  T.eq(L.picture.scale, math.floor(math.min(L.game.w / 240, 720 / 160)), "the engine's frame at a whole scale")
+  -- portrait 720x1280: stacked, 36% of the height
+  local P = Layout.gear(720, 1280, {})
+  local pgap = math.max(2, math.floor(720 * 0.01))
+  T.eq(P.mode, "stacked", "portrait is stacked")
+  T.eq(P.game.h, 1280 - math.floor((1280 - pgap) * 0.36) - pgap, "the touch screen takes 36% under the game")
+  -- the Gear's own settings: size, safe area, swap, a forced layout
+  local S = Layout.gear(720, 1280, { size = 50, safe = 20 })
+  local h = 1280 - math.floor(1280 * 0.2)
+  T.eq(S.game.h, h - math.floor((h - math.max(2, math.floor(720 * 0.01))) * 0.5) - math.max(2, math.floor(720 * 0.01)),
+    "SECONDARY SIZE 50% after a 20% BOTTOM SAFE AREA")
+  local W = Layout.gear(1280, 720, { swapped = true })
+  T.check(W.game.x > 0 and W.surface.x < W.game.x, "PRIMARY VIEW GEAR puts the touch screen first")
+  T.eq(Layout.gear(1280, 720, { layout = "stacked" }).mode, "stacked", "STACKED is kept on a wide window")
+  -- OVERLAY: the game the whole window, the touch screen in a corner over it, as the Gear's panel
+  local O = Layout.gear(1280, 720, { layout = "overlay" })
+  local ogap = math.max(2, math.floor(720 * 0.01))
+  local gh = math.floor(720 * 0.42)
+  local gw = math.min(math.floor(1280 * 0.38), math.floor(gh * 160 / 144))
+  T.eq(O.mode, "overlay", "OVERLAY is its own layout")
+  T.check(O.game.w == 1280 and O.game.h == 720, "...the game keeps the whole window")
+  T.check(O.surface.x + O.surface.w <= 1280 - ogap + 1 and O.surface.y + O.surface.h <= 720 - ogap + 1
+    and O.surface.x >= 1280 - gw - ogap - 1, "...the touch screen in the bottom right, in the Gear's box")
+  local TL = Layout.gear(1280, 720, { layout = "overlay", corner = "top_left" })
+  T.check(TL.surface.x <= ogap + 1 and TL.surface.y + TL.surface.h <= gh + ogap + 1, "OVERLAY CORNER top left")
+  T.eq(Layout.gear(720, 1280, { reserveBottom = 200 }).surface.y + Layout.gear(720, 1280, { reserveBottom = 200 }).surface.h <= 1080 + 1e-6,
+    true, "the pad's room stays free")
+end
+
+-- BOTTOM SAFE AREA on SPLIT SCREEN: the New 3DS XL layout above the window's foot
+do
+  local plain = Layout.dual(720, 1280, {})
+  local safe = Layout.dual(720, 1280, { safe = 30 })
+  local foot = 1280 - math.floor(1280 * 0.3)
+  T.check(safe.surface.y + safe.surface.h <= foot + 1e-6, "SPLIT keeps everything above a 30% safe area")
+  T.check(plain.surface.y + plain.surface.h > foot, "...where the plain layout reached into it")
+  local wide = Layout.dual(1280, 720, { safe = 20 })
+  T.check(wide.surface.y + wide.surface.h <= 720 - math.floor(720 * 0.2) + 1e-6, "...held sideways too")
+end
+
 T.finish("play_nav layout")

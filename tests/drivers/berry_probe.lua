@@ -51,7 +51,7 @@ local function body(game, log)
   if X and X.haptics then X.haptics.log = {} end
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
-  loader.modOptions.play_nav.display = "split"
+  loader.modOptions.play_nav.display_mode = "combined"
   local R, Apps, S = X.amie, X.apps, X.amie.session
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function win(ax, ay)
