@@ -361,6 +361,27 @@ return function(mod, T, Rules, Radar)
     return f
   end
   local function col(G, rgb, a) G.setColor(rgb[1] / 255, rgb[2] / 255, rgb[3] / 255, a or 1) end
+  -- the middle of a party icon's visible pixels, from its frame's top left in the image's units
+  -- (the Pokemon sits off its frame's middle): read back once per frame, else the frame's middle
+  local iconBoxes = setmetatable({}, { __mode = "k" })
+  local function iconMiddle(icon, quad, fw, fh)
+    local key = quad or icon.image
+    local m = iconBoxes[key]
+    if m == nil then
+      local x0, y0, x1, y1
+      if T.Draw and T.Draw.opaqueBox then x0, y0, x1, y1 = T.Draw.opaqueBox(icon.image, quad) end
+      if x0 then
+        local qx, qy = 0, 0
+        if quad then qx, qy = quad:getViewport() end
+        m = { (x0 + x1) / 2 - qx, (y0 + y1) / 2 - qy }
+      else
+        m = false
+      end
+      iconBoxes[key] = m
+    end
+    if m then return m[1], m[2] end
+    return fw / 2, fh / 2
+  end
   local function say(G, text, x, y, hgt, align, fill, ink, a)
     local f = efont(40)
     local k = hgt / f:getHeight()
@@ -693,11 +714,12 @@ return function(mod, T, Rules, Radar)
         local q = icon.quads and (icon.quads[0] or icon.quads[1])
         local fw, fh = icon.w or 32, icon.h or 32
         local k = 40 / fw
+        local ox, oy = iconMiddle(icon, q, fw, fh)
         G.setColor(1, 1, 1, 1)
         local HD = mod.hd
         local draw = HD and HD.drawPixel or G.draw
-        if q then draw(icon.image, q, wx + 52, 40, 0, k, k, fw / 2, fh / 2)
-        else draw(icon.image, wx + 52, 40, 0, k, k, fw / 2, fh / 2) end
+        if q then draw(icon.image, q, wx + 52, 40, 0, k, k, ox, oy)
+        else draw(icon.image, wx + 52, 40, 0, k, k, ox, oy) end
       end
     elseif R.shown == "bags" then
       -- the lime banner slides in from the left with the bags on their plates
@@ -893,11 +915,12 @@ return function(mod, T, Rules, Radar)
         local q = icon.quads and (icon.quads[0] or icon.quads[1])
         local fw, fh = icon.w or 32, icon.h or 32
         local k = w / fw
+        local ox, oy = iconMiddle(icon, q, fw, fh)
         G.setColor(1, 1, 1, 1)
         local HD = mod.hd
         local draw = HD and HD.drawPixel or G.draw
-        if q then draw(icon.image, q, x + w / 2, y + h / 2, 0, k, k, fw / 2, fh / 2)
-        else draw(icon.image, x + w / 2, y + h / 2, 0, k, k, fw / 2, fh / 2) end
+        if q then draw(icon.image, q, x + w / 2, y + h / 2, 0, k, k, ox, oy)
+        else draw(icon.image, x + w / 2, y + h / 2, 0, k, k, ox, oy) end
       end
     end
     local p = R.list and R.list[R.page]

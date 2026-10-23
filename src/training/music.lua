@@ -25,6 +25,9 @@
 -- M.SONGS[id] = { song, tempo }: tracks that are one song rendered at several tempos; moving
 -- between them carries on from the same point in the song (the faster render's samples are
 -- the slower's times tempo ratio) instead of starting it again.
+-- M.GAME_SONGS[family][id] = song name: on a game with that set (host.songFamily), the track is
+-- the game's own song, played by the game's music player in place of the field's (faded over)
+-- and the field's song back when the screens close; nothing of ours plays.
 
 return function(mod, T, host)
   local M = {}
@@ -201,9 +204,36 @@ return function(mod, T, host)
     end
   end
 
+  -- the game's own songs: the wanted track's song, while the screens are up; between two
+  -- tracks (a fade, the last hit) the song playing carries on; closed, the field's comes back
+  M.gameField, M.gameCurrent = nil, nil
+  local function updateGame(s, set)
+    local id = M.wanted(s)
+    local up = M.holds(s, id) == true
+    local name = id and set[id] or nil
+    if up and name and name ~= M.gameCurrent then
+      local songId = host.songId and host.songId(name)
+      if songId then
+        if not M.gameField then M.gameField = host.fieldSong and host.fieldSong() or 0 end
+        host.fadeToSong(songId)
+        M.gameCurrent = name
+      end
+    elseif not up and M.gameCurrent then
+      if M.gameField and M.gameField ~= 0 then host.fadeToSong(M.gameField)
+      elseif host.fadeOutSong then host.fadeOutSong() end
+      M.gameField, M.gameCurrent = nil, nil
+    end
+  end
+
   function M.update(dt)
     dt = dt or 0
     local s = M.session()
+    local fam = M.GAME_SONGS and host.songFamily and host.songFamily()
+    local set = fam and M.GAME_SONGS[fam]
+    if set then
+      if M.voice or #M.fading > 0 or M.holding then M.stopAll() end
+      return updateGame(s, set)
+    end
     local on = M.available()
     local id, loop, fade, pitch = nil, false, 0, 1
     if on then id, loop, fade, pitch = M.wanted(s) end

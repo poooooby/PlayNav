@@ -102,7 +102,7 @@ tests/drivers/music_level_probe.lua
 tests/bags_drawer_test.lua
 tests/drivers/touch_twin_probe.lua
 tests/drivers/engine_ui_probe.lua
-tests/chip_songs_test.lua
+tests/chip_sounds_test.lua
 tests/drivers/mouse_hold_probe.lua
 tools/decor_atlas.py
 tools/wall_atlas.py

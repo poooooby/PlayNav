@@ -46,7 +46,8 @@ local function body(game, log)
   local function now(label)
     local v = M.voice
     local pos = v and v.q and v.q[1] or (v and v.pos) or -1
-    log(("%-26s current %-22s holding field %s  sample %d"):format(label, tostring(M.current), tostring(M.holding), pos))
+    log(("%-26s current %-22s game song %-22s engine song %s holding field %s  sample %d"):format(label, tostring(M.current),
+      tostring(M.gameCurrent), tostring(Audio and Audio._currentSong and Audio._currentSong.id), tostring(M.holding), pos))
   end
   log("open play:", tostring(A.openPlay()))
   waitSecs(1)

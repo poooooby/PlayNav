@@ -309,7 +309,14 @@ return function(mod)
         end
         if makeMusic then
           local okM, music = pcall(makeMusic, mod, Training, trainHost)
-          if okM and type(music) == "table" then Training.music = music else mod.log:warn("training music failed to build: %s", tostring(music)) end
+          if okM and type(music) == "table" then
+            Training.music = music
+            -- on FireRed / LeafGreen, Emerald, Ruby and Sapphire the game's own songs
+            local gameSongs = loadSibling(mod, "data/training_game_songs.lua")
+            if type(gameSongs) == "table" then music.GAME_SONGS = gameSongs end
+          else
+            mod.log:warn("training music failed to build: %s", tostring(music))
+          end
         end
         makeRegimen(mod, Training, { host = trainHost, Rules = TRules, Store = TStore, Items = TItems,
           Courses = Courses, Sim = TSim, Draw = Draw })
@@ -403,13 +410,13 @@ return function(mod)
         local words = loadSibling(mod, "data/training_words.lua")
         if type(words) == "table" then Training.words, TrainingWords = words, words end
       end
-      -- and its music is PlayNav's own, rendered by the chip synth in the background
+      -- its sound effects are PlayNav's own, rendered by the chip synth in the background (its
+      -- music is the game's own songs: data/training_game_songs.lua)
       local makeChip = Training and loadSibling(mod, "src/chipmusic.lua")
       if makeChip then
         local okC, chip = pcall(makeChip, mod)
         if okC and type(chip) == "table" then
           Chip = chip
-          Assets.engineMusic = chip.track
           Assets.engineSound = chip.sound
         else
           mod.log:warn("chip music failed to build: %s", tostring(chip))
@@ -507,6 +514,9 @@ return function(mod)
         end
         return id, true, 0
       end
+      -- on FireRed / LeafGreen, Emerald, Ruby and Sapphire the game's own songs
+      local gameSongs = loadSibling(mod, "data/amie_game_songs.lua")
+      if type(gameSongs) == "table" then M.GAME_SONGS = gameSongs end
     else
       mod.log:warn("amie music failed to build: %s", tostring(M))
     end
@@ -1527,10 +1537,9 @@ return function(mod)
     setImportGate = function(on) gateDisabled = on == false end,
     keepArt = function() state.keepArt = true end,
     -- false: the card image's UI art again (for side-by-side shots); true: the engine's
-    -- false: the card image's music and effects again; true: PlayNav's own
+    -- false: the card image's effects again; true: PlayNav's own
     engineMusic = function(on)
       if Assets then
-        Assets.engineMusic = (on ~= false and Chip) and Chip.track or nil
         Assets.engineSound = (on ~= false and Chip) and Chip.sound or nil
       end
       return Chip

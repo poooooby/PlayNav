@@ -1,15 +1,12 @@
--- PlayNav's own music and sound effects on the main thread: starts the render job
--- (src/chip_job.lua) once, polls it from the tick, and turns its WAVs into the tracks the music
--- player plays ({ sd, rate, channels, samples, loop, loopStart }, as Assets.music hands out) and
--- the SoundData src/sfx.lua plays (as Assets.sound). Until one is ready its id is still ours
--- (silence, never the card image's).
+-- PlayNav's own sound effects on the main thread: starts the render job (src/chip_job.lua)
+-- once, polls it from the tick, and turns its WAVs into the SoundData src/sfx.lua plays (as
+-- Assets.sound). Until one is ready its id is still ours (silence, never the card image's).
 --
--- local C = makeChip(mod) ; C.update() ; C.track(id) / C.sound(id) -> data | nil, owned
+-- local C = makeChip(mod) ; C.update() ; C.sound(id) -> SoundData | nil, owned
 
 return function(mod)
-  local C = { tracks = {}, sounds = {}, state = "idle" }
+  local C = { sounds = {}, state = "idle" }
 
-  local songsSrc = mod.read and mod:read("data/chip_songs.lua")
   local soundsSrc = mod.read and mod:read("data/chip_sounds.lua")
   local synthSrc = mod.read and mod:read("src/chipsynth.lua")
   local function keys(src, name)
@@ -21,14 +18,13 @@ return function(mod)
     end
     return out
   end
-  C.ids = keys(songsSrc, "data/chip_songs.lua")
   C.soundIds = keys(soundsSrc, "data/chip_sounds.lua")
 
   function C.start()
     if C.state ~= "idle" or not synthSrc then return false end
     local okA, avail = pcall(function() return mod.job and mod.job:available() end)
     if not (okA and avail) then C.state = "failed"; return false end
-    local handle, err = mod.job:run("src/chip_job.lua", { synth = synthSrc, songs = songsSrc, sounds = soundsSrc },
+    local handle, err = mod.job:run("src/chip_job.lua", { synth = synthSrc, sounds = soundsSrc },
       { maxSeconds = 120 })
     if not handle then
       -- the job slots may be busy (the art's extraction): try again on a later tick
@@ -61,30 +57,18 @@ return function(mod)
       mod.log:warn("music: the render job failed (%s)", tostring(st.err))
       return
     end
-    local rate = st.result.rate
-    local songs, effects = 0, 0
-    for id, t in pairs(st.result.tracks or {}) do
-      local sd = soundData(t.wav, id)
-      if sd then
-        C.tracks[id] = { sd = sd, rate = rate, channels = 2, samples = t.samples, loop = t.loop, loopStart = t.loopStart }
-        songs = songs + 1
-      end
-    end
+    local effects = 0
     for id, wav in pairs(st.result.sounds or {}) do
       local sd = soundData(wav, id)
       if sd then C.sounds[id] = sd; effects = effects + 1 end
     end
     for id, why in pairs(st.result.errors or {}) do mod.log:warn("music: %s did not render (%s)", id, tostring(why)) end
     C.state = "done"
-    mod.log:info("music: %d songs and %d sound effects rendered in %.1fs", songs, effects,
+    mod.log:info("music: %d sound effects rendered in %.1fs", effects,
       os.clock() - (C.startedAt or os.clock()))
   end
 
-  -- the track / the SoundData for an id, and whether the id is ours at all
-  function C.track(id)
-    if not C.ids[id] then return nil, false end
-    return C.tracks[id], true
-  end
+  -- the SoundData for an id, and whether the id is ours at all
   function C.sound(id)
     if not C.soundIds[id] then return nil, false end
     return C.sounds[id], true

@@ -554,7 +554,10 @@ return function(mod, Pointer, G, Rules, Store, host)
     -- with the list): the window's own corner stops a few units short of it
     bar(G2, -8)
     bar(G2, dn)
+    -- the foot's bar, turned over, and a second one higher over it: its body covers the first's
+    -- torn edge, its own torn edge goes under the guide line's ribbon
     bar(G2, 212 + D, true)
+    bar(G2, 200 + D, true)
     -- the card, the ribbons, the return, the guide line
     swImage(G2, "lyt/amie_room/win_pokelist", 11, 74 + dn, 298, 80)
     swImage(G2, "lyt/amie_room/goods_win_line_dw", 0, 186 + D, 320, 26)

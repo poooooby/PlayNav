@@ -753,6 +753,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local kx, ky = qw / pw, qh / ph
     return qx + x0 * kx, qy + y0 * ky, qx + (x1 + 1) * kx, qy + (y1 + 1) * ky
   end
+  D.opaqueBox = opaqueBox
 
   -- gen3-hd-sprites (optional): the spec a pic was tagged with by its provider, holding the
   -- full-resolution texture the battle would draw in its place (`texture`, `quad`, `scale`:

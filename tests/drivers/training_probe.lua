@@ -14,16 +14,28 @@ local function body(game, log)
     end
     return pred() and true or false
   end
+  -- one frame; a frame over STALL_S is logged with the sounds started just before it
+  local STALL_S, lastFrame, recent = 0.1, nil, {}
+  local function step()
+    U.wait(1)
+    local now = love.timer.getTime()
+    if lastFrame and now - lastFrame > STALL_S then
+      log(("  STALL %.0f ms after: %s"):format((now - lastFrame) * 1000, table.concat(recent, ", ")))
+    end
+    lastFrame = now
+    for i = #recent, 1, -1 do recent[i] = nil end
+  end
+  local function noteSound(what) recent[#recent + 1] = what end
   local function waitSecs(secs)
     local t0 = love.timer.getTime()
-    while love.timer.getTime() - t0 < secs do U.wait(1) end
+    while love.timer.getTime() - t0 < secs do step() end
   end
   -- wait on the wall clock (the session runs on it) for pred, at most secs
   local function waitUntil(pred, secs)
     local t0 = love.timer.getTime()
     while love.timer.getTime() - t0 < secs do
       if pred() then return true end
-      U.wait(1)
+      step()
     end
     return pred() and true or false
   end
@@ -88,8 +100,8 @@ local function body(game, log)
     local M = TR.session and TR.session.music
     local v = M and M.voice
     local playing = v and v.src and v.src:isPlaying()
-    return ("music %s playing %s pos %s held %s | field paused %s stopped %s song %s"):format(
-      tostring(M and M.current), tostring(playing), tostring(v and v.pos), tostring(M and M.holding),
+    return ("music %s game song %s playing %s pos %s held %s | field paused %s stopped %s song %s"):format(
+      tostring(M and M.current), tostring(M and M.gameCurrent), tostring(playing), tostring(v and v.pos), tostring(M and M.holding),
       tostring(okAu and Audio._bgmPaused), tostring(okAu and Audio.isBgmStopped and Audio.isBgmStopped()),
       tostring(okAu and Audio._currentSong and Audio._currentSong.id))
   end
@@ -99,10 +111,17 @@ local function body(game, log)
     local play0 = Sfx.play
     Sfx.play = function(id, opts)
       local h = play0(id, opts)
+      noteSound(id)
       local sim = TR.session.sim
       log(("  sfx %s %s%s"):format(id, h and "played" or "MISSING", sim and (" at sim t %.2f %s"):format(sim.t or 0, sim.phase or "") or ""))
       return h
     end
+  end
+  -- the game's own effects played as stand-ins
+  local th = X._test and X._test.trainingHost and X._test.trainingHost()
+  if th and th.playSe then
+    local se0 = th.playSe
+    th.playSe = function(name, ...) noteSound(tostring(name)); return se0(name, ...) end
   end
   local function shot(name)
     log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING")
