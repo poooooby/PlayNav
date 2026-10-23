@@ -706,7 +706,7 @@ do
   T.check(type(r.target) == "number", "the result carries the target")
   T.eq(#r.unlocked, 0, "one Lv1 clear unlocks nothing yet")
   local nm = S.courseName("lv1_hp")
-  T.check(nm == "Raise Your HP with Wailmer!", "the course's official name (" .. nm .. ")")
+  T.check(nm == "Pump Up HP with Wailmer!", "the course's name, in PlayNav's own words (" .. nm .. ")")
   T.check(S.levelHeading(2):lower():find("lv. 2", 1, true) ~= nil, "a level heading (" .. S.levelHeading(2) .. ")")
   T.check(S.leaveResult(), "leave the result")
   T.eq(S.state().mode, "courses", "...to the picker")

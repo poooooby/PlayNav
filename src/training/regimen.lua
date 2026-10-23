@@ -123,9 +123,9 @@ return function(mod, T, deps)
     s.padHeld = false
     s.anim.events = {}
     if T.REGIMEN_SHOW and T.hud then
-      -- the clock waits for the intro (when the game's screen is there to play it)
+      -- the clock waits for the intro (the game's screen or the engine's plays it)
       T.hud.begin(T.sim, s)
-      if T.hud.P then T.sim.countdown = T.hud.INTRO_S end
+      if T.hud.P or T.hud.engine then T.sim.countdown = T.hud.INTRO_S end
     end
     T.setMode("regimen")
     if not T.REGIMEN_SHOW then T.playSe("start_course", "SE_SELECT") end
@@ -278,7 +278,7 @@ return function(mod, T, deps)
     end
     if T.hud and T.REGIMEN_SHOW then T.hud.update(dt, events) end
     if ended then
-      if T.REGIMEN_SHOW and T.hud and T.hud.P then
+      if T.REGIMEN_SHOW and T.hud and (T.hud.P or T.hud.engine) then
         s.outro = { t = 0, outcome = ended }
       else
         T.endRegimen(ended)
@@ -421,7 +421,7 @@ return function(mod, T, deps)
     local s = T.session
     if not s or s.trans then return false end
     local Rs = T.results
-    if Rs and Rs.list and (Rs.top or Rs.bottom) then return Rs.next() end
+    if Rs and Rs.list and (Rs.top or Rs.bottom or Rs.engine) then return Rs.next() end
     return T.leaveResult()
   end
 

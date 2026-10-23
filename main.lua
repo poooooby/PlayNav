@@ -238,6 +238,7 @@ return function(mod)
   -- that shares the host adapter, the apps and the surface, never the session
 
   local Training, TRules, TStore, TItems, trainHost = nil, nil, nil, nil, nil
+  local UiArt, Chip, TrainingWords = nil, nil, nil
   do
     local TrainingNumbers = loadSibling(mod, "data/training_rules.lua")
     local ShotTypes = loadSibling(mod, "data/training_shot_types.lua")
@@ -329,6 +330,36 @@ return function(mod)
     if makeAssets then
       Assets = makeAssets(mod)
       Assets.enabled = true
+      -- Super Training's UI is drawn by the engine, not taken from the card image
+      local makeUiArt = Training and TRules and loadSibling(mod, "src/training/ui_art.lua")
+      if makeUiArt then
+        local okU, ui = pcall(makeUiArt, mod, { Rules = TRules, statRgb = Training.STAT_RGB, courses = Training.Courses,
+          botSprite = Training.Draw and Training.Draw.botSprite,
+          shapeFor = Training.Draw and Training.Draw.shapeFor, drawBalloon = Training.Draw and Training.Draw.drawBalloon })
+        if okU and type(ui) == "table" then
+          UiArt = ui
+          Assets.engine = ui.image
+        else
+          mod.log:warn("training ui art failed to build: %s", tostring(ui))
+        end
+      end
+      -- its words are PlayNav's own
+      if Training then
+        local words = loadSibling(mod, "data/training_words.lua")
+        if type(words) == "table" then Training.words, TrainingWords = words, words end
+      end
+      -- and its music is PlayNav's own, rendered by the chip synth in the background
+      local makeChip = Training and loadSibling(mod, "src/chipmusic.lua")
+      if makeChip then
+        local okC, chip = pcall(makeChip, mod)
+        if okC and type(chip) == "table" then
+          Chip = chip
+          Assets.engineMusic = chip.track
+          Assets.engineSound = chip.sound
+        else
+          mod.log:warn("chip music failed to build: %s", tostring(chip))
+        end
+      end
       for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile",
         "training_core", "training_bags", "training_courses", "training_aim" }) do
         local a = Apps:get(id)
@@ -989,6 +1020,13 @@ return function(mod)
       end
     end
     tickExtract()
+    if Chip then
+      local okC, errC = pcall(Chip.update)
+      if not okC and not state.chipWarned then
+        state.chipWarned = true
+        mod.log:warn("chip music failed: %s", tostring(errC))
+      end
+    end
     -- CLEAR EXTRACTED ART switched on in the launcher, before PlayNav loaded: no change event
     -- reaches us then, so it is honoured once, on the first frame in the field
     -- (drivers call _test.keepArt() before the field so a run on a machine whose options have
@@ -1428,6 +1466,24 @@ return function(mod)
     assets = function() return Assets end,
     setImportGate = function(on) gateDisabled = on == false end,
     keepArt = function() state.keepArt = true end,
+    -- false: the card image's UI art again (for side-by-side shots); true: the engine's
+    -- false: the card image's music and effects again; true: PlayNav's own
+    engineMusic = function(on)
+      if Assets then
+        Assets.engineMusic = (on ~= false and Chip) and Chip.track or nil
+        Assets.engineSound = (on ~= false and Chip) and Chip.sound or nil
+      end
+      return Chip
+    end,
+    -- false: the card image's text again; true: PlayNav's own words
+    engineText = function(on)
+      if Training then Training.words = (on ~= false) and TrainingWords or nil end
+      return Training and Training.words
+    end,
+    engineUi = function(on)
+      if Assets then Assets.engine = (on ~= false and UiArt) and UiArt.image or nil end
+      return UiArt
+    end,
   }
 
   mod.log:info("PlayNav ready (gen %s, touch screen %s)", tostring(mod.generation),

@@ -80,11 +80,29 @@ return function(mod, T, Rules, Radar)
     return Sc.open("st_menu", "result_lower.bclyt", { "st_menu", "st_common" })
   end
 
+  -- the engine draws the screens (src/training/ui_art.lua's Assets.engine); off, the game's layouts
+  local function engineOn()
+    local A = T.assets
+    return A ~= nil and A.engine ~= nil
+  end
+
   function R.begin(s)
     local r = s and s.result
     R.s, R.r = s, r
     R.t, R.page, R.pageT, R.cues, R.done, R.shown = 0, 1, 0, {}, false, nil
     R.list = r and pages(s, r) or {}
+    R.engine = engineOn()
+    R.gauge = math.min(1, Rules.evTotal(s and s.evs or {}) / N.LIMITS.EV_TOTAL) * 128
+    R.gaugeNow = 0
+    if R.engine then
+      R.top, R.bottom = nil, nil
+      local c = r and T.course and T.course(r.courseId)
+      local A = T.assets
+      R.badge = c and c.bots[1] and c.bots[1].art and A and A.image and A.image(c.bots[1].art) or nil
+      R.icon = s and s.icon
+      R.enterPage()
+      return
+    end
     R.top, R.bottom = open("upper"), open("lower")
     local P = R.top
     if P and r then
@@ -157,6 +175,10 @@ return function(mod, T, Rules, Radar)
     -- an Award / new best time, a reward received: the game's jingle (data/training_sounds.lua)
     if p and p.jingle and T.playSe then T.playSe("result_jingle")
     elseif p and mod.haptics then mod.haptics.pulse("light") end   -- each page as it comes up
+    if p and R.engine then
+      if p.show ~= R.shown then R.shown, R.shownAt = p.show, R.t end
+      return
+    end
     local B = R.bottom
     if not (p and B) then return end
     if p.show ~= R.shown then
@@ -190,7 +212,12 @@ return function(mod, T, Rules, Radar)
     if not R.list then return end
     dt = dt or 0
     R.t, R.pageT = R.t + dt, R.pageT + dt
+    if R.t >= R.TOP.STATUS_IN then R.gaugeNow = math.min(R.gauge or 0, (R.gaugeNow or 0) + dt * FPS * 1.5) end
     local P, B = R.top, R.bottom
+    -- the trained stat's rise: the drawn screens read the cue; the game's layout plays its clips
+    if R.engine and not R.cues.up and R.t >= R.TOP.STAT_UP and R.r and R.r.stat and (R.r.ev or 0) > 0 then
+      R.cues.up = true
+    end
     if P then
       P:advance(dt * FPS)
       local r = R.r
@@ -319,9 +346,239 @@ return function(mod, T, Rules, Radar)
     return A
   end
 
+  -- ------- the screens drawn by the engine
+
+  local efonts = {}
+  local function efont(px)
+    local f = efonts[px]
+    if not f then
+      local ok, made = pcall(love.graphics.newFont, px)
+      f = ok and made or love.graphics.getFont()
+      efonts[px] = f
+    end
+    return f
+  end
+  local function col(G, rgb, a) G.setColor(rgb[1] / 255, rgb[2] / 255, rgb[3] / 255, a or 1) end
+  local function say(G, text, x, y, hgt, align, fill, ink, a)
+    local f = efont(40)
+    local k = hgt / f:getHeight()
+    local w = f:getWidth(text) * k
+    local x0 = (align == "center" and x - w / 2) or (align == "right" and x - w) or x
+    G.setFont(f)
+    if ink then
+      col(G, ink, a)
+      local o = math.max(0.4, hgt * 0.06)
+      for dx = -1, 1 do
+        for dy = -1, 1 do
+          if dx ~= 0 or dy ~= 0 then G.print(text, x0 + dx * o, y + dy * o, 0, k, k) end
+        end
+      end
+    end
+    col(G, fill, a)
+    G.print(text, x0, y, 0, k, k)
+    return w
+  end
+  local WHITE, INK = { 255, 255, 255 }, { 0, 30, 40 }
+  local TEAL, TEAL_HI, NAVY = { 30, 190, 160 }, { 120, 245, 225 }, { 16, 34, 64 }
+  local STAT_RGB = { hp = { 150, 230, 60 }, atk = { 250, 210, 40 }, def = { 250, 150, 40 },
+    spa = { 120, 196, 255 }, spd = { 96, 156, 246 }, spe = { 236, 120, 240 } }
+
+  -- the blue room behind both screens: the gradient, the grid glowing at the foot, the + drifting
+  local function backdrop(G, x, y, w, h, t)
+    local m = R.bgMesh
+    if not m then
+      m = love.graphics.newMesh({ { 0, 0, 0, 0, 0, 0.43, 0.82, 1 }, { 1, 0, 0, 0, 0, 0.43, 0.82, 1 },
+        { 1, 1, 0, 0, 0.33, 0.78, 1, 1 }, { 0, 1, 0, 0, 0.33, 0.78, 1, 1 } }, "fan", "static")
+      R.bgMesh = m
+    end
+    G.setColor(1, 1, 1, 1)
+    G.draw(m, x, y, 0, w, h)
+    local A = T.assets
+    local grid = A and A.image and A.image("training/home_bg01")
+    if grid then
+      local gw, gh = grid:getDimensions()
+      G.setColor(0.66, 0.89, 1, 0.45)
+      G.draw(grid, x, y + h - h * 0.45, 0, w / gw, h * 0.45 / gh)
+    end
+    local tile = A and A.image and A.image("training/home_bg_ptn")
+    if tile then
+      tile:setWrap("repeat", "repeat")
+      local tw, th = tile:getDimensions()
+      -- as the home screen and the picker: 40-unit tiles drifting 2 left and 1 up every 200
+      -- frames (30 a second)
+      local k = 40 / tw
+      R.ptnQuad = R.ptnQuad or love.graphics.newQuad(0, 0, 1, 1, tw, th)
+      local ox, oy = (t * 30 * 2 / 200 * tw) % tw, (t * 30 / 200 * th) % th
+      R.ptnQuad:setViewport(ox, oy, w / k, h / k, tw, th)
+      G.setColor(0, 80 / 255, 147 / 255, 0.55)
+      G.draw(tile, R.ptnQuad, x, y, 0, k, k)
+    end
+  end
+
+  -- the top screen in the layout's 400x240 units (drawn at 0.6, top-anchored)
+  local function topEngine(G2, s)
+    local r = R.r
+    local e = T.topExtent or { x = 0, y = 0, w = 240, h = 160 }
+    backdrop(G2, e.x, e.y, e.w, e.h, R.t or 0)
+    if not r then return end
+    G2.push()
+    G2.translate(e.x + e.w / 2 - 120, e.y)
+    G2.scale(0.6, 0.6)
+    -- the title bar: the level, the course's name
+    col(G2, INK); G2.polygon("fill", -40, 0, 440, 0, 440, 24, 380, 32, -40, 32)
+    col(G2, TEAL); G2.polygon("fill", -40, 0, 440, 0, 440, 21, 378, 29, -40, 29)
+    local lv = s.course and s.course.level
+    say(G2, lv and (line(9 + lv) or ("Lv. " .. lv)) or "", 12, 6, 15, "left", WHITE)
+    say(G2, r.courseName or "", 64, 6, 15, "left", WHITE)
+    -- the band under it
+    col(G2, NAVY, 0.85); G2.rectangle("fill", -40, 32, 480, 22)
+    say(G2, r.clear and (line(60) or "Base stat increase:") or (line(59) or "Possible base stat increase:"),
+      200, 35, 14, "center", WHITE)
+    -- the six rows sliding in from the left, one after another
+    for i, k in ipairs(STATS) do
+      local inK = math.max(0, math.min(1, ((R.t or 0) - R.TOP.STATUS_IN - (i - 1) * 0.05) / 0.25))
+      local slide = (1 - inK * inK * (3 - 2 * inK)) * -200
+      local y = 58 + (i - 1) * 30
+      G2.push()
+      G2.translate(slide, 0)
+      col(G2, NAVY, 0.92); G2.polygon("fill", 0, y, 172, y, 182, y + 11, 172, y + 22, 0, y + 22)
+      col(G2, TEAL, 0.5); G2.setLineWidth(1); G2.line(0, y + 22, 172, y + 22, 182, y + 11)
+      local up = R.cues.up and r.stat == k
+      if up then
+        col(G2, { 150, 240, 80 })
+        G2.polygon("fill", 8, y + 5, 13, y + 11, 10, y + 11, 10, y + 18, 6, y + 18, 6, y + 11, 3, y + 11)
+      end
+      say(G2, T.statWord and T.statWord(k) or k, 16, y + 3, 15, "left", STAT_RGB[k])
+      if up then say(G2, "+" .. tostring(r.ev), 128, y + 3, 15, "left", { 200, 255, 120 }) end
+      G2.pop()
+    end
+    -- the meter on the right: the hexagon, the stats in it, the labels, the total's gauge
+    if (R.t or 0) >= R.TOP.STATUS_IN + 0.1 then
+      local cx, cy, rr = 300, 160, 50.5
+      local A = T.assets
+      local meter = A and A.image and A.image("training/home_meter")
+      if meter then
+        local mw, mh = meter:getDimensions()
+        G2.setColor(1, 1, 1, 0.9)
+        -- the hexagon's centre in the texture is (63.5, 85.5)
+        G2.draw(meter, cx - 63.5, cy - 85.5, 0, 150 / mw, 150 / mh)
+      end
+      if Rules.meterAxes and Radar then
+        local ri, ro = Rules.meterAxes(s.base or {}, s.evs or {}, Radar.ORDER)
+        local inner, outer = {}, {}
+        for i = 1, 6 do
+          local a = -math.pi / 2 + (i - 1) * math.pi / 3
+          inner[#inner + 1] = cx + math.cos(a) * ri[i]; inner[#inner + 1] = cy + math.sin(a) * ri[i]
+          outer[#outer + 1] = cx + math.cos(a) * ro[i]; outer[#outer + 1] = cy + math.sin(a) * ro[i]
+        end
+        G2.setColor(0.8, 1, 0.25, 1); G2.polygon("fill", outer)
+        G2.setColor(0.05, 0.62, 0.45, 1); G2.polygon("fill", inner)
+        G2.setLineWidth(2); G2.setColor(0.85, 1, 0.3, 1); G2.polygon("line", outer)
+      end
+      local LABEL_AT = { hp = { 0, -62 }, atk = { 46, -38 }, def = { 46, 38 }, spe = { 0, 62 }, spd = { -46, 38 }, spa = { -46, -38 } }
+      for k, at in pairs(LABEL_AT) do
+        local img = A and A.image and A.image("training/label_" .. k)
+        if img then
+          local iw, ih = img:getDimensions()
+          G2.setColor(1, 1, 1, 1)
+          G2.draw(img, cx + at[1], cy + at[2], 0, 52 / iw, 16 / ih, iw / 2, ih / 2)
+        end
+      end
+      if R.cues.up and r.stat and LABEL_AT[r.stat] then
+        local at = LABEL_AT[r.stat]
+        say(G2, "+" .. tostring(r.ev), cx + at[1], cy + at[2] - 18, 13, "center", { 255, 170, 60 }, { 40, 10, 0 })
+      end
+      -- the total: the bar up the track at the right, its arrow at the top
+      local gx, foot = cx + 79.5, cy + 47.5
+      local hgt = (R.gaugeNow or 0)
+      if hgt > 0 then
+        G2.setColor(186 / 255, 1, 122 / 255, 1)
+        G2.rectangle("fill", gx - 2, foot - hgt, 4, hgt)
+      end
+      if R.cues.up then
+        local p = 1 + 0.15 * math.sin((R.t or 0) * 8)
+        G2.setColor(222 / 255, 1, 151 / 255, 1)
+        local ay = foot - hgt - 6
+        G2.polygon("fill", gx, ay - 6 * p, gx - 5 * p, ay, gx + 5 * p, ay)
+      end
+    end
+    G2.pop()
+  end
+
+  -- the touch screen in its 320 x lh layout units
+  local function bottomEngine(G, lh)
+    local D = math.max(0, (lh or 240) - 240)
+    backdrop(G, -10, -20, 340, lh + 40, R.t or 0)
+    local r = R.r
+    local p = R.list and R.list[R.page]
+    if not r then return D end
+    local inK = R.shownAt and math.min(1, ((R.t or 0) - R.shownAt) / 0.2) or 1
+    local slide = (1 - inK) * 40
+    if R.shown == "time" then
+      -- the course's badge, the time remaining, the trainee
+      local y = 18 + D / 2 - slide
+      col(G, NAVY, 0.88); G.rectangle("fill", 40, y, 240, 70, 8, 8)
+      col(G, TEAL, 0.9); G.setLineWidth(2); G.rectangle("line", 40, y, 240, 70, 8, 8)
+      if R.badge then
+        local iw, ih = R.badge:getDimensions()
+        G.setColor(1, 1, 1, 1)
+        G.draw(R.badge, 76, y + 35, 0, 56 / iw, 56 / ih, iw / 2, ih / 2)
+      end
+      say(G, T.resultText and T.resultText("timeRemaining") or "Time Remaining:", 116, y + 12, 15, "left", TEAL_HI)
+      say(G, clock(r.remaining), 116, y + 34, 22, "left", WHITE, INK)
+      local icon = R.icon
+      if icon and icon.image then
+        local q = icon.quads and (icon.quads[0] or icon.quads[1])
+        local fw, fh = icon.w or 32, icon.h or 32
+        local k = 40 / fw
+        G.setColor(1, 1, 1, 1)
+        local HD = mod.hd
+        local draw = HD and HD.drawPixel or G.draw
+        if q then draw(icon.image, q, 252, y + 40, 0, k, k, fw / 2, fh / 2)
+        else draw(icon.image, 252, y + 40, 0, k, k, fw / 2, fh / 2) end
+      end
+    elseif R.shown == "bags" then
+      local y = 18 + D / 2 - slide
+      col(G, NAVY, 0.88); G.rectangle("fill", 40, y, 240, 80, 8, 8)
+      col(G, TEAL, 0.9); G.setLineWidth(2); G.rectangle("line", 40, y, 240, 80, 8, 8)
+      say(G, T.resultText and T.resultText("bagsReceived") or "Training bags received:", 56, y + 8, 14, "left", TEAL_HI)
+      local A = T.assets
+      if r.bag then
+        local img = A and A.image and A.image(("training/sand_bag_%02d"):format(Rules.BAG_ART[r.bag] or 0))
+        if img then
+          local iw, ih = img:getDimensions()
+          G.setColor(1, 1, 1, 1)
+          G.draw(img, 70, y + 50, 0, 18 / iw, 45 / ih, iw / 2, ih / 2)
+        end
+        say(G, T.bagName and T.bagName(r.bag) or r.bag, 90, y + 32, 15, "left", WHITE)
+      end
+      if r.item then
+        local icon = T.items and T.items.icon and r.item.index and T.items.icon(r.item.index)
+        if icon then
+          G.setColor(1, 1, 1, 1)
+          local iw = icon:getDimensions()
+          G.draw(icon, 200, y + 44, 0, 24 / iw, 24 / iw, iw / 2, iw / 2)
+        end
+        say(G, r.item.name or "", 216, y + 36, 13, "left", WHITE)
+      end
+    end
+    -- the band: New best time! and the like, across the foot
+    if p and p.band then
+      local y = 152 + D
+      col(G, TEAL, 0.92); G.rectangle("fill", -10, y, 340, 26)
+      col(G, INK, 0.5); G.rectangle("fill", -10, y + 24, 340, 2)
+      say(G, p.band, 160, y + 5, 15, "center", WHITE, INK)
+    end
+    return D
+  end
+
   -- 400x240 into the top screen's 240x160: the card's way (0.6, top-anchored), the backdrop
   -- reaching the foot
   function R.drawTop(G2, s)
+    if R.engine and R.s == s then
+      topEngine(G2, s)
+      return true
+    end
     local P = R.top
     if not P or R.s ~= s then return false end
     -- the area: the frame, or the whole playfield when the top screen fills it (T.topExtent);
@@ -418,11 +675,16 @@ return function(mod, T, Rules, Radar)
 
   function R.drawBottom(G, lh)
     local B = R.bottom
-    if not B then return false end
-    local D = fitBottom(B, lh)
-    B:draw(G)
+    if not (B or R.engine) then return false end
+    local D
+    if R.engine then
+      D = bottomEngine(G, lh)
+    else
+      D = fitBottom(B, lh)
+      B:draw(G)
+    end
     -- the course's badge in its frame (the game renders it into stage_icon01's place)
-    if R.badge and R.shown == "time" then
+    if B and R.badge and R.shown == "time" then
       local x, y, w, h = B:box("3n")
       if x then
         local iw, ih = R.badge:getDimensions()
@@ -432,7 +694,7 @@ return function(mod, T, Rules, Radar)
     end
     -- the trainee's party icon in the time window
     local icon = R.icon
-    if icon and icon.image and R.shown == "time" then
+    if B and icon and icon.image and R.shown == "time" then
       local x, y, w, h = B:box("51")
       if x then
         local q = icon.quads and (icon.quads[0] or icon.quads[1])

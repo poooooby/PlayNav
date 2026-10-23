@@ -124,12 +124,21 @@ return function(mod, T, Rules, Sim)
     P:setImage("4c", P:image(DIGIT(sec % 10)))
   end
 
+  -- the engine draws the HUD (src/training/ui_art.lua's Assets.engine); off, the game's layout
+  local function engineOn()
+    local A = T.assets
+    return A ~= nil and A.engine ~= nil
+  end
+
   -- ------- the regimen begins: a fresh screen
 
   function H.begin(sim, s)
     H.sim, H.s = sim, s
     H.cues, H.popups, H.lastT, H.score, H.outroCues = {}, {}, nil, nil, {}
     H.charge, H.full = 0, false
+    H.engine = engineOn()
+    H.scoreAt, H.fullAt, H.damageAt, H.clock = nil, nil, nil, 0
+    if H.engine then H.P = nil; return end
     local Sc = T.lyt
     local P = Sc and Sc.open("st_hud", "upper.bclyt", { "st_hud", "st_lang" }) or nil
     H.P = P
@@ -246,10 +255,58 @@ return function(mod, T, Rules, Sim)
     end
   end
 
+  -- the engine's HUD: the same cues (sounds), and what the drawing needs to know
+  local function engineUpdate(sim, s, dt, events)
+    H.clock = H.clock + (dt or 0)
+    local o = s.outro
+    if sim.phase == "countdown" then
+      local I = H.INTRO
+      for k, at in ipairs(I.PUMP_AT) do
+        cue("pump" .. k, at, sim.t, function() if T.playSe then T.playSe("pump") end end)
+      end
+      cue("bot_name_se", I.BOT_NAME_SE, sim.t, function() if T.playSe then T.playSe("bot_name") end end)
+    end
+    if o and o.outcome and o.outcome.clear and T.playSe then
+      local O = H.OUTRO
+      cue("hiss", O.FLY[1], o.t, function() H.hiss = T.playSe("deflate_hiss") end)
+      cue("burst", O.AWAY[1], o.t, function()
+        if type(H.hiss) == "table" then H.hiss.stop() end
+        H.hiss = nil
+        T.playSe("deflate_burst")
+      end)
+      cue("star", O.TWINKLE[1], o.t, function() T.playSe("star") end)
+    end
+    if H.score ~= sim.score then
+      if H.score then H.scoreAt = H.clock end
+      H.score = sim.score
+    end
+    local stage = sim:chargeStage()
+    if stage >= 3 and not H.full then H.full = true; H.fullAt = H.clock end
+    if stage == 0 then H.full = false end
+    H.charge = stage
+    for _, e in ipairs(events or {}) do
+      if e.kind == "goal_hit" and (e.points or 0) > 0 then
+        local bx, by = sim:botOffset()
+        local cyW = sim.botCY and sim:botCY() or Rules.N.BOT.CY
+        local x, y = T.toScreen(Sim.project(bx, cyW + by, 1))
+        H.popups[#H.popups + 1] = { t = 0, x = x, y = y, points = e.points }
+      end
+      if e.kind == "player_hit" then H.damageAt = H.clock end
+    end
+    for i = #H.popups, 1, -1 do
+      local p = H.popups[i]
+      p.t = p.t + (dt or 0)
+      if p.t >= POPUP_S then table.remove(H.popups, i) end
+    end
+  end
+
   function H.update(dt, events)
-    local P, sim, s = H.P, T.sim, T.session
-    if not (P and sim and s) then return end
-    if sim ~= H.sim then H.begin(sim, s); P = H.P; if not P then return end end
+    local sim, s = T.sim, T.session
+    if not (sim and s) then return end
+    if sim ~= H.sim then H.begin(sim, s) end
+    if H.engine then engineUpdate(sim, s, dt, events); return end
+    local P = H.P
+    if not P then return end
     P:advance((dt or 0) * FPS)
     local o = s.outro
     if sim.phase == "countdown" then
@@ -293,7 +350,7 @@ return function(mod, T, Rules, Sim)
   end
 
   function H.pose(sim, s)
-    if not H.P then return nil end
+    if not (H.P or (H.engine and sim == H.sim)) then return nil end
     local pose = {}
     if sim.phase == "countdown" then
       local I, t = H.INTRO, sim.t
@@ -448,7 +505,273 @@ return function(mod, T, Rules, Sim)
   end
   H.fitAdjust = fitAdjust
 
+  -- ------- the HUD drawn by the engine, in the top screen's 240x160 units; the edge pieces go
+  -- to the corners of the area it covers (T.topExtent), grown as the frame's are (EDGE_MAX)
+
+  local WHITE3, BLACK3, INK_TEAL, INK_SCORE, INK_POP = { 255, 255, 255 }, { 0, 0, 0 }, { 0, 40, 36 }, { 10, 90, 80 }, { 20, 60, 60 }
+  local LOW_RED, GLOW, WORD, INK_WORD = { 255, 110, 90 }, { 60, 230, 200 }, { 200, 255, 245 }, { 6, 90, 84 }
+  local CORNERS = { { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } }
+  local fonts = {}
+  local function font(px)
+    local f = fonts[px]
+    if not f then
+      local ok, made = pcall(love.graphics.newFont, px)
+      f = ok and made or love.graphics.getFont()
+      fonts[px] = f
+    end
+    return f
+  end
+  local TEAL, TEAL_HI, TEAL_LO = { 30, 172, 126 }, { 80, 236, 210 }, { 8, 100, 90 }
+  local function c(G2, rgb, a) G2.setColor(rgb[1] / 255, rgb[2] / 255, rgb[3] / 255, a or 1) end
+  -- text of a height (units) at x, y; align "left" | "center" | "right"; an outline when ink is given
+  local function say(G2, text, x, y, hgt, align, fill, ink, a)
+    local f = font(48)
+    local k = hgt / f:getHeight()
+    local w = f:getWidth(text) * k
+    local x0 = (align == "center" and x - w / 2) or (align == "right" and x - w) or x
+    G2.setFont(f)
+    if ink then
+      c(G2, ink, a)
+      local o = math.max(0.5, hgt * 0.07)
+      for dx = -1, 1 do
+        for dy = -1, 1 do
+          if dx ~= 0 or dy ~= 0 then G2.print(text, x0 + dx * o, y + dy * o, 0, k, k) end
+        end
+      end
+    end
+    c(G2, fill, a)
+    G2.print(text, x0, y, 0, k, k)
+    return w
+  end
+  local function smooth01(a, b, t)
+    local k = math.max(0, math.min(1, (t - a) / (b - a)))
+    return k * k * (3 - 2 * k)
+  end
+
+  -- the bands' outlines are concave (their inner edge dips): triangulated once per area
+  local bandKey, bandTris = nil, nil
+  local function fillTris(G2, tris) for i = 1, #tris do G2.polygon("fill", tris[i]) end end
+  local function frameBands(G2, e, kh)
+    local x0, x1, y0, y1 = e.x, e.x + e.w, e.y, e.y + e.h
+    local d = 10 * kh
+    local key = x0 * 1e9 + x1 * 1e6 + y0 * 1e3 + y1 + kh
+    if key ~= bandKey then
+      local tri = love.math.triangulate
+      bandTris = {
+        tri({ x0, y0, x1, y0, x1, y0 + d, x1 - 46 * kh, y0 + 3 * kh, x0 + 46 * kh, y0 + 3 * kh, x0, y0 + d }),
+        tri({ x0, y0 + d - 2 * kh, x0 + 46 * kh, y0 + kh, x1 - 46 * kh, y0 + kh, x1, y0 + d - 2 * kh,
+          x1, y0 + d, x1 - 46 * kh, y0 + 3 * kh, x0 + 46 * kh, y0 + 3 * kh, x0, y0 + d }),
+        tri({ x0, y1, x0, y1 - 4 * kh, x0 + 46 * kh, y1 - 1.5 * kh, x1 - 46 * kh, y1 - 1.5 * kh, x1, y1 - 4 * kh, x1, y1 }),
+      }
+      bandKey = key
+    end
+    c(G2, TEAL)
+    fillTris(G2, bandTris[1])
+    c(G2, TEAL_LO)
+    fillTris(G2, bandTris[2])
+    c(G2, TEAL_HI, 0.8)
+    G2.setLineWidth(1.4 * kh)
+    G2.line(x0 + 50 * kh, y0 + 8 * kh, x0 + 58 * kh, y0 + 6 * kh, x0 + 68 * kh, y0 + 6 * kh)
+    G2.line(x1 - 50 * kh, y0 + 8 * kh, x1 - 58 * kh, y0 + 6 * kh, x1 - 68 * kh, y0 + 6 * kh)
+    -- the bottom's thin band
+    c(G2, TEAL, 0.9)
+    fillTris(G2, bandTris[3])
+  end
+
+  local function brackets(G2, a)
+    -- aim_app's TOPBOX: the brackets the aim screen's stand for
+    c(G2, TEAL_HI, 0.5 * a)
+    G2.setLineWidth(1.3)
+    local cy, r = 80, 46
+    G2.arc("line", "open", 57.6 + 30, cy, r, math.rad(140), math.rad(220), 24)
+    G2.arc("line", "open", 182.4 - 30, cy, r, math.rad(-40), math.rad(40), 24)
+  end
+
+  local function clockText(secs)
+    local m, sec = clock(secs)
+    return ("%d:%02d"):format(m, sec)
+  end
+
+  local function hudParts(G2, sim, s, e, kh, inK)
+    local x0, x1, y0, y1 = e.x, e.x + e.w, e.y, e.y + e.h
+    local slide = (1 - inK) * 40 * kh
+    -- the balloon's name, top left, on a dark wash fading right
+    G2.push()
+    G2.translate(-slide, 0)
+    local name = balloonName(sim)
+    local nh = 7.5 * kh
+    local mesh = H.nameWash
+    if not mesh then
+      mesh = love.graphics.newMesh({ { 0, 0, 0, 0, 0, 0, 0, 0.6 }, { 1, 0, 0, 0, 0, 0, 0, 0 },
+        { 1, 1, 0, 0, 0, 0, 0, 0 }, { 0, 1, 0, 0, 0, 0, 0, 0.6 } }, "fan", "static")
+      H.nameWash = mesh
+    end
+    G2.setColor(1, 1, 1, 1)
+    G2.draw(mesh, x0, y0 + 1 * kh, 0, 120 * kh, nh + 3 * kh)
+    say(G2, name, x0 + 4 * kh, y0 + 2 * kh, nh, "left", WHITE3)
+    G2.pop()
+    -- the clock, top right: a dark teal pill, a clock face, the minutes and seconds
+    G2.push()
+    G2.translate(slide, 0)
+    local pw, ph = 50 * kh, 15 * kh
+    local px, py = x1 - pw - 4 * kh, y0 + 9 * kh
+    c(G2, TEAL_LO, 0.92); G2.rectangle("fill", px, py, pw, ph, ph / 2, ph / 2)
+    c(G2, TEAL, 0.9); G2.setLineWidth(1.2 * kh); G2.rectangle("line", px, py, pw, ph, ph / 2, ph / 2)
+    local cx, cy = px + ph / 2 + 1.5 * kh, py + ph / 2
+    c(G2, TEAL_HI); G2.circle("line", cx, cy, ph * 0.32, 20)
+    G2.line(cx, cy, cx, cy - ph * 0.22); G2.line(cx, cy, cx + ph * 0.18, cy)
+    local low = sim.remaining <= 10 and sim.phase == "play"
+    say(G2, clockText(sim.remaining), x1 - 8 * kh, py + 1.5 * kh, ph - 3 * kh, "right",
+      low and LOW_RED or TEAL_HI)
+    G2.pop()
+    -- the score, bottom right: SCORE:, the points over the target, the trainee's name
+    G2.push()
+    G2.translate(slide, 0)
+    local pop = H.scoreAt and math.max(0, 1 - (H.clock - H.scoreAt) / 0.25) or 0
+    local dh = 16 * kh * (1 + 0.25 * pop)
+    local target = sim.bot and sim.bot.target or 0
+    local txt = ("%d/ %d"):format(math.floor(sim.score or 0), target)
+    say(G2, T.gameLine and T.gameLine("training_coach", 111) or "SCORE:", x1 - 6 * kh, y1 - 37 * kh, 6 * kh, "right", TEAL_HI, INK_TEAL)
+    say(G2, txt, x1 - 6 * kh, y1 - 29 * kh - (dh - 16 * kh) / 2, dh, "right", WHITE3, INK_SCORE)
+    say(G2, s.name or "", x1 - 6 * kh, y1 - 11 * kh, 6 * kh, "right", WHITE3, BLACK3)
+    G2.pop()
+    -- the guts, bottom left: a ring filling with orange, bright when full
+    G2.push()
+    G2.translate(-slide, 0)
+    local gx, gy, gr = x0 + 18 * kh, y1 - 18 * kh, 10 * kh
+    local guts = math.max(0, math.min(1, sim.guts or 0))
+    G2.setColor(0, 0, 0, 0.45); G2.circle("fill", gx, gy, gr + 2 * kh, 32)
+    if guts > 0 then
+      G2.setColor(0.98, 0.55, 0.12, 1)
+      G2.arc("fill", gx, gy, gr, -math.pi / 2, -math.pi / 2 + guts * 2 * math.pi, 32)
+    end
+    if guts >= 1 then
+      local p = 0.5 + 0.5 * math.sin(H.clock * 10)
+      G2.setColor(1, 0.85, 0.3, 0.35 + 0.35 * p); G2.circle("fill", gx, gy, gr * (1.05 + 0.15 * p), 32)
+    end
+    c(G2, TEAL_HI); G2.setLineWidth(1.5 * kh); G2.circle("line", gx, gy, gr + 1 * kh, 32)
+    G2.pop()
+  end
+
+  local function reticle(G2, sim)
+    local aim = sim.player.aim
+    local rx, ry, rz = T.toScreen(Sim.project(aim.x, aim.y, 1))
+    local k = rz or 1
+    local h = 9 * k
+    G2.setColor(1, 1, 1, 0.95)
+    G2.setLineWidth(1.4)
+    for _, sgn in ipairs(CORNERS) do
+      local cx, cy = rx + sgn[1] * h, ry + sgn[2] * h
+      G2.line(cx, cy - sgn[2] * 4 * k, cx, cy, cx - sgn[1] * 4 * k, cy)
+    end
+    c(G2, TEAL_HI); G2.circle("line", rx, ry, 5.5 * k, 24)
+    G2.line(rx - 3 * k, ry, rx + 3 * k, ry); G2.line(rx, ry - 3 * k, rx, ry + 3 * k)
+    local stage = H.charge or 0
+    if stage > 0 then
+      local f = math.min(1, sim.player.chargeT / Rules.N.CHARGE.OVER_S)
+      G2.setColor(1, stage >= 3 and 0.4 or 0.7, 0.15, 0.95)
+      G2.setLineWidth(2)
+      G2.arc("line", "open", rx, ry, 8 * k, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 28)
+    end
+    if H.fullAt and H.clock - H.fullAt < 0.3 then
+      local a = 1 - (H.clock - H.fullAt) / 0.3
+      G2.setColor(1, 0.9, 0.4, a)
+      G2.circle("line", rx, ry, (8 + 10 * (1 - a)) * k, 28)
+    end
+  end
+
+  -- big title words (Start, Success!): outlined teal letters with a glow
+  local function bigWord(G2, word, cx, cy, hgt, a)
+    for i = 3, 1, -1 do
+      say(G2, word, cx, cy - hgt / 2, hgt, "center", GLOW, nil, a * 0.12 * i)
+    end
+    say(G2, word, cx, cy - hgt / 2, hgt, "center", WORD, INK_WORD, a)
+  end
+
+  local function engineDraw(G2, sim, s)
+    local e = T.topExtent or { x = 0, y = 0, w = 240, h = 160 }
+    local kh = math.max(1, math.min(H.EDGE_MAX, e.w / 240, e.h / 160))
+    local I, o = H.INTRO, s.outro
+    local t = sim.phase == "countdown" and sim.t or H.INTRO_S + 1
+    frameBands(G2, e, kh)
+    -- the title: teal lines open across the middle, the course's name on them, then away
+    if t < 3.0 then
+      local inA = smooth01(0, 0.3, t) * (1 - smooth01(2.6, 3.0, t))
+      local spread = smooth01(0, 0.3, t)
+      G2.setColor(0, 0.12, 0.12, 0.55 * inA); G2.rectangle("fill", e.x, 88, e.w, 54)
+      c(G2, TEAL, 0.9 * inA)
+      for i, y in ipairs({ 90, 95, 104, 128, 140 }) do
+        local hw = e.w / 2 * spread
+        G2.rectangle("fill", 120 - hw, y, hw * 2, i % 2 == 0 and 1.6 or 1)
+      end
+      say(G2, T.courseName and s.course and T.courseName(s.course.id) or "", 120, 111, 10, "center", TEAL_HI, nil, inA)
+    end
+    -- the name bands: the balloon's, then the trainee's
+    local function nameBand(text, a0, a1)
+      if t < a0 or t > a1 then return end
+      local inK = smooth01(a0, a0 + 0.15, t)
+      local a = 1 - smooth01(a1 - 0.2, a1, t)
+      local x = 120 + (1 - inK) * 160
+      local y = math.min(e.y + e.h - 30, 128)
+      G2.setColor(0, 0.1, 0.1, 0.6 * a); G2.rectangle("fill", e.x, y, e.w, 16)
+      c(G2, TEAL, a); G2.rectangle("fill", e.x, y, e.w, 1); G2.rectangle("fill", e.x, y + 15, e.w, 1)
+      say(G2, text, x, y + 2, 11, "center", TEAL_HI, INK_TEAL, a)
+    end
+    nameBand(balloonName(sim), I.BOT_NAME[1], I.BOT_NAME[2])
+    nameBand(s.name or "", I.PLAYER_NAME[1], I.PLAYER_NAME[2])
+    -- the HUD: in at HUD_IN, out with the end
+    local inK = smooth01(I.HUD_IN, I.HUD_IN + 0.3, t)
+    if o then inK = inK * (1 - smooth01(H.OUTRO.HUD_OUT, H.OUTRO.HUD_OUT + 0.3, o.t)) end
+    brackets(G2, 1)
+    if inK > 0 then hudParts(G2, sim, s, e, kh, inK) end
+    if sim.phase == "play" and not o then reticle(G2, sim) end
+    -- the points over a hit, rising and fading
+    for _, p in ipairs(H.popups) do
+      local k = p.t / POPUP_S
+      local a = k < 0.7 and 1 or (1 - (k - 0.7) / 0.3)
+      say(G2, "+" .. tostring(p.points), p.x, p.y - 10 - 14 * k - 6, 12, "center", WHITE3, INK_POP, a)
+    end
+    -- a hit taken: the edges flash red
+    if H.damageAt and H.clock - H.damageAt < 0.35 then
+      local a = 1 - (H.clock - H.damageAt) / 0.35
+      G2.setColor(1, 0.1, 0.1, 0.35 * a)
+      G2.setLineWidth(10)
+      G2.rectangle("line", e.x + 5, e.y + 5, e.w - 10, e.h - 10)
+    end
+    -- Start
+    if sim.phase == "countdown" and t >= I.START then
+      local f = (t - I.START) * FPS
+      local pop = 1 + 0.6 * (1 - smooth01(0, 6, f))
+      local a = smooth01(0, 3, f) * (1 - smooth01(30, 41, f))
+      bigWord(G2, "Start", 120, 80, 30 * pop, a)
+    end
+    -- the end's word: Success! with its light, or the game-over word
+    if o and o.t >= H.OUTRO.BANNER then
+      local f = (o.t - H.OUTRO.BANNER) * FPS
+      local a = smooth01(0, 6, f)
+      local clear = o.outcome and o.outcome.clear
+      if clear then
+        -- a curtain of light down the screen
+        G2.setColor(0, 0.2, 0.2, 0.35 * a)
+        G2.rectangle("fill", e.x, e.y, e.w, e.h)
+        for i = 0, 15 do
+          local x = e.x + (i + 0.5) * e.w / 16
+          G2.setColor(0.3, 0.95, 0.85, 0.22 * a * (0.55 + 0.45 * math.sin(f * 0.3 + i * 1.7)))
+          G2.rectangle("fill", x - 3.5, e.y, 7, e.h)
+        end
+      end
+      local pop = 1 + 0.4 * (1 - smooth01(0, 8, f))
+      local word = clear and "Success!" or "Try Again..."
+      local hgt = math.min(48, e.w * 0.95 / math.max(1, #word * 0.55)) * pop
+      bigWord(G2, word, 120, e.y + e.h * 0.62, hgt, a)
+    end
+  end
+
   function H.draw(G2, sim, s)
+    if H.engine and sim == H.sim then
+      engineDraw(G2, sim, s)
+      return true
+    end
     local P = H.P
     if not P or sim ~= H.sim then return false end
     P.adjust = fitAdjust(T.topExtent)

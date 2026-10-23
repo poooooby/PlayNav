@@ -42,9 +42,14 @@ return function(mod)
     return out
   end
 
-  -- love Image or nil
+  -- love Image or nil. A.engine (set in main: src/training/ui_art.lua) draws the UI ids
+  -- itself, so those never come from the card image.
   function A.image(id)
     if not (love and love.graphics and love.image and love.data) then return nil end
+    if A.engine then
+      local drawn, owned = A.engine(id)
+      if drawn or owned then return drawn end
+    end
     local img = A.images[id]
     if img then return img end
     if A.missing[id] then return nil end
@@ -99,6 +104,11 @@ return function(mod)
   -- { sd = love SoundData, rate, channels, samples, loop, loopStart } or nil
   A.tracks = {}
   function A.music(id)
+    -- PlayNav's own songs (src/chipmusic.lua) take their ids before the card image's
+    if A.engineMusic then
+      local own, owned = A.engineMusic(id)
+      if own or owned then return own end
+    end
     if A.tracks[id] ~= nil then return A.tracks[id] or nil end
     local track = false
     local m = A.ready() and A.manifest.assets or nil
@@ -127,6 +137,11 @@ return function(mod)
   -- a sound effect the extract rendered (recipe kind "sfx", id "se/<name>"): love SoundData or nil
   A.sounds = {}
   function A.sound(id)
+    -- PlayNav's own effects (src/chipmusic.lua) take their ids before the card image's
+    if A.engineSound then
+      local own, owned = A.engineSound(id)
+      if own or owned then return own end
+    end
     if A.sounds[id] ~= nil then return A.sounds[id] or nil end
     local sd = false
     local m = A.ready() and A.manifest.assets or nil

@@ -1432,7 +1432,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     drawBalls(G2, sim, "behind")
     drawShots(G2, sim)
-    if s then s.hudReticle = Hud and Hud.P ~= nil and Hud.sim == sim or nil end
+    if s then s.hudReticle = Hud and (Hud.P ~= nil or Hud.engine) and Hud.sim == sim or nil end
     -- the trainee rides in from past the area's right edge (hud.pose playerIn: 0 off, 1 there)
     local enter = pose and pose.playerIn
     if enter and enter < 1 then

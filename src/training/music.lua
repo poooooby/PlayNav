@@ -69,7 +69,7 @@ return function(mod, T, host)
       if o.t < banner then return nil, false, 0.1 end
       return (o.outcome and o.outcome.clear) and "bgm/sp_clear" or "bgm/sp_gameover", true, 0
     end
-    local show = T.REGIMEN_SHOW and T.hud and T.hud.P
+    local show = T.REGIMEN_SHOW and T.hud and (T.hud.P or T.hud.engine)
     if show and sim.phase == "countdown" and (sim.t or 0) < M.STAGE_AT then
       return "bgm/sp_gamestart", false, 0
     end
