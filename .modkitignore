@@ -110,3 +110,4 @@ tools/puff_atlas.py
 tools/hand_atlas.py
 tools/berry_atlas.py
 tools/head_atlas.py
+tools/tile_trees.py

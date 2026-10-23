@@ -1,7 +1,8 @@
--- Super Training's sound effects, PlayNav's own: each made on the chip synth
--- (src/chipsynth.lua M.effect; the layer fields are described there), under the ids
--- data/training_sounds.lua maps the events to. The three that the game loops while something
--- lasts (the charge, the wind-up, a ball in the air) are four seconds of steady sound, stopped
+-- Super Training's and Pokemon-Amie's minigame sound effects, PlayNav's own: each made on the
+-- chip synth (src/chipsynth.lua M.effect; the layer fields are described there), under the ids
+-- data/training_sounds.lua and data/amie_sounds.lua map the events to. The ones the game loops
+-- while something lasts (the charge, the wind-up, a ball in the air; the berry rain, a score
+-- counting up) are four seconds of steady sound, stopped
 -- when it ends, as the extracted ones were.
 
 local function hz(name)
@@ -120,5 +121,128 @@ S["se/sp_046"] = { peak = 0.65, layers = {
   { dur = 0.95, wave = "pulse25", steps = notes({ "C5", "E5", "G5", "C6" }), step = 0.1, vol = 0.4, release = 0.35, vib = { 0.1, 6 } },
   { dur = 0.95, wave = "tri", steps = notes({ "G4", "C5", "E5", "G5" }), step = 0.1, vol = 0.3, release = 0.35 },
 } }
+
+-- ------- Pokemon-Amie's minigames and their picker (data/amie_sounds.lua maps the events here)
+
+local function blip(f, dur, vol) return { dur = dur or 0.05, wave = "pulse25", f0 = f, decay = 30, vol = vol or 0.5 } end
+local function chime(f, at, dur, vol) return { at = at or 0, dur = dur or 0.35, wave = "tri", f0 = f, decay = 9, vol = vol or 0.45 } end
+
+-- buttons and choices
+S["se/kw_select"] = { peak = 0.45, layers = { blip(hz("A6"), 0.04) } }
+S["se/kw_select2"] = { peak = 0.45, layers = { blip(hz("E6"), 0.04), { at = 0.06, dur = 0.04, wave = "pulse25", f0 = hz("A6"), decay = 30, vol = 0.45 } } }
+S["se/kw_decide"] = { peak = 0.55, layers = {
+  { dur = 0.12, wave = "pulse25", steps = notes({ "E6", "B6" }), step = 0.05, decay = 8, vol = 0.5, release = 0.02 } } }
+S["se/kw_selgame"] = S["se/kw_decide"]
+S["se/kw_decide2"] = { peak = 0.6, layers = {
+  { dur = 0.26, wave = "pulse25", steps = notes({ "C6", "E6", "G6", "C7" }), step = 0.05, decay = 5, vol = 0.45, release = 0.05 },
+  chime(hz("C7"), 0.15, 0.3, 0.3) } }
+S["se/kw_cancel"] = { peak = 0.5, layers = {
+  { dur = 0.12, wave = "pulse25", steps = notes({ "B5", "E5" }), step = 0.05, decay = 10, vol = 0.45, release = 0.02 } } }
+S["se/kw_selplay"] = { peak = 0.6, layers = {
+  { dur = 0.32, wave = "tri", steps = notes({ "G5", "C6", "E6", "G6", "C7" }), step = 0.04, vol = 0.45, release = 0.12 },
+  { dur = 0.3, wave = "noise", lp = 6000, vol = 0.12, attack = 0.02, release = 0.2 } } }
+S["se/kw_onceagain"] = { peak = 0.55, layers = {
+  { dur = 0.22, wave = "pulse25", steps = notes({ "G5", "D6", "G6" }), step = 0.06, decay = 5, vol = 0.45, release = 0.05 } } }
+
+-- the start and the end of a round
+S["se/kw_countdown1"] = { peak = 0.5, layers = { { dur = 0.14, wave = "pulse50", f0 = hz("A5"), vol = 0.45, release = 0.04 } } }
+S["se/kw_start"] = { peak = 0.65, layers = {
+  { dur = 0.45, wave = "pulse50", f0 = hz("A6"), vol = 0.4, attack = 0.01, release = 0.15 },
+  { dur = 0.45, wave = "pulse25", f0 = hz("E6"), vol = 0.3, attack = 0.01, release = 0.15 },
+  { dur = 0.45, wave = "tri", f0 = hz("A5"), vol = 0.35, release = 0.15 } } }
+S["se/kw_start3"] = { peak = 0.65, layers = {
+  { dur = 0.5, wave = "pulse25", steps = notes({ "D6", "F#6", "A6", "D7" }), step = 0.07, vol = 0.42, release = 0.18 },
+  { dur = 0.5, wave = "tri", steps = notes({ "A5", "D6", "F#6", "A6" }), step = 0.07, vol = 0.3, release = 0.18 } } }
+S["se/kw_timeover"] = { peak = 0.6, layers = {
+  { dur = 0.6, wave = "pulse50", steps = notes({ "E5", "C5", "A4" }), step = 0.18, vol = 0.4, release = 0.15 },
+  { dur = 0.6, wave = "saw", f0 = 220, f1 = 150, vol = 0.15, release = 0.2 } } }
+S["se/kw_end"] = { peak = 0.65, layers = {
+  { dur = 1.0, wave = "tri", f0 = hz("C5"), decay = 3, vol = 0.5, vib = { 0.08, 5 } },
+  { dur = 1.0, wave = "sine", f0 = hz("G5"), decay = 4, vol = 0.3 },
+  { dur = 0.06, wave = "noise", lp = 4000, decay = 40, vol = 0.3 } } }
+S["se/kw_stamp"] = { peak = 0.75, layers = {
+  { dur = 0.18, wave = "sine", f0 = 160, f1 = 60, decay = 14, vol = 0.8 },
+  { dur = 0.1, wave = "noise", lp = 2500, decay = 30, vol = 0.6 } } }
+S["se/kw_sweet"] = { peak = 0.6, layers = {
+  { dur = 0.7, wave = "tri", steps = notes({ "C6", "E6", "G6", "C7", "E7", "G7" }), step = 0.06, vol = 0.4, release = 0.3 },
+  { at = 0.3, dur = 0.5, wave = "sine", f0 = hz("C8"), decay = 6, vol = 0.15, vib = { 0.3, 12 } } } }
+S["se/kw_star"] = { peak = 0.6, layers = {
+  { dur = 0.6, wave = "tri", steps = notes({ "E6", "G#6", "B6", "E7" }), step = 0.07, vol = 0.4, release = 0.25 },
+  { at = 0.25, dur = 0.45, wave = "sine", f0 = hz("E8"), decay = 7, vol = 0.18, vib = { 0.3, 12 } } } }
+S["se/kw_draw"] = { peak = 0.55, layers = {
+  { dur = 0.4, wave = "noise", lp = 3000, lp1 = 9000, vol = 0.35, attack = 0.05, release = 0.2 },
+  { dur = 0.4, wave = "sine", f0 = 800, f1 = 2400, vol = 0.25, release = 0.15 } } }
+
+-- Berry Picker
+S["se/kw_pick"] = { peak = 0.55, layers = { { dur = 0.08, wave = "sine", f0 = 900, f1 = 1500, decay = 25, vol = 0.6 } } }
+S["se/kw_give"] = { peak = 0.55, layers = { chime(hz("E6"), 0, 0.25, 0.45), chime(hz("A6"), 0.06, 0.3, 0.4) } }
+S["se/kw_givefast"] = { peak = 0.6, layers = { chime(hz("E6"), 0, 0.2), chime(hz("A6"), 0.05, 0.2), chime(hz("C#7"), 0.1, 0.3) } }
+S["se/kw_enter"] = { peak = 0.5, layers = { { dur = 0.22, wave = "sine", f0 = 300, f1 = 900, vol = 0.45, release = 0.08 } } }
+S["se/kw_enter2"] = { peak = 0.5, layers = { { dur = 0.22, wave = "sine", f0 = 400, f1 = 1200, vol = 0.45, release = 0.08 } } }
+S["se/kw_leave2"] = { peak = 0.5, layers = { { dur = 0.25, wave = "sine", f0 = 900, f1 = 250, vol = 0.45, release = 0.1 } } }
+S["se/kw_fail"] = { peak = 0.55, layers = {
+  { dur = 0.3, wave = "pulse50", steps = { 196, 165 }, step = 0.12, vol = 0.4, release = 0.08 },
+  { dur = 0.3, wave = "saw", f0 = 98, vol = 0.18, release = 0.1 } } }
+S["se/kw_fallsweet"] = { peak = 0.5, layers = { { dur = 0.35, wave = "tri", f0 = 1400, f1 = 300, vol = 0.4, release = 0.1 } } }
+-- the berries raining down (steady, stopped when the rain ends)
+local patter = {}
+for i = 0, 31 do
+  patter[#patter + 1] = { at = i * 0.12 + (i % 3) * 0.02, dur = 0.07, wave = "sine", f0 = 600 + (i * 137) % 700, f1 = 300, decay = 30, vol = 0.35 }
+end
+S["se/kw_falling"] = { peak = 0.45, layers = patter }
+S["se/kw_landheavy"] = { peak = 0.75, layers = {
+  { dur = 0.35, wave = "sine", f0 = 110, f1 = 45, decay = 9, vol = 0.8 },
+  { dur = 0.2, wave = "noise", lp = 1200, decay = 15, vol = 0.5 } } }
+
+-- Head It: a heading, good or just (a bright chime on top), in FEVER a little higher; the
+-- giant's heavier; a miss
+local function bonk(f, ring, vol)
+  local l = { { dur = 0.12, wave = "sine", f0 = f, f1 = f * 0.6, decay = 20, vol = vol or 0.6 },
+    { dur = 0.05, wave = "noise", lp = 2500, decay = 50, vol = 0.35 } }
+  if ring then l[#l + 1] = chime(ring, 0.03, 0.3, 0.35) end
+  return l
+end
+S["se/kw_headok"] = { peak = 0.6, layers = bonk(420) }
+S["se/kw_headgood"] = { peak = 0.65, layers = bonk(480, hz("E7")) }
+S["se/kw_fheadok"] = { peak = 0.6, layers = bonk(520) }
+S["se/kw_fheadgood"] = { peak = 0.65, layers = bonk(600, hz("G7")) }
+S["se/kw_lheadok"] = { peak = 0.7, layers = bonk(220) }
+S["se/kw_lheadgood"] = { peak = 0.75, layers = bonk(260, hz("C7")) }
+S["se/kw_headfail"] = { peak = 0.6, layers = {
+  { dur = 0.25, wave = "sine", f0 = 160, f1 = 80, decay = 10, vol = 0.6 },
+  { dur = 0.25, wave = "pulse50", f0 = 130, f1 = 90, decay = 10, vol = 0.2 } } }
+S["se/kw_lheadfail"] = { peak = 0.7, layers = {
+  { dur = 0.4, wave = "sine", f0 = 110, f1 = 50, decay = 7, vol = 0.7 },
+  { dur = 0.4, wave = "pulse50", f0 = 90, f1 = 60, decay = 7, vol = 0.25 } } }
+S["se/kw_lballfall"] = { peak = 0.6, layers = { { dur = 0.8, wave = "tri", f0 = 1800, f1 = 300, vol = 0.45, release = 0.15 } } }
+S["se/kw_alert"] = { peak = 0.55, layers = {
+  { dur = 0.4, wave = "pulse50", steps = { 988, 740, 988, 740 }, step = 0.1, vol = 0.4, release = 0.05 } } }
+S["se/kw_combo"] = { peak = 0.55, layers = { chime(hz("C6"), 0, 0.2), chime(hz("E6"), 0.05, 0.2), chime(hz("G6"), 0.1, 0.3) } }
+S["se/kw_combo2"] = { peak = 0.6, layers = { chime(hz("D6"), 0, 0.2), chime(hz("F#6"), 0.05, 0.2), chime(hz("A6"), 0.1, 0.2), chime(hz("D7"), 0.15, 0.35) } }
+S["se/kw_combo3"] = { peak = 0.6, layers = { chime(hz("E6"), 0, 0.2), chime(hz("G#6"), 0.05, 0.2), chime(hz("B6"), 0.1, 0.2), chime(hz("E7"), 0.15, 0.4) } }
+S["se/kw_combo4"] = { peak = 0.65, layers = { chime(hz("G6"), 0, 0.2), chime(hz("B6"), 0.05, 0.2), chime(hz("D7"), 0.1, 0.2), chime(hz("G7"), 0.15, 0.5),
+  { at = 0.2, dur = 0.4, wave = "noise", lp = 8000, vol = 0.1, release = 0.3 } } }
+
+-- the RESULTS card: it comes in, a bonus row counts up (steady ticking, stopped), settles; the stars
+S["se/kw_number"] = { peak = 0.5, layers = {
+  { dur = 0.25, wave = "noise", lp = 1500, lp1 = 5000, vol = 0.4, attack = 0.05, release = 0.1 },
+  chime(hz("G6"), 0.15, 0.2, 0.3) } }
+local ticks = {}
+for i = 0, 79 do ticks[#ticks + 1] = { at = i * 0.05, dur = 0.02, wave = "pulse25", f0 = 1600, decay = 60, vol = 0.35 } end
+S["se/kw_addscore"] = { peak = 0.4, layers = ticks }
+S["se/kw_score"] = { peak = 0.55, layers = { chime(hz("C7"), 0, 0.35, 0.5), chime(hz("G7"), 0.03, 0.3, 0.25) } }
+S["se/kw_value1"] = { peak = 0.55, layers = { chime(hz("E6"), 0, 0.4) } }
+S["se/kw_value2"] = { peak = 0.55, layers = { chime(hz("E6"), 0, 0.3), chime(hz("B6"), 0.1, 0.4) } }
+S["se/kw_value3"] = { peak = 0.6, layers = { chime(hz("E6"), 0, 0.3), chime(hz("B6"), 0.1, 0.3), chime(hz("E7"), 0.2, 0.5),
+  { at = 0.25, dur = 0.4, wave = "sine", f0 = hz("E8"), decay = 7, vol = 0.15, vib = { 0.3, 12 } } } }
+
+-- Tile Puzzle: a tile lifts, two swap, one settles home
+S["se/kw_float"] = { peak = 0.5, layers = { { dur = 0.18, wave = "sine", f0 = 500, f1 = 1000, vol = 0.45, release = 0.06 } } }
+S["se/kw_swap"] = { peak = 0.55, layers = {
+  { dur = 0.2, wave = "noise", lp = 2000, lp1 = 5000, vol = 0.35, attack = 0.03, release = 0.08 },
+  { dur = 0.2, wave = "sine", f0 = 700, f1 = 500, vol = 0.3, release = 0.06 } } }
+S["se/kw_setpanel"] = { peak = 0.55, layers = {
+  { dur = 0.08, wave = "pulse25", f0 = 700, f1 = 400, decay = 30, vol = 0.5 },
+  { dur = 0.04, wave = "noise", lp = 3500, decay = 60, vol = 0.35 } } }
 
 return S

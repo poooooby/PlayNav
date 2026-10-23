@@ -105,3 +105,11 @@ atlas of 16-bit colour numbers with the palettes in data/amie_head.lua (by tools
 
   Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
   Provided via The Spriters Resource
+
+Tile Puzzle trees (assets/amie_tile.png)
+----------------------------------------
+The trees on Tile Puzzle's shores (a spruce, an oak, a row of pines and a bush, by day and by
+night), from TREE PIXEL PACK (128) by AstroCom (https://astrocom.space), shrunk into the
+scene's sheet and packed into one atlas of 16-bit colour numbers with the palettes in
+data/amie_tile.lua (by tools/tile_trees.py). The rest of Tile Puzzle's picture - its sky, sea, night stars and photo
+frames - is drawn by PlayNav (src/amie/ui_art.lua).

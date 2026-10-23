@@ -1,6 +1,7 @@
 -- Pokemon-Amie's words from the game's own English text archive (a/0/7/3), decoded into
 -- the player's cache by the import (data/oras_recipe.lua `kind = "text"` rows). Every lookup
--- falls back to our own wording, so nothing here needs the card image. Pure Lua: `G.assets`
+-- falls back to our own wording, so nothing here needs the card image; the minigames and their
+-- picker always use ours (AT.OWN_FILES). Pure Lua: `G.assets`
 -- is read lazily (Assets.text(id) -> { [0] = line, ... } or nil).
 --
 --   AT.get(key, vars)        one UI line by key (see LINE), variables filled, one line
@@ -112,7 +113,13 @@ return function(G)
 
   -- ------- raw access
 
+  -- the minigames and their picker speak PlayNav's own words (the fallbacks here), never the
+  -- card image's; AT.ownText = false puts the game's text back (for side-by-side checks)
+  AT.OWN_FILES = { berry = true, head = true, tile = true, games = true }
+  AT.ownText = true
+
   local function lines(fileKey)
+    if AT.ownText and AT.OWN_FILES[fileKey] then return nil end
     local A = G and G.assets
     local id = AT.FILES[fileKey]
     if not (A and A.text and id) then return nil end

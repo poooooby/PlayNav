@@ -698,6 +698,7 @@ return function(mod, K, gen)
   local SPARKLE = {
     { "lyt/berry_reward/", C.white, c255(220, 236, 255) },
     { "lyt/head_reward/", C.white, c255(220, 236, 255) },
+    { "lyt/tile_down/", C.white, c255(220, 236, 255) },
     { "lyt/head_effect/", c255(210, 244, 255), c255(120, 206, 240) },
   }
   for _, sp in ipairs(SPARKLE) do
@@ -705,12 +706,12 @@ return function(mod, K, gen)
     gen(sp[1] .. "twinkle1", 10, 10, function(G) dot(G, 10, sp[2], sp[3]) end)
   end
 
-  -- ------- the minigames' cards, windows, stars, medals and smoke (Berry Picker and Head It)
+  -- ------- the minigames' cards, windows, stars, medals and smoke (Berry Picker, Head It, Tile Puzzle)
 
   local function each(packs, name, w, h, draw)
     for _, p in ipairs(packs) do gen("lyt/" .. p .. "/" .. name, w, h, draw) end
   end
-  local BOTH_WINDOWS = { "berry_demo", "berry_front", "berry_score", "head_demo", "head_down", "head_front" }
+  local BOTH_WINDOWS = { "berry_demo", "berry_front", "berry_score", "head_demo", "head_down", "head_front", "tile_down", "tile_up" }
   local PAPER_TOP, PAPER_LOW = c255(252, 246, 205), c255(242, 232, 158)
   local TAPE, TAPE_LO = c255(246, 222, 126), c255(190, 166, 86)
 
@@ -756,7 +757,7 @@ return function(mod, K, gen)
   end)
 
   -- the number window's border: half see-through orange bumps, lit cream on their outer edge
-  local NUM_PACKS = { "berry_score", "head_front" }
+  local NUM_PACKS = { "berry_score", "head_front", "tile_up" }
   local BUMP, BUMP_HI, BUMP_LO = c255(250, 187, 87), c255(254, 242, 222), c255(160, 120, 60)
   local function bump(G, cx, cy, r, ang)
     -- a disc, shaded from its outer edge (toward ang) inward
@@ -856,13 +857,13 @@ return function(mod, K, gen)
     local c = c255(m[1], m[2], m[3])
     local lo = c255(math.floor(m[1] * 0.78), math.floor(m[2] * 0.78), math.floor(m[3] * 0.78))
     local hi = c255(math.min(255, m[1] + 40), math.min(255, m[2] + 40), math.min(255, m[3] + 40))
-    each({ "berry_reward", "head_reward" }, ("wappen_%02d"):format(i), 60, 60, function(G)
+    each({ "berry_reward", "head_reward", "tile_down" }, ("wappen_%02d"):format(i), 60, 60, function(G)
       medalRing(G, hi, c)
       medalFace(G, c255(255, 255, 255), c255(255, 246, 204))
       col(G, lo, 0.5); G.setLineWidth(0.8); G.circle("line", 30, 30, 28.2, 64)
     end)
   end
-  each({ "berry_reward", "head_reward" }, "wappen_special", 60, 60, function(G)
+  each({ "berry_reward", "head_reward", "tile_down" }, "wappen_special", 60, 60, function(G)
     medalRing(G, c255(255, 230, 120), c255(250, 214, 80))
     medalFace(G, c255(224, 246, 252), c255(196, 236, 246))
     local stars = { { 250, 70, 200 }, { 40, 200, 140 }, { 250, 130, 40 }, { 60, 170, 250 }, { 230, 60, 220 }, { 40, 200, 160 }, { 250, 140, 30 } }
@@ -892,13 +893,13 @@ return function(mod, K, gen)
       end
     end
   end
-  each({ "berry_reward", "head_reward" }, "smoke0", 54, 46, function(G, w, h)
+  each({ "berry_reward", "head_reward", "tile_down" }, "smoke0", 54, 46, function(G, w, h)
     smoke(G, w, h, { { 0.5, 0.5, 0.42 }, { 0.3, 0.45, 0.3 }, { 0.7, 0.5, 0.3 }, { 0.5, 0.3, 0.3 } })
   end)
-  each({ "berry_reward", "head_reward" }, "smoke1", 117, 93, function(G, w, h)
+  each({ "berry_reward", "head_reward", "tile_down" }, "smoke1", 117, 93, function(G, w, h)
     smoke(G, w, h, { { 0.5, 0.52, 0.42 }, { 0.28, 0.4, 0.3 }, { 0.72, 0.42, 0.3 }, { 0.36, 0.72, 0.28 }, { 0.68, 0.72, 0.28 } })
   end)
-  each({ "berry_reward", "head_reward" }, "smoke2", 80, 73, function(G, w, h)
+  each({ "berry_reward", "head_reward", "tile_down" }, "smoke2", 80, 73, function(G, w, h)
     smoke(G, w, h, { { 0.5, 0.5, 0.42 }, { 0.32, 0.36, 0.3 }, { 0.68, 0.4, 0.3 }, { 0.5, 0.72, 0.3 } })
   end)
 
@@ -967,4 +968,341 @@ return function(mod, K, gen)
   gen("lyt/head_ball/Hit01", 40, 60, function(G) G.setColor(0.95, 0.6, 0, 1); G.rectangle("fill", 0, 0, 40, 60) end)
   gen("lyt/head_ball/Hit02", 40, 60, function(G) G.setColor(0.9, 0, 0.06, 1); G.rectangle("fill", 0, 0, 40, 60) end)
   gen("lyt/head_ball/Miss", 40, 60, function(G) G.setColor(0.63, 0.63, 0.63, 1); G.rectangle("fill", 0, 0, 40, 60) end)
+
+  -- ------- Tile Puzzle
+
+  -- a tile's corner marks: an L at each corner (red for the chosen tile, pale blue for one out
+  -- of place), a dark edge under each
+  local function corners(G, c, cLo)
+    local s, t, L = 46, 2.6, 12.5
+    for _, k in ipairs({ { 0, 0, 1, 1 }, { s, 0, -1, 1 }, { 0, s, 1, -1 }, { s, s, -1, -1 } }) do
+      local x, y, dx, dy = k[1], k[2], k[3], k[4]
+      local pts = { x + dx * 1, y + dy * 1, x + dx * L, y + dy * 1, x + dx * L, y + dy * (1 + t),
+        x + dx * (1 + t), y + dy * (1 + t), x + dx * (1 + t), y + dy * L, x + dx * 1, y + dy * L }
+      col(G, cLo); fillShape(G, scaled(pts, x + dx * 6, y + dy * 6, 1.12))
+      col(G, c); fillShape(G, pts)
+    end
+  end
+  gen("lyt/tile_bound/cursol", 46, 46, function(G) corners(G, c255(214, 70, 40), c255(120, 30, 20, 200)) end)
+  gen("lyt/tile_bound/frame", 46, 46, function(G) corners(G, c255(150, 222, 232), c255(60, 140, 150, 160)) end)
+  -- the star bursting from a tile landing home
+  gen("lyt/tile_bound/star", 20, 20, function(G)
+    local pts = starPts(10, 10.6, 8.6, 0.48)
+    col(G, c255(200, 140, 20)); fillShape(G, scaled(pts, 10, 10.6, 1.16))
+    rings(G, pts, 10, 10.6, c255(250, 200, 40), c255(255, 246, 170), 8, 0.2)
+  end)
+
+  -- the orange buttons: a pill with a double rim, and a round one with an arrow
+  local ORANGE, ORANGE_HI, ORANGE_LO, ORANGE_RIM = c255(250, 170, 120), c255(255, 214, 186), c255(236, 136, 86), c255(170, 80, 40)
+  local function pillPts(x, y, w, h)
+    local r = h / 2
+    local pts = {}
+    for i = 0, 16 do
+      local a = math.pi / 2 + i / 16 * math.pi
+      pts[#pts + 1] = x + r + math.cos(a) * r; pts[#pts + 1] = y + r + math.sin(a) * r
+    end
+    for i = 0, 16 do
+      local a = -math.pi / 2 + i / 16 * math.pi
+      pts[#pts + 1] = x + w - r + math.cos(a) * r; pts[#pts + 1] = y + r + math.sin(a) * r
+    end
+    return pts
+  end
+  local function orangePill(G, w, h)
+    G.setColor(0, 0, 0, 0.2); fillShape(G, pillPts(1, 2, w - 2, h - 2))
+    col(G, ORANGE_RIM); fillShape(G, pillPts(0.6, 0.6, w - 1.2, h - 2.2))
+    within(G, pillPts(1.8, 1.8, w - 3.6, h - 4.6), function()
+      vgrad(G, 0, 1, w, h - 4, ORANGE_HI, ORANGE_LO)
+    end)
+    G.setLineWidth(1); col(G, ORANGE_HI, 0.9); G.line(closed(pillPts(4, 4, w - 8, h - 9)))
+    G.setColor(1, 1, 1, 0.3); G.ellipse("fill", w / 2, 8, w / 2 - 12, 3)
+  end
+  gen("lyt/tile_down/button_system", 110, 32, function(G, w, h) orangePill(G, w, h) end)
+  gen("game/pill_button", 110, 32, function(G, w, h) orangePill(G, w, h) end)
+  gen("lyt/tile_down/play_left", 42, 42, function(G)
+    G.setColor(0, 0, 0, 0.25); circle(G, "fill", 21, 22, 20.4)
+    col(G, c255(40, 24, 16)); circle(G, "fill", 21, 21, 20.2)
+    col(G, ORANGE_RIM); circle(G, "fill", 21, 21, 18.6)
+    within(G, radial(21, 21, 17.2, 17.2, 48, function() return 1 end), function()
+      vgrad(G, 0, 4, 42, 34, ORANGE_HI, ORANGE_LO)
+      G.setColor(1, 1, 1, 0.3); G.ellipse("fill", 21, 11, 12, 5)
+    end)
+    col(G, c255(150, 60, 10)); fillShape(G, { 12, 21, 26, 12.5, 26, 29.5 })
+  end)
+
+  -- the doors that close over the puzzle: dark, a diamond pattern, their meeting edge scalloped
+  local function door(G, w, h, edgeRight)
+    local pts = {}
+    local bumps = 12
+    local inset = 6
+    -- the panel, its meeting edge a column of rounded bumps
+    local outer = edgeRight and 0 or w
+    pts[#pts + 1] = outer; pts[#pts + 1] = 0
+    for i = 0, bumps * 8 do
+      local yy = i / (bumps * 8) * h
+      local bulge = math.abs(math.sin(yy / h * bumps * math.pi)) * inset
+      pts[#pts + 1] = edgeRight and (w - inset + bulge) or (inset - bulge)
+      pts[#pts + 1] = yy
+    end
+    pts[#pts + 1] = outer; pts[#pts + 1] = h
+    within(G, pts, function()
+      G.setColor(0.05, 0.05, 0.055, 1); G.rectangle("fill", 0, 0, w, h)
+      G.setColor(0.11, 0.11, 0.12, 1)
+      for y = -24, h + 24, 24 do
+        for x = -24, w + 24, 24 do
+          local ox = ((y / 24) % 2) * 12
+          fillShape(G, { x + ox, y - 10, x + ox + 10, y, x + ox, y + 10, x + ox - 10, y })
+        end
+      end
+    end)
+    G.setLineWidth(1); G.setColor(0.25, 0.25, 0.27, 1)
+    local edge = {}
+    for i = 3, #pts - 4, 2 do edge[#edge + 1] = pts[i]; edge[#edge + 1] = pts[i + 1] end
+    G.line(edge)
+  end
+  gen("lyt/tile_down/door_L", 180, 240, function(G, w, h) door(G, w, h, true) end)
+  gen("lyt/tile_down/door_R", 180, 240, function(G, w, h) door(G, w, h, false) end)
+
+  -- the wool along the top screen's rows: a twisted tan thread
+  gen("lyt/tile_up/line_wool", 352, 8, function(G, w)
+    G.setColor(0.55, 0.42, 0.2, 0.5); G.rectangle("fill", 0, 2.6, w, 3.4, 1.6, 1.6)
+    col(G, c255(232, 196, 110)); G.rectangle("fill", 0, 3, w, 2.4, 1.2, 1.2)
+    G.setColor(1, 0.95, 0.8, 0.7); G.setLineWidth(0.5)
+    for x = 0, w, 3 do G.line(x, 3.2, x + 2, 5.2) end
+  end)
+
+  -- the top screen: a mint field under scalloped bands, pinked fabric swatches in its corners
+  local function swatch(G, cx, cy, w, h, ang, base, pattern)
+    G.push(); G.translate(cx, cy); G.rotate(ang)
+    local pts = {}
+    local n = 12
+    local function edge(x0, y0, x1, y1)
+      for i = 0, n - 1 do
+        local t = i / n
+        local px, py = x0 + (x1 - x0) * t, y0 + (y1 - y0) * t
+        local nx, ny = (y1 - y0), -(x1 - x0)
+        local d = math.sqrt(nx * nx + ny * ny)
+        local k = (i % 2 == 0) and 0 or 1.6
+        pts[#pts + 1] = px + nx / d * k; pts[#pts + 1] = py + ny / d * k
+      end
+    end
+    edge(-w / 2, -h / 2, w / 2, -h / 2); edge(w / 2, -h / 2, w / 2, h / 2)
+    edge(w / 2, h / 2, -w / 2, h / 2); edge(-w / 2, h / 2, -w / 2, -h / 2)
+    G.setColor(0, 0, 0, 0.12); fillShape(G, scaled(pts, -2, -3, 1))
+    within(G, pts, function()
+      col(G, base); G.rectangle("fill", -w, -h, w * 2, h * 2)
+      pattern(G, w, h)
+    end)
+    G.pop()
+  end
+  local function dots(c, step, r)
+    return function(G, w, h)
+      col(G, c)
+      for y = -h, h, step do
+        for x = -w, w, step do circle(G, "fill", x + ((y / step) % 2) * step / 2, y, r) end
+      end
+    end
+  end
+  local function check(c, step)
+    return function(G, w, h)
+      col(G, c, 0.5)
+      for x = -w, w, step * 2 do G.rectangle("fill", x, -h, step, h * 2) end
+      for y = -h, h, step * 2 do G.rectangle("fill", -w, y, w * 2, step) end
+    end
+  end
+  local function stripes(c, step)
+    return function(G, w, h)
+      col(G, c)
+      for x = -w * 2, w * 2, step * 2 do fillShape(G, { x, -h, x + step, -h, x + step + h * 2, h, x + h * 2, h }) end
+    end
+  end
+  gen("lyt/tile_up/bg_up", 400, 240, function(G, w, h)
+    vgrad(G, 0, 0, w, h, c255(120, 226, 186), c255(150, 236, 200))
+    -- the bands top and bottom, their inner edges scalloped
+    for _, top in ipairs({ true, false }) do
+      local y0 = top and 0 or h
+      local pts = { 0, y0 }
+      for x = 0, w, 2 do
+        local b = 12 + math.abs(math.sin(x / w * math.pi * 9)) * 7
+        pts[#pts + 1] = x; pts[#pts + 1] = top and b or h - b
+      end
+      pts[#pts + 1] = w; pts[#pts + 1] = y0
+      col(G, c255(96, 206, 170)); fillShape(G, pts)
+    end
+    G.setColor(1, 1, 1, 0.18); G.rectangle("fill", 0, 60, w, 4); G.rectangle("fill", 0, 176, w, 4)
+    -- the swatches
+    swatch(G, 26, 14, 82, 74, -0.25, c255(255, 238, 140), dots(c255(255, 255, 255), 7, 1.6))
+    swatch(G, 382, 12, 96, 70, 0.6, c255(160, 226, 250), check(c255(255, 255, 255), 5))
+    swatch(G, 60, 226, 96, 70, 0.35, c255(170, 240, 214), check(c255(255, 255, 255), 5))
+    swatch(G, 18, 236, 54, 50, -0.4, c255(255, 214, 160), dots(c255(255, 255, 255), 6, 1.2))
+    swatch(G, 370, 232, 110, 90, -0.6, c255(250, 236, 252), check(c255(220, 200, 240), 6))
+    -- ribbons across the corners
+    swatch(G, 100, 10, 120, 12, -0.5, c255(214, 196, 246), stripes(c255(255, 255, 255), 3))
+    swatch(G, 382, 140, 12, 150, 0.2, c255(180, 196, 246), dots(c255(255, 255, 255), 5, 1))
+    swatch(G, 28, 210, 12, 90, -0.7, c255(110, 170, 240), stripes(c255(255, 255, 255), 3))
+  end)
+
+  -- ------- Tile Puzzle's picture: its sky, sea, night star and photo frames
+
+  -- the sky strip: four columns (day, deep blue, sunset, night), each a ramp from top to foot
+  local SKY = {
+    { { 47, 171, 245 }, { 71, 186, 244 }, { 94, 201, 250 }, { 131, 213, 246 }, { 115, 157, 206 } },
+    { { 0, 25, 124 }, { 5, 46, 161 }, { 8, 66, 198 }, { 31, 105, 212 }, { 91, 190, 247 } },
+    { { 178, 161, 103 }, { 226, 184, 77 }, { 250, 193, 61 }, { 245, 154, 47 }, { 252, 71, 5 } },
+    { { 2, 2, 10 }, { 2, 10, 51 }, { 9, 17, 83 }, { 16, 32, 115 }, { 35, 59, 183 } },
+  }
+  gen("tile/sky", 64, 128, function(G)
+    for c, ramp in ipairs(SKY) do
+      for i = 1, #ramp - 1 do
+        local a, b = ramp[i], ramp[i + 1]
+        vgrad(G, (c - 1) * 16, (i - 1) * 32, 16, 32, c255(a[1], a[2], a[3]), c255(b[1], b[2], b[3]))
+      end
+    end
+  end)
+
+  -- the sea: a tile of water with light caustics - cells of water, brighter along the edges
+  -- where they meet, deeper toward their middles - tiling seamlessly; three moods
+  local function sea(G, base, dark, light, seed)
+    local N = 128
+    local rng = love.math.newRandomGenerator(seed)
+    local pts = {}
+    for _ = 1, 64 do pts[#pts + 1] = { rng:random() * N, rng:random() * N } end
+    local data = love.image.newImageData(N, N)
+    data:mapPixel(function(x, y)
+      -- the nearest two cell middles, the tile wrapped round
+      local d1, d2 = 1e9, 1e9
+      -- a gentle warp (whole waves across the tile, so it still wraps) rounds the cells' edges
+      local wx = x + 0.5 + math.sin(y / N * math.pi * 6) * 2.2
+      local wy = y + 0.5 + math.sin(x / N * math.pi * 6) * 2.2
+      for _, p in ipairs(pts) do
+        local dx = math.abs(wx - p[1]) % N; if dx > N / 2 then dx = N - dx end
+        local dy = math.abs(wy - p[2]) % N; if dy > N / 2 then dy = N - dy end
+        local d = dx * dx + dy * dy
+        if d < d1 then d1, d2 = d, d1 elseif d < d2 then d2 = d end
+      end
+      d1, d2 = math.sqrt(d1), math.sqrt(d2)
+      local edge = math.max(0, 1 - (d2 - d1) / 3.2) ^ 1.5
+      local deep = math.min(1, d1 / 9)
+      local r = base[1] + (dark[1] - base[1]) * deep * 0.6
+      local g = base[2] + (dark[2] - base[2]) * deep * 0.6
+      local b = base[3] + (dark[3] - base[3]) * deep * 0.6
+      return r + (light[1] - r) * edge * 0.75, g + (light[2] - g) * edge * 0.75, b + (light[3] - b) * edge * 0.75, 1
+    end)
+    local img = love.graphics.newImage(data)
+    img:setFilter("linear", "linear")
+    G.setColor(1, 1, 1, 1)
+    G.draw(img, 0, 0)
+  end
+  gen("tile/sea_day", 128, 128, function(G) sea(G, c255(143, 226, 250), c255(125, 216, 255), c255(220, 252, 255), 21) end)
+  gen("tile/sea_dusk", 128, 128, function(G) sea(G, c255(165, 181, 223), c255(146, 163, 229), c255(214, 224, 252), 21) end)
+  gen("tile/sea_night", 128, 128, function(G) sea(G, c255(18, 101, 183), c255(6, 97, 179), c255(70, 150, 200), 21) end)
+
+  -- a star of the night sky: a small white twinkle
+  gen("tile/night_star", 32, 32, function(G)
+    G.setColor(1, 1, 1, 0.25); circle(G, "fill", 16, 16, 6)
+    G.setColor(1, 1, 1, 1)
+    fillShape(G, { 16, 8, 17.2, 14.8, 24, 16, 17.2, 17.2, 16, 24, 14.8, 17.2, 8, 16, 14.8, 14.8 })
+  end)
+
+  -- the photo frames: a border of fabric patches round a clear window (the texture's top
+  -- 128 x 104), a dark line along its inner top and left
+  local function fabric(kind, c, c2)
+    return function(G, x, y, w, h)
+      col(G, c); G.rectangle("fill", x, y, w, h)
+      col(G, c2)
+      if kind == "diamond" then
+        for yy = y - 6, y + h + 6, 6 do
+          for xx = x - 6, x + w + 6, 6 do
+            local o = ((yy - y) / 6 % 2) * 3
+            fillShape(G, { xx + o, yy - 3, xx + o + 3, yy, xx + o, yy + 3, xx + o - 3, yy })
+          end
+        end
+      elseif kind == "stripe" then
+        for k = -h, w + h, 5 do fillShape(G, { x + k, y, x + k + 2.5, y, x + k + 2.5 + h, y + h, x + k + h, y + h }) end
+      elseif kind == "dots" then
+        for yy = y + 2, y + h, 5 do
+          for xx = x + 2, x + w, 5 do circle(G, "fill", xx + ((yy - y) / 5 % 2) * 2.5, yy, 1) end
+        end
+      elseif kind == "scallop" then
+        for xx = x, x + w, 6 do circle(G, "fill", xx + 3, y + h, 3.4) end
+      end
+      vgrad(G, x, y, w, h, { 1, 1, 1, 0.25 }, { 0, 0, 0, 0.08 })
+    end
+  end
+  local function photoFrame(G, patches)
+    local B = 7
+    -- the border, patch by patch, kept to the ring round the window
+    G.stencil(function() G.rectangle("fill", 0, 0, 128, 104) end, "replace", 1)
+    G.stencil(function() G.rectangle("fill", B, B, 128 - 2 * B, 104 - 2 * B) end, "replace", 0, true)
+    G.setStencilTest("greater", 0)
+    for _, p in ipairs(patches) do p[5](G, p[1], p[2], p[3], p[4]) end
+    G.setStencilTest()
+    -- a ragged step where two patches meet is the picture's; the inner shadow and outer edge
+    G.setColor(0, 0, 0, 0.55); G.rectangle("fill", B, B, 128 - 2 * B, 1); G.rectangle("fill", B, B, 1, 104 - 2 * B)
+    G.setColor(0, 0, 0, 0.2); G.setLineWidth(0.8); G.rectangle("line", 0.4, 0.4, 127.2, 103.2)
+  end
+  local CREAM = fabric("plain", c255(250, 222, 160), c255(0, 0, 0))
+  local CYAN = fabric("diamond", c255(80, 210, 240), c255(170, 238, 250))
+  gen("tile/frame_easy", 128, 128, function(G)
+    photoFrame(G, {
+      { 0, 0, 72, 104, CREAM }, { 72, 0, 56, 52, CYAN }, { 72, 52, 56, 52, CREAM },
+      { 0, 52, 62, 52, CYAN }, { 62, 96, 66, 8, CREAM },
+    })
+  end)
+  local LILAC = fabric("stripe", c255(206, 150, 240), c255(226, 186, 250))
+  local YELLOW = fabric("dots", c255(250, 236, 140), c255(255, 250, 220))
+  local PURPLE = fabric("plain", c255(190, 120, 236), c255(0, 0, 0))
+  local PEACH = fabric("stripe", c255(250, 196, 140), c255(255, 222, 186))
+  local PINK = fabric("stripe", c255(250, 214, 236), c255(255, 236, 248))
+  local BLUE = fabric("dots", c255(150, 180, 250), c255(200, 216, 255))
+  local TEAL = fabric("dots", c255(70, 200, 190), c255(150, 230, 222))
+  gen("tile/frame_normal", 128, 128, function(G)
+    photoFrame(G, {
+      { 0, 0, 40, 8, LILAC }, { 40, 0, 20, 8, YELLOW }, { 60, 0, 36, 8, PURPLE }, { 96, 0, 32, 8, PEACH },
+      { 120, 8, 8, 24, PEACH }, { 120, 32, 8, 18, PINK }, { 120, 50, 8, 54, BLUE },
+      { 0, 8, 8, 48, YELLOW }, { 0, 56, 8, 48, TEAL },
+      { 0, 96, 24, 8, TEAL }, { 24, 96, 38, 8, PURPLE }, { 62, 96, 50, 8, PINK }, { 112, 96, 16, 8, PURPLE },
+    })
+  end)
+  local GREEN = fabric("plain", c255(60, 196, 150), c255(0, 0, 0))
+  local MINT = fabric("scallop", c255(110, 220, 190), c255(190, 244, 228))
+  local SAND = fabric("dots", c255(250, 214, 160), c255(255, 236, 206))
+  gen("tile/frame_hard", 128, 128, function(G)
+    photoFrame(G, {
+      { 0, 0, 46, 104, GREEN }, { 46, 0, 82, 8, MINT }, { 120, 8, 8, 96, GREEN },
+      { 0, 42, 8, 44, SAND }, { 120, 16, 8, 38, SAND }, { 0, 96, 78, 8, MINT }, { 78, 96, 50, 8, GREEN },
+    })
+  end)
+
+  -- ------- the soft painted clouds (Tile Puzzle's horizon, PLAY's sky, the top screens): blobs
+  -- built up in faint layers, cut flat along a base and shaded pale blue toward it
+  local function softClouds(G, blobs, base)
+    local function union(grow)
+      for _, b in ipairs(blobs) do circle(G, "fill", b[1], b[2], b[3] * grow) end
+    end
+    for i = 1, 16 do
+      G.setColor(1, 1, 1, 0.075)
+      union(1.15 - i * 0.045)
+    end
+    -- the underside: pale blue, deepest at the base
+    G.stencil(function() union(0.95) end, "replace", 1)
+    G.setStencilTest("greater", 0)
+    vgrad(G, 0, base - 46, 256, 46, { 0.72, 0.84, 0.98, 0 }, { 0.72, 0.84, 0.98, 0.55 })
+    G.setStencilTest()
+    -- the base, feathered: everything below it fades out over a few units
+    G.setBlendMode("multiply", "premultiplied")
+    vgrad(G, 0, base - 8, 256, 10, { 1, 1, 1, 1 }, { 0, 0, 0, 0 })
+    G.setColor(0, 0, 0, 0); G.rectangle("fill", 0, base + 2, 256, 128)
+    G.setBlendMode("alpha")
+  end
+  gen("scene/cloud", 256, 128, function(G)
+    softClouds(G, { { 75, 38, 24 }, { 58, 56, 26 }, { 96, 54, 27 }, { 120, 68, 23 }, { 144, 82, 17 },
+      { 168, 92, 10 }, { 36, 78, 20 }, { 86, 78, 26 }, { 115, 86, 20 }, { 60, 88, 18 }, { 148, 94, 12 } }, 100)
+    softClouds(G, { { 230, 32, 8 }, { 232, 42, 8 }, { 230, 92, 8 }, { 229, 102, 7 } }, 128)
+  end)
+  gen("scene/cumulus", 256, 128, function(G)
+    softClouds(G, { { 160, 34, 20 }, { 150, 56, 22 }, { 174, 60, 22 }, { 60, 100, 20 }, { 90, 92, 24 },
+      { 120, 98, 22 }, { 190, 90, 24 }, { 220, 102, 18 }, { 140, 100, 22 }, { 40, 108, 14 }, { 240, 110, 10 },
+      -- the bank joined up under the tall top
+      { 118, 82, 24 }, { 140, 78, 26 }, { 162, 82, 26 }, { 104, 100, 22 }, { 160, 102, 24 }, { 205, 104, 20 } }, 118)
+  end)
 end
