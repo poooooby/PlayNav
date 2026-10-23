@@ -7,7 +7,7 @@
 
 return function(mod, deps)
   local U = { K = 4, images = {}, made = 0 }
-  local Rules, STAT_RGB = deps.Rules, deps.statRgb or {}
+  local Rules = deps.Rules
 
   -- ------- palette (sampled from the game's own screens)
   local function c255(r, g, b, a) return { r / 255, g / 255, b / 255, (a or 255) / 255 } end
@@ -901,79 +901,258 @@ return function(mod, deps)
     stroke(G, 1.6, 18, 0, 18, 14, 12, 22, 12, 42, 18, 50, 18, 64)
   end)
 
-  -- ------- the bags: chains, an outlined body in the bag's colour, its pattern
+  -- ------- the bags: three chains to the hook, a black-edged body lit from the right, a collar
+  -- along its top, and its own motif in the bag's colours
 
-  local EFFECT = {
-    strength = { c255(214, 172, 30), "diamonds" }, toughen_up = { c255(26, 118, 220), "squares" },
-    swiftness = { c255(140, 70, 180), "triangles" }, big_shot = { c255(40, 140, 70), "dots" },
-    double_up = { c255(44, 44, 50), "x2" }, team_flare = { c255(220, 60, 40), "flare" },
-    reset = { c255(196, 210, 230), "plain" }, soothing = { c255(232, 110, 130), "band" },
-  }
-  local function bagBody(G, fill, pattern, size)
-    -- the chains to the hook
-    col(G, P.steelHi); G.setLineWidth(0.9)
-    G.line(10, 0.5, 3.5, 11); G.line(10, 0.5, 16.5, 11); G.line(10, 0.5, 10, 9)
-    col(G, P.ink, 0.85); G.rectangle("fill", 1.4, 9.4, 17.2, 39.8, 5, 5)
-    -- the body round like a cylinder: lit at the left, shaded at the right, a soft top and foot
-    local L = { math.min(1, fill[1] * 1.35 + 0.08), math.min(1, fill[2] * 1.35 + 0.08), math.min(1, fill[3] * 1.35 + 0.08) }
-    local D = { fill[1] * 0.55, fill[2] * 0.55, fill[3] * 0.55 }
-    local body = function() G.rectangle("fill", 2.3, 10.3, 15.4, 38, 4.2, 4.2) end
-    G.stencil(body, "replace", 1)
-    G.setStencilTest("greater", 0)
-    G.setColor(1, 1, 1, 1)
-    G.draw(G.newMesh({ { 2.3, 0, 0, 0, D[1], D[2], D[3], 1 }, { 2.3, 50, 0, 0, D[1], D[2], D[3], 1 },
-      { 6.5, 0, 0, 0, L[1], L[2], L[3], 1 }, { 6.5, 50, 0, 0, L[1], L[2], L[3], 1 },
-      { 10, 0, 0, 0, fill[1], fill[2], fill[3], 1 }, { 10, 50, 0, 0, fill[1], fill[2], fill[3], 1 },
-      { 17.7, 0, 0, 0, D[1], D[2], D[3], 1 }, { 17.7, 50, 0, 0, D[1], D[2], D[3], 1 } }, "strip", "static"))
-    G.setColor(1, 1, 1, 0.3); G.rectangle("fill", 5, 12, 1.6, 34, 0.8, 0.8)
-    vgrad(G, 0, 10, 20, 5, { 0, 0, 0, 0.45 }, { 0, 0, 0, 0 })
-    vgrad(G, 0, 43, 20, 6, { 0, 0, 0, 0 }, { 0, 0, 0, 0.35 })
-    scan(G, 2, 10, 16, 39, 0.05, 0.9)
-    G.setStencilTest()
-    local hi = { 1, 1, 1, 0.75 }
-    if pattern == "bands" then
-      for i = 1, size do
-        G.setColor(1, 1, 1, 0.7); G.rectangle("fill", 2.3, 44 - i * 6, 15.4, 2.6)
-      end
-    elseif pattern == "diamonds" then
-      G.setColor(hi)
-      for _, y in ipairs({ 22, 32, 41 }) do G.polygon("fill", 10, y - 4, 14, y, 10, y + 4, 6, y) end
-    elseif pattern == "squares" then
-      G.setColor(hi)
-      for _, p in ipairs({ { 6, 22 }, { 11, 22 }, { 6, 30 }, { 11, 30 } }) do G.rectangle("fill", p[1], p[2], 3.5, 3.5) end
-    elseif pattern == "triangles" then
-      G.setColor(hi)
-      for _, x in ipairs({ 5, 10, 15 }) do G.polygon("fill", x - 2.5, 36, x, 32, x + 2.5, 36) end
-      for _, x in ipairs({ 7.5, 12.5 }) do G.polygon("fill", x - 2.5, 30, x, 26, x + 2.5, 30) end
-    elseif pattern == "dots" then
-      G.setColor(hi)
-      for _, p in ipairs({ { 6, 24 }, { 14, 24 }, { 10, 31 }, { 6, 38 }, { 14, 38 } }) do circle(G, "fill", p[1], p[2], 2.2) end
-    elseif pattern == "x2" then
-      col(G, P.gold)
-      G.setLineWidth(1.6); G.line(4, 22, 8, 27); G.line(8, 22, 4, 27)
-      stroke(G, 1.6, 10, 22, 15, 22, 15, 26, 10, 30, 15, 30)
-      G.rectangle("fill", 2.3, 17, 15.4, 1.6); G.rectangle("fill", 2.3, 35, 15.4, 1.6)
-    elseif pattern == "flare" then
-      G.setColor(0.25, 0.25, 0.28, 1); G.rectangle("fill", 3.5, 20, 13, 18, 2, 2)
-      col(G, P.red); G.polygon("fill", 10, 22, 14, 28, 12, 35, 10, 31, 8, 35, 6, 28)
-    elseif pattern == "band" then
-      G.setColor(1, 1, 1, 0.65); G.rectangle("fill", 2.3, 30, 15.4, 3)
+  local INK = c255(41, 41, 41)
+  -- the body's outline and its inside (the motifs are drawn inside: x X0..X1, y Y0..Y1)
+  local BODY_OUT = { 2.6, 13.6, 16.4, 13.6, 17.4, 16, 17.4, 43.8, 13.6, 47.8, 5.4, 47.8, 1.6, 43.8, 1.6, 16 }
+  local BODY_IN = { 3.4, 14.5, 15.6, 14.5, 16.5, 16.6, 16.5, 43.6, 13.2, 46.9, 5.8, 46.9, 2.5, 43.6, 2.5, 16.6 }
+  local X0, X1, Y0 = 2.5, 16.5, 16.6
+
+  local function chain(G, x0, y0, x1, y1, light, dark)
+    G.setLineWidth(2.6); col(G, INK); G.line(x0, y0, x1, y1)
+    local n = math.floor(math.sqrt((x1 - x0) ^ 2 + (y1 - y0) ^ 2) / 1.5)
+    G.setLineWidth(1.1)
+    for i = 0, n - 1 do
+      local t0, t1 = i / n, (i + 0.7) / n
+      col(G, (i % 2 == 0) and light or dark)
+      G.line(x0 + (x1 - x0) * t0, y0 + (y1 - y0) * t0, x0 + (x1 - x0) * t1, y0 + (y1 - y0) * t1)
     end
   end
-  gen("training/home_sand_bag", 20, 50, function(G) bagBody(G, c255(56, 58, 66), "plain", 0) end)
-  gen("training/sand_bag_00", 20, 50, function(G) bagBody(G, c255(56, 58, 66), "plain", 0) end)
-  local SIZE_BANDS = { s = 1, m = 2, l = 3 }
-  for i, id in ipairs(Rules.GAME_ORDER) do
-    local def = Rules.bag(id)
-    gen(("training/sand_bag_%02d"):format(i), 20, 50, function(G)
-      if def and def.kind == "stat" then
-        local rgb = STAT_RGB[def.stat] or { 0.6, 0.6, 0.65 }
-        bagBody(G, { rgb[1] * 0.85, rgb[2] * 0.85, rgb[3] * 0.85, 1 }, "bands", SIZE_BANDS[def.size] or 1)
-      else
-        local e = EFFECT[id] or { c255(120, 120, 130), "plain" }
-        bagBody(G, e[1], e[2], 0)
-      end
+  -- light from the right: a lit strip at the far left, the colour, a lighter band, the highlight
+  local SHADE = { { 2.5, 0.16 }, { 3.2, 0.16 }, { 3.6, 0 }, { 12.4, 0 }, { 12.8, 0.15 }, { 14.7, 0.15 },
+    { 15.1, 0.32 }, { 16.5, 0.32 } }
+  local function shade(G)
+    local v = {}
+    for _, s in ipairs(SHADE) do
+      v[#v + 1] = { s[1], 0, 0, 0, 1, 1, 1, s[2] }; v[#v + 1] = { s[1], 50, 0, 0, 1, 1, 1, s[2] }
+    end
+    G.setColor(1, 1, 1, 1); G.draw(G.newMesh(v, "strip", "static"))
+  end
+  local function bag(G, base, motif)
+    local outer, inner = roundPts(BODY_OUT, 1.4), roundPts(BODY_IN, 1)
+    G.push(); G.translate(0.6, 0.6); G.setColor(0, 0, 0, 0.25); fillShape(G, outer); G.pop()
+    col(G, INK); fillShape(G, outer)
+    within(G, inner, function()
+      col(G, base); G.rectangle("fill", 0, 0, 20, 50)
+      if motif then motif(G) end
+      shade(G)
+      -- the collar: lighter, a dark seam under it, its stitches
+      G.setColor(1, 1, 1, 0.14); G.rectangle("fill", 0, 14.5, 20, 2.1)
+      G.setColor(0, 0, 0, 0.4); G.rectangle("fill", 0, 16.4, 20, 0.7)
+      G.setColor(1, 1, 1, 0.18)
+      for x = 3.5, 16, 1.6 do G.rectangle("fill", x, 15.4, 0.8, 0.3) end
+      -- the foot darker, its corners darkest
+      vgrad(G, 0, 42.5, 20, 4.3, { 0, 0, 0, 0 }, { 0, 0, 0, 0.32 })
+      G.setColor(0, 0, 0, 0.18); circle(G, "fill", 2.5, 46.7, 3); circle(G, "fill", 16.5, 46.7, 3)
+      -- the canvas: a fine weave and a grain
+      scan(G, 0, 14.5, 20, 33, 0.045, 0.75)
+      grain(G, 2.5, 14.5, 14, 32, 0.08, 41)
     end)
+    -- the chains last: they come down over the collar's ends
+    local LT, DK = c255(165, 173, 173), c255(123, 123, 123)
+    chain(G, 9.5, 1.6, 4.3, 14.6, LT, DK)
+    chain(G, 9.5, 1.6, 14.7, 14.6, LT, DK)
+    chain(G, 9.5, 2.5, 9.5, 14, c255(115, 123, 132), c255(66, 66, 74))
+    col(G, INK); circle(G, "fill", 9.5, 1.8, 1.4)
+    G.setColor(0.65, 0.68, 0.68, 1); circle(G, "fill", 9.5, 1.8, 0.6)
+  end
+
+  -- motif pieces
+  local function rect(G, c, x, y, w, h, r) col(G, c); G.rectangle("fill", x, y, w, h, r or 0.5, r or 0.5) end
+  local function dot(G, c, x, y, r) col(G, c); circle(G, "fill", x, y, r) end
+  local function diamond(G, c, x, y, w, h) col(G, c); G.polygon("fill", x, y - h / 2, x + w / 2, y, x, y + h / 2, x - w / 2, y) end
+  local function tri(G, c, ...) col(G, c); G.polygon("fill", ...) end
+  local function path(G, c, w, pts) col(G, c); G.setLineJoin("miter"); G.setLineWidth(w); G.line(pts) end
+  -- everything under an edge across the bag at y: "wave", "bump" (scallops), "spike"; amp high
+  local function below(G, c, y, amp, n, kind, phase)
+    local pts = { X0 - 1, 50 }
+    for i = 0, 40 do
+      local x = X0 - 1 + (X1 - X0 + 2) * i / 40
+      local u = (x - X0) / (X1 - X0) * n + (phase or 0)
+      local d
+      if kind == "spike" then d = 1 - 2 * math.abs(u % 1 - 0.5)
+      elseif kind == "bump" then d = math.abs(math.sin(u * math.pi))
+      else d = math.sin(u * 2 * math.pi) end
+      pts[#pts + 1] = x; pts[#pts + 1] = y - amp * d
+    end
+    pts[#pts + 1] = X1 + 1; pts[#pts + 1] = 50
+    col(G, c); fillShape(G, pts)
+  end
+  -- the gold badge with a ball on it (red over white)
+  local function emblem(G, x, y, w, h)
+    local hh = h / 2
+    local pts = { x - w / 2, y, x - w / 2 + hh, y - hh, x + w / 2 - hh, y - hh, x + w / 2, y, x + w / 2 - hh, y + hh, x - w / 2 + hh, y + hh }
+    col(G, c255(99, 84, 40)); G.setLineWidth(0.8); G.setLineJoin("bevel"); G.line(closed(pts))
+    col(G, c255(189, 173, 107)); G.polygon("fill", pts)
+    local r = h * 0.32
+    col(G, c255(222, 82, 74)); G.arc("fill", x, y, r, math.pi, 2 * math.pi, 16)
+    col(G, c255(236, 236, 240)); G.arc("fill", x, y, r, 0, math.pi, 16)
+    G.setLineWidth(0.35); col(G, INK); G.line(x - r, y, x + r, y)
+  end
+
+  local C = c255
+  local BLUE, SKY, RED, PINK, PALE = C(58, 107, 148), C(148, 189, 230), C(181, 49, 66), C(197, 115, 148), C(165, 181, 206)
+  local MOSS, KHAKI, DEEP, GOLD, MAUVE = C(82, 107, 99), C(148, 132, 66), C(58, 74, 66), C(189, 173, 107), C(115, 99, 115)
+  local GREY, DGREY, DDGREY, CYAN, LGREY = C(132, 132, 132), C(66, 66, 66), C(49, 49, 49), C(74, 160, 214), C(196, 196, 200)
+  local MIST, LAV, CRACK, LILAC, YEL, SLATE = C(148, 165, 189), C(107, 123, 197), C(123, 132, 140), C(165, 165, 247), C(247, 214, 82), C(82, 82, 82)
+  local SAGE, GREEN, PINE, MUSTARD, SCARLET, BRICK, AQUA = C(156, 181, 156), C(49, 115, 66), C(41, 74, 49), C(206, 173, 41), C(214, 74, 58), C(173, 58, 41), C(148, 173, 173)
+  local NIGHT, DUSK, MAGENTA, FANG, PLUM = C(82, 99, 132), C(58, 58, 58), C(156, 66, 123), C(165, 173, 173), C(115, 66, 132)
+
+  local BAGS = {
+    hp_s = { BLUE, function(G)
+      dot(G, PINK, X0 + 1.2, 21, 1.9); dot(G, PINK, X1 - 1.2, 21, 1.9)
+      dot(G, PALE, X0 + 0.8, 28, 1.4); dot(G, PALE, X1 - 0.8, 28, 1.4)
+      path(G, DUSK, 0.9, { X0 - 1, 40, 5, 37.6, 7.5, 40.4, 10, 37.6, 12.5, 40.4, 15, 37.6, X1 + 1, 40 })
+    end },
+    hp_m = { BLUE, function(G)
+      rect(G, RED, X0 - 0.5, 19.5, 2.4, 5.5); rect(G, RED, X1 - 1.9, 19.5, 2.4, 5.5)
+      below(G, SKY, 36.5, 0.9, 2, "wave")
+    end },
+    hp_l = { BLUE, function(G)
+      rect(G, RED, X0 - 0.5, Y0, 2, 4.6); rect(G, RED, X1 - 1.5, Y0, 2, 4.6)
+      for _, b in ipairs({ { 5, 28, 1.5 }, { 9.5, 26.2, 1.1 }, { 14, 28, 1.5 }, { 7.2, 31.2, 1 }, { 11.8, 31.2, 1 } }) do dot(G, SKY, b[1], b[2], b[3]) end
+      below(G, SKY, 35.5, 1.4, 3.5, "bump")
+    end },
+    atk_s = { MOSS, function(G)
+      for _, x in ipairs({ 4.2, 8.4, 12.6 }) do rect(G, KHAKI, x, Y0 - 1, 2.1, 7.6, 0.3) end
+      rect(G, DEEP, X0, 29.6, X1 - X0, 2.2, 0)
+      for _, y in ipairs({ 35.5, 38.5, 41.5 }) do path(G, DEEP, 0.7, { X0, y, 7, y + 0.5 }); path(G, DEEP, 0.7, { 12, y + 0.5, X1, y }) end
+    end },
+    atk_m = { MAUVE, function(G)
+      for _, x in ipairs({ 4.2, 8.4, 12.6 }) do rect(G, KHAKI, x, Y0 - 1, 2.1, 6.6, 0.3) end
+      rect(G, DEEP, X0 - 1, 35.5, 20, 12, 0)
+      emblem(G, 9.5, 40.4, 10.4, 5.6)
+    end },
+    atk_l = { MOSS, function(G)
+      for _, x in ipairs({ 4.2, 8.4, 12.6 }) do rect(G, KHAKI, x, Y0 - 1, 2.1, 6.6, 0.3) end
+      rect(G, GOLD, X0, 25.4, X1 - X0, 1.2, 0); rect(G, KHAKI, X0, 27.8, X1 - X0, 1.2, 0)
+      rect(G, DEEP, X0 - 1, 37.5, 20, 12, 0)
+      emblem(G, 9.5, 41.2, 11.4, 6.2)
+    end },
+    def_s = { GREY, function(G)
+      rect(G, CYAN, X0 - 0.4, 21.5, 1.6, 3, 0.3); rect(G, CYAN, X1 - 1.2, 21.5, 1.6, 3, 0.3)
+      dot(G, DGREY, 6.2, 32.5, 1.9); dot(G, DGREY, 12.8, 32.5, 1.9)
+      below(G, DGREY, 39, 2, 1, "bump")
+    end },
+    def_m = { GREY, function(G)
+      col(G, LGREY)
+      for i = 0, 8 do
+        local t = i / 8
+        circle(G, "fill", 3.4 + 6.1 * t, 19.2 + 6 * t, 0.55); circle(G, "fill", 15.6 - 6.1 * t, 19.2 + 6 * t, 0.55)
+      end
+      for _, y in ipairs({ 22, 26, 30, 34, 38 }) do rect(G, DGREY, X0 + 0.3, y, 1.4, 1.4, 0.2); rect(G, DGREY, X1 - 1.7, y, 1.4, 1.4, 0.2) end
+      dot(G, DGREY, 6.4, 31, 1.6); dot(G, DGREY, 12.6, 31, 1.6)
+      below(G, DGREY, 40.5, 1.6, 1, "bump")
+    end },
+    def_l = { GREY, function(G)
+      below(G, DGREY, 21.2, 0.8, 2, "wave")
+      rect(G, GREY, X0 - 1, 22.4, 20, 30, 0)
+      dot(G, DGREY, X0 + 0.8, 27.5, 2.3); dot(G, DGREY, X1 - 0.8, 27.5, 2.3)
+      dot(G, LGREY, X0 + 1, 34, 1.4); dot(G, LGREY, X1 - 1, 34, 1.4)
+      tri(G, DGREY, 6, 33.5, 13, 33.5, 10.8, 40, 8.2, 40)
+      rect(G, DGREY, 8.2, 39, 2.6, 9, 0)
+      path(G, DDGREY, 0.6, { 6.6, 34.4, 12.4, 34.4 })
+    end },
+    spa_s = { MIST, function(G)
+      col(G, LAV); G.ellipse("fill", 9.5, 17.6, 5.6, 3.8, 32)
+      col(G, LILAC); G.ellipse("fill", 8.4, 17.4, 2.2, 1.2, 20)
+      path(G, CRACK, 0.8, { X0 - 1, 35, 6, 33.2, 9, 33.8, 12.5, 30, X1 + 1, 28.6 })
+      path(G, CRACK, 0.6, { 12.5, 30, 13.6, 33.4 })
+      rect(G, YEL, 13.8, 32.4, 1.2, 2.2, 0.2)
+    end },
+    spa_m = { MIST, function(G)
+      rect(G, SLATE, X0 - 1, 14, 20, 7.2, 0)
+      rect(G, SLATE, X0 - 1, 41.5, 20, 8, 0)
+      col(G, LAV); G.ellipse("fill", 9.5, 26.6, 3.4, 4.6, 32); G.ellipse("fill", 9.5, 35, 2.7, 3.6, 32)
+      G.rectangle("fill", 8, 28, 3, 6)
+      col(G, LILAC); G.ellipse("fill", 9.5, 35.4, 0.9, 1.6, 16)
+      rect(G, YEL, X0 + 0.5, 27.6, 1.4, 2.8, 0.2); rect(G, YEL, X1 - 1.9, 27.6, 1.4, 2.8, 0.2)
+    end },
+    spa_l = { SLATE, function(G)
+      tri(G, LAV, 7.2, 14, 11.8, 14, 11.8, 21, 9.5, 23.2, 7.2, 21)
+      rect(G, MIST, 3.8, 28, 11.4, 15.4, 0.6)
+      path(G, SLATE, 0.7, { 7, 28, 7, 43.4 }); path(G, SLATE, 0.7, { 12, 28, 12, 43.4 })
+      path(G, SLATE, 0.8, { X0, 33.6, X1, 33.6 })
+      for x = 4.2, 15, 1.5 do path(G, SLATE, 0.5, { x, 32.6, x, 34.6 }) end
+      rect(G, YEL, X0 + 0.3, 32.6, 1.6, 2, 0.2); rect(G, YEL, X1 - 1.9, 32.6, 1.6, 2, 0.2)
+    end },
+    spd_s = { SAGE, function(G)
+      rect(G, MUSTARD, X0 - 1, 18.4, 20, 2.6, 0)
+      for x = X0 + 0.6, X1, 2.6 do dot(G, MUSTARD, x, 19.7, 1.6) end
+      dot(G, SCARLET, X0 + 0.5, 26, 1.6); dot(G, SCARLET, X1 - 0.5, 26, 1.6)
+      below(G, GREEN, 36.5, 3, 3, "spike")
+    end },
+    spd_m = { SAGE, function(G)
+      rect(G, GREEN, 7, Y0 - 1, 1.5, 8.5, 0.3); rect(G, GREEN, 10.5, Y0 - 1, 1.5, 8.5, 0.3)
+      rect(G, MUSTARD, X0 - 0.4, 23, 1.6, 4.6, 0.3); rect(G, MUSTARD, X1 - 1.2, 23, 1.6, 4.6, 0.3)
+      below(G, GREEN, 38.5, 7.5, 2, "spike")
+    end },
+    spd_l = { AQUA, function(G)
+      rect(G, BRICK, X0 - 1, 14, 20, 15, 0)
+      rect(G, GREEN, X0 - 0.4, 18.6, 1.8, 2.8, 0.3); rect(G, GREEN, X1 - 1.4, 18.6, 1.8, 2.8, 0.3)
+      rect(G, AQUA, 5.2, 21.2, 8.6, 7.2, 2)
+      rect(G, GREEN, 6.4, 23.4, 1.8, 1.5, 0.3); rect(G, GREEN, 10.8, 23.4, 1.8, 1.5, 0.3)
+      below(G, GREEN, 34, 2.4, 2.5, "spike")
+      for _, d in ipairs({ { 6, 39.6 }, { 13, 39.6 }, { 9.5, 44 } }) do diamond(G, PINE, d[1], d[2], 3.6, 4.2) end
+    end },
+    spe_s = { NIGHT, function(G)
+      tri(G, MAGENTA, X0 - 0.5, 14, X0 + 2.4, 14, X0 - 0.5, 22); tri(G, MAGENTA, X1 + 0.5, 14, X1 - 2.4, 14, X1 + 0.5, 22)
+      rect(G, DUSK, 5.4, 22.2, 8.2, 5.4, 1.6)
+      for _, x in ipairs({ 7, 9.5, 12 }) do dot(G, FANG, x, 23.4, 0.55) end
+      rect(G, DUSK, 7.6, 38, 3.8, 10, 0.6)
+    end },
+    spe_m = { NIGHT, function(G)
+      tri(G, MAGENTA, X0 - 0.5, 14, X0 + 2.4, 14, X0 - 0.5, 20); tri(G, MAGENTA, X1 + 0.5, 14, X1 - 2.4, 14, X1 + 0.5, 20)
+      rect(G, DUSK, 4, 19.6, 11, 25, 3.2)
+      tri(G, FANG, 6.2, 19.8, 7.8, 19.8, 7, 22.2); tri(G, FANG, 11.2, 19.8, 12.8, 19.8, 12, 22.2)
+      tri(G, FANG, 6.2, 44.4, 7.8, 44.4, 7, 42); tri(G, FANG, 11.2, 44.4, 12.8, 44.4, 12, 42)
+    end },
+    spe_l = { PLUM, function(G)
+      rect(G, DGREY, X0 - 1, 38.5, 20, 10, 0)
+      rect(G, DGREY, 7.5, 13.6, 4, 5, 0.6)
+      tri(G, MUSTARD, X0 + 0.6, 27, 6.8, 27.4, 6.2, 29.6, X0 + 1.2, 29.2)
+      tri(G, MUSTARD, X1 - 0.6, 27, 12.2, 27.4, 12.8, 29.6, X1 - 1.2, 29.2)
+      tri(G, FANG, 8, 33.4, 11, 33.4, 9.5, 31.2)
+    end },
+    strength = { C(156, 132, 25), function(G)
+      local L = C(222, 197, 115)
+      diamond(G, L, 9.5, 30.6, 5.6, 6.4)
+      for _, d in ipairs({ { 5.4, 25.4 }, { 13.6, 25.4 }, { 5.4, 35.8 }, { 13.6, 35.8 } }) do diamond(G, L, d[1], d[2], 4.6, 5.4) end
+    end },
+    toughen_up = { C(16, 107, 189), function(G)
+      for _, p in ipairs({ { 5.2, 25.6 }, { 10.4, 25.6 }, { 5.2, 31 }, { 10.4, 31 } }) do rect(G, C(115, 181, 222), p[1], p[2], 3.6, 3.6, 0.4) end
+    end },
+    swiftness = { PLUM, function(G)
+      local L = C(181, 156, 189)
+      for _, x in ipairs({ 5.5, 9.5, 13.5 }) do tri(G, L, x - 2, 38.2, x + 2, 38.2, x, 34.6) end
+      for _, x in ipairs({ 7.5, 11.5 }) do tri(G, L, x - 2, 33.4, x + 2, 33.4, x, 29.8) end
+    end },
+    big_shot = { GREEN, function(G)
+      for _, d in ipairs({ { 9.5, 31 }, { X0, 26 }, { X1, 26 }, { X0, 36 }, { X1, 36 } }) do dot(G, SAGE, d[1], d[2], 2.4) end
+    end },
+    double_up = { C(66, 66, 74), function(G)
+      local Y = C(181, 156, 41)
+      rect(G, Y, X0 - 1, 20.6, 20, 1.4, 0); rect(G, Y, X0 - 1, 40.6, 20, 1.4, 0)
+      path(G, Y, 1.4, { 3.8, 30, 7.4, 35.4 }); path(G, Y, 1.4, { 7.4, 30, 3.8, 35.4 })
+      path(G, Y, 1.6, { 9.2, 25.8, 14.3, 25.8, 14.3, 30, 9.4, 32.6, 9.4, 35.6, 14.6, 35.6 })
+    end },
+    team_flare = { C(173, 49, 33), function(G)
+      rect(G, DDGREY, 3.6, 21, 11.8, 19.6, 1.5)
+      rect(G, C(123, 123, 123), 4.6, 22, 9.8, 17.6, 1)
+      col(G, C(173, 49, 33))
+      fillShape(G, { 9.5, 23.6, 12.6, 27, 11.6, 30.2, 13.2, 31.8, 10.8, 38, 10.2, 33.8, 7.6, 36.6, 6.6, 30.4, 8.2, 28.6 })
+    end },
+    reset = { MIST },
+    soothing = { C(222, 99, 123), function(G) rect(G, C(222, 173, 173), X0 - 1, 34, 20, 2.6, 0) end },
+  }
+  local PLAIN = C(66, 66, 74)
+  gen("training/home_sand_bag", 20, 50, function(G) bag(G, PLAIN) end)
+  gen("training/sand_bag_00", 20, 50, function(G) bag(G, PLAIN) end)
+  for i, id in ipairs(Rules.GAME_ORDER) do
+    local def = BAGS[id] or { C(120, 120, 130) }
+    gen(("training/sand_bag_%02d"):format(i), 20, 50, function(G) bag(G, def[1], def[2]) end)
   end
 
   -- ------- the regimen picker and its card
