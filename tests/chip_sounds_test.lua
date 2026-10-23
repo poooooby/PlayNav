@@ -25,7 +25,7 @@ end
 for _, v in pairs(module("data/training_sounds.lua")) do want(v) end
 for k, v in pairs(module("data/amie_sounds.lua")) do if k ~= "EVIDENCE" then want(v) end end
 for id in pairs(wanted) do T.check(effects[id] ~= nil, id .. " has a sound of PlayNav's own") end
-local STEADY = { ["se/sp_024"] = true, ["se/sp_034"] = true, ["se/sp_041"] = true }
+local STEADY = { ["se/sp_024"] = true, ["se/sp_034"] = true, ["se/sp_041"] = true, ["se/kw_addscore"] = true }
 for id, def in pairs(effects) do
   local buf, n = Synth.effect(def)
   local peak = 0

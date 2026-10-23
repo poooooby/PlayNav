@@ -45,7 +45,7 @@ local WAVE = {
 -- A layer: { at, dur (seconds), wave (pulse12/25/50, tri, saw, sine, noise), f0 [, f1] (Hz, an
 -- exponential sweep) or steps = { Hz, ... } with step (seconds each), vol, attack, decay (an
 -- exponential fall, per second), release (a fade over the last seconds), lp [, lp1] (noise's
--- low-pass, Hz), vib = { semitones, Hz }, trem = { depth, Hz } }.
+-- low-pass, Hz; poles = 2 a steeper one), vib = { semitones, Hz }, trem = { depth, Hz } }.
 -- An effect: { layers, peak (its loudest sample, default 0.75) }.
 function M.effect(def)
   local rate = M.RATE
@@ -59,7 +59,7 @@ function M.effect(def)
     local i0 = math.floor((l.at or 0) * rate)
     local count = math.floor(l.dur * rate)
     local wave = WAVE[l.wave]
-    local ph, y = 0, 0
+    local ph, y, y2 = 0, 0, 0
     local attack, decay, release = l.attack or 0.002, l.decay, l.release or 0.01
     for j = 0, count - 1 do
       local i = i0 + j + 1
@@ -72,6 +72,8 @@ function M.effect(def)
         local a = 1 - math.exp(-2 * math.pi * fc / rate)
         y = y + a * (noise() - y)
         v = y
+        -- poles = 2: a second stage, a steeper slope (less hiss above the cutoff)
+        if l.poles == 2 then y2 = y2 + a * (y - y2); v = y2 * 1.4 end
       else
         local f
         if l.steps then
