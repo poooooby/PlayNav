@@ -565,14 +565,29 @@ return function(mod, T, Rules, Sim)
       }
       bandKey = key
     end
-    c(G2, TEAL)
-    fillTris(G2, bandTris[1])
-    c(G2, TEAL_LO)
-    fillTris(G2, bandTris[2])
+    -- the top: the drawn corners (src/training/ui_art.lua), the right one mirrored, and the
+    -- lip between them; without them, the plain bands
+    local A = T.assets
+    local corner = A and A.image and A.image("training/hud_corner")
+    local lip = A and A.image and A.image("training/hud_lip")
+    if corner and lip then
+      local cw, ch = corner:getDimensions()
+      local lw, lh = lip:getDimensions()
+      local s = 80 * kh / cw
+      G2.setColor(1, 1, 1, 1)
+      G2.draw(corner, x0, y0, 0, s, s)
+      G2.draw(corner, x1, y0, 0, -s, s)
+      G2.draw(lip, x0 + 80 * kh, y0, 0, (x1 - x0 - 160 * kh) / lw, 3 * kh / lh)
+    else
+      c(G2, TEAL)
+      fillTris(G2, bandTris[1])
+      c(G2, TEAL_LO)
+      fillTris(G2, bandTris[2])
+    end
     c(G2, TEAL_HI, 0.8)
     G2.setLineWidth(1.4 * kh)
-    G2.line(x0 + 50 * kh, y0 + 8 * kh, x0 + 58 * kh, y0 + 6 * kh, x0 + 68 * kh, y0 + 6 * kh)
-    G2.line(x1 - 50 * kh, y0 + 8 * kh, x1 - 58 * kh, y0 + 6 * kh, x1 - 68 * kh, y0 + 6 * kh)
+    G2.line(x0 + 62 * kh, y0 + 10 * kh, x0 + 66 * kh, y0 + 8 * kh, x0 + 77 * kh, y0 + 7 * kh)
+    G2.line(x1 - 62 * kh, y0 + 10 * kh, x1 - 66 * kh, y0 + 8 * kh, x1 - 77 * kh, y0 + 7 * kh)
     -- the bottom's thin band
     c(G2, TEAL, 0.9)
     fillTris(G2, bandTris[3])

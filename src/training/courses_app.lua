@@ -433,7 +433,8 @@ return function(mod, Pointer, T, Rules)
     if tab and L then L.quad(G, tab, 95, 20, 190, 40, { colors = COLS.tab }) end
     fit(G, art("training/medal"), 27, 16, 24, 24, 180)
     if L then L.text(G, small, ("x %d"):format(medalCount()), 39, 6, 40, 20, { color = { 0.05, 0.2, 0.2, 1 }, shadow = false }) end
-    drawIcon(G, activeIcon(), 115, 15, 40)
+    -- the icon held inside the tab: its feet above the tab's foot
+    drawIcon(G, activeIcon(), 115, 12, 32)
     if s.rec.supremely then fit(G, art("training/ss_perfect_icon1"), 151, 16, 24, 24, 220)
     elseif s.rec.fully then fit(G, art("training/ss_perfect_icon2"), 151, 16, 24, 24, 220) end
     -- the level band

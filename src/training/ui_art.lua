@@ -218,58 +218,120 @@ return function(mod, deps)
     end
   end
 
-  -- ------- glyphs (drawn black on the lime buttons)
+  -- ------- glyphs and the round buttons
 
-  local function returnGlyph(G, cx, cy, s, c)
-    col(G, c)
-    local lw = 3.2 * s
-    stroke(G, lw, cx + 7 * s, cy + 6 * s, cx - 5 * s, cy + 6 * s, cx - 8 * s, cy + 3 * s, cx - 8 * s, cy - 1 * s,
-      cx - 5 * s, cy - 4 * s, cx + 4 * s, cy - 4 * s)
-    G.polygon("fill", cx + 3 * s, cy - 10 * s, cx + 11 * s, cy - 4 * s, cx + 3 * s, cy + 2 * s)
+  -- an open polyline with its inner corners rounded (r units)
+  local function roundPath(pts, r)
+    local out = { pts[1], pts[2] }
+    local n = #pts / 2
+    for i = 2, n - 1 do
+      local px, py = pts[(i - 2) * 2 + 1], pts[(i - 2) * 2 + 2]
+      local x, y = pts[(i - 1) * 2 + 1], pts[(i - 1) * 2 + 2]
+      local nx, ny = pts[i * 2 + 1], pts[i * 2 + 2]
+      local d1 = math.sqrt((x - px) ^ 2 + (y - py) ^ 2)
+      local d2 = math.sqrt((nx - x) ^ 2 + (ny - y) ^ 2)
+      local rr = math.min(r, d1 * 0.5, d2 * 0.5)
+      local ax, ay = x + (px - x) * rr / d1, y + (py - y) * rr / d1
+      local bx, by = x + (nx - x) * rr / d2, y + (ny - y) * rr / d2
+      for s = 0, 6 do
+        local t = s / 6
+        local u = 1 - t
+        out[#out + 1] = u * u * ax + 2 * u * t * x + t * t * bx
+        out[#out + 1] = u * u * ay + 2 * u * t * y + t * t * by
+      end
+    end
+    out[#out + 1] = pts[#pts - 1]; out[#out + 1] = pts[#pts]
+    return out
   end
 
-  local function bagGlyph(G, cx, cy, s, c)
-    col(G, c)
-    G.setLineWidth(1.6 * s)
-    G.line(cx, cy - 13 * s, cx - 4 * s, cy - 8 * s)
-    G.line(cx, cy - 13 * s, cx + 4 * s, cy - 8 * s)
-    G.rectangle("fill", cx - 5 * s, cy - 8 * s, 10 * s, 18 * s, 4 * s, 4 * s)
-    -- the circling arrows either side
-    G.setLineWidth(2 * s)
-    G.arc("line", "open", cx, cy + 1 * s, 13 * s, math.rad(200), math.rad(250), 10)
-    G.arc("line", "open", cx, cy + 1 * s, 13 * s, math.rad(20), math.rad(70), 10)
-    G.polygon("fill", cx - 9 * s, cy - 13 * s, cx - 3 * s, cy - 12 * s, cx - 8 * s, cy - 6 * s)
-    G.polygon("fill", cx + 9 * s, cy + 15 * s, cx + 3 * s, cy + 14 * s, cx + 8 * s, cy + 8 * s)
+  -- the return arrow about (cx, cy) at scale s (its box 24 x 20 at s 1): a bar along the top
+  -- to the arrowhead at the right, down the left round its corners, back along the foot; with
+  -- dots, two little blocks after the foot
+  local function returnArrow(G, cx, cy, s, dots, chevron)
+    local function X(x) return cx + x * s end
+    local function Y(y) return cy + y * s end
+    G.setLineJoin("miter")
+    G.setLineWidth(3.2 * s)
+    if chevron then
+      -- the top bar rising a little toward the head; the head two thick strokes
+      G.line(roundPath({ X(9.4), Y(-6.2), X(-7.6), Y(-3.2), X(-7.6), Y(6.6), X(5.2), Y(6.6) }, 2.6 * s))
+      G.setLineWidth(3.4 * s)
+      G.line(X(3.4), Y(-11.6), X(10.4), Y(-6.4), X(4.8), Y(0.4))
+    else
+      G.line(roundPath({ X(5.6), Y(-4), X(-7.6), Y(-4), X(-7.6), Y(6.6), X(5.2), Y(6.6) }, 2.6 * s))
+      G.polygon("fill", X(4.8), Y(-9.6), X(11.6), Y(-4), X(4.8), Y(1.6))
+    end
+    if dots then
+      G.rectangle("fill", X(7), Y(5.1), 2.4 * s, 3 * s)
+      G.rectangle("fill", X(10.2), Y(5.1), 2.4 * s, 3 * s)
+    end
   end
 
-  local function ballGlyph(G, cx, cy, r, c)
-    col(G, c)
-    G.setLineWidth(r * 0.22)
-    circle(G, "line", cx, cy, r)
+  -- a bit of a circle with an arrowhead at its end (angles in radians, a0 to a1)
+  local function arrowArc(G, cx, cy, r, a0, a1, w, head)
     local pts = {}
-    for i = 0, 4 do
-      local a = -math.pi / 2 + i * 2 * math.pi / 5
-      pts[#pts + 1] = cx + math.cos(a) * r * 0.42
-      pts[#pts + 1] = cy + math.sin(a) * r * 0.42
+    for i = 0, 12 do
+      local a = a0 + (a1 - a0) * i / 12
+      pts[#pts + 1] = cx + math.cos(a) * r; pts[#pts + 1] = cy + math.sin(a) * r
     end
-    G.polygon("fill", pts)
+    G.setLineWidth(w); G.line(pts)
+    local sg = (a1 > a0) and 1 or -1
+    local ex, ey = cx + math.cos(a1) * r, cy + math.sin(a1) * r
+    local tx, ty = -math.sin(a1) * sg, math.cos(a1) * sg
+    local nx, ny = -ty, tx
+    G.polygon("fill", ex + tx * head * 1.1, ey + ty * head * 1.1, ex + nx * head, ey + ny * head,
+      ex - nx * head, ey - ny * head)
   end
 
-  -- the lime round button: black rim, silver bezel, a lit lime face
+  -- the punching bag between two circling arrows
+  local function bagGlyph(G, c, stripe)
+    col(G, c)
+    G.setLineWidth(0.9)
+    G.line(24, 6.6, 21.3, 13.4); G.line(24, 6.6, 26.7, 13.4); G.line(24, 6.6, 24, 13)
+    circle(G, "fill", 24, 6.6, 1)
+    local body = roundPts({ 20.4, 13, 27.6, 13, 29.8, 18, 29.8, 30, 27.4, 33.6, 20.6, 33.6, 18.2, 30, 18.2, 18 }, 2.6)
+    fillShape(G, body)
+    within(G, body, function()
+      col(G, stripe, 0.4); G.setLineWidth(0.7)
+      for y = 16.5, 32, 3.4 do G.line(17, y, 31, y) end
+    end)
+    col(G, c)
+    arrowArc(G, 24, 23.5, 10.6, math.rad(208), math.rad(150), 3, 3)
+    arrowArc(G, 24, 23.5, 10.6, math.rad(28), math.rad(-30), 3, 3)
+  end
+
+  -- the lime round button: a black ring, a thin bright silver bezel, the lime face darker at
+  -- the top and yellow-green at the foot, a gloss across its top
   local function limeButton(G, cx, cy, r)
-    -- a soft lime glow round it
-    for i = 3, 1, -1 do col(G, P.lime, 0.08 * (4 - i)); circle(G, "fill", cx, cy, r + i * 0.9) end
-    col(G, P.ink, 0.92)
-    circle(G, "fill", cx, cy, r)
-    shadedDisc(G, cx, cy, r * 0.92, P.rim, P.silver)
-    shadedDisc(G, cx, cy, r * 0.76, P.limeLo, P.limeHi)
-    -- a fine ring of light inside the bezel, the gloss along the top
-    G.setLineWidth(0.7); G.setColor(1, 1, 1, 0.55); circle(G, "line", cx, cy, r * 0.76)
-    G.setColor(0, 0, 0, 0.35); circle(G, "line", cx, cy, r * 0.92)
-    for i = 0, 5 do
-      G.setColor(1, 1, 1, 0.07)
-      G.ellipse("fill", cx - r * 0.1, cy - r * 0.42, r * 0.5 * (1 - i * 0.09), r * 0.22 * (1 - i * 0.12), 32)
-    end
+    local face = r * 0.84
+    G.setColor(0.04, 0.05, 0.04, 1); circle(G, "fill", cx, cy, r)
+    -- the silver bezel, bevelled: dark toward the top, bright at the foot, a lit inner lip
+    -- below and a shaded one above
+    G.stencil(function() circle(G, "fill", cx, cy, r * 0.93) end, "replace", 1)
+    G.setStencilTest("greater", 0)
+    vgrad(G, cx - r, cy - r, 2 * r, 2 * r, c255(122, 128, 122), c255(252, 253, 250))
+    G.setStencilTest()
+    G.setLineWidth(r * 0.05)
+    G.setColor(0, 0, 0, 0.35); G.arc("line", "open", cx, cy, face + r * 0.025, math.rad(200), math.rad(340), 32)
+    G.setColor(1, 1, 1, 0.8); G.arc("line", "open", cx, cy, face + r * 0.025, math.rad(20), math.rad(160), 32)
+    -- the face: lime, darker under the bezel at the top, yellow light bouncing up at the foot
+    G.stencil(function() circle(G, "fill", cx, cy, face) end, "replace", 1)
+    G.setStencilTest("greater", 0)
+    vgrad(G, cx - r, cy - face, 2 * r, 2 * face, c255(84, 206, 0), c255(204, 255, 46))
+    G.setColor(1, 1, 0.75, 0.3); G.ellipse("fill", cx, cy + face * 0.62, face * 0.66, face * 0.36, 32)
+    -- the inner shadow round the edge, heaviest at the top
+    G.setLineWidth(face * 0.22); G.setColor(0.1, 0.3, 0.02, 0.3); circle(G, "line", cx, cy, face)
+    vgrad(G, cx - r, cy - face, 2 * r, face * 0.5, { 0.08, 0.28, 0, 0.35 }, { 0.08, 0.28, 0, 0 })
+    G.setStencilTest()
+    -- the gloss: a white sheen over the face's upper half, its lower edge curved
+    G.stencil(function() circle(G, "fill", cx, cy, face * 0.94) end, "replace", 1)
+    G.stencil(function() G.ellipse("fill", cx, cy - face * 0.42, face * 0.8, face * 0.56, 48) end, "increment", 1, true)
+    G.setStencilTest("equal", 2)
+    vgrad(G, cx - r, cy - face, 2 * r, face * 1.02, { 1, 1, 1, 0.4 }, { 1, 1, 1, 0.02 })
+    G.setStencilTest()
+    -- a glint at the upper left
+    G.setColor(1, 1, 1, 0.85); G.ellipse("fill", cx - face * 0.42, cy - face * 0.56, face * 0.16, face * 0.08, 20)
+    G.setLineWidth(0.6); G.setColor(0.2, 0.35, 0.1, 0.55); circle(G, "line", cx, cy, face)
   end
 
   -- ------- the generators: id -> { w, h, draw(G, w, h) } in the texture's own units
@@ -378,17 +440,16 @@ return function(mod, deps)
     end
   end)
 
-  -- the + mark the backdrop tiles: rounded, with a soft halo
+  -- the + mark the backdrop tiles: a thin cross over a soft diamond of light
   gen("training/home_bg_ptn", 32, 32, function(G)
-    for i = 4, 1, -1 do
-      G.setColor(1, 1, 1, 0.03 * (5 - i))
-      local g = i * 0.8
-      G.rectangle("fill", 14.8 - g, 9.5 - g, 2.4 + 2 * g, 13 + 2 * g, 1.2 + g, 1.2 + g)
-      G.rectangle("fill", 9.5 - g, 14.8 - g, 13 + 2 * g, 2.4 + 2 * g, 1.2 + g, 1.2 + g)
+    for i = 5, 1, -1 do
+      local r = 1.2 + i * 1.1
+      G.setColor(1, 1, 1, 0.045)
+      G.polygon("fill", 16, 16 - r, 16 + r, 16, 16, 16 + r, 16 - r, 16)
     end
     G.setColor(1, 1, 1, 1)
-    G.rectangle("fill", 14.8, 9.5, 2.4, 13, 1.2, 1.2)
-    G.rectangle("fill", 9.5, 14.8, 13, 2.4, 1.2, 1.2)
+    G.rectangle("fill", 15.4, 11.2, 1.2, 9.6, 0.5, 0.5)
+    G.rectangle("fill", 11.2, 15.4, 9.6, 1.2, 0.5, 0.5)
   end)
 
   -- the PlayNav strip: brushed steel, a gloss along its top, a glowing stepped edge
@@ -406,47 +467,72 @@ return function(mod, deps)
 
   -- the round buttons
   gen("training/btn_return", 48, 48, function(G)
-    limeButton(G, 24, 24, 21.5)
-    returnGlyph(G, 24, 25, 1.05, P.ink)
+    limeButton(G, 24, 24, 22.5)
+    col(G, c255(10, 58, 12)); returnArrow(G, 25, 25, 1, true, true)
   end)
+  -- PlayNav's small return: a dark blue ring, a white face shaded to grey at its lower right,
+  -- the blue return arrow
   gen("training/home_return", 30, 30, function(G)
-    for i = 3, 1, -1 do col(G, P.blueHi, 0.09 * (4 - i)); circle(G, "fill", 15, 15, 13.2 + i * 0.5) end
-    col(G, P.ink, 0.9); circle(G, "fill", 15, 15, 13.2)
-    shadedDisc(G, 15, 15, 12.2, c255(150, 156, 170), P.white)
-    shadedDisc(G, 15, 15, 9.8, c255(200, 220, 245), P.white)
-    G.setLineWidth(0.5); col(G, P.blueHi, 0.9); circle(G, "line", 15, 15, 9.8)
-    returnGlyph(G, 15, 15.5, 0.58, P.blue)
+    G.setColor(0.08, 0.2, 0.42, 1); circle(G, "fill", 15, 15, 14)
+    G.setColor(0.2, 0.36, 0.62, 1); G.setLineWidth(0.7); circle(G, "line", 15, 15, 13)
+    G.stencil(function() circle(G, "fill", 15, 15, 11.8) end, "replace", 1)
+    G.setStencilTest("greater", 0)
+    vgrad(G, 3, 3, 24, 24, c255(250, 250, 252), c255(184, 188, 196))
+    G.setColor(1, 1, 1, 0.5); G.ellipse("fill", 13, 10, 8, 5, 24)
+    G.setStencilTest()
+    col(G, c255(36, 104, 206)); returnArrow(G, 15.6, 14.4, 0.66)
+    G.setColor(0.6, 0.8, 1, 0.7); G.setLineWidth(0.5); G.line(11.4, 11.1, 18.6, 11.1)
   end)
   gen("training/btn_bags", 48, 48, function(G)
-    limeButton(G, 24, 24, 21.5)
-    bagGlyph(G, 24, 24, 0.8, P.ink)
+    limeButton(G, 24, 24, 22.5)
+    bagGlyph(G, c255(10, 58, 12), c255(120, 200, 60))
   end)
   -- the Regimens button: the bottom-left corner of a lime panel that runs off the screen's
   -- left and bottom edges, its top edge sloping down with a step, its right end round; a black
   -- edge, a silver bezel with a teal stripe along its upper slope, a drop shadow on the right;
   -- on the lime, a ball whose swoosh trails off to a small figure
-  local REG = { -6, 0.5, 33, 15.6, 35.2, 17.6, 42, 21, 48, 24, 52, 27, 55, 31, 57.5, 35.5, 59, 41, 59.6, 47,
-    59.2, 53, 57.8, 58, 56, 61.5, 54.2, 66, -6, 66 }
+  -- (the outline runs well past the texture's left and bottom, so the rim drawn along it shows
+  -- only on the top and the round end: the panel is cut off by the screen's edges)
+  local REG = { -20, -4.9, 33, 15.6, 35.2, 17.6, 42, 21, 48, 24, 52, 27, 55, 31, 57.5, 35.5, 59, 41, 59.6, 47,
+    59.2, 53, 57.8, 58, 56, 61.5, 54.2, 66, 53.2, 82, -20, 82 }
   local GLYPH = c255(8, 48, 4)
-  local function swoosh(G, x0, y0, x1, y1, x2, y2, w0, w1)
-    local left, right = {}, {}
-    local n = 24
-    for i = 0, n do
-      local t = i / n
-      local u = 1 - t
-      local x, y = u * u * x0 + 2 * u * t * x1 + t * t * x2, u * u * y0 + 2 * u * t * y1 + t * t * y2
-      local dx, dy = 2 * u * (x1 - x0) + 2 * t * (x2 - x1), 2 * u * (y1 - y0) + 2 * t * (y2 - y1)
-      local d = math.sqrt(dx * dx + dy * dy)
-      local w = (w0 + (w1 - w0) * t) / 2
-      left[#left + 1] = x - dy / d * w; left[#left + 1] = y + dx / d * w
-      right[#right + 1] = x + dy / d * w; right[#right + 1] = y - dx / d * w
+  -- the ball's trail: one shape growing out of the ball's outline - thin at its upper left,
+  -- thickening round the bottom, then sweeping off to the right and tapering to the figure's
+  -- feet (tx, ty); w the thickest
+  local function swoosh(G, bx, by, br, tx, ty, w)
+    local function ease(t) return t * t * (3 - 2 * t) end
+    local inner, outer = {}, {}
+    local A0, A1 = math.rad(205), math.rad(90)
+    for i = 0, 20 do
+      local t = i / 20
+      local a = A0 + (A1 - A0) * t
+      local ww = w * ease(t)
+      inner[#inner + 1] = bx + math.cos(a) * (br - 0.4); inner[#inner + 1] = by + math.sin(a) * (br - 0.4)
+      outer[#outer + 1] = bx + math.cos(a) * (br + ww); outer[#outer + 1] = by + math.sin(a) * (br + ww)
     end
-    local pts = left
-    for i = #right - 1, 1, -2 do pts[#pts + 1] = right[i]; pts[#pts + 1] = right[i + 1] end
+    -- the tail: a curve from the ball's foot, its top edge leaving the ball, tapering
+    local x0, y0 = bx, by + br + w / 2
+    local x1, y1 = bx + (tx - bx) * 0.4, by + br + w * 1.9
+    local upper, lower = {}, {}
+    for i = 1, 20 do
+      local t = i / 20
+      local u = 1 - t
+      local x, y = u * u * x0 + 2 * u * t * x1 + t * t * tx, u * u * y0 + 2 * u * t * y1 + t * t * ty
+      local dx, dy = 2 * u * (x1 - x0) + 2 * t * (tx - x1), 2 * u * (y1 - y0) + 2 * t * (ty - y1)
+      local d = math.sqrt(dx * dx + dy * dy)
+      local hw = (w + (w * 0.3 - w) * ease(t)) / 2
+      upper[#upper + 1] = x + dy / d * hw; upper[#upper + 1] = y - dx / d * hw
+      lower[#lower + 1] = x - dy / d * hw; lower[#lower + 1] = y + dx / d * hw
+    end
+    local pts = {}
+    for i = 1, #inner do pts[#pts + 1] = inner[i] end
+    for i = 1, #upper do pts[#pts + 1] = upper[i] end
+    for i = #lower - 1, 1, -2 do pts[#pts + 1] = lower[i]; pts[#pts + 1] = lower[i + 1] end
+    for i = #outer - 1, 1, -2 do pts[#pts + 1] = outer[i]; pts[#pts + 1] = outer[i + 1] end
     fillShape(G, pts)
   end
   gen("training/btn_regimens", 64, 64, function(G)
-    local O = roundPts(REG, 1.4, { [1] = true, [14] = true, [15] = true })
+    local O = roundPts(REG, 1.4, { [1] = true, [15] = true, [16] = true })
     -- a soft shadow off the right end
     G.push(); G.translate(1.6, 0.6)
     G.setColor(0, 0, 0, 0.32); fillShape(G, O)
@@ -454,37 +540,70 @@ return function(mod, deps)
     local edge = closed(O)
     within(G, O, function()
       -- the lime face, brighter toward the foot, with fine lines and a gloss
-      vgrad(G, -6, 18, 70, 48, c255(104, 196, 26), c255(206, 255, 84))
-      scan(G, -6, 18, 70, 48, 0.06, 1.1)
-      vgrad(G, -6, 18, 70, 10, { 1, 1, 1, 0.3 }, { 1, 1, 1, 0 })
-      -- the bezel, inward from the edge: a light inner rim, silver, a darker outer band, black
+      vgrad(G, -6, 0, 70, 66, c255(84, 200, 0), c255(204, 255, 46))
+      scan(G, -6, 0, 70, 66, 0.05, 1.1)
+      G.setColor(1, 1, 0.75, 0.25); G.ellipse("fill", 26, 62, 30, 9, 40)
+      -- the inner shadow under the bezel
       G.setLineJoin("bevel")
-      G.setLineWidth(10.6); G.setColor(0.84, 0.92, 0.72, 1); G.line(edge)
-      G.setLineWidth(9.4); G.setColor(0.86, 0.87, 0.88, 1); G.line(edge)
-      G.setLineWidth(4.6); G.setColor(0.6, 0.62, 0.62, 1); G.line(edge)
-      G.setLineWidth(3.2); G.setColor(0.33, 0.36, 0.36, 1); G.line(edge)
+      G.setLineWidth(15); G.setColor(0.08, 0.28, 0, 0.3); G.line(edge)
+      -- the gloss along the upper part, curving down at its edge, and a glint
+      G.stencil(function() fillShape(G, O) end, "replace", 1)
+      G.stencil(function() G.ellipse("fill", 40, 20, 24, 14, 48) end, "increment", 1, true)
+      G.setStencilTest("equal", 2)
+      vgrad(G, 16, 18, 50, 16, { 1, 1, 1, 0.3 }, { 1, 1, 1, 0.02 })
+      G.stencil(function() fillShape(G, O) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      G.setColor(1, 1, 1, 0.8); G.ellipse("fill", 40, 27, 4, 1.6, 20)
+      -- the rim, polished metal inward from the edge: a dark lip at the face, bright chrome,
+      -- a teal-blue inlay set in it, mid steel, dark steel, the black edge
+      G.setLineJoin("bevel")
+      G.setLineWidth(11.4); G.setColor(0.22, 0.26, 0.28, 1); G.line(edge)
+      G.setLineWidth(10.2); G.setColor(0.72, 0.75, 0.77, 1); G.line(edge)
+      G.setLineWidth(8.8); G.setColor(0.97, 0.98, 0.99, 1); G.line(edge)
+      G.setLineWidth(6.6); G.setColor(0.78, 0.81, 0.83, 1); G.line(edge)
+      G.setLineWidth(4.6); G.setColor(0.56, 0.6, 0.63, 1); G.line(edge)
+      G.setLineWidth(3.2); G.setColor(0.32, 0.35, 0.37, 1); G.line(edge)
       G.setLineWidth(1.9); G.setColor(0, 0, 0, 1); G.line(edge)
-      -- the teal stripe along the upper slope
-      neon(G, 1.5, c255(75, 222, 188), 1, { -6, 4.4, 29.6, 18.1 })
+      -- the teal inlay along the upper slope only, set in a dark channel, ending short of the step
+      local inlay = { -6, 3.4, 29.4, 17 }
+      G.setLineWidth(2.8); G.setColor(0.06, 0.2, 0.24, 1); G.line(inlay)
+      circle(G, "fill", 29.4, 17, 1.4)
+      G.setLineWidth(1.6); G.setColor(0.29, 0.87, 0.74, 1); G.line(-6, 3.4, 29, 16.85)
+      circle(G, "fill", 29, 16.85, 0.8)
+      G.setLineWidth(0.5); G.setColor(0.75, 1, 0.95, 0.8); G.line(-6, 3.0, 28.8, 16.4)
     end)
     -- the ball: a dark ring, lime inside, the middle patch and the seams out to the edge
     local bx, by, br = 17.5, 36.5, 8.5
+    -- the swoosh first: it curls out from behind the ball and round to the figure's feet
+    col(G, GLYPH); swoosh(G, bx, by, br, 40.6, 46.8, 5.2)
+    -- the classic pattern: a dark middle patch, seams out from its corners to dark patches cut
+    -- off by the ball's edge, the white panels between them lime
     col(G, GLYPH); circle(G, "fill", bx, by, br)
-    col(G, c255(132, 226, 44)); circle(G, "fill", bx, by, br - 1.6)
+    col(G, c255(140, 230, 50)); circle(G, "fill", bx, by, br - 1.5)
+    G.stencil(function() circle(G, "fill", bx, by, br - 1.5) end, "replace", 1)
+    G.setStencilTest("greater", 0)
     col(G, GLYPH)
     local pent = {}
     for i = 0, 4 do
       local a = -math.pi / 2 + i * 2 * math.pi / 5
-      pent[#pent + 1] = bx + math.cos(a) * 3.4; pent[#pent + 1] = by + math.sin(a) * 3.4
-      G.setLineWidth(1.8); G.line(bx + math.cos(a) * 3.4, by + math.sin(a) * 3.4, bx + math.cos(a) * (br - 1), by + math.sin(a) * (br - 1))
-      circle(G, "fill", bx + math.cos(a + math.pi / 5) * (br - 1.2), by + math.sin(a + math.pi / 5) * (br - 1.2), 2.5)
+      pent[#pent + 1] = bx + math.cos(a) * 3.2; pent[#pent + 1] = by + math.sin(a) * 3.2
+      G.setLineWidth(1.1)
+      G.line(bx + math.cos(a) * 3.2, by + math.sin(a) * 3.2, bx + math.cos(a) * 5.6, by + math.sin(a) * 5.6)
+      local q = {}
+      for k = 0, 4 do
+        local e = a + math.pi + k * 2 * math.pi / 5
+        q[#q + 1] = bx + math.cos(a) * 8.2 + math.cos(e) * 2.9; q[#q + 1] = by + math.sin(a) * 8.2 + math.sin(e) * 2.9
+      end
+      G.polygon("fill", q)
+      local b = a + math.pi / 5
+      G.line(bx + math.cos(a) * 5.6, by + math.sin(a) * 5.6, bx + math.cos(b) * 6.4, by + math.sin(b) * 6.4,
+        bx + math.cos(a + 2 * math.pi / 5) * 5.6, by + math.sin(a + 2 * math.pi / 5) * 5.6)
     end
     G.polygon("fill", pent)
-    -- its swoosh, from under the ball round to the figure's feet
-    swoosh(G, 10.5, 42, 14, 58, 41, 46.6, 6.2, 1.6)
+    G.setStencilTest()
     -- the figure: two ears, a head, a body on a little base
-    G.polygon("fill", 41.6, 34.6, 42.4, 30.2, 43.7, 34)
-    G.polygon("fill", 44.4, 34, 45.6, 30.2, 46.4, 34.6)
+    G.polygon("fill", 41.8, 34.4, 42.4, 31.6, 43.6, 34)
+    G.polygon("fill", 44.4, 34, 45.6, 31.6, 46.2, 34.4)
     circle(G, "fill", 44, 36, 2.9)
     G.polygon("fill", 41.4, 38.5, 46.6, 38.5, 47.6, 45.2, 40.4, 45.2)
     G.ellipse("fill", 44.2, 46.2, 5.8, 1.6, 24)
@@ -612,12 +731,17 @@ return function(mod, deps)
       pts[#pts + 1] = 20 + math.cos(a) * 19.5 * rr
       pts[#pts + 1] = 10 + math.sin(a) * 9.5 * rr
     end
-    G.setColor(0, 0, 0, 1)
+    G.setColor(0, 0, 0, 0.9)
     G.polygon("fill", pts)
+    G.setLineJoin("bevel"); G.setLineWidth(0.6); G.setColor(0.6, 1, 0.5, 0.45); G.line(closed(pts))
   end)
   gen("training/arrow", 16, 16, function(G)
-    col(G, P.ink); G.polygon("fill", 8, 0.5, 15.5, 8.5, 11, 8.5, 11, 15.5, 5, 15.5, 5, 8.5, 0.5, 8.5)
-    col(G, P.white); G.polygon("fill", 8, 2.5, 13, 7.5, 10, 7.5, 10, 14.5, 6, 14.5, 6, 7.5, 3, 7.5)
+    -- a block arrow: a wide head on a short stem, white with a soft dark edge, corners rounded
+    local pts = roundPts({ 8, 1, 15, 8.2, 10.8, 8.2, 10.8, 15, 5.2, 15, 5.2, 8.2, 1, 8.2 }, 0.9)
+    G.setLineJoin("bevel")
+    G.setColor(0.08, 0.12, 0.2, 0.35); G.setLineWidth(2.4); G.line(closed(pts))
+    G.setColor(0.08, 0.12, 0.2, 0.8); G.setLineWidth(1.1); G.line(closed(pts))
+    col(G, P.white); fillShape(G, pts)
   end)
 
   -- the training plates: a slanted plate, grey (untrained) or teal with the flexing figure
@@ -645,12 +769,17 @@ return function(mod, deps)
     rimLight(G, pts, 0.7, true)
     G.setLineJoin("bevel"); G.setLineWidth(0.8); col(G, edge, 0.85); G.line(closed(pts))
   end
-  local function flexer(G, cx, cy, s)
-    col(G, P.white)
-    circle(G, "fill", cx, cy - 7 * s, 3.4 * s)
-    G.rectangle("fill", cx - 4 * s, cy - 3 * s, 8 * s, 9 * s, 2 * s, 2 * s)
-    stroke(G, 3 * s, cx - 4 * s, cy - 1 * s, cx - 10 * s, cy - 1 * s, cx - 11 * s, cy - 7 * s)
-    stroke(G, 3 * s, cx + 4 * s, cy - 1 * s, cx + 10 * s, cy - 1 * s, cx + 11 * s, cy - 7 * s)
+  -- the flexing figure: head, broad shoulders tapering to the waist, upper arms out, fists up
+  local function flexer(G, cx, cy, s, c)
+    col(G, c or P.white)
+    circle(G, "fill", cx, cy - 8.2 * s, 3.3 * s)
+    fillShape(G, roundPts({ cx - 7.6 * s, cy - 4.8 * s, cx + 7.6 * s, cy - 4.8 * s, cx + 4.8 * s, cy + 3.6 * s,
+      cx + 4.2 * s, cy + 8.6 * s, cx - 4.2 * s, cy + 8.6 * s, cx - 4.8 * s, cy + 3.6 * s }, 1.6 * s))
+    for _, k in ipairs({ -1, 1 }) do
+      stroke(G, 4.2 * s, cx + k * 6.4 * s, cy - 3.6 * s, cx + k * 10 * s, cy - 3.4 * s, cx + k * 10.4 * s, cy - 8.6 * s)
+      circle(G, "fill", cx + k * 8.4 * s, cy - 5.4 * s, 2.7 * s)
+      circle(G, "fill", cx + k * 10.4 * s, cy - 9.4 * s, 2.6 * s)
+    end
   end
   local function star(G, cx, cy, r)
     local pts = {}
@@ -763,93 +892,149 @@ return function(mod, deps)
     soccerBall(G, 15.5, 18.5, 10, SHOT.green)
   end)
 
-  -- the mood bubbles: a teal screen on a stalk with its face
+  -- the mood bubbles: a tilted teal screen with a light edge on a stalk, its face in glowing cyan
+  local SCREEN = { 4, 1.2, 30.4, 1.2, 28.8, 22.2, 1.6, 23.6 }
+  local FACE_C = c255(118, 240, 252)
   local function bubble(G)
-    col(G, P.steelHi); G.setLineWidth(1.6); G.line(9, 26, 6, 31)
-    for i = 2, 1, -1 do col(G, P.tealHi, 0.1 * (3 - i)); G.rectangle("fill", 2 - i, 3 - i, 28 + 2 * i, 23 + 2 * i, 3.5 + i, 3.5 + i) end
-    G.stencil(function() G.rectangle("fill", 2, 3, 28, 23, 3.5, 3.5) end, "replace", 1)
-    G.setStencilTest("greater", 0)
-    vgrad(G, 2, 3, 28, 23, P.silver, P.steel)
-    G.setStencilTest()
-    G.setBlendMode("replace")
-    vgrad(G, 4, 5, 24, 19, c255(0, 171, 171, 210), c255(0, 112, 118, 210))
-    G.setBlendMode("alpha")
-    G.stencil(function() G.rectangle("fill", 4, 5, 24, 19) end, "replace", 1)
-    G.setStencilTest("greater", 0)
-    scan(G, 4, 5, 24, 19, 0.1, 1)
-    vgrad(G, 4, 5, 24, 6, { 1, 1, 1, 0.22 }, { 1, 1, 1, 0 })
-    G.setStencilTest()
+    G.setLineWidth(2.6); G.setColor(0.16, 0.36, 0.44, 0.8); G.line(9.6, 23.4, 4.8, 30.8)
+    G.setLineWidth(1.5); G.setColor(0.7, 0.86, 0.92, 1); G.line(9.6, 23.4, 4.8, 30.8)
+    gradShape(G, SCREEN, 0, 0, 32, 24, c255(0, 116, 128), c255(32, 178, 184))
+    within(G, SCREEN, function()
+      scan(G, 0, 0, 32, 24, 0.06, 1.4)
+      vgrad(G, 0, 0, 32, 5, { 1, 1, 1, 0.12 }, { 1, 1, 1, 0 })
+    end)
+    G.setLineJoin("bevel")
+    G.setLineWidth(1.8); G.setColor(0.6, 0.92, 0.96, 0.3); G.line(closed(SCREEN))
+    G.setLineWidth(0.8); G.setColor(0.68, 0.94, 0.98, 0.95); G.line(closed(SCREEN))
+  end
+  -- each face drawn twice: a soft wide pass, then the sharp one
+  local function glowFace(G, draw)
+    for _, pass in ipairs({ { 0.22, 1.9 }, { 1, 0 } }) do
+      G.setColor(FACE_C[1], FACE_C[2], FACE_C[3], pass[1])
+      draw(pass[2])
+    end
   end
   local FACE = {
     smile = function(G)
-      col(G, P.tealHi); G.rectangle("fill", 10, 9, 3, 5); G.rectangle("fill", 19, 9, 3, 5)
-      G.setLineWidth(2.2); G.arc("line", "open", 16, 13, 6, math.rad(20), math.rad(160), 12)
+      glowFace(G, function(g)
+        G.rectangle("fill", 9.4 - g / 2, 4.8 - g / 2, 2.8 + g, 5.8 + g, 0.6, 0.6)
+        G.rectangle("fill", 20 - g / 2, 4.8 - g / 2, 2.8 + g, 5.8 + g, 0.6, 0.6)
+        local pts = {}
+        for i = 0, 16 do
+          local a = math.pi * i / 16
+          pts[#pts + 1] = 16.2 + math.cos(a) * (8.6 + g / 2); pts[#pts + 1] = 12 + math.sin(a) * (6.2 + g / 2)
+        end
+        G.polygon("fill", pts)
+      end)
     end,
     silence = function(G)
-      col(G, P.tealHi)
-      for i = 0, 2 do G.rectangle("fill", 9 + i * 6, 13, 3, 3) end
+      glowFace(G, function(g)
+        for _, x in ipairs({ 6.4, 14.2, 22 }) do G.rectangle("fill", x - g / 2, 10 - g / 2, 3.6 + g, 3.6 + g, 0.4, 0.4) end
+      end)
     end,
     sad = function(G)
-      col(G, P.tealHi); G.setLineWidth(2)
-      G.line(9, 10, 13, 12); G.line(23, 10, 19, 12)
-      G.arc("line", "open", 16, 22, 6, math.rad(200), math.rad(340), 12)
+      glowFace(G, function(g)
+        G.setLineWidth(2.2 + g)
+        G.line(8, 9.6, 11.8, 7.2); G.line(24, 9.6, 20.2, 7.2)
+        G.arc("line", "open", 16, 22.4, 7.4, math.rad(205), math.rad(335), 16)
+      end)
     end,
     surprise = function(G)
-      col(G, P.tealHi); G.rectangle("fill", 14.5, 7, 3, 9); G.rectangle("fill", 14.5, 18, 3, 3)
+      glowFace(G, function(g)
+        G.rectangle("fill", 13.8 - g / 2, 2.6 - g / 2, 4.4 + g, 11.4 + g, 1, 1)
+        G.rectangle("fill", 13.8 - g / 2, 15.6 - g / 2, 4.4 + g, 3.8 + g, 0.8, 0.8)
+      end)
     end,
-    perfect = function(G) flexer(G, 16, 15, 0.7) end,
+    perfect = function(G)
+      flexer(G, 16, 13.4, 0.82, FACE_C)
+    end,
   }
   for name, face in pairs(FACE) do
     gen("training/mood_" .. name, 32, 32, function(G) bubble(G); face(G) end)
   end
 
   -- the effects: the hit mark, the finishing move's slash, a quarter of its glow
+  -- the hit mark: a starburst of thin spikes, white-hot in the middle, a long streak across it,
+  -- sparks round it
   gen("training/burst", 64, 64, function(G)
-    local function burstPoly(r1, r2, n, rot)
+    local function streak(x0, y0, x1, y1, w, c, a)
+      local mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+      local dx, dy = x1 - x0, y1 - y0
+      local d = math.sqrt(dx * dx + dy * dy)
+      local nx, ny = -dy / d * w / 2, dx / d * w / 2
+      G.setColor(c[1], c[2], c[3], a)
+      G.polygon("fill", x0, y0, mx + nx, my + ny, x1, y1, mx - nx, my - ny)
+    end
+    streak(3, 8, 61, 56, 2.4, c255(200, 120, 50), 0.85)
+    streak(14, 2, 50, 62, 1.4, c255(220, 150, 60), 0.6)
+    local function star(rLong, rShort, rIn, rot)
       local pts = {}
-      for i = 0, n * 2 - 1 do
-        local a = rot + i * math.pi / n
-        local rr = (i % 2 == 0) and r1 or r2
+      for i = 0, 23 do
+        local a = rot + i * math.pi / 12
+        local rr = (i % 2 == 1) and rIn or ((i % 4 == 0) and rLong or rShort)
         pts[#pts + 1] = 32 + math.cos(a) * rr; pts[#pts + 1] = 32 + math.sin(a) * rr
       end
       return pts
     end
-    col(G, P.orange); G.polygon("fill", burstPoly(26, 11, 8, 0.2))
-    col(G, P.gold); G.polygon("fill", burstPoly(20, 9, 8, 0.2))
-    col(G, c255(255, 250, 210)); circle(G, "fill", 32, 32, 8)
-    col(G, P.gold)
-    for _, d in ipairs({ { 8, 10 }, { 56, 12 }, { 54, 54 }, { 10, 52 }, { 33, 4 }, { 60, 34 } }) do
-      G.rectangle("fill", d[1] - 1.5, d[2] - 1.5, 3, 3)
+    col(G, c255(248, 176, 36)); fillShape(G, star(25, 16, 7.2, 0.1))
+    col(G, c255(255, 226, 80)); fillShape(G, star(19, 12, 6, 0.1))
+    for i = 7, 1, -1 do
+      G.setColor(1, 0.98, 0.84, 0.16 * (8 - i) / 7 + 0.1)
+      circle(G, "fill", 32, 32, i * 1.3)
+    end
+    col(G, c255(250, 222, 90))
+    for _, d in ipairs({ { 9, 7 }, { 55, 10 }, { 57, 50 }, { 6, 42 }, { 30, 3 }, { 61, 30 }, { 20, 58 }, { 44, 59 } }) do
+      G.rectangle("fill", d[1] - 1.1, d[2] - 1.1, 2.2, 2.2)
     end
   end)
+  -- the finishing move's slash: a crescent opening to the right, its outer edge flaring in
+  -- flames, orange outside and yellow within
   gen("training/finish_slash", 64, 64, function(G)
-    local outer, inner = {}, {}
-    for i = 0, 24 do
-      local a = math.rad(110 + i * 140 / 24)
-      outer[#outer + 1] = 40 + math.cos(a) * 26; outer[#outer + 1] = 32 + math.sin(a) * 28
-      inner[#inner + 1] = 48 + math.cos(a) * 24; inner[#inner + 1] = 32 + math.sin(a) * 25
+    local A0, A1, N = math.rad(108), math.rad(252), 64
+    local FLARE = { 0, 0, 9, 0, 0, 3, 0, 0, 0, 12, 0, 1, 0, 0, 6, 0, 0, 0, 10, 0, 2, 0, 0, 0, 7, 0 }
+    local outer, smooth, inner = {}, {}, {}
+    for i = 0, N do
+      local a = A0 + (A1 - A0) * i / N
+      local f = FLARE[(i % #FLARE) + 1] * math.sin(math.pi * i / N)
+      outer[#outer + 1] = 44 + math.cos(a) * (27 + f); outer[#outer + 1] = 32 + math.sin(a) * (29 + f)
+      smooth[#smooth + 1] = 44 + math.cos(a) * 25.5; smooth[#smooth + 1] = 32 + math.sin(a) * 27.5
+      inner[#inner + 1] = 51 + math.cos(a) * 24; inner[#inner + 1] = 32 + math.sin(a) * 26
     end
-    local pts = {}
-    for i = 1, #outer, 2 do pts[#pts + 1] = outer[i]; pts[#pts + 1] = outer[i + 1] end
-    for i = #inner - 1, 1, -2 do pts[#pts + 1] = inner[i]; pts[#pts + 1] = inner[i + 1] end
-    local tris = love.math.triangulate(pts)
-    col(G, P.orange)
-    for _, t in ipairs(tris) do G.polygon("fill", t) end
-    G.setColor(1, 0.85, 0.35, 1); G.setLineWidth(2)
-    G.line(outer)
+    local function band(a, b)
+      local pts = {}
+      for i = 1, #a, 2 do pts[#pts + 1] = a[i]; pts[#pts + 1] = a[i + 1] end
+      for i = #b - 1, 1, -2 do pts[#pts + 1] = b[i]; pts[#pts + 1] = b[i + 1] end
+      return pts
+    end
+    col(G, c255(244, 132, 28)); fillShape(G, band(outer, inner))
+    col(G, c255(255, 206, 54)); fillShape(G, band(smooth, inner))
+    G.setLineWidth(1); G.setColor(1, 0.96, 0.7, 0.9); G.line(inner)
   end)
+  -- a quarter of the finishing move's glow (drawn four ways): white light in the lower left
+  -- corner, a soft beam out along the diagonal and one along each edge
   gen("training/finish_light", 32, 32, function(G)
-    -- the bright corner at the lower left, rays out from it
-    for i = 12, 1, -1 do
-      local r = i * 2.6
-      G.setColor(1, 1, 1, 0.09 + (12 - i) * 0.02)
-      G.arc("fill", 0, 32, r, -math.pi / 2, 0, 16)
+    local fan = { { 0, 32, 0, 0, 1, 1, 1, 0.95 } }
+    for i = 0, 12 do
+      local a = -math.pi / 2 + (math.pi / 2) * i / 12
+      fan[#fan + 1] = { math.cos(a) * 20, 32 + math.sin(a) * 20, 0, 0, 1, 1, 1, 0 }
     end
-    G.setColor(1, 1, 1, 0.75)
-    for _, a in ipairs({ -0.25, -0.75, -1.25 }) do
-      G.polygon("fill", 0, 32, math.cos(a) * 32, 32 + math.sin(a) * 32,
-        math.cos(a - 0.08) * 32, 32 + math.sin(a - 0.08) * 32)
+    G.setColor(1, 1, 1, 1); G.draw(G.newMesh(fan, "fan", "static"))
+    local core = { { 0, 32, 0, 0, 1, 1, 1, 1 } }
+    for i = 0, 12 do
+      local a = -math.pi / 2 + (math.pi / 2) * i / 12
+      core[#core + 1] = { math.cos(a) * 13, 32 + math.sin(a) * 13, 0, 0, 1, 1, 1, 0 }
     end
+    G.draw(G.newMesh(core, "fan", "static"))
+    local function beam(a, len, w0, w1, alpha)
+      local dx, dy = math.cos(a), math.sin(a)
+      local nx, ny = -dy, dx
+      local ex, ey = dx * len, 32 + dy * len
+      G.draw(G.newMesh({ { nx * w0, 32 + ny * w0, 0, 0, 1, 1, 1, alpha }, { ex + nx * w1, ey + ny * w1, 0, 0, 1, 1, 1, 0 },
+        { ex - nx * w1, ey - ny * w1, 0, 0, 1, 1, 1, 0 }, { -nx * w0, 32 - ny * w0, 0, 0, 1, 1, 1, alpha } }, "fan", "static"))
+    end
+    beam(-math.pi / 4, 30, 2, 5, 0.75)
+    beam(0, 32, 1.4, 2.6, 0.6)
+    beam(-math.pi / 2, 32, 1.4, 2.6, 0.6)
   end)
 
   -- the charge ring: a quarter arc about a point off the texture's lower left (the image spins
@@ -1176,12 +1361,21 @@ return function(mod, deps)
   gen("training/medal", 32, 32, function(G)
     ribbon(G, false)
     ribbon(G, true)
-    col(G, P.ink); circle(G, "fill", 16, 13, 11.2)
-    shadedDisc(G, 16, 13, 10.2, c255(240, 186, 24), c255(255, 252, 200))
-    -- the swirl across it, and a glint up on the right
-    col(G, c255(214, 150, 14)); G.setLineWidth(2)
-    G.arc("line", "open", 15, 8, 9, math.rad(35), math.rad(150), 16)
-    G.setColor(1, 1, 1, 0.75); circle(G, "fill", 20.5, 7.5, 1.8)
+    -- the coin: a black edge, a gold rim, the face inside its own ring, a swirl, a glint
+    col(G, P.ink); circle(G, "fill", 16, 12.6, 11.8)
+    shadedDisc(G, 16, 12.6, 10.9, c255(222, 160, 18), c255(255, 234, 96))
+    shadedDisc(G, 16, 12.6, 8.6, c255(248, 206, 40), c255(255, 252, 196))
+    G.setLineWidth(0.7); col(G, c255(206, 146, 14)); circle(G, "line", 16, 12.6, 8.6)
+    col(G, c255(220, 164, 30)); G.setLineWidth(1.8)
+    local sw = {}
+    for i = 0, 16 do
+      local t = i / 16
+      local u = 1 - t
+      sw[#sw + 1] = u * u * u * 20.6 + 3 * u * u * t * 12 + 3 * u * t * t * 21 + t * t * t * 11.6
+      sw[#sw + 1] = u * u * u * 8 + 3 * u * u * t * 8.6 + 3 * u * t * t * 16 + t * t * t * 17
+    end
+    G.line(sw)
+    G.setColor(1, 1, 1, 0.8); G.ellipse("fill", 11.6, 7.6, 2.2, 1.3, 16)
   end)
   -- the selection: a cyan bracket either side
   gen("training/ss_cur", 90, 64, function(G)
@@ -1204,30 +1398,50 @@ return function(mod, deps)
     G.setColor(1, 1, 1, 0.8); stroke(G, 1.6, 14, 6, 6.5, 19)
   end)
   gen("training/ss_perfect_icon1", 32, 32, function(G)
-    flexer(G, 16, 15, 1.05)
+    flexer(G, 16, 13.6, 1.08)
     col(G, P.white)
-    for i = 0, 4 do star(G, 6 + i * 5, 28, 2.4) end
+    for i = 0, 4 do star(G, 5.6 + i * 5.2, 25.4, 3) end
   end)
-  gen("training/ss_perfect_icon2", 32, 32, function(G) flexer(G, 16, 18, 1.2) end)
+  gen("training/ss_perfect_icon2", 32, 32, function(G) flexer(G, 16, 16.6, 1.12) end)
   -- the medal count's tab: teal up to the top edge at the left, a dark rim stepping down from
   -- a third of the way along, the right end slanted, a soft shadow under it
   gen("training/ss_pokename_bg", 190, 40, function(G)
+    -- (flush with the screen's top across its whole width: the dark rim and the grey band
+    -- reach the top over the right part, where the teal starts lower)
     G.setColor(0, 0, 0, 0.25)
-    fillShape(G, { 3, 3, 176, 4.5, 182, 25, 177, 33, 16, 36, 8, 33, 1, 9 })
+    fillShape(G, { 0, 0, 180, 0, 182, 25, 177, 33, 16, 36, 8, 33, 0, 9 })
     col(G, P.ink)
-    fillShape(G, { 1, 0, 58, 0, 60, 1.5, 172, 1.5, 176, 4, 179, 21, 175, 28, 16, 32.5, 8, 29, 1, 6 })
+    fillShape(G, { 0, 0, 178.5, 0, 179.6, 4, 179, 21, 175, 28, 16, 32.5, 8, 29, 0, 6 })
     col(G, c255(68, 68, 72))
-    fillShape(G, { 2.5, 0, 58, 0, 59.5, 3, 171, 3, 174.5, 5, 177.5, 21, 173.5, 26.8, 16.5, 31, 9.5, 28, 2.5, 6 })
-    gradShape(G, { 4, 0, 58, 0, 59, 4.5, 170, 4.5, 173, 6, 175.5, 21, 172, 25.5, 17, 29.5, 11, 27, 4, 6 },
-      0, 0, 190, 30, c255(17, 214, 180), c255(10, 160, 140))
+    fillShape(G, { 1.4, 0, 176.8, 0, 177.8, 4.6, 177.5, 21, 173.5, 26.8, 16.5, 31, 9.5, 28, 1.4, 6 })
+    G.setColor(0.36, 0.42, 0.42, 1); G.rectangle("fill", 60, 0, 116, 2.2)
+    local face = { 4, 0, 58, 0, 59, 4.5, 170, 4.5, 173, 6, 175.5, 21, 172, 25.5, 17, 29.5, 11, 27, 4, 6 }
+    gradShape(G, face, 0, 0, 190, 30, c255(17, 214, 180), c255(10, 160, 140))
+    -- the game's bright stripe every third row
+    within(G, face, function()
+      G.setColor(17 / 255, 230 / 255, 196 / 255, 0.55)
+      for y = 1, 29, 3 do G.rectangle("fill", 0, y, 190, 1) end
+    end)
   end)
   gen("training/ss_return", 30, 30, GEN["training/home_return"].draw)
   -- a course not open yet: a grey disc, crossed
+  -- a course not open yet: a grey disc with a black edge, a bevelled rim lit from above, the
+  -- face inside its dark ring, an embossed slash across it, a shadow under it
   gen("training/ss_stage_icon00", 64, 64, function(G)
-    col(G, P.ink); circle(G, "fill", 32, 32, 31)
-    shadedDisc(G, 32, 32, 28, c255(70, 70, 76), c255(200, 200, 206))
-    shadedDisc(G, 32, 32, 22, c255(96, 96, 100), c255(150, 150, 156))
-    col(G, c255(50, 50, 54)); stroke(G, 3.5, 20, 44, 44, 20)
+    G.setColor(0, 0, 0, 0.3); G.ellipse("fill", 33, 35, 30.5, 29.5, 64)
+    col(G, P.ink); circle(G, "fill", 32, 32, 30.6)
+    G.stencil(function() circle(G, "fill", 32, 32, 29.2) end, "replace", 1)
+    G.setStencilTest("greater", 0)
+    vgrad(G, 2, 2, 60, 60, c255(190, 190, 196), c255(64, 64, 68))
+    G.setStencilTest()
+    G.setColor(0.15, 0.15, 0.17, 1); circle(G, "fill", 32, 32, 25.8)
+    G.stencil(function() circle(G, "fill", 32, 32, 24.8) end, "replace", 1)
+    G.setStencilTest("greater", 0)
+    vgrad(G, 6, 6, 52, 52, c255(124, 124, 128), c255(94, 94, 98))
+    G.setStencilTest()
+    G.setLineWidth(0.6); G.setColor(1, 1, 1, 0.1); circle(G, "line", 32, 32, 23.4)
+    col(G, c255(40, 50, 48)); stroke(G, 4.6, 21, 43, 43, 21)
+    G.setColor(0.62, 0.7, 0.68, 0.7); G.setLineWidth(1.1); G.line(20.4, 41, 41, 20.4)
   end)
   -- the card's frame for a course without its picture
   gen("training/ss_stage_icon01", 64, 64, function(G)
@@ -1238,8 +1452,17 @@ return function(mod, deps)
     circle(G, "line", 32, 32, 21)
   end)
   -- the level band (stretched across), the card window's corners
+  -- (see-through teal, a brighter stripe every third row, a light line along its top, a faint
+  -- dark then light line at its foot)
   gen("training/ss_stage_win", 10, 30, function(G)
-    vgrad(G, 0, 0, 10, 30, c255(17, 221, 187, 187), c255(0, 119, 102, 51))
+    G.setBlendMode("replace")
+    col(G, c255(17, 204, 170, 187)); G.rectangle("fill", 0, 1, 10, 27)
+    col(G, c255(17, 221, 187, 187))
+    for y = 1, 26, 3 do G.rectangle("fill", 0, y, 10, 1) end
+    col(G, c255(17, 187, 153, 119)); G.rectangle("fill", 0, 0, 10, 1)
+    col(G, c255(0, 119, 102, 51)); G.rectangle("fill", 0, 28, 10, 1)
+    col(G, c255(119, 221, 221, 34)); G.rectangle("fill", 0, 29, 10, 1)
+    G.setBlendMode("alpha")
   end)
   gen("training/ss_stage_win_lt", 16, 24, function(G)
     G.setBlendMode("replace")
@@ -1328,6 +1551,170 @@ return function(mod, deps)
       shape = bot and deps.shapeFor and deps.shapeFor(bot) or nil
     end
   end
+
+  -- ------- the results screens' pieces (src/training/results.lua lays them out)
+
+  -- the title bar's left half (the right half is this mirrored; results.lua stretches the
+  -- plain teal at x 150 and keeps the inner end, so the tab stays at the middle): solid teal
+  -- with a bright stripe every third row, darker inside along the left edge, the long chamfer
+  -- and the foot; the rim round it a dark line, grey, a lighter grey, then dark and black,
+  -- with a soft shadow; at the inner end a grey tab along the top
+  local TITLE_TEAL = { 6.4, 0, 171, 0, 173.2, 2.6, 200, 2.6, 200, 24.4, 16.6, 24.4, 6.4, 9.2 }
+  gen("training/res_title", 200, 30, function(G)
+    local function rim(inset)
+      local i = inset
+      return roundPts({ i, 0, 200, 0, 200, 29 - i, 13.4 + i * 0.6, 29 - i, i, 7.4 + i * 0.4 }, 1.2,
+        { [1] = true, [2] = true, [3] = true })
+    end
+    G.push(); G.translate(0, 0.9); G.setColor(0, 0, 0, 0.3); fillShape(G, rim(0)); G.pop()
+    col(G, c255(0, 17, 17)); fillShape(G, rim(0))
+    col(G, c255(17, 34, 34)); fillShape(G, rim(1))
+    col(G, c255(85, 102, 102)); fillShape(G, rim(2))
+    gradShape(G, rim(3), 0, 0, 200, 30, c255(72, 86, 86), c255(64, 68, 68))
+    local teal = roundPts(TITLE_TEAL, 0.8, { [1] = true, [2] = true, [3] = true, [4] = true, [5] = true })
+    col(G, c255(17, 204, 170)); fillShape(G, teal)
+    within(G, teal, function()
+      G.setColor(17 / 255, 221 / 255, 187 / 255, 1)
+      for y = 1, 24, 3 do G.rectangle("fill", 0, y, 200, 1) end
+      -- the inner shadow: down the left edge and the chamfer, along the foot
+      G.setLineJoin("bevel")
+      G.setLineWidth(5.2); G.setColor(0, 170 / 255, 153 / 255, 0.55); G.line(6.4, -1, 6.4, 9.2, 16.6, 24.4)
+      G.setLineWidth(2.6); G.setColor(0, 153 / 255, 153 / 255, 0.9); G.line(6.4, -1, 6.4, 9.2, 16.6, 24.4)
+      vgrad(G, 0, 19.6, 200, 4, { 0, 170 / 255, 153 / 255, 0 }, { 0, 153 / 255, 153 / 255, 1 })
+      G.setColor(17 / 255, 119 / 255, 136 / 255, 1); G.rectangle("fill", 0, 23.6, 200, 1)
+      scan(G, 0, 0, 200, 25, 0.04, 1)
+    end)
+    -- the tab at the inner end
+    local tab = { 171, 0, 200, 0, 200, 2.6, 173.2, 2.6 }
+    gradShape(G, tab, 170, 0, 30, 2.6, c255(85, 102, 102), c255(51, 68, 68))
+    G.setLineWidth(0.5); G.setColor(34 / 255, 85 / 255, 68 / 255, 1); G.line(173.2, 2.4, 200, 2.4)
+  end)
+
+  -- a stat row's plate: dark glass, rounded at the left, a bevelled point at the right; drawn in
+  -- three parts (x 0..30, the column at 30 stretched, 31..64)
+  gen("training/res_row", 64, 26, function(G)
+    local outer = roundPts({ 0, 0.6, 52, 0.6, 63.6, 13, 52, 25.4, 0, 25.4 }, 1.6)
+    local inner = roundPts({ 1.2, 1.8, 51.4, 1.8, 61.8, 13, 51.4, 24.2, 1.2, 24.2 }, 1.2)
+    G.setBlendMode("replace")
+    col(G, c255(10, 16, 24, 190)); fillShape(G, outer)
+    gradShape(G, inner, 0, 1.8, 64, 22.4, c255(44, 56, 70, 168), c255(18, 24, 34, 168))
+    G.setBlendMode("alpha")
+    within(G, inner, function()
+      scan(G, 0, 1.8, 64, 22.4, 0.05, 1)
+      G.setColor(1, 1, 1, 0.1); G.polygon("fill", 51.4, 1.8, 61.8, 13, 51.4, 13)
+      G.setColor(0, 0, 0, 0.18); G.polygon("fill", 51.4, 13, 61.8, 13, 51.4, 24.2)
+    end)
+    G.setLineWidth(0.6); G.setColor(1, 1, 1, 0.3); G.line(2.4, 2.5, 51.2, 2.5, 60.8, 12.6)
+  end)
+
+  -- the course's medallion frame: a steel ring, dark rays round it, a teal light on its rim
+  gen("training/res_frame", 72, 72, function(G)
+    for i = 0, 23 do
+      local a0, a1 = i * math.pi / 12, i * math.pi / 12 + math.pi / 24
+      G.setColor(0.08, 0.12, 0.16, 0.45)
+      G.polygon("fill", 36 + math.cos(a0) * 27, 36 + math.sin(a0) * 27, 36 + math.cos(a0) * 35.5, 36 + math.sin(a0) * 35.5,
+        36 + math.cos(a1) * 35.5, 36 + math.sin(a1) * 35.5, 36 + math.cos(a1) * 27, 36 + math.sin(a1) * 27)
+    end
+    col(G, P.ink); circle(G, "fill", 36, 36, 31)
+    shadedDisc(G, 36, 36, 29.4, c255(64, 66, 72), c255(206, 208, 214))
+    col(G, c255(16, 20, 26)); circle(G, "fill", 36, 36, 25.2)
+    neon(G, 0.7, P.tealHi, 0.75, (function()
+      local pts = {}
+      for i = 0, 48 do pts[#pts + 1] = 36 + math.cos(i * math.pi / 24) * 30.2; pts[#pts + 1] = 36 + math.sin(i * math.pi / 24) * 30.2 end
+      return pts
+    end)(), false)
+  end)
+
+  -- the time window: teal glass hung from the screen's top, its left foot rounded, a steel
+  -- bracket down its right side
+  gen("training/res_timewin", 200, 60, function(G)
+    local glass = roundPts({ 0, 0, 188, 0, 188, 56, 7, 56, 0, 49 }, 3, { [1] = true, [2] = true })
+    G.setLineJoin("bevel")
+    for i = 3, 1, -1 do col(G, P.tealHi, 0.07 * (4 - i)); G.setLineWidth(i * 1.3); G.line(closed(glass)) end
+    G.setBlendMode("replace")
+    gradShape(G, glass, 0, 0, 188, 56, c255(110, 240, 222, 225), c255(30, 196, 174, 215))
+    G.setBlendMode("alpha")
+    local panel = roundPts({ 6, 4, 182, 4, 182, 51, 10, 51, 6, 47 }, 2.4)
+    within(G, glass, function()
+      scan(G, 0, 0, 188, 56, 0.06, 1.1)
+      vgrad(G, 0, 0, 188, 8, { 1, 1, 1, 0.3 }, { 1, 1, 1, 0 })
+    end)
+    G.setLineWidth(0.7); G.setColor(1, 1, 1, 0.55); G.line(closed(panel))
+    rimLight(G, glass, 0.8)
+    local bracket = roundPts({ 185, 0, 196, 0, 200, 5, 200, 52, 196, 57, 185, 57 }, 1.4, { [1] = true, [2] = true })
+    col(G, P.ink); fillShape(G, bracket)
+    gradShape(G, roundPts({ 186.4, 0, 195.4, 0, 198.8, 5.4, 198.8, 51.6, 195.4, 55.6, 186.4, 55.6 }, 1.2, { [1] = true, [2] = true }),
+      186, 0, 14, 57, c255(150, 154, 160), c255(60, 64, 70))
+    screw(G, 192.6, 12, 1.8); screw(G, 192.6, 45, 1.8)
+  end)
+
+  -- the band across the touch screen (stretched sideways): a darker strip for its words over
+  -- lighter teal fading down, lit edges
+  gen("training/res_band", 32, 40, function(G)
+    G.setBlendMode("replace")
+    vgrad(G, 0, 0, 32, 20, c255(14, 104, 104, 225), c255(16, 120, 116, 215))
+    vgrad(G, 0, 20, 32, 20, c255(70, 220, 200, 190), c255(30, 180, 160, 110))
+    G.setBlendMode("alpha")
+    scan(G, 0, 0, 32, 40, 0.06, 1.1)
+    G.setColor(0.75, 1, 0.97, 0.7); G.rectangle("fill", 0, 0, 32, 0.8)
+    G.setColor(0.75, 1, 0.97, 0.45); G.rectangle("fill", 0, 19.6, 32, 0.6)
+  end)
+
+  -- the bags banner: lime glass across the screen, its top stepping down to the right, its
+  -- foot stepping down further along
+  gen("training/res_banner", 340, 62, function(G)
+    local band = { 0, 1, 213, 1, 220, 7, 340, 7, 340, 61, 110, 61, 103, 54, 0, 54 }
+    G.setBlendMode("replace")
+    gradShape(G, band, 0, 1, 340, 60, c255(214, 244, 130, 205), c255(160, 210, 70, 195))
+    G.setBlendMode("alpha")
+    within(G, band, function()
+      scan(G, 0, 0, 340, 62, 0.07, 1.1)
+      vgrad(G, 0, 1, 340, 8, { 1, 1, 1, 0.3 }, { 1, 1, 1, 0 })
+    end)
+    G.setLineJoin("bevel")
+    G.setLineWidth(0.9); G.setColor(0.3, 0.4, 0.12, 0.85)
+    G.line(0, 1.4, 213, 1.4, 220, 7.4, 340, 7.4)
+    G.line(0, 53.6, 103, 53.6, 110, 60.6, 340, 60.6)
+    G.setLineWidth(0.5); G.setColor(1, 1, 0.85, 0.55)
+    G.line(0, 2.6, 212.5, 2.6, 219.5, 8.6, 340, 8.6)
+  end)
+
+  -- the hooked up-arrow (the results' gauge and the trained row): white, a dark outline; the
+  -- stem turns to the right at its foot
+  gen("training/res_arrow", 10, 20, function(G)
+    local head = { 5, 0.8, 9.4, 6.6, 6.6, 6.6, 3.4, 6.6, 0.6, 6.6 }
+    local stem = { 5, 6, 5, 15.8, 9, 15.8 }
+    G.setLineJoin("miter")
+    col(G, c255(14, 20, 34)); G.setLineWidth(4.6); G.line(stem)
+    G.polygon("fill", 5, -0.8, 11.2, 7.6, -1.2, 7.6)
+    col(G, P.white); G.setLineWidth(2.4); G.line(stem)
+    G.polygon("fill", head[1], head[2], head[3], head[4], head[9], head[10])
+    G.setColor(0.75, 0.85, 1, 0.6); G.setLineWidth(0.5); G.line(4.2, 7, 4.2, 15)
+  end)
+
+  -- the regimen HUD's top corner (the left one; the right is this mirrored): a dark charcoal
+  -- wedge with a grey edge outside, the teal band sloping down to the screen's edge with its
+  -- lit upper edge and darker foot, a fine texture; the teal meets the lip at the inner end
+  local CORNER_TEAL = { 0, 9.6, 60, 5, 72, 0, 80, 0, 80, 2.4, 68, 2.4, 54, 9.6, 0, 17.6 }
+  gen("training/hud_corner", 80, 20, function(G)
+    local dark = roundPts({ 0, 0, 73, 0, 60.4, 5.4, 0, 10 }, 0.8, { [1] = true, [2] = true, [4] = true })
+    gradShape(G, dark, 0, 0, 74, 10, c255(52, 58, 64), c255(22, 26, 30))
+    G.setLineJoin("bevel"); G.setLineWidth(0.6); G.setColor(0.55, 0.58, 0.62, 0.9)
+    G.line(73, 0.2, 60.4, 5.4, 0, 10)
+    gradShape(G, CORNER_TEAL, 0, 0, 80, 12, c255(96, 232, 210, 240), c255(22, 160, 146, 240))
+    within(G, CORNER_TEAL, function()
+      scan(G, 0, 0, 80, 12, 0.08, 0.8)
+      grain(G, 0, 0, 80, 12, 0.05, 61)
+    end)
+    G.setLineWidth(0.5); G.setColor(0.8, 1, 0.96, 0.75); G.line(0, 10.2, 60.2, 5.6, 72.4, 0.5, 80, 0.5)
+    G.setLineWidth(0.6); G.setColor(0.02, 0.32, 0.3, 0.8); G.line(0, 17.3, 54, 9.3, 68, 2.1, 80, 2.1)
+  end)
+  -- the lip along the top between the corners (stretched across): the same teal, lit on top
+  gen("training/hud_lip", 8, 3, function(G)
+    vgrad(G, 0, 0, 8, 2.4, c255(110, 236, 214, 240), c255(30, 170, 154, 240))
+    G.setColor(0.8, 1, 0.96, 0.75); G.rectangle("fill", 0, 0.3, 8, 0.45)
+    G.setColor(0.02, 0.32, 0.3, 0.8); G.rectangle("fill", 0, 1.8, 8, 0.6)
+  end)
 
   -- ------- the regimen's gameplay pieces
 
