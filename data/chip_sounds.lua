@@ -158,6 +158,18 @@ for i, st in ipairs(STABS) do
 end
 S["se/sp_046"] = { peak = 0.65, layers = jingle }
 
+-- a regimen's exit armed: a tone sweeping up, then warbling as it fades
+S["se/sp_020"] = { peak = 0.5, layers = {
+  { dur = 0.2, wave = "tri", f0 = 170, f1 = 620, attack = 0.08, vol = 0.5 },
+  { at = 0.2, dur = 0.26, wave = "pulse25", steps = { 500, 420, 500, 420, 500 }, step = 0.05, decay = 7, vol = 0.4 },
+  { at = 0.2, dur = 0.26, wave = "tri", steps = { 1000, 860, 1000, 860, 1000 }, step = 0.05, decay = 8, vol = 0.25 },
+} }
+-- the bag drawer closed (the system's cancel): two quick notes stepping down
+S["se/cancel1"] = { peak = 0.5, layers = {
+  { dur = 0.15, wave = "pulse25", steps = { 680, 330 }, step = 0.055, attack = 0.005, release = 0.03, vol = 0.45 },
+  { dur = 0.15, wave = "tri", steps = { 1280, 520 }, step = 0.055, attack = 0.005, release = 0.03, vol = 0.25 },
+} }
+
 -- ------- Pokemon-Amie's minigames and their picker (data/amie_sounds.lua maps the events here)
 
 local function blip(f, dur, vol) return { dur = dur or 0.05, wave = "pulse25", f0 = f, decay = 30, vol = vol or 0.5 } end

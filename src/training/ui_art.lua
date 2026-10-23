@@ -1531,7 +1531,9 @@ return function(mod, deps)
       local ring = stat and LABEL_RGB[stat]
       col(G, P.ink); circle(G, "fill", 32, 32, 31)
       if ring then
-        shadedDisc(G, 32, 32, 28.5, { ring[1] * 0.45, ring[2] * 0.45, ring[3] * 0.45 }, ring)
+        -- as bright as the stat's label: its own colour at the rim, lighter toward the light
+        local hi = { ring[1] + (1 - ring[1]) * 0.45, ring[2] + (1 - ring[2]) * 0.45, ring[3] + (1 - ring[3]) * 0.45 }
+        shadedDisc(G, 32, 32, 28.5, ring, hi)
       else
         shadedDisc(G, 32, 32, 28.5, c255(70, 70, 76), c255(210, 210, 216))
       end

@@ -39,6 +39,12 @@ return {
   -- the results
   result_next = "se/message",      -- a tap to the coach's next line (the game's message sound)
   result_jingle = "se/sp_046",     -- an Award / new best time, and a training bag received
+  -- the bag drawer: one system sound for the button, a bag, every choice; another to close
+  bags_open = "se/decide1",        -- the bag button (the drawer slides out)
+  bag_select = "se/decide1",       -- a bag tapped, Use / Throw away / Back, Yes / No
+  bags_close = "se/cancel1",       -- the drawer closed (its return, or a tap outside it)
+  -- a regimen's exit: the first tap arms it (a second within the ring's time leaves)
+  exit_arm = "se/sp_020",
 
   -- when the intro's sounds come, s after the title (the pumps' onsets 8.25 / 8.89 / 9.72 /
   -- 10.56 / 11.39 s, the name's 12.70 s, less the title's 5.20 s)
@@ -71,5 +77,9 @@ return {
     star = "capture 1, 28.51 s, r 0.43; capture 2, 65.98 s, r 0.48: Wooble's 'star sound' (the quietest effect, volume 20)",
     result_next = "capture 2, 73.56 s, r 0.70: Wooble's 'normal dialogue continue' (SEQ_SE_MESSAGE; SELECT3, a 17 ms click, matched 0.44 before the renderer read MESSAGE's empty key ranges and its tempo)",
     result_jingle = "capture 2, 76.45 / 79.89 s, r 0.87 / 0.72: Wooble's 'Award / new best time' and 'training bag received'; capture 1 34.86 / 37.94 / 41.82 s",
+    bags_open = "capture 3 (Wooble's, 2026-10-23), 5.22 s: SEQ_SE_DECIDE1, waveform r 0.74 (every other effect under 0.28)",
+    bag_select = "capture 3, 7.89 / 9.60 / 11.37 s (bags tapped, a choice): SEQ_SE_DECIDE1, r 0.60-0.74",
+    bags_close = "capture 3, 22.37 s: SEQ_SE_CANCEL1 (= SYS_070), r 0.83",
+    exit_arm = "capture 3, 51.66 s (the exit's first tap, its ring closing in): SEQ_SE_SP_020, r 0.72 (every other effect under 0.13)",
   },
 }

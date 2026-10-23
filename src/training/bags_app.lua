@@ -127,6 +127,7 @@ return function(mod, Pointer, T, Rules, Store)
   function app.leave() view = nil end
 
   local function changed() if T.onChange then T.onChange() end end
+  local function se(event) if T.playSe then T.playSe(event) end end
   local function open(v) view = v; viewAt = clock; changed() end
   local function close()
     if not closeAt then closeAt = clock end
@@ -146,6 +147,7 @@ return function(mod, Pointer, T, Rules, Store)
       if not id then open(nil); return end
       if view.ask then
         if inRect(x, y, g.button(1, 2)) then                    -- Yes
+          se("bag_select")
           if view.ask == "use" then
             if T.attachBag(view.index) then view = nil; close() else open(nil) end
           else
@@ -154,25 +156,27 @@ return function(mod, Pointer, T, Rules, Store)
             open(nil)
           end
         elseif inRect(x, y, g.button(2, 2)) then                -- No
+          se("bag_select")
           open({ index = view.index })
         end
         return
       end
-      if inRect(x, y, g.button(1, 3)) then open({ index = view.index, ask = "use", question = T.useQuestion(id) })
-      elseif inRect(x, y, g.button(2, 3)) then open({ index = view.index, ask = "discard", question = "askDiscard" })
-      elseif inRect(x, y, g.button(3, 3)) then open(nil) end
+      if inRect(x, y, g.button(1, 3)) then se("bag_select"); open({ index = view.index, ask = "use", question = T.useQuestion(id) })
+      elseif inRect(x, y, g.button(2, 3)) then se("bag_select"); open({ index = view.index, ask = "discard", question = "askDiscard" })
+      elseif inRect(x, y, g.button(3, 3)) then se("bag_select"); open(nil) end
       return
     end
-    if inRect(x, y, g.BACK) then close(); return end
+    if inRect(x, y, g.BACK) then se("bags_close"); close(); return end
     if inRect(x, y, g.LEAVE) then T.finish(); return end
     for i = 1, N.LIMITS.BAG_MAX do
       if bags[i] and inRect(x, y, slotRect(i)) then
+        se("bag_select")
         open({ index = i })
         return
       end
     end
     -- outside the drawer: the drawer closes, as the return button does
-    if not inRect(x, y, g.DRAWER) then close() end
+    if not inRect(x, y, g.DRAWER) then se("bags_close"); close() end
   end
 
   -- only the active app is updated, so the mode it last saw would carry over to the next

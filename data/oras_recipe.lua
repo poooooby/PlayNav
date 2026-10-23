@@ -1301,6 +1301,7 @@ sfx("SEQ_SE_SYS_057", "se/sys_057")
 sfx("SEQ_SE_MESSAGE", "se/message")
 -- three more system sounds, the ones the Amie room and DECORATE play (data/amie_sounds.lua)
 sfx("SEQ_SE_DECIDE1", "se/decide1")
+sfx("SEQ_SE_CANCEL1", "se/cancel1")
 sfx("SEQ_SE_CATCH", "se/catch")
 sfx("SEQ_SE_RELEASE", "se/release")
 -- Pokemon-Amie's minigame music: sequences in the same archive, rendered by the job (seqsynth's
@@ -1565,7 +1566,7 @@ bchtex("a/1/5/2", 320, "skytrip_alpha_a_yoru", "tile/trees_night", 256, 256)
 bchtex("a/1/5/2", 321, "star", "tile/night_star", 32, 32)
 
 return {
-  version = 35,
+  version = 36,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

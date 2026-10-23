@@ -410,6 +410,27 @@ local function body(game, log)
     shot(at[2])
   end
   waitUntil(function() return sim and sim.phase == "play" end, 15)
+  -- PROBE_EXIT=1: the exit asks twice - one tap rings the button and stays, the ring runs out,
+  -- then two taps leave
+  if os.getenv("PROBE_EXIT") == "1" then
+    local E = aim.geometry().EXIT
+    local ex, ey = E.x + E.w / 2, E.y + E.h / 2
+    tapAt("exit1", ex, ey)
+    for _, at in ipairs({ { 0.1, "x01_ring_closing" }, { 0.5, "x02_ring_held" }, { 1.12, "x03_ring_spreading" } }) do
+      waitUntil(function() local t = aim.exitRingT(); return t == nil or t >= at[1] end, 3)
+      shot(at[2])
+    end
+    log("one tap: mode", TR.state().mode, "sim", tostring(TR.session.sim ~= nil))
+    waitSecs(0.5)
+    log("ring gone:", tostring(aim.exitRingT() == nil), "mode", TR.state().mode)
+    tapAt("exit2", ex, ey)
+    waitSecs(0.3)
+    tapAt("exit3", ex, ey)
+    waitSecs(1.0)
+    log("two taps: mode", TR.state().mode, "sim", tostring(TR.session.sim ~= nil))
+    shot("x04_left")
+    return
+  end
   log("play: phase", sim and sim.phase, "goals", sim and #sim.goals, "remaining", sim and sim.remaining)
   -- the player sprite as the arena has it, saved for a look (player_sprite.png)
   do

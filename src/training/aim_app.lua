@@ -42,6 +42,14 @@ return function(mod, Pointer, T, Rules, Sim)
   end
 
   local function inRect(x, y, r) return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h end
+  local function now() return (love and love.timer and love.timer.getTime()) or os.clock() end
+  -- the exit asks twice (the game's): the first tap closes a ring round the button - four arcs
+  -- on the diagonals closing in from 1.8x the button to 1.35x as they fade in, holding, then
+  -- spreading out again as they fade (seconds); a second tap while it shows leaves
+  local EXIT_RING = { IN = 0.2, HOLD = 0.85, OUT = 0.15, FAR = 1.8, NEAR = 1.35 }
+  local function exitArmed()
+    return app.exitArm ~= nil and now() - app.exitArm < EXIT_RING.IN + EXIT_RING.HOLD + EXIT_RING.OUT
+  end
 
   -- the aim reach of the running regimen (a sprite balloon reaches further)
   local function reach(sim)
@@ -199,7 +207,15 @@ return function(mod, Pointer, T, Rules, Sim)
       elseif role == "exit" then
         app.exitHeld = false
         if P then P:play("release") end
-        if inRect(x, y, EXIT) then T.quitRegimen() end
+        if inRect(x, y, EXIT) then
+          if exitArmed() then
+            app.exitArm = nil
+            T.quitRegimen()
+          else
+            app.exitArm = now()
+            if T.playSe then T.playSe("exit_arm") end
+          end
+        end
       end
     end
   end
@@ -374,6 +390,40 @@ return function(mod, Pointer, T, Rules, Sim)
       G.arc("line", "open", lx, ly, 10, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 24)
     end
   end
+  -- the exit's ring (the first tap; EXIT_RING above)
+  local function drawExitRing(G, cx, cy, r)
+    local a0 = app.exitArm
+    if not a0 then return end
+    local t = now() - a0
+    local R = EXIT_RING
+    local k, alpha
+    if t < R.IN then
+      local u = t / R.IN
+      u = 1 - (1 - u) * (1 - u)
+      k, alpha = R.FAR + (R.NEAR - R.FAR) * u, u
+    elseif t < R.IN + R.HOLD then
+      k, alpha = R.NEAR, 1
+    elseif t < R.IN + R.HOLD + R.OUT then
+      local u = (t - R.IN - R.HOLD) / R.OUT
+      k, alpha = R.NEAR + (R.FAR - R.NEAR) * u * u, 1 - u
+    else
+      app.exitArm = nil
+      return
+    end
+    local rr = r * k
+    G.setLineStyle("smooth")
+    for pass = 1, 2 do
+      G.setLineWidth(pass == 1 and r * 0.28 or r * 0.16)
+      G.setColor(0.72, 0.95, 0.95, alpha * (pass == 1 and 0.25 or 0.6))
+      for q = 0, 3 do
+        local mid = math.pi / 4 + q * math.pi / 2
+        G.arc("line", "open", cx, cy, rr, mid - math.rad(30), mid + math.rad(30), 18)
+      end
+    end
+    G.setLineWidth(1)
+  end
+  app.exitRingT = function() return app.exitArm and now() - app.exitArm or nil end
+
   local function exitButton(G, live)
     local A = app.assets
     local img = A and A.image and A.image("training/btn_return")
@@ -383,6 +433,7 @@ return function(mod, Pointer, T, Rules, Sim)
     local size = 44 * k
     if live then G.setColor(1, 1, 1, 1) else G.setColor(0.55, 0.62, 0.6, 1) end
     G.draw(img, 291, 212 + D, 0, size / iw, size / iw, iw / 2, iw / 2)
+    drawExitRing(G, 291, 212 + D, 22)
   end
   local function drawAim(G, sim, small)
     local t = sim and sim.t or 0
