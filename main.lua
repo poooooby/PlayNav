@@ -339,6 +339,12 @@ return function(mod)
         if okU and type(ui) == "table" then
           UiArt = ui
           Assets.engine = ui.image
+          -- Pokemon-Amie's room draws through the same maker
+          local makeAmieArt = ui.gen and loadSibling(mod, "src/amie/ui_art.lua")
+          if makeAmieArt then
+            local okA, errA = pcall(makeAmieArt, mod, ui.kit, ui.gen)
+            if not okA then mod.log:warn("amie ui art failed to build: %s", tostring(errA)) end
+          end
         else
           mod.log:warn("training ui art failed to build: %s", tostring(ui))
         end

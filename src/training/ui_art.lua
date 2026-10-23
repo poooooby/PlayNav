@@ -1840,6 +1840,12 @@ return function(mod, deps)
     return img, true
   end
 
+  -- the kit, for the other screens' drawn art (src/amie/ui_art.lua adds its ids with gen)
+  U.gen = gen
+  U.kit = { c255 = c255, col = col, circle = circle, vgrad = vgrad, shadedDisc = shadedDisc, stroke = stroke,
+    font = font, outlined = outlined, roundPts = roundPts, fillShape = fillShape, within = within,
+    gradShape = gradShape, closed = closed, grain = grain }
+
   function U.has(id) return GEN[id] ~= nil end
   function U.ids()
     local out = {}
