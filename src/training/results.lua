@@ -565,16 +565,14 @@ return function(mod, T, Rules, Radar)
       if row then rowPlate(G2, row, LX0 - 4, x1, y, 25)
       else col(G2, NAVY, 0.92); G2.polygon("fill", LX0, y, x1 - 10, y, x1, y + 12, x1 - 10, y + 25, LX0, y + 25) end
       local up = R.cues.up and r.stat == k
+      -- the arrow and the +N hop together on the radar's beat (highest as the label swells)
+      local hop = up and 3.2 * (0.5 + 0.5 * math.cos((t - R.TOP.STAT_UP) * 2 * math.pi / R.BEAT_S)) or 0
       if up and arrow then
         G2.setColor(0.6, 1, 0.35, 1)
-        G2.draw(arrow, 7, y + 2.5, 0, 1, 1)
+        G2.draw(arrow, 7, y + 2.5 - hop, 0, 1, 1)
       end
       say(G2, T.statWord and T.statWord(k) or k, 23, y + 4, 16, "left", STAT_RGB[k])
-      if up then
-        -- the +N hops on the radar's beat (highest as the label swells)
-        local hop = 3.2 * (0.5 + 0.5 * math.cos((t - R.TOP.STAT_UP) * 2 * math.pi / R.BEAT_S))
-        say(G2, "+" .. tostring(r.ev), 128, y + 4 - hop, 16, "left", LIME)
-      end
+      if up then say(G2, "+" .. tostring(r.ev), 128, y + 4 - hop, 16, "left", LIME) end
       G2.pop()
     end
     -- the meter on the right: the hexagon, the stats in it, the labels, the total's gauge
