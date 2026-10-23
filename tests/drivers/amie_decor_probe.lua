@@ -192,7 +192,7 @@ local function body(game, log)
   -- the check: back to the room, the puff falling in
   tapAt("check", deco.tapPoint("corner"))
   waitFor(function() return Apps:active().id == "home" end, 60 * 60)
-  waitFor(function() local P = home.screen(); return P and P:entry("okashi_fall") ~= nil end, 600)
+  waitFor(function() return home.falling() end, 600)
   into(home, 4)
   log("mode:", R.state() and R.state().mode, "app:", Apps:active().id)
   shot("a19_room_puff_falling")
