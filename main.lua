@@ -561,6 +561,11 @@ return function(mod)
       if not rect then return false end
       local lx, ly, inside = Layout.toLogical(rect, x, y)
       if not inside then return false end
+      -- the mouse can be pressed by two paths at once - the engine's pointer event (engines
+      -- that deliver the desktop mouse to mods) and the poll below: a second press on a mouse
+      -- already down is the same click, not a new one (restarting it read as a release, so a
+      -- held shot fired once before charging)
+      if source == "mouse" and Pointer:get(id) then return true end
       Pointer:begin(id, lx, ly, source, pressure)
       return true
     end
