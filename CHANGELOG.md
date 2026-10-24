@@ -5,6 +5,25 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-10-24 (beta)
+
+### Fixed
+
+- Head It on Unlimited: when the round drops from three Pokémon to fewer, a side Pokémon with
+  yarn still falling on it stays to head it before leaving. It used to leave at once, forcing a
+  miss.
+- Super Training's secret course rewards are given again. Stardust, Hard Stone, PP Up, Soda Pop
+  and the evolution stones showed as "ITEM_STARDUST", "ITEM_HARD_STONE" and so on, and never
+  reached the bag.
+- The new items' descriptions fit the bag screen: three short lines, like the game's own, instead
+  of one long sentence running off the edge.
+
+### Changed
+
+- When another mod (such as National Dex Gen 3) already provides one of Super Training's new
+  items - the Dusk, Shiny or Dawn Stone, or a Wing (also by its later name, Feather) - the reward
+  is that mod's item, and it works the way that mod makes it work.
+
 ## [0.7.2] - 2026-10-24 (beta)
 
 ### Fixed
