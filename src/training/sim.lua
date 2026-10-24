@@ -198,10 +198,10 @@ return function(N)
   function Sim:setMove(dx, dz) self.player.mx = math.max(-1, math.min(1, dx or 0)); self.player.mz = math.max(-1, math.min(1, dz or 0)) end
   -- how far the aim reaches: the whole sprite balloon, or the round balloon's plane
   function Sim:aimExtent()
-    -- (the reach rises as the balloon grows about its feet)
-    local rise = self:botCY() - (self.shape and N.BOT.SHAPE_CY or N.BOT.CY)
-    if self.shape then return N.BOT.AIM_X, N.BOT.AIM_Y + 2 * rise end
-    return 1, 1 + 2 * rise
+    -- (a balloon never grows past the sky's top, SKY_TOP, so its reach is fixed: up to the
+    -- grown round balloon's top for the round one)
+    if self.shape then return N.BOT.AIM_X, N.BOT.AIM_Y end
+    return 1, math.max(1, N.BOT.SKY_TOP)
   end
   function Sim:aim(tx, ty)
     local ex, ey = self:aimExtent()
@@ -209,14 +209,31 @@ return function(N)
     self.player.aim.y = math.max(0, math.min(ey, ty))
   end
   -- the balloon's centre height (a sprite balloon hovers higher)
+  -- the balloon's half height at scale 1, in world units up
+  local function botHalfH(self)
+    return N.BOT.R * (self.shape and self.shape.halfH or 1) * Sim.ASPECT
+  end
+  -- the highest its top may reach: SKY_TOP (the top screen's top at the balloon's depth, under
+  -- the HUD's band, on the widest screens too) less how far its sway lifts it
+  function Sim:skyTop()
+    local sway = not self.still and (self.course.sway or (N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]))
+    local _, _, _, _, hu = Sim.view()
+    return N.BOT.SKY_TOP - (sway and math.abs(sway.ay or 0) * (160 / 240) / hu or 0)
+  end
+  -- the most it may inflate: from just above the grass (FEET_MIN) to skyTop, no more
+  function Sim:growMax()
+    return math.max(1, (self:skyTop() - N.BOT.FEET_MIN) / (2 * botHalfH(self)))
+  end
   function Sim:botCY()
-    local cy = self.shape and N.BOT.SHAPE_CY or N.BOT.CY
-    -- grown, it rises about its feet
-    local bot, sh = self.bot, self.shape
-    if bot and (bot.scale or 1) > 1 then
-      cy = cy + (bot.scale - 1) * N.BOT.R * (sh and sh.halfH or 1) * Sim.ASPECT
-    end
-    return cy
+    local base = self.shape and N.BOT.SHAPE_CY or N.BOT.CY
+    local bot = self.bot
+    local s = bot and bot.scale or 1
+    if s <= 1 then return base end
+    -- grown, it rises about its feet; one that would pass the sky's top sinks toward the grass
+    -- instead, so every goal stays on the screen (growMax caps the size)
+    local hh = botHalfH(self)
+    local cy = math.min(base + (s - 1) * hh, self:skyTop() - hh * s)
+    return math.max(cy, math.min(base, N.BOT.FEET_MIN + hh * s))
   end
   function Sim:chanceUp()
     for _, g in ipairs(self.goals) do if g.kind == "chance" then return true end end
@@ -1579,6 +1596,7 @@ return function(N)
     -- it inflates with the score, its feet on the ground (Wooble's Graveler capture: about
     -- 1.56x its height at the target), easing to each new size
     local want = 1 + N.BOT.GROW_K * math.min(1, self.score / math.max(1, bot.target or 1))
+    want = math.min(want, self:growMax())
     bot.scale = bot.scale + (want - bot.scale) * math.min(1, step * N.BOT.GROW_EASE)
     if bot.flinch > 0 then bot.flinch = math.max(0, bot.flinch - step) end
     if (bot.shake or 0) > 0 then bot.shake = math.max(0, bot.shake - step) end

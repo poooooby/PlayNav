@@ -331,7 +331,7 @@ N.BLOCK = { MAX_F = 20, DEF_K = 0.005, COOLDOWN_F = 30, SAFE_F = 25, MOVE_MULT =
 -- at SPEv 100, the game's speed then x(1 + SPEv x SPE_K) against that)
 -- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
 -- below the top: (140 - 51) / 70.5 at the stand's depth)
-N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.615, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SPE_K = 0.001, SWIFT_MULT = 1.5,
+N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.72, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SPE_K = 0.001, SWIFT_MULT = 1.5,
              HIT_STUN_S = 14 / 30, HIT_SAFE_F = 30 }
 
 -- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
@@ -344,6 +344,9 @@ N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, GROW_K = 0.56, GROW_EASE = 10, SHAKE_H
           -- a sprite balloon is taller than the round one: it hovers higher, sized so that even
           -- fully grown it stays inside the sky the aim pad reaches (AIM_X across, 0..AIM_Y up)
           SHAPE_CY = 1.04, AIM_X = 1.6, AIM_Y = 2.05,
+          -- grown, a balloon's top stays under SKY_TOP and its feet above FEET_MIN (world units at
+          -- its depth; the top screen's top is 1.87 there): a tall one sinks and grows less
+          SKY_TOP = 1.76, FEET_MIN = 0.1,
           RAGE_AT = 2400, CALM_AT = 2400,
           -- the balloon's sway in the game's top-screen pixels (400x240), by level: a loop ax
           -- across and ay up and down every period seconds; a goal hit makes it shake for
@@ -457,6 +460,8 @@ N.EVIDENCE = {
   ["BOT.SHAKE_HZ"] = { class = "measured", source = "Wooble's magneton-2 capture: a goal hit twists the balloon side to side ~+-10 px, ~0.5 s a swing, settled in ~0.7 s; Graveler's (graveler-2) a +-1-1.5 px wobble in the same time", confidence = "low" },
   ["BOT.SCALE_MAX"] = { class = "placeholder", source = "Wooble (2026-10-12): 1.2, so the large balloon of this view stays on the top screen; the game's own cap is not measured", confidence = "low" },
   ["BOT.R"] = { class = "placeholder", source = "", confidence = "low" },
+  ["BOT.SKY_TOP"] = { class = "inferred", source = "Wooble 2026-10-24 (Thor): a grown balloon must not pass the top of the screen or its goals cannot be reached; the frame's top at the balloon's depth is 140 / 75 = 1.87, less the HUD's top band (ours)", confidence = "medium" },
+  ["BOT.FEET_MIN"] = { class = "inferred", source = "ours: how low a grown balloon may sink to stay under SKY_TOP (just above the grass)", confidence = "low" },
   ["BOT.SHAPE_CY"] = { class = "placeholder", source = "ours: the sprite balloon's centre, so it fits the visible sky (y 0..2.09 at the bot's depth)", confidence = "low" },
   ["BOT.AIM_X"] = { class = "placeholder", source = "ours: the aim reach across with a sprite balloon (the sky at the bot's depth is +-1.71)", confidence = "low" },
   ["BOT.AIM_Y"] = { class = "placeholder", source = "ours: the aim reach up with a sprite balloon", confidence = "low" },

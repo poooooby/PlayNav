@@ -739,6 +739,39 @@ do
     T.check(near(sim.player.aim.x, ex) and near(sim.player.aim.y, ey), "aim clamps to the reach")
   end
 
+  -- a tall balloon (Fraxure's shape) fully inflated, swaying, stays under the top of the screen
+  -- (Wooble on the Thor: it grew past it and its goals could not be reached): it sinks toward
+  -- the grass and grows no more than fits
+  do
+    local tm = {}
+    for y = 0, H - 1 do
+      tm[y] = {}
+      for x = 0, W - 1 do tm[y][x] = ((x - 32) / 9) ^ 2 + ((y - 32) / 30) ^ 2 <= 1 end
+    end
+    local tall = Draw.shapeFromMask(tm, W, H)
+    local s2 = make("lv2_atk", { shapes = { tall }, sway = true })
+    run(s2, 3.2)
+    s2.score = s2.bot.target - 1
+    local _, _, _, _, hu, fy = Sim.view()
+    local screenTop = fy / hu
+    local hiTop, hiGoal, loFeet = 0, 0, 9
+    for _ = 1, 60 * 12 do
+      s2:update(1 / 60)
+      local _, by = s2:botOffset()
+      local hh = N.BOT.R * tall.halfH * s2.bot.scale * Sim.ASPECT
+      hiTop = math.max(hiTop, s2:botCY() + hh + by)
+      loFeet = math.min(loFeet, s2:botCY() - hh + by)
+      for _, g in ipairs(s2.goals) do
+        local _, gy = s2:goalPos(g)
+        hiGoal = math.max(hiGoal, gy + (g.r or 0))
+      end
+    end
+    T.check(s2.bot.scale > 1.15, ("...it still inflates (x%.2f)"):format(s2.bot.scale))
+    T.check(hiTop <= N.BOT.SKY_TOP + 0.02, ("a tall balloon fully inflated keeps its top under the sky's (%.2f <= %.2f)"):format(hiTop, N.BOT.SKY_TOP))
+    T.check(hiGoal < screenTop, ("...every goal on the screen (%.2f < %.2f)"):format(hiGoal, screenTop))
+    T.check(loFeet > 0, ("...its feet above the grass (%.2f)"):format(loFeet))
+  end
+
   -- no shape (a species with no sprite): the old anchors
   local plain = make("lv1_hp")
   run(plain, 3.2)

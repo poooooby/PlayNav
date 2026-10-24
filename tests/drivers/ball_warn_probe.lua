@@ -69,7 +69,7 @@ local function body(game, log)
       -- (the regimen sets the move from the pad each frame, so the trainee is walked here at
       -- the plain move speed in sim time)
       local t0 = S.t
-      local function walk() if not still then S.player.x = math.min(0.8, 0.615 * (S.t - t0)) end end
+      local function walk() if not still then S.player.x = math.min(0.8, 0.72 * (S.t - t0)) end end
       for i, left in ipairs({ 1.0, 0.5, 0.25, 0.1, 0.02 }) do
         waitFor(function() walk(); local e = S:ballEta(b); return not e or e <= left end, 4000)
         local e, h = S:ballEta(b)

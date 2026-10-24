@@ -22,6 +22,10 @@ local function body(game, log)
     local Xk = game.mods and game.mods.exports and game.mods.exports.play_nav
     if Xk and Xk._test and Xk._test.keepArt then Xk._test.keepArt() end
   end
+  -- SHOT_W / SHOT_H: the window's size (1920x1080 for the Thor's wide top screen)
+  if os.getenv("SHOT_W") then
+    love.window.setMode(tonumber(os.getenv("SHOT_W")), tonumber(os.getenv("SHOT_H")) or 1080, { resizable = true, highdpi = true })
+  end
   game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
   U.wait(30)
   local Runtime = require("src.core.game3.runtime")
@@ -107,7 +111,8 @@ local function body(game, log)
     if os.getenv("PROBE_ONLY") == "grow" then
       course("lv2_atk", {
         { name = "1_start", when = function(S) return S.phase == "play" end, after = 0.5 },
-        { name = "2_grown", when = function(S) S.score = 1400; return S.bot.scale > 1.5 end, after = 0.3 },
+        -- (fully inflated: as large as fits under the top of the screen, S:growMax())
+        { name = "2_grown", when = function(S) S.score = 1400; return S.bot.scale >= (S.growMax and S:growMax() or 1.5) - 0.01 end, after = 0.3 },
       })
       course("lv2_spa", {
         { name = "1_cleared", when = function(S)
