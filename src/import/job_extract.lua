@@ -6,9 +6,10 @@
 --
 -- arg = {
 --   importId = "oras_cci", archive = "a/0/4/2",
---   items = { { entry, sub, clim, id, w, h, fmt }, ... },
---   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src>, gen6text, darc, bcstm },
+--   items = { { entry, sub, clim, id, w, h, fmt, fp }, ... },
+--   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src>, crc32, gen6text, darc, bcstm },
 --   outPrefix = "oras/raw/",
+--   verify = true, differs = <reason>, missingFp = <reason>,
 -- }
 -- returns { archive, results = { { id, ok, w, h, err } ... } }
 
@@ -32,6 +33,19 @@ local Bcstm = arg.modules and arg.modules.bcstm and compile("bcstm") or nil
 local Bcsar = arg.modules and arg.modules.bcsar and compile("bcsar") or nil
 local Seq = arg.modules and arg.modules.seqsynth and compile("seqsynth") or nil
 local Bch = arg.modules and arg.modules.bch and compile("bch") or nil
+local Crc = arg.modules and arg.modules.crc32 and compile("crc32") or nil
+
+-- arg.verify: every item carries `fp` = { size, crc } of the bytes it reads (or none recorded)
+local VERIFY = arg.verify == true and Crc ~= nil
+local DIFFERS = arg.differs or "fingerprint: differs"
+local MISSING = arg.missingFp or "fingerprint: none recorded"
+-- nil when the bytes match, else the reason every item cut from them fails with
+local function checkBytes(fp, bytes)
+  if not VERIFY then return nil end
+  if not fp then return MISSING end
+  if #bytes ~= fp.size or Crc.of(bytes) ~= fp.crc then return DIFFERS end
+  return nil
+end
 
 local importId = arg.importId
 local function read(offset, length)
@@ -53,7 +67,10 @@ local item1 = arg.items and arg.items[1]
 if item1 and item1.kind == "stream" then
   local results = {}
   local wav, info = nil, "no stream reader"
-  if Bcstm then wav, info = Bcstm.wav(read(aOff, aLen)) end
+  local bytes = read(aOff, aLen)
+  local why = checkBytes(item1.fp, bytes)
+  if why then return { archive = arg.archive, results = { { id = item1.id, ok = false, err = why } } } end
+  if Bcstm then wav, info = Bcstm.wav(bytes) end
   -- its level (recipe gain, dB): Super Training's streams sit with gen1recomp's own music
   if wav and item1.gain and Seq and Seq.scaleWav then wav = Seq.scaleWav(wav, item1.gain) end
   if not wav then
@@ -79,6 +96,16 @@ end
 -- the loop point in oras/bgm/<name>.lua, as a stream's
 if item1 and (item1.kind == "sfx" or item1.kind == "song") then
   local results = {}
+  -- the archive is checked whole (read in ranges, never held), before anything renders from it
+  if VERIFY then
+    local fp = item1.fp
+    local bad = not fp and MISSING
+      or (aLen ~= fp.size or Crc.ofRange(read, aOff, aLen) ~= fp.crc) and DIFFERS or nil
+    if bad then
+      for _, item in ipairs(arg.items) do results[#results + 1] = { id = item.id, ok = false, err = bad } end
+      return { archive = arg.archive, results = results }
+    end
+  end
   local ar, why = nil, "no sound-archive reader"
   if Bcsar and Seq and Bcstm then ar, why = Bcsar.open(read, aOff, aLen) end
   for _, item in ipairs(arg.items) do
@@ -128,7 +155,7 @@ local groups, order = {}, {}
 for _, item in ipairs(arg.items or {}) do
   local key = item.entry .. ":" .. item.sub
   if not groups[key] then
-    groups[key] = { entry = item.entry, sub = item.sub, items = {} }
+    groups[key] = { entry = item.entry, sub = item.sub, fp = item.fp, items = {} }
     order[#order + 1] = key
   end
   local list = groups[key].items
@@ -143,8 +170,11 @@ end
 for _, key in ipairs(order) do
   local grp = groups[key]
   local bytes, berr = g:bytes(grp.entry, grp.sub)
+  local differs = bytes and checkBytes(grp.fp, bytes)
   if not bytes then
     for _, item in ipairs(grp.items) do fail(item, "entry: " .. tostring(berr)) end
+  elseif differs then
+    for _, item in ipairs(grp.items) do fail(item, differs) end
   else
     local first = bytes:byte(1)
     local blob = (first == 0x10 or first == 0x11) and Lz.decode(bytes) or bytes

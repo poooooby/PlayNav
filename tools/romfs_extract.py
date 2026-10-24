@@ -1,4 +1,4 @@
-"""Read a decrypted 3DS card image (.cci / NCSD) and extract RomFS files, stdlib only.
+"""Read a decrypted 3DS image (.cci / .3ds card image, CIA, or bare NCCH) and extract RomFS files, stdlib only.
 
 Usage:
   python tools/romfs_extract.py <game.cci> list                 # print every file path and size
@@ -41,14 +41,42 @@ class Image:
         self.f.close()
 
 
+SIG_BLOCK = {0x10000: 0x240, 0x10003: 0x240, 0x10001: 0x140, 0x10004: 0x140,
+             0x10002: 0x80, 0x10005: 0x80}
+CIA_HEADER = 0x2020
+
+
+def _align64(n: int) -> int:
+    return (n + 63) // 64 * 64
+
+
+def ncch_of(img: Image):
+    """(offset, kind) of the game's NCCH: card image partition 0, a CIA's first content, or a bare NCCH."""
+    magic = img.read(0x100, 4)
+    if magic == b"NCSD":
+        return struct.unpack("<I", img.read(0x120, 4))[0] * MEDIA_UNIT, "cci"
+    if magic == b"NCCH":
+        return 0, "ncch"
+    header_size, _type, _ver, cert, ticket_size, tmd_size = struct.unpack("<IHHIII", img.read(0, 0x14))
+    if header_size != CIA_HEADER:
+        raise CtrError("not a 3DS card image, CIA or NCCH")
+    ticket = _align64(CIA_HEADER) + _align64(cert)
+    tmd = ticket + _align64(ticket_size)
+    content = tmd + _align64(tmd_size)
+    sig = SIG_BLOCK.get(struct.unpack(">I", img.read(tmd, 4))[0])
+    if sig is None:
+        raise CtrError("CIA: unknown TMD signature type")
+    chunk = img.read(tmd + sig + 0xC4 + 0x900, 0x30)
+    if struct.unpack_from(">H", chunk, 6)[0] & 1:
+        raise CtrError("encrypted CIA content: supply a decrypted CIA")
+    return content, "cia"
+
+
 def open_romfs(img: Image):
-    """Locate the level-3 RomFS inside partition 0. Returns dict with absolute offsets."""
-    if img.read(0x100, 4) != b"NCSD":
-        raise CtrError("not an NCSD image")
-    p0_off, p0_len = struct.unpack("<II", img.read(0x120, 8))
-    ncch = p0_off * MEDIA_UNIT
+    """Locate the level-3 RomFS inside the game's NCCH. Returns dict with absolute offsets."""
+    ncch, kind = ncch_of(img)
     if img.read(ncch + 0x100, 4) != b"NCCH":
-        raise CtrError("partition 0 is not an NCCH")
+        raise CtrError("the CIA's first content is not an NCCH" if kind == "cia" else "partition 0 is not an NCCH")
     flags = img.read(ncch + 0x188, 8)
     if not (flags[7] & 0x04):
         raise CtrError("NCCH is encrypted (NoCrypto flag clear); supply a decrypted image")

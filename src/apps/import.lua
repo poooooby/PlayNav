@@ -172,8 +172,13 @@ return function(mod, Pointer, Extract, Assets)
     if Extract.message and Extract.state ~= "finishing" then
       text(G, tostring(Extract.message), 128, 0.5, INK.dim)
     end
-    if Extract.failed > 0 then
+    local differs = Extract.differs or 0
+    if Extract.failed > 0 and differs > 0 then
+      text(G, ("%d could not be decoded, %d differ from Rev 2"):format(Extract.failed, differs), 140, 0.5, INK.warn)
+    elseif Extract.failed > 0 then
       text(G, ("%d could not be decoded"):format(Extract.failed), 140, 0.5, INK.warn)
+    elseif differs > 0 then
+      text(G, ("%d differ from Alpha Sapphire Rev 2"):format(differs), 140, 0.5, INK.dim)
     end
     if Extract.state == "running" then button(G, app.PAUSE, "PAUSE", false) end
   end
@@ -236,6 +241,9 @@ return function(mod, Pointer, Extract, Assets)
     end
     if failNote and Pointer.now() < failNote[2] then
       text(G, failNote[1], 140, 0.5, INK.warn)
+    elseif a > 0 and not pressedAt and (Extract.differs or 0) > 0 then
+      text(G, ("%d parts of your copy differ from Rev 2;\nPlayNav draws its own there."):format(Extract.differs),
+        136, 0.5, INK.dim, a)
     end
     if shutterAt then
       local f = (Pointer.now() - shutterAt) * 30

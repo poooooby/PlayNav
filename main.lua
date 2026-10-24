@@ -326,6 +326,7 @@ return function(mod)
     local makeExtract = loadSibling(mod, "src/import/extract.lua")
     local makeImportApp = loadSibling(mod, "src/apps/import.lua")
     local Recipe = loadSibling(mod, "data/oras_recipe.lua")
+    local Fingerprints = loadSibling(mod, "data/oras_fingerprints.lua")
     if makeAssets then
       Assets = makeAssets(mod)
       Assets.enabled = true
@@ -368,7 +369,7 @@ return function(mod)
       end
     end
     if makeExtract and Recipe and Assets then
-      Extract = makeExtract(mod, { recipe = Recipe, assets = Assets, onChange = dirty })
+      Extract = makeExtract(mod, { recipe = Recipe, fingerprints = Fingerprints, assets = Assets, onChange = dirty })
       if makeImportApp then
         local ok, app = pcall(makeImportApp, mod, Pointer, Extract, Assets)
         if ok and type(app) == "table" then Apps:register(app) end

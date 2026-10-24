@@ -36,7 +36,16 @@ python tools/montage.py <work>/sheets a_0_4_2 <work>/montage/a_0_4_2.png --cols 
 
 # 5. check the recipe against the dump and measure the asset set
 python tools/recipe_check.py <work>/garc_all <work>/recipe_png
+
+# 6. after any recipe change: the fingerprint of every row's bytes (luajit, from the repo root),
+#    then the independent check (romfs_extract.py + garc_dump.py + zlib.crc32)
+luajit tools/oras_fingerprints.lua "<game.cci>" > data/oras_fingerprints.lua
+python tools/oras_fingerprints.py "<game.cci or .cia>"
 ```
+
+`romfs_extract.py` and `src/import/ctr.lua` open a card image (NCSD partition 0), a decrypted
+CIA (its first content) or a bare NCCH. `oras_fingerprints.py` against another dump lists the
+rows PlayNav would skip for it.
 
 The in-game decoders are tested against the same data with
 `luajit mods/play_nav/tests/oras_local_test.lua` from the engine root (it skips when the dump or

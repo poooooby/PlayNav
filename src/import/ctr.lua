@@ -1,5 +1,5 @@
--- Decrypted 3DS card image reader: NCSD -> partition 0 NCCH -> RomFS (IVFC
--- level 3) -> path lookup. Pure Lua; reads only headers and the metadata
+-- Decrypted 3DS image reader: card image (NCSD partition 0), CIA (first
+-- content) or bare NCCH -> RomFS (IVFC level 3) -> path lookup. Pure Lua; reads only headers and the metadata
 -- tables through a read(offset, length) closure, so it works over
 -- mod.imports:read and inside a mod.job worker. Twin of tools/romfs_extract.py.
 
@@ -28,14 +28,55 @@ local function name16(s, p, n)
   return table.concat(out)
 end
 
+local function be16(s, p) local a, b = s:byte(p, p + 1); return a * 256 + b end
+local function be32(s, p)
+  local a, b, c, d = s:byte(p, p + 3)
+  return ((a * 256 + b) * 256 + c) * 256 + d
+end
+
+local function align64(n) return math.ceil(n / 64) * 64 end
+
+-- a TMD's signature block, type word and padding included
+local SIG_BLOCK = {
+  [0x10000] = 0x240, [0x10003] = 0x240,
+  [0x10001] = 0x140, [0x10004] = 0x140,
+  [0x10002] = 0x80, [0x10005] = 0x80,
+}
+local CIA_HEADER = 0x2020
+
+-- Where the game's NCCH starts, and the container's kind: a card image (.cci / .3ds,
+-- partition 0), a CIA (its first content, which must not be title-key encrypted), or a
+-- bare NCCH (.cxi).
+function M.ncchOf(read)
+  local magic = read(0x100, 4)
+  if magic == "NCSD" then
+    return u32(read(0x120, 8), 1) * MEDIA_UNIT, "cci"
+  end
+  if magic == "NCCH" then return 0, "ncch" end
+  local h = read(0, 0x20)
+  if u32(h, 1) ~= CIA_HEADER then
+    return nil, "not a 3DS card image, CIA or NCCH"
+  end
+  local ticket = align64(CIA_HEADER) + align64(u32(h, 9))
+  local tmd = ticket + align64(u32(h, 13))
+  local content = tmd + align64(u32(h, 17))
+  local sig = SIG_BLOCK[be32(read(tmd, 4), 1)]
+  if not sig then return nil, "CIA: unknown TMD signature type" end
+  local chunk = read(tmd + sig + 0xC4 + 0x900, 0x30)
+  if be16(chunk, 7) % 2 == 1 then
+    return nil, "encrypted CIA content: supply a decrypted CIA"
+  end
+  return content, "cia"
+end
+
 -- Returns a RomFS handle or nil, reason.
 function M.open(read)
-  local h = read(0x100, 4)
-  if h ~= "NCSD" then return nil, "not an NCSD image" end
-  local part = read(0x120, 8)
-  local p0off = u32(part, 1) * MEDIA_UNIT
-  local ncch = p0off
-  if read(ncch + 0x100, 4) ~= "NCCH" then return nil, "partition 0 is not an NCCH" end
+  local ncch, kind = M.ncchOf(read)
+  if not ncch then return nil, kind end
+  if read(ncch + 0x100, 4) ~= "NCCH" then
+    return nil, kind == "cia" and "the CIA's first content is not an NCCH"
+      or "partition 0 is not an NCCH"
+  end
   local flags = read(ncch + 0x188, 8)
   local f7 = flags:byte(8)
   if f7 % 8 < 4 then return nil, "encrypted NCCH: supply a decrypted image" end
@@ -53,7 +94,7 @@ function M.open(read)
   local fileMetaOff, fileMetaLen = u32(hdr, 0x1D), u32(hdr, 0x21)
   local dataOff = u32(hdr, 0x25)
   local fs = {
-    ncch = ncch, romfs = romfs, l3 = l3,
+    ncch = ncch, kind = kind, romfs = romfs, l3 = l3,
     dirMeta = read(l3 + dirMetaOff, dirMetaLen),
     fileMeta = read(l3 + fileMetaOff, fileMetaLen),
     data = l3 + dataOff,

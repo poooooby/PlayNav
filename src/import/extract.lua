@@ -21,9 +21,33 @@ return function(mod, deps)
   }
 
   local IMPORT = Recipe.source.import or "oras_cci"
-  local MODULES = { "lz", "garc", "ctr", "bclim", "gen6text", "darc", "bcstm", "bcsar", "seqsynth", "bch" }
+  local MODULES = { "lz", "garc", "ctr", "bclim", "crc32", "gen6text", "darc", "bcstm", "bcsar", "seqsynth", "bch" }
 
   local function log(fmt, ...) mod.log:info("import: " .. fmt, ...) end
+
+  -- Each row's bytes are checked against Alpha Sapphire Rev 2's (data/oras_fingerprints.lua),
+  -- so any decrypted dump that holds them works: a row whose bytes differ is skipped and its
+  -- feature draws PlayNav's own art, as without the import. Off when the table is absent or
+  -- was made for another recipe.
+  local Fp = nil
+  do
+    local src = mod.read and mod:read("src/import/fingerprint.lua")
+    local chunk = src and load(src, "=src/import/fingerprint.lua")
+    local ok, F = pcall(chunk or error)
+    local rows = deps.fingerprints
+    if ok and type(F) == "table" and type(rows) == "table" and rows.recipe == Recipe.version
+        and type(rows.rows) == "table" then
+      Fp = { key = F.key, rows = rows.rows, DIFFERS = F.DIFFERS, MISSING = F.MISSING }
+    elseif type(rows) == "table" then
+      mod.log:warn("import: fingerprints are for recipe %s, not %s; rows are not checked (regenerate with tools/oras_fingerprints.lua)",
+        tostring(rows.recipe), tostring(Recipe.version))
+    end
+  end
+  E.verifying = Fp ~= nil
+  E.differs = 0
+  function E.fingerprints() return Fp and Fp.rows end
+
+  local function isDiffers(err) return type(err) == "string" and err:find("^fingerprint:") ~= nil end
 
   function E.importPresent()
     local ok, info = pcall(mod.imports.info, mod.imports, IMPORT)
@@ -107,13 +131,14 @@ return function(mod, deps)
     end
     E.archives = {}
     for _, a in ipairs(order) do E.archives[#E.archives + 1] = byArchive[a] end
-    E.total, E.done, E.failed = #Recipe.assets, 0, 0
+    E.total, E.done, E.failed, E.differs = #Recipe.assets, 0, 0, 0
     E.results, E.pending, E.jobs = {}, {}, {}
     E.cancelled = false
     E.state = "running"
     E.startedAt = os.time()
     E.message = "Extracting Pokemon-Amie art..."
-    log("start: %d textures from %d archives", E.total, #E.archives)
+    log("start: %d textures from %d archives%s", E.total, #E.archives,
+      Fp and ", each checked against Alpha Sapphire Rev 2" or ", unchecked")
     onChange()
     return true
   end
@@ -166,7 +191,7 @@ return function(mod, deps)
       end
     end
     E.results, E.pending, E.archives = {}, {}, {}
-    E.total, E.done, E.failed = 0, 0, 0
+    E.total, E.done, E.failed, E.differs = 0, 0, 0, 0
     E.cancelled, E.message = false, nil
     E.state = "idle"
     if Assets and Assets.refresh then Assets.refresh() end
@@ -180,11 +205,13 @@ return function(mod, deps)
     local arg = {
       importId = IMPORT, archive = group.archive, items = {},
       modules = E.sources, outPrefix = "oras/raw/",
+      verify = Fp ~= nil, differs = Fp and Fp.DIFFERS, missingFp = Fp and Fp.MISSING,
     }
     for i, item in ipairs(group.items) do
       arg.items[i] = { entry = item.entry, sub = item.sub, clim = item.clim, id = item.id,
         w = item.w, h = item.h, fmt = item.fmt, kind = item.kind, lines = item.lines,
-        match = item.match, count = item.count, name = item.name, path = item.path, tempo = item.tempo, gain = item.gain }
+        match = item.match, count = item.count, name = item.name, path = item.path, tempo = item.tempo, gain = item.gain,
+        fp = Fp and Fp.rows[Fp.key(item)] or nil }
     end
     local handle, err = mod.job:run("src/import/job_extract.lua", arg, { assetIO = true, maxSeconds = 300 })
     if not handle then
@@ -295,7 +322,7 @@ return function(mod, deps)
               E.pending[#E.pending + 1] = r.id
             else
               E.results[r.id] = { ok = false, err = r.err }
-              E.failed = E.failed + 1
+              if isDiffers(r.err) then E.differs = E.differs + 1 else E.failed = E.failed + 1 end
               E.done = E.done + 1
             end
           end
@@ -326,12 +353,24 @@ return function(mod, deps)
     if E.state == "running" and #E.archives == 0 and inflight() == 0 and #E.pending == 0 then
       E.state = "finishing"
       local ok, err, missing = writeManifest()
-      if ok then
+      if ok and missing >= E.total then
+        -- nothing matched: another game, an encrypted dump, or not a 3DS image at all
+        E.state = "failed"
+        local why = nil
+        for _, r in pairs(E.results) do
+          if r.err and not isDiffers(r.err) then why = tostring(r.err):gsub("^job: ", ""); break end
+        end
+        E.message = E.differs > 0 and why == nil
+          and "This file holds none of Alpha Sapphire's art. Import a decrypted Alpha Sapphire."
+          or ("This file could not be read: %s"):format(tostring(why))
+        log("nothing extracted: %d rows differ, first error %s", E.differs, tostring(why))
+      elseif ok then
         E.state = "done"
         E.message = missing == 0
           and "Pokemon-Amie art is ready. You can remove the ROM copy under Imported files."
           or ("Art ready (%d of %d). You can remove the ROM copy under Imported files."):format(E.total - missing, E.total)
-        log("done: %d ok, %d failed in %ds", E.total - E.failed, E.failed, os.time() - (E.startedAt or os.time()))
+        log("done: %d ok, %d differ from Rev 2, %d failed in %ds", E.total - missing, E.differs, E.failed,
+          os.time() - (E.startedAt or os.time()))
         if Assets then Assets.refresh() end
       else
         E.state = "failed"

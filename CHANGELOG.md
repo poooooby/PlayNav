@@ -5,6 +5,14 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Any decrypted dump of Alpha Sapphire (USA) can supply the art: a card image, trimmed or not,
+  or a decrypted CIA. PlayNav checks every piece it unpacks against Alpha Sapphire Rev 2 and
+  draws its own art for any piece your copy holds differently; the import screen says how many.
+  This needs a Gen1Recomp build with mod-checked imports; earlier builds still take only the
+  exact Rev 2 `.cci`.
+
 ### Fixed
 
 - On phones (and touchscreen PCs) in split screen, every tap reached PlayNav twice: once as the
