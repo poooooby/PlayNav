@@ -42,6 +42,7 @@ local function body(game, log)
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
 
   local ok, err = pcall(function()
+    if os.getenv("PROBE_FALLBACK") == "1" then X._test.forceRom(false) end
     TR.open()
     U.wait(20)
     for _, c in ipairs(TR.session.courseList()) do TR.store.cleared()[c.id] = true end
@@ -62,6 +63,37 @@ local function body(game, log)
       waitFor(function() return TR.state().mode ~= "regimen" end, 60 * 60)
       pcall(TR.session.leaveResult)
       U.wait(30)
+    end
+    -- PROBE_ONLY=lv2: the stage 2 balls (black, blue homing, stretched) and Tentacruel's bitbots
+    if os.getenv("PROBE_ONLY") == "lv2" then
+      local function flying(age) return function(S)
+        for _, b in ipairs(S.balls) do if b.game and S.t - b.t0 > age then return true end end
+      end end
+      course("lv2_atk", { { name = "1_black_ball", when = flying(0.9) } })
+      course("lv2_spa", { { name = "1_homing_round", when = flying(1.2) } })
+      course("lv2_spd", {
+        { name = "1_bitbots", when = function(S) return #S.bits >= 3 end, after = 1.0 },
+        { name = "2_wide_homing", when = function(S)
+          for _, b in ipairs(S.balls) do if b.game and b.w and S.t - b.t0 > 1.2 then return true end end
+        end },
+      })
+      course("lv2_spe", { { name = "1_dive", when = function(S) return (S.bot.thrown or 0) > 0 end, after = 0.4 } })
+      return
+    end
+    -- PROBE_ONLY=shield: Graveler's shield and its target alone
+    if os.getenv("PROBE_ONLY") == "shield" then
+      course("lv2_def", {
+        { name = "1_shield", when = function(S) return S.barrier ~= nil end, after = 1.0 },
+        { name = "2_shield_later", when = function(S) return S.barrier ~= nil and S.barrier.t > 4 end },
+        -- its target hit: the shield shatters
+        { name = "3_break_0.1", when = function(S)
+          if S.barrier then for _, g in ipairs(S.goals) do if g.kind == "marker" then S:hitGoal(g, { points = 0 }) end end end
+          return S.shieldBrokeAt ~= nil
+        end, after = 0.1 },
+        { name = "4_break_0.35", when = function(S) return S.t - S.shieldBrokeAt >= 0.35 end },
+        { name = "5_break_0.7", when = function(S) return S.t - S.shieldBrokeAt >= 0.7 end },
+      })
+      return
     end
     course("lv1_spa", {
       { name = "1_aura", when = function(S) return (S.bot.aura or 0) > 0 end, after = 0.6 },

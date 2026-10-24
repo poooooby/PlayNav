@@ -591,10 +591,10 @@ do
   T.eq(ev.bit_regen, 1, "it regenerates after its time")
   T.eq(sim:state().liveBits, 2, "...both live again")
 
-  local aero = make("lv2_spe")
+  local aero = make("lv2_spe", { sway = true })
   run(aero, 3.1)
   local _, y0 = aero:botOffset()
-  run(aero, 0.55)
+  run(aero, 1.35)
   local _, y1 = aero:botOffset()
   T.check(math.abs(y1 - y0) > 0.01, "Aerodactyl's balloon rises and falls")
   local still = make("lv1_hp")
@@ -895,6 +895,36 @@ do
     run(u, 4, function(ev) if ev.kind == "ball_absorbed" then absorbed = true end end)
     T.check(absorbed and #u.balls == 0 and u.score == before,
       "a ball on an untouchable trainee breaks there and costs nothing (not on into the camera)")
+  end
+
+  -- Graveler (lv2_def): its first step raises a shield with a target; nothing is thrown while
+  -- it stands, the target breaks it and the script goes on
+  do
+    local g = gameSim("lv2_def")
+    run(g, 3.1)
+    g.player.safe = 1e9
+    local up
+    run(g, 8, function(e) if e.kind == "barrier_up" then up = true end end)
+    local marker
+    for _, goal in ipairs(g.goals) do if goal.kind == "marker" then marker = goal end end
+    T.check(up and g.barrier and marker, "Graveler's shield goes up with its target")
+    local thrown = 0
+    run(g, 6, function(e) if e.kind == "attack_launch" then thrown = thrown + 1 end end)
+    T.eq(thrown, 0, "...nothing is thrown while it stands")
+    -- a shot on one of its goals while it stands scores nothing
+    local white
+    for _, goal in ipairs(g.goals) do if goal.kind ~= "marker" then white = goal end end
+    if white then
+      local gx, gy = g:goalPos(white)
+      g.shots = { { x = gx, y = gy, z = 0.99, vx = 0, vy = 0, vz = 2, r = 0.05, points = 100, type = "black", stage = 0 } }
+      local scoreBefore = g.score
+      run(g, 0.2)
+      T.eq(g.score, scoreBefore, "...a shot at its goals is absorbed (it cannot be hit)")
+    end
+    g:hitGoal(marker, { points = 100 })
+    T.check(not g.barrier and g.shieldBrokeAt, "...the target breaks it, shattering")
+    run(g, 20, function(e) if e.kind == "attack_launch" then thrown = thrown + 1 end end)
+    T.check(thrown > 0, "...and the attacks go on (" .. thrown .. ")")
   end
   local hitAt
   local w2 = gameSim("lv1_hp")

@@ -279,8 +279,28 @@ local SWAY = {
   lv1_spa = { ax = 0.75, ay = 4.75, period = 2.35 },
   lv1_spd = { ax = 2, ay = 11, period = 12 },
   lv1_spe = { ax = 5, ay = 4, period = 6.6 },
+  -- Lv2 (the s2 captures): Relicanth a loose circle, Fraxure / Graveler a small bob, Magneton
+  -- a lopsided sway, Tentacruel sinking slowly, Aerodactyl soaring up and down
+  lv2_hp = { ax = 2.8, ay = 3.5, period = 5.5 },
+  lv2_atk = { ax = 0, ay = 2, period = 2.8 },
+  lv2_def = { ax = 1.5, ay = 1.3, period = 3.2 },
+  lv2_spa = { ax = 2.5, ay = 2, period = 3.95 },
+  lv2_spd = { ax = 0, ay = 3, period = 14 },
+  lv2_spe = { ax = 0, ay = 9.5, period = 5.4 },
 }
 for id, sway in pairs(SWAY) do if byId[id] then byId[id].sway = sway end end
+
+-- a balloon's own throw (N.BOT.WINDUP's form; a negative DIP climbs, a negative RISE ends below):
+-- Fraxure dips a little and stretches up; Graveler leaps up off the top of the screen and drops
+-- back to throw; Aerodactyl climbs, then dives as it throws and glides low a while
+local WINDUP = {
+  lv2_atk = { DIP_PX = 4, RISE_PX = 14, DIP_AT = 0.4, HOLD_S = 1.5 },
+  lv2_def = { DIP_PX = -80, RISE_PX = 0, DIP_AT = 0.85, HOLD_S = 0.3 },
+  lv2_spe = { DIP_PX = -20, RISE_PX = -45, DIP_AT = 0.75, HOLD_S = 4 },
+}
+for id, w in pairs(WINDUP) do if byId[id] then byId[id].windup = w end end
+-- Aerodactyl's soaring is its sway now
+if byId.lv2_spe then byId.lv2_spe.motion = nil end
 
 return { version = 1, anchors = anchors, attacks = attacks, courses = courses, byId = byId, STAT_ORDER = STAT_ORDER,
   botsFor = botsFor, alpha = alpha }

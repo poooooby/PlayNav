@@ -407,7 +407,7 @@ return function(N)
     -- the throw: it dips through the wind-up, snaps up as it lets go and holds there while the
     -- ball flies, then settles (N.BOT.WINDUP, game px)
     if bot then
-      local W = N.BOT.WINDUP
+      local W = self.course.windup or N.BOT.WINDUP
       local dy = 0
       if bot.windup then
         local u = math.min(1, bot.windup.t / math.max(0.05, bot.windup.len))
@@ -462,12 +462,15 @@ return function(N)
     return bi, bj
   end
 
+  local goalTimer
   local function wanderOf(self, goal)
     local W = N.GOALS.WANDER
     local a = goal.anchor and self.anchors[goal.anchor] or {}
     local speed = W.SPEED[self.isSecret and "secret" or self.level] or W.SPEED[1]
     local radius = W.RADIUS
     if a.motion then speed, radius = math.max(speed, W.MOTION_SPEED), W.MOTION_RADIUS end
+    -- the shield's target roams the whole balloon
+    if goal.kind == "marker" then return W.MARKER_SPEED or 0, math.huge end
     if self.course.fleeing then speed, radius = math.max(speed, W.FLEE_SPEED), math.huge
     elseif self.course.roaming then speed, radius = math.max(speed, W.ROAM_SPEED), math.huge end
     return speed, radius
@@ -575,6 +578,11 @@ return function(N)
   end
 
   function Sim:goalPos(goal)
+    if goal.orbit then
+      local o = goal.orbit
+      local bx, by = self:botOffset()
+      return bx + math.cos(o.a) * o.r, self:botCY() + by + (o.up + math.sin(o.a) * o.r) * Sim.ASPECT
+    end
     if goal.ci then
       local R = N.BOT.R * self.bot.scale
       local bx, by = self:botOffset()
@@ -610,6 +618,14 @@ return function(N)
     emit(self, "chance_goal")
   end
 
+  -- the course's goal timer (N.GOALS.TIMER: white, gone, cycle seconds; Wooble's captures)
+  function goalTimer(self)
+    local T = N.GOALS.TIMER
+    return (T and (T[self.course.id] or T[self.isSecret and "secret" or self.level] or T.default))
+      or { white = N.GOALS.YELLOW_AT, gone = N.GOALS.GONE_AT, cycle = N.GOALS.GONE_AT + 1 }
+  end
+  Sim.goalTimer = goalTimer
+
   local function liveGoals(self)
     local white, chance = 0, 0
     for _, g in ipairs(self.goals) do
@@ -622,14 +638,18 @@ return function(N)
   function Sim:updateGoals(step)
     self:moveGoals(step)
     local keep = {}
+    -- under a shield the balloon's goals are hidden and their timer held (the target is not)
+    local shielded = self.barrier and self.barrier.script
     for _, g in ipairs(self.goals) do
-      g.age = g.age + step
+      g.hidden = shielded and g.kind ~= "marker" or nil
+      if not g.hidden then g.age = g.age + step end
+      if g.orbit then g.orbit.a = g.orbit.a + g.orbit.w * step end
       local alive = true
-      if g.kind == "white" and g.age >= N.GOALS.YELLOW_AT then
+      if g.kind == "white" and g.age >= goalTimer(self).white then
         g.kind = "fading"
         emit(self, "goal_yellow", { anchor = g.anchor })
       end
-      if (g.kind == "fading") and g.age >= N.GOALS.GONE_AT then
+      if (g.kind == "fading") and g.age >= goalTimer(self).gone then
         alive = false
         emit(self, "goal_expired", { anchor = g.anchor })
       elseif g.kind == "chance" and g.age >= (g.life or N.GOALS.CHANCE_S) then
@@ -658,8 +678,13 @@ return function(N)
           self.chanceDone = true
         end
         self.groupGap = self.groupGap + step
-        -- a group that ran out (none of it scored) is followed sooner than a cleared one
-        local gap = (self.groupScored or 0) == 0 and N.GOALS.EXPIRE_GAP_S or N.GOALS.GROUP_GAP_S
+        -- a cleared group: the next GROUP_GAP_S later; one that ran out: on the course's own
+        -- cycle from when it came (at least MIN_GAP_S after it went)
+        local gap = N.GOALS.GROUP_GAP_S
+        if (self.groupScored or 0) == 0 then
+          local tm = goalTimer(self)
+          gap = math.max(N.GOALS.MIN_GAP_S or 0.4, tm.cycle - tm.gone)
+        end
         if self.groupGap >= gap then
           self.groupGap = 0
           self:spawnGroup()
@@ -781,6 +806,7 @@ return function(N)
 
   local GA = N.ATTACK.GAME
   local FPS = 30
+  local raiseShield
 
   -- this balloon's phase: the course's phase for the bot, the version's line for the finale
   function Sim:startScript()
@@ -853,6 +879,18 @@ return function(N)
       delay = delay + (shot.next or 0)
     end
     emit(self, "attack_launch", { attack = "volley", volley = vid })
+    return delay
+  end
+
+  -- the balloon's shield and the target that breaks it (a marker goal that roams its shape)
+  function raiseShield(self, secs)
+    if self.barrier then return end
+    local S = N.ATTACK.SHIELD
+    self.barrier = { t = 0, marker = "center", maxS = secs or N.ATTACK.barrier.max_s, script = true }
+    -- the target circles the balloon (screen angles: y down, so the world's is their negative)
+    self.goals[#self.goals + 1] = { kind = "marker", age = 0, r = N.GOALS.MARKER_R, hits = 0,
+      orbit = { a = math.rad(-S.START_DEG), w = math.rad(S.DEG_S), r = S.ORBIT_R, up = S.ORBIT_UP } }
+    emit(self, "barrier_up")
   end
 
   local function spawnBits(self, n)
@@ -862,9 +900,10 @@ return function(N)
     local rec = self.script.phase.bits and self.gameAttacks.bits and self.gameAttacks.bits[self.script.phase.bits]
     for _ = 1, math.min(n, GA.MAX_BITS - alive) do
       local slot = #self.bits + 1
-      local x = ((slot - 1) % 3 - 1) * 0.5
-      self.bits[#self.bits + 1] = { id = slot, x = x, y = A.y, z = A.z, hp = A.hp, r = A.r,
-        fireT = GA.BIT_EVERY_F / FPS * (0.5 + 0.5 * self.rng()), damage = rec and rec.damage, game = true }
+      local x = GA.BIT_X[(slot - 1) % #GA.BIT_X + 1]
+      -- each circles its own loop (clockwise on screen), all firing together
+      self.bits[#self.bits + 1] = { id = slot, x = x, y = A.y, z = A.z, hp = A.hp, r = A.r, cx = x, cy = A.y,
+        loopA = slot * 2.1, fireT = GA.BIT_FIRST_S, damage = rec and rec.damage, game = true }
     end
     emit(self, "bits_spawned", { n = n })
   end
@@ -903,30 +942,44 @@ return function(N)
         else
           sc.stage = "pose"
         end
+      elseif sc.stage == "shield" then
+        if self.barrier then sc.left = 0; return end
+        sc.stage, sc.left = "recover", sc.left + math.max(0, st and st.recover or 0)
       elseif sc.stage == "warn" then
         sc.stage = "pose"
       elseif sc.stage == "pose" then
         if st and st.cmd ~= 0 then
+          local own = GA.COURSE and GA.COURSE[self.course.id] or {}
           local key = (st.fire and st.fire >= 0) and st.fire
+            or (st.cmd == 2 and own.shieldKey) or own.key
             or (GA.FIRE_KEY_COURSE and GA.FIRE_KEY_COURSE[self.course.id]) or GA.FIRE_KEY_U
           sc.stage, sc.left = "act", sc.left + key
           -- the balloon winds up for the throw (drawn: a dip, then up as it lets go)
           if st.cmd >= 84 then self.bot.windup = { t = 0, len = key / (((sc.form and ph.rateB) or ph.rate) * FPS) } end
         else
           -- a wait: its recovery and the idle pose played out
-          local extra = GA.WAIT_POSE_U and GA.WAIT_POSE_U[st and st.pose or 0] or 0
+          local own = GA.COURSE and GA.COURSE[self.course.id]
+          local pose = st and st.pose or 0
+          local extra = (own and own.pose and own.pose[pose]) or (GA.WAIT_POSE_U and GA.WAIT_POSE_U[pose]) or 0
           sc.stage, sc.left = "recover", sc.left + (st and st.recover or 45) + extra
         end
       elseif sc.stage == "act" then
         if st.cmd >= 84 then
-          fireVolley(self, st.cmd - 84)
-          self.bot.windup, self.bot.thrown = nil, N.BOT.WINDUP.HOLD_S
+          local frames = fireVolley(self, st.cmd - 84)
+          self.bot.windup, self.bot.thrown = nil, (self.course.windup or N.BOT.WINDUP).HOLD_S
+          -- the recovery runs from the stream's last ball
+          sc.left = sc.left + (frames or 0) * ((sc.form and ph.rateB) or ph.rate)
         elseif st.cmd == 3 then spawnBits(self, st.count)
         elseif st.cmd == 2 then
-          -- the timed routine: the balloon waits it out (its frames, whatever the rate)
-          sc.left = sc.left + st.count * ((sc.form and ph.rateB) or ph.rate)
+          -- the shield (Wooble: Graveler): up for at most `count` frames with a moving yellow
+          -- target on it; the balloon takes no goal while it stands and its script waits until
+          -- the target is hit or the time runs out
+          raiseShield(self, st.count / FPS)
+          sc.stage, sc.left = "shield", 0
         end
-        if sc.reps > 0 then
+        if sc.stage == "shield" then
+          -- (handled below, each frame)
+        elseif sc.reps > 0 then
           sc.reps = sc.reps - 1
           sc.left = sc.left + math.max(1, st.repeatGap)
         else
@@ -938,8 +991,21 @@ return function(N)
     end
   end
 
+  local function tickBarrier(self, step)
+    if self.barrier then
+      self.barrier.t = self.barrier.t + step
+      if self.barrier.t >= self.barrier.maxS then
+        -- run out: it fades away (drawn from shieldFadedAt)
+        self.barrier = nil
+        self.shieldFadedAt = self.t
+        emit(self, "barrier_down", { timed = true })
+      end
+    end
+  end
+
   function Sim:updateAttacks(step)
     if self.script then
+      tickBarrier(self, step)
       self:runScript(step)
       -- a volley's shots leave on their frames, built then (aimed at the trainee as it is)
       if #self.spawnQueue > 0 then
@@ -991,13 +1057,7 @@ return function(N)
       end
       self.spawnQueue = keep
     end
-    if self.barrier then
-      self.barrier.t = self.barrier.t + step
-      if self.barrier.t >= self.barrier.maxS then
-        self.barrier = nil
-        emit(self, "barrier_down", { timed = true })
-      end
-    end
+    tickBarrier(self, step)
   end
 
   -- ------- shots against bits and goals
@@ -1006,7 +1066,9 @@ return function(N)
     local pts = shot.points
     if goal.kind == "chance" then pts = math.floor(pts * N.POINTS.CHANCE_MULT + 0.5) end
     if goal.kind == "marker" then
+      -- the target hit: the shield shatters away (drawn from shieldBrokeAt)
       self.barrier = nil
+      self.shieldBrokeAt = self.t
       emit(self, "barrier_down", { timed = false })
       pts = 0
     end
@@ -1073,7 +1135,8 @@ return function(N)
           for _, g in ipairs(self.goals) do if g.kind ~= "marker" then order[#order + 1] = g end end
         end
         for _, g in ipairs(order) do
-          if not g.dead then
+          local shown = not g.hidden and not (g.kind == "marker" and g.orbit and g.age < N.ATTACK.SHIELD.FADE_IN_S)
+          if not g.dead and shown then
             local gx, gy = self:goalPos(g)
             local rr = g.r * self.bot.scale + sh.r
             if (hx - gx) ^ 2 + (hy - gy) ^ 2 <= rr * rr then
@@ -1271,10 +1334,15 @@ return function(N)
         end
         keptBits[#keptBits + 1] = bit
       elseif bit.hp > 0 then
+        if bit.cx then
+          bit.loopA = bit.loopA - 2 * math.pi / GA.BIT_LOOP_S * step
+          bit.x = bit.cx + math.cos(bit.loopA) * GA.BIT_LOOP_R
+          bit.y = bit.cy + math.sin(bit.loopA) * GA.BIT_LOOP_R
+        end
         bit.fireT = bit.fireT - step
         if bit.fireT <= 0 then
           if bit.game then
-            -- the game's: about once a second, straight at where the trainee is now
+            -- the game's: every BIT_EVERY_F, straight at where the trainee is now
             bit.fireT = GA.BIT_EVERY_F / FPS
             local G = GA
             local speed = G.BIT_SPEED * FPS * G.DEPTH_UNIT

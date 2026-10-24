@@ -86,7 +86,7 @@ do
   T.eq(C.byId.lv3_def.name, "Break It! Golem's Defensive Line!", "...for Golem too")
   T.eq(C.byId.secret_01.order, 20, "the first secret course is entry 20")
   T.eq(C.byId.secret_12.order, 31, "...the last 31")
-  T.check(C.byId.lv2_spe.motion and C.byId.lv2_spe.motion.bob, "Aerodactyl soars")
+  T.check(C.byId.lv2_spe.sway and C.byId.lv2_spe.sway.ay >= 9, "Aerodactyl soars (its sway, +-9.5 px every 5.4 s)")
   T.check(C.byId.secret_10.roaming, "Probopass's goals roam")
 end
 

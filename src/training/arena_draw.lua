@@ -559,7 +559,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return BODY_PTS
   end
 
-  local drawAura
+  local drawAura, drawShieldCage, drawCageShatter
   -- a bitbot's string: `len` and end `sway` in its radii
   local BIT_STRING = { len = 1.6, sway = 0.25, segs = 10 }
   local BIT_PTS = {}
@@ -642,6 +642,116 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.pop()
   end
 
+  -- the balloon's shield (Wooble's Graveler capture): a cylinder of light round it from above
+  -- its head to the grass, CAGE.W of its half width: pale cyan bars turning slowly with grid
+  -- rings, a bright rim at the top, a white beam down the middle and a magenta glow rising from
+  -- its foot, all added light (the balloon shows through)
+  D.CAGE = { W = 1.4, TOP = 1.3, BARS = 18, RINGS = 4, SPIN = 0.25, GLOW = 0.38, RIM_RY = 0.13, TOP_GLOW = 0.16 }
+  -- (fade: 1 standing, falling to 0 as it runs out)
+  function drawShieldCage(G2, sim, cx, cy, rw, rh, fade)
+    local C = D.CAGE
+    local hw = rw * C.W
+    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local h = bottom - top
+    local ry = hw * C.RIM_RY
+    local flick = (0.9 + 0.1 * math.sin(sim.t * 13)) * (fade or 1)
+    G2.push("all")
+    G2.setBlendMode("add")
+    -- the body of light, and the magenta glow at its foot (strips fading upward)
+    G2.setColor(0.25, 0.6, 1, 0.13 * flick)
+    G2.rectangle("fill", cx - hw, top, hw * 2, h)
+    local n = 10
+    for i = 0, n - 1 do
+      local u = i / n
+      G2.setColor(0.9, 0.12, 0.95, 0.45 * (1 - u) * (1 - u) * flick)
+      G2.rectangle("fill", cx - hw, bottom - (u + 1 / n) * h * C.GLOW, hw * 2, h * C.GLOW / n + 0.5)
+      -- the light along the top, fading down
+      G2.setColor(0.4, 0.95, 1, 0.22 * (1 - u) * (1 - u) * flick)
+      G2.rectangle("fill", cx - hw, top + u * h * C.TOP_GLOW, hw * 2, h * C.TOP_GLOW / n + 0.5)
+    end
+    G2.setColor(0.9, 0.2, 0.95, 0.45 * flick)
+    G2.ellipse("fill", cx, bottom, hw, ry * 1.2, 40)
+    -- the bars: round the cylinder, cyan above, pink toward the foot
+    G2.setLineWidth(math.max(1, hw * 0.012))
+    local spin = sim.t * C.SPIN
+    for i = 0, C.BARS - 1 do
+      local th = (i / C.BARS + spin) * 2 * math.pi
+      local x = cx + hw * math.sin(th)
+      local front = math.cos(th)
+      local a = (0.3 + 0.2 * front) * flick
+      local yt, yb = top + ry * front, bottom + ry * front
+      local split = yt + (yb - yt) * 0.62
+      for pass = 1, 2 do
+        -- a soft wide glow, then the bar
+        local k = pass == 1 and 0.35 or 1
+        G2.setLineWidth(math.max(1, hw * (pass == 1 and 0.045 or 0.012)))
+        G2.setColor(0.55, 0.95, 1, a * k)
+        G2.line(x, yt, x, split)
+        G2.setColor(0.95, 0.35, 1, a * k)
+        G2.line(x, split, x, yb)
+      end
+    end
+    -- the grid rings and the rim
+    for k = 1, C.RINGS do
+      local y = top + h * k / (C.RINGS + 1)
+      local pink = k / (C.RINGS + 1) > 0.62
+      if pink then G2.setColor(0.95, 0.4, 1, 0.22 * flick) else G2.setColor(0.6, 0.95, 1, 0.2 * flick) end
+      G2.ellipse("line", cx, y, hw, ry, 40)
+    end
+    G2.setLineWidth(math.max(1, hw * 0.02))
+    G2.setColor(0.45, 0.95, 1, 0.4 * flick)
+    G2.ellipse("line", cx, top, hw, ry, 48)
+    G2.setColor(0.3, 0.8, 1, 0.12 * flick)
+    G2.ellipse("fill", cx, top, hw, ry, 48)
+    -- the beam down the middle
+    G2.setColor(1, 1, 1, 0.12 * flick)
+    G2.rectangle("fill", cx - hw * 0.05, top, hw * 0.1, h)
+    G2.setColor(1, 1, 1, 0.35 * flick)
+    G2.setLineWidth(math.max(1, hw * 0.015))
+    G2.line(cx, top, cx, bottom)
+    G2.pop()
+  end
+
+  -- the shield shattering when its target is hit: a flash through the cylinder, then its bars
+  -- broken into pieces flying out and falling, turning, fading over S (u 0..1 through it);
+  -- run out instead, it fades over FADE_S
+  D.CAGE_BREAK = { S = 0.9, FADE_S = 0.5, PIECES = 3, SPREAD = 0.9, FALL = 140 }
+  function drawCageShatter(G2, sim, cx, cy, rw, rh, u)
+    local C, B = D.CAGE, D.CAGE_BREAK
+    local hw = rw * C.W
+    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local h = bottom - top
+    G2.push("all")
+    G2.setBlendMode("add")
+    -- the flash
+    local fa = math.max(0, 1 - u * 4)
+    if fa > 0 then
+      G2.setColor(0.7, 0.95, 1, 0.55 * fa)
+      G2.rectangle("fill", cx - hw * (1 + u), top, hw * 2 * (1 + u), h)
+      G2.setColor(1, 0.5, 1, 0.4 * fa)
+      G2.ellipse("fill", cx, bottom, hw * (1 + u), hw * C.RIM_RY * 1.5, 40)
+    end
+    -- the pieces: each bar in PIECES lengths, out from the middle and down, turning
+    local a = (1 - u) * (1 - u)
+    G2.setLineWidth(math.max(1.2, hw * 0.02))
+    for i = 0, C.BARS - 1 do
+      local th = (i / C.BARS) * 2 * math.pi
+      local side = math.sin(th)
+      for k = 0, B.PIECES - 1 do
+        local f0 = k / B.PIECES
+        local len = h / B.PIECES * 0.8
+        local seed = (i * 7 + k * 13) % 11 / 11
+        local x = cx + hw * side * (1 + B.SPREAD * u * (0.6 + 0.8 * seed))
+        local y = top + h * (f0 + 0.5 / B.PIECES) + B.FALL * u * u * (0.5 + seed) - 30 * u * (1 - seed)
+        local rot = (seed - 0.5) * 5 * u + side * u
+        local dx, dy = math.sin(rot) * len / 2, math.cos(rot) * len / 2
+        if f0 < 0.6 then G2.setColor(0.6, 0.95, 1, 0.8 * a) else G2.setColor(1, 0.45, 1, 0.8 * a) end
+        G2.line(x - dx, y - dy, x + dx, y + dy)
+      end
+    end
+    G2.pop()
+  end
+
   -- opts.noShadow: the caller draws the shadow on the grass; opts.noGoals: the goals are gone
   local function drawBot(G2, sim, opts)
     opts = opts or {}
@@ -700,15 +810,17 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0.25, 0.35, 0.7, 1)
       G2.polygon("line", balloonBody(sx + fx, sy, R))
     end
+    local cw, ch = R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1)
     if sim.barrier then
-      -- the barrier is a bubble round the balloon, not the balloon
-      G2.setColor(0.4, 0.9, 1, 0.3)
-      G2.circle("fill", sx + fx, sy, R * 1.15, 32)
-      G2.setColor(0.6, 1, 1, 0.8)
-      G2.circle("line", sx + fx, sy, R * 1.15, 32)
+      drawShieldCage(G2, sim, sx + fx, sy, cw, ch)
+    elseif sim.shieldBrokeAt and sim.t - sim.shieldBrokeAt < D.CAGE_BREAK.S then
+      drawCageShatter(G2, sim, sx + fx, sy, cw, ch, (sim.t - sim.shieldBrokeAt) / D.CAGE_BREAK.S)
+    elseif sim.shieldFadedAt and sim.t - sim.shieldFadedAt < D.CAGE_BREAK.FADE_S then
+      drawShieldCage(G2, sim, sx + fx, sy, cw, ch, 1 - (sim.t - sim.shieldFadedAt) / D.CAGE_BREAK.FADE_S)
     end
     -- goals
     for _, g in ipairs(opts.noGoals and {} or sim.goals) do
+      if g.hidden then goto nextgoal end
       local gx, gy = sim:goalPos(g)
       local px, py = Sim.project(gx, gy, 1)
       local gr = g.r * hwFar * bot.scale
@@ -725,9 +837,25 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         local sc = (gr * 2 * pulse) / iw
         -- orange once it is running out, see-through over its last FADE_S
         local fa = 1
-        if g.kind == "fading" and N.GOALS.FADE_S and g.age >= N.GOALS.GONE_AT - N.GOALS.FADE_S then fa = 0.4 end
-        if g.kind == "fading" then G2.setColor(1, 0.65, 0.2, fa) else G2.setColor(1, 1, 1, 1) end
-        G2.draw(ring, px + fx, py, 0, sc, sc, iw / 2, ih / 2)
+        local tm = Sim.goalTimer and Sim.goalTimer(sim)
+        local gone = tm and tm.gone or N.GOALS.GONE_AT
+        local fadeS = math.min(N.GOALS.FADE_S or 1.5, (gone - (tm and tm.white or N.GOALS.YELLOW_AT)) * 0.33)
+        if g.kind == "fading" and g.age >= gone - fadeS then fa = 0.4 end
+        if g.kind == "marker" then
+          -- the shield's target: glowing light, turning slowly and pulsing
+          local mp = 1.25 * (1 + 0.08 * math.sin(sim.t * 7))
+          -- (it fades in after the shield goes up)
+          local ma = g.orbit and math.min(1, g.age / N.ATTACK.SHIELD.FADE_IN_S) or 1
+          G2.setColor(1, 1, 1, ma)
+          G2.draw(ring, px + fx, py, sim.t * 1.5, sc * mp, sc * mp, iw / 2, ih / 2)
+          G2.setBlendMode("add")
+          G2.setColor(1, 1, 1, 0.4 * ma)
+          G2.draw(ring, px + fx, py, sim.t * 1.5, sc * mp * 1.12, sc * mp * 1.12, iw / 2, ih / 2)
+          G2.setBlendMode("alpha")
+        else
+          if g.kind == "fading" then G2.setColor(1, 0.65, 0.2, fa) else G2.setColor(1, 1, 1, 1) end
+          G2.draw(ring, px + fx, py, 0, sc, sc, iw / 2, ih / 2)
+        end
       else
         G2.setLineWidth(2)
         G2.setColor(rgb[1], rgb[2], rgb[3], 0.95)
@@ -736,6 +864,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         G2.circle("fill", px + fx, py, gr * 0.6 * pulse, 16)
         G2.setLineWidth(1)
       end
+      ::nextgoal::
     end
     -- bits (the dead ones wait to regenerate); a popped one deflates and falls off the screen
     for _, bit in ipairs(sim.bits) do
@@ -900,8 +1029,17 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local _, fy = Sim.project(b.x, 0, b.z)
       local eta, hits = nil, false
       if not past then eta, hits = ballWarn(sim, b) end
-      if not (b.w or b.h) then
+      if not (b.w or b.h) or b.game then
         local r = ballRadius(sim, b)
+        -- the game's tall / wide balls: the soccer ball stretched to their shape; a homing
+        -- ball is blue and black (Wooble)
+        local ax, ay = 1, 1
+        local P = b.game
+        if P and P.sx and P.sy and P.sx ~= P.sy then
+          local m = math.max(P.sx, P.sy)
+          ax, ay = P.sx / m, P.sy / m
+        end
+        local homing = P and ((P.homeX or 0) > 0 or (P.homeY or 0) > 0)
         if b.lob and py + r < 0 then
           -- off the top: where it will land, in red on the grass
           local lx, ly = Sim.project(b.lob.tx, 0, b.lob.tz)
@@ -916,15 +1054,23 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
           if soccer then
             local iw = soccer:getWidth()
             -- a ball knocked back off the shield glows cyan
-            if b.bounced then G2.setColor(0.55, 1, 1, 1) else G2.setColor(1, 1, 1, fade) end
-            G2.draw(soccer, px, py, sim.t * 5 + (b.x or 0) * 3, (r * 2) / iw, (r * 2) / iw, iw / 2, iw / 2)
+            -- (the game's balls: white at Lv1, black with grey panels from Lv2 on, blue and black
+            -- when they home; a bitbot's stay white)
+            local dark = P and (sim.isSecret or (sim.level or 1) >= 2)
+            if b.bounced then G2.setColor(0.55, 1, 1, 1)
+            elseif homing then G2.setColor(0.3, 0.5, 1, fade)
+            elseif dark then G2.setColor(0.42, 0.44, 0.48, fade)
+            else G2.setColor(1, 1, 1, fade) end
+            -- (a stretched one does not spin, so its shape reads)
+            local spin = (ax == 1 and ay == 1) and (sim.t * 5 + (b.x or 0) * 3) or 0
+            G2.draw(soccer, px, py, spin, (r * 2) / iw * ax, (r * 2) / iw * ay, iw / 2, iw / 2)
           else
-            G2.setColor(0.95, 0.95, 0.95, fade)
-            G2.circle("fill", px, py, r, 16)
+            if homing then G2.setColor(0.3, 0.45, 0.95, fade) else G2.setColor(0.95, 0.95, 0.95, fade) end
+            G2.ellipse("fill", px, py, r * ax, r * ay, 16)
             G2.setColor(0.1, 0.1, 0.1, fade)
-            G2.circle("line", px, py, r, 16)
+            G2.ellipse("line", px, py, r * ax, r * ay, 16)
           end
-          ballBlink(G2, sim, px, py, r, r, eta, hits)
+          ballBlink(G2, sim, px, py, r * ax, r * ay, eta, hits)
         end
       else
       G2.setColor(0, 0, 0, 0.2)

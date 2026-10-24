@@ -1753,12 +1753,26 @@ return function(mod, deps)
     gen("lyt/st_hud/target01_" .. f, 32, 32, function(G) goal(G, f, { 1, 1, 1 }, { 0.35, 0.55, 0.95 }) end)
     gen("lyt/st_hud/big_target_" .. f, 32, 32, function(G) goal(G, f, { 1, 0.3, 0.3 }, { 0.9, 0.2, 0.2 }) end)
   end
+  -- the shield's target (Wooble's Graveler capture): a lime-yellow ring with four spikes out on
+  -- the diagonals, glowing, a faint light inside
   gen("lyt/st_hud/barrier_target", 32, 32, function(G)
-    G.setColor(1, 0.85, 0.2, 1)
-    G.polygon("fill", 16, 2, 30, 16, 16, 30, 2, 16)
-    G.setColor(1, 1, 1, 1)
-    G.setLineWidth(2)
-    G.polygon("line", 16, 6, 26, 16, 16, 26, 6, 16)
+    G.setLineStyle("smooth")
+    for pass = 1, 2 do
+      local glow = pass == 1
+      G.setColor(0.82, 1, 0.2, glow and 0.35 or 1)
+      G.setLineWidth(glow and 4.2 or 1.8)
+      circle(G, "line", 16, 16, 8.2)
+      for q = 0, 3 do
+        local a = math.pi / 4 + q * math.pi / 2
+        local ca, sa = math.cos(a), math.sin(a)
+        local px, py = -sa, ca
+        local w = glow and 3.6 or 2.6
+        G.polygon("fill", 16 + ca * 7 + px * w, 16 + sa * 7 + py * w, 16 + ca * 7 - px * w, 16 + sa * 7 - py * w,
+          16 + ca * (glow and 15.5 or 14.5), 16 + sa * (glow and 15.5 or 14.5))
+      end
+    end
+    G.setColor(0.95, 1, 0.75, 0.35)
+    circle(G, "fill", 16, 16, 5)
   end)
   -- the attackers' ball and the Energy Shots (by type: black, yellow, orange, green, blue, weak)
   -- the ball sits small in its cell, as the game's does (the cell is scaled to the ball's size)
