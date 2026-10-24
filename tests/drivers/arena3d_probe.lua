@@ -63,6 +63,13 @@ local function body(game, log)
     U.wait(10)
     for _, c in ipairs(TR.session.courseList()) do TR.store.cleared()[c.id] = true end
     local id = os.getenv("PROBE_COURSE") or "lv1_hp"
+    -- (a secret course needs a Fully Trained Pokemon: 510 EVs)
+    if id:match("^secret") then
+      local mon = s.party[1]
+      mon.evs = { hp = 252, atk = 252, def = 6, spa = 0, spd = 0, spe = 0 }
+      local ss = TR.session.session
+      if ss then ss.evs = { hp = 252, atk = 252, def = 6, spa = 0, spd = 0, spe = 0 }; ss.rec.fully = true end
+    end
     local started, w = TR.session.startCourse(id)
     log("start", id, started, w)
     waitFor(function() return TR.state().mode == "regimen" end, 900)
@@ -120,6 +127,12 @@ local function body(game, log)
     -- PROBE_POSES=1 (3D, the game's space): the middle and the four corners of the orbit, then
     -- the three distances, each held still and shot (p_*), to set beside the captures
     if os.getenv("PROBE_POSES") == "1" and S.game3d then
+      -- PROBE_NEXTBOT=1: the course's next balloon first (secret_01: Tyrantrum after Aurorus)
+      if os.getenv("PROBE_NEXTBOT") == "1" and S.nextBot then
+        S:nextBot()
+        if S.startScript then S:startScript() end
+        log("next balloon", S.bot and S.bot.national, S.script and S.script.phase and S.script.phase.species)
+      end
       S.script, S.balls, S.spawnQueue = nil, {}, {}
       local poses = { { "middle", 0, 90 }, { "top_left", 45, 120 }, { "top_right", 45, 60 },
         { "bottom_left", 0, 120 }, { "bottom_right", 0, 60 } }
