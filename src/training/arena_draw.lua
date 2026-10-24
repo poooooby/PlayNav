@@ -1110,10 +1110,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return math.max(1.5, 1 / math.max(inv, 1 / (r1 * 3)))
   end
   local function ballRadius(sim, b)
-    -- (in the game's space: its own size, drawn as the camera sees it)
+    -- (in the game's space: drawn as the game draws it - its shot model, a sphere of BALL_LOOK, at
+    -- its size, so a little larger than its hitbox; a bitbot's shot at its measured look)
     if game3d(sim) then
       local _, _, k = proj(b.x, b.y, b.z)
-      return math.max(1.5, (b.r or 1) * 118 * k)
+      local look = b.kind == "bit" and 1 or N.GAME3D.BALL_LOOK
+      return math.max(1.5, (b.r or 1) * look * 118 * k)
     end
     if b.game and D.GAME_BALL then return gameBallRadius(sim, b) end
     local B = N.ATTACK.BALL
