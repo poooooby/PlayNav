@@ -80,6 +80,29 @@ local function body(game, log)
       course("lv2_spe", { { name = "1_dive", when = function(S) return (S.bot.thrown or 0) > 0 end, after = 0.4 } })
       return
     end
+    -- PROBE_ONLY=stage: secret_01's changeover (Aurorus deflating, Tyrantrum inflating)
+    if os.getenv("PROBE_ONLY") == "stage" then
+      -- secret courses need 510 EVs
+      do
+        local mon = s.party[1]
+        mon.evs = { hp = 252, atk = 252, def = 6, spa = 0, spd = 0, spe = 0 }
+        local ss = TR.session.session
+        if ss then ss.evs = { hp = 252, atk = 252, def = 6, spa = 0, spd = 0, spe = 0 }; ss.rec.fully = true end
+      end
+      local function at(sec) return function(S) return S.between and S.between.t >= sec end end
+      course("secret_01", {
+        { name = "0_grown", when = function(S) S.score = 1700; return S.bot.scale > 1.5 end },
+        { name = "1_pop", when = function(S) S.score = 1800; return S.phase == "between" end, after = 0.6 },
+        { name = "2_flat", when = at(2.5) },
+        { name = "3_black", when = at(4.2) },
+        { name = "4_lying", when = at(5.2) },
+        { name = "5_bonus", when = at(5.9) },
+        { name = "6_inflating", when = at(7.2) },
+        { name = "7_name", when = at(9.3) },
+        { name = "8_play", when = function(S) return S.phase == "play" and S.botIndex == 2 end, after = 0.8 },
+      })
+      return
+    end
     -- PROBE_ONLY=grow: Graveler grown near its target; Magneton's cleared group (puffs, red goal)
     if os.getenv("PROBE_ONLY") == "grow" then
       course("lv2_atk", {

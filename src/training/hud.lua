@@ -317,6 +317,15 @@ return function(mod, T, Rules, Sim)
     if sim.phase == "countdown" then
       introCues(P, sim, s, sim.t)
     end
+    -- the next balloon's name, in the changeover
+    if sim.phase == "between" and sim.between and sim.between.swapped then
+      local B, bt, k = Rules.N.BETWEEN, sim.between.t, "stage" .. sim.botIndex
+      cue(k .. "_name", B.NAME[1], bt, function()
+        P:setText("1q", balloonName(sim))
+        P:play("enemy_name_on")
+      end)
+      cue(k .. "_name_off", B.NAME[2], bt, function() P:play("enemy_name_off") end)
+    end
     if o then outroCues(P, sim, o) end
     -- the clock, the score and the gauge
     setClock(P, sim.remaining)
@@ -365,6 +374,26 @@ return function(mod, T, Rules, Sim)
   function H.pose(sim, s)
     if not (H.P or (H.engine and sim == H.sim)) then return nil end
     local pose = {}
+    if sim.phase == "between" and sim.between then
+      -- the changeover: the beaten balloon collapses flat and wide onto the grass; after the
+      -- swap the next lies flat and inflates where it lies, then lifts to its place
+      local B, t = Rules.N.BETWEEN, sim.between.t
+      if t < B.SWAP_S then
+        local k = smooth(B.DEFLATE[1], B.DEFLATE[2], t)
+        pose.bot = { ground = true, rise = 0, sx = 1 + 0.55 * k, sy = 1 - 0.85 * k }
+      else
+        local k = smooth(B.INFLATE[1], B.INFLATE[2], t)
+        local lift = smooth(B.INFLATE[2] - 0.4, B.INFLATE[2] + 0.4, t)
+        pose.bot = { ground = true, rise = lift, sx = 1.25 - 0.25 * k, sy = 0.15 + 0.85 * k
+          + (k > 0 and k < 1 and math.sin(k * math.pi) * 0.05 or 0) }
+      end
+      -- through black between the two
+      local fo = smooth(B.FADE_OUT[1], B.FADE_OUT[2], t)
+      local fi = smooth(B.FADE_IN[1], B.FADE_IN[2], t)
+      pose.fade = fo * (1 - fi)
+      pose.hideReticle = true
+      return pose
+    end
     if sim.phase == "countdown" then
       local I, t = H.INTRO, sim.t
       -- five pumps, as the capture shows them (the balloon's size measured frame by frame):
@@ -654,6 +683,16 @@ return function(mod, T, Rules, Sim)
     local low = sim.remaining <= 10 and sim.phase == "play"
     say(G2, clockText(sim.remaining), x1 - 8 * kh, py + 1.5 * kh, ph - 3 * kh, "right",
       low and LOW_RED or TEAL_HI)
+    -- the changeover's +30, rising into the clock (BONUS_S, ~0.4 s)
+    if sim.phase == "between" and sim.between then
+      local B, bt = Rules.N.BETWEEN, sim.between.t
+      local u = (bt - (B.BONUS_S - 0.3)) / 0.7
+      if u >= 0 and u <= 1 then
+        local secs = (s.course and s.course.extraBotSecs) or Rules.N.CLOCK.EXTRA_BOT_S
+        say(G2, "+" .. tostring(secs), px + pw * 0.3, py + ph + 4 * kh - 12 * kh * u, ph - 2 * kh, "center",
+          TEAL_HI, nil, math.min(1, (1 - u) * 3))
+      end
+    end
     G2.pop()
     -- the score, bottom right: SCORE:, the points over the target, the trainee's name
     G2.push()
@@ -795,6 +834,14 @@ return function(mod, T, Rules, Sim)
       say(G2, text, x, y + 2, 11, "center", TEAL_HI, INK_TEAL, a)
     end
     nameBand(balloonName(sim), I.BOT_NAME[1], I.BOT_NAME[2])
+    -- the next balloon's name, in the changeover
+    if sim.phase == "between" and sim.between and sim.between.swapped then
+      local B, bt = Rules.N.BETWEEN, sim.between.t
+      local save = t
+      t = bt
+      nameBand(balloonName(sim), B.NAME[1], B.NAME[2])
+      t = save
+    end
     nameBand(s.name or "", I.PLAYER_NAME[1], I.PLAYER_NAME[2])
     -- the HUD: in at HUD_IN, out with the end
     local inK = smooth01(I.HUD_IN, I.HUD_IN + 0.3, t)

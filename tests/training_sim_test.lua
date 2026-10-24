@@ -482,9 +482,15 @@ do
   local pop
   run(circ, 1.5, function(e) if e.kind == "bot_pop" then pop = e end end)
   T.check(pop ~= nil, "the first bot pops")
+  -- the changeover (N.BETWEEN): the clock stands still, then 30 s and the next balloon
+  T.eq(circ.phase, "between", "...the changeover begins")
+  local rPop = circ.remaining
+  local ev2 = run(circ, N.BETWEEN.PLAY_S + 0.2)
+  T.check(ev2.next_bot == 1 and ev2.time_bonus == 1, "...the next balloon comes, 30 s with it")
   T.eq(circ.phase, "play", "...play goes on")
   T.eq(circ.botIndex, 2, "...against the second bot")
-  T.check(circ.remaining > r0 + 25, "...with 30 s added")
+  -- (part of the changeover ran in the step above, so up to ~1.6 s of play since)
+  T.check(circ.remaining <= rPop + 30 and circ.remaining > rPop + 28, ("...the clock still through it, +30 s (%.2f vs %.2f)"):format(circ.remaining, rPop))
   T.eq(circ.score, 0, "...score reset for the new bot")
   -- time out
   local slow = make("lv1_spe")

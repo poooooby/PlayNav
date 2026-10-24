@@ -81,6 +81,15 @@ N.CLOCK = {
   TARGET = { [1] = 150, [2] = 120, [3] = 120, secret = 90, secret_long = 120 },
 }
 
+-- the changeover between a course's balloons (Wooble's capture s4/1, The Troubles Keep on
+-- Coming?!; seconds from the last hit): the beaten one collapses onto the grass over DEFLATE
+-- and lies there as a puddle, the screen fades to black over FADE_OUT and back over FADE_IN with
+-- the next lying flat at SWAP_S, 30 s go onto the clock at BONUS_S, it inflates where it lies
+-- over INFLATE, its name shows over NAME, and play (goals, its first warning) at PLAY_S; the
+-- clock stands still throughout
+N.BETWEEN = { DEFLATE = { 0.2, 1.3 }, FADE_OUT = { 3.7, 3.9 }, SWAP_S = 4.5, FADE_IN = { 4.6, 4.8 },
+  BONUS_S = 5.8, INFLATE = { 6.1, 8.2 }, NAME = { 8.8, 10.1 }, PLAY_S = 10.2 }
+
 N.GOALS = {
   YELLOW_AT = 7.7,    -- a white goal turns orange
   GONE_AT = 12.2,     -- and vanishes, fading over its last FADE_S
@@ -366,7 +375,8 @@ N.EVIDENCE = {
   ["BAG_ODDS.DOUBLE_UP_POKERUS_MULT"] = { class = "placeholder", source = "Bulbapedia Pokerus: raises the Double-Up rate, amount unknown", confidence = "low" },
   ["BAG_ODDS.clear"] = { class = "inferred", source = "atwiki: size random, maybe tied to clear time; game-de: faster clears give bigger bags", confidence = "low" },
   ["CLOCK.TIME"] = { class = "inferred", source = "Gamer Guides time-to-beat 0:30 / 1:00 / 1:30-3:00 equals 3:00 minus the JP target records; GameFAQs: remaining time", confidence = "medium" },
-  ["CLOCK.EXTRA_BOT_S"] = { class = "verified", source = "Bulbapedia; atwiki", confidence = "high" },
+  ["CLOCK.EXTRA_BOT_S"] = { class = "verified", source = "Bulbapedia; atwiki; Wooble's capture s4/1: a +30 rises into the clock (2:18 -> 2:48) during the changeover, not a reset", confidence = "high" },
+  ["BETWEEN"] = { class = "measured", source = "Wooble's capture s4/1 (secret_01, 10 fps) 2026-10-23: last hit 42.2 s, Aurorus collapses 42.4-43.5 (puffs), a flat puddle to 45.9, fade 45.9-46.1, black to 46.7, fade in 46.8-47.0 with Tyrantrum lying flat, +30 at 48.0, inflating where it lies 48.3-50.4, its name 51.0-52.3, aura and goals 52.4; the clock frozen 42.2-52.4; the score 0 / the same target", confidence = "high" },
   ["CLOCK.COUNTDOWN_S"] = { class = "placeholder", source = "", confidence = "low" },
   ["CLOCK.TARGET"] = { class = "verified", source = "pente.koro-pokemon.com/xy/supatore-list (target records); ORAS Wiki", confidence = "high" },
   ["GOALS.YELLOW_AT"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23 (all six, unscored groups): white 7.6-7.9 s, then orange; the ORAS Wiki's 8 s", confidence = "high" },

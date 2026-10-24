@@ -183,9 +183,9 @@ return function(N)
     self.barrier = nil
     self.groupIndex, self.groupGap, self.groupScored, self.chanceDone = 0, 0, 0, false
     self.scheduleT0 = self.t
+    self.chancePending, self.clearPuffAt, self.shieldBrokeAt = nil, nil, nil
     self:startScript()
     if self.botIndex > 1 then
-      self.remaining = self.remaining + (self.course.extraBotSecs or N.CLOCK.EXTRA_BOT_S)
       self.schedule = compile(self.course.attacks, self.library, self.time)
       self.scheduleIdx = 1
       self.pendingAttack = nil
@@ -1497,6 +1497,31 @@ return function(N)
       end
       return
     end
+    if self.phase == "between" then
+      -- the changeover between two balloons (N.BETWEEN; the clock stands still): the beaten one
+      -- deflates onto the grass, the screen fades through black, the next lies there and
+      -- inflates where it lies, 30 s go onto the clock, its name, then play
+      local B, bt = N.BETWEEN, self.between
+      bt.t = bt.t + step
+      if not bt.swapped and bt.t >= B.SWAP_S then
+        bt.swapped = true
+        self:nextBot()
+        emit(self, "next_bot", { index = self.botIndex })
+      end
+      if not bt.bonus and bt.t >= B.BONUS_S then
+        bt.bonus = true
+        local secs = self.course.extraBotSecs or N.CLOCK.EXTRA_BOT_S
+        self.remaining = self.remaining + secs
+        emit(self, "time_bonus", { secs = secs })
+      end
+      if bt.t >= B.PLAY_S then
+        self.between = nil
+        self.phase = "play"
+        self:spawnGroup()
+        emit(self, "play", { stage = self.botIndex })
+      end
+      return
+    end
     if self.phase ~= "play" then return end
     -- the sway's clock: held while the balloon stands frozen for its red goal
     local frozen = self.chancePending or self:chanceUp()
@@ -1528,7 +1553,14 @@ return function(N)
     end
     if self.score >= bot.target then
       emit(self, "bot_pop", { index = self.botIndex, remaining = self.remaining })
-      if not self:nextBot() then
+      if self.course.bots[self.botIndex + 1] then
+        -- another balloon to come: the changeover (its attacks, balls and goals gone)
+        self.phase = "between"
+        self.between = { t = 0, scale = bot.scale }
+        self.goals, self.balls, self.bits, self.spawnQueue, self.shots = {}, {}, {}, {}, {}
+        self.barrier, self.chancePending = nil, nil
+        bot.aura, bot.windup, bot.thrown, bot.shake = 0, nil, 0, 0
+      else
         self.phase = "clear"
         emit(self, "clear", { remaining = self.remaining, total = self.totalScore })
       end
@@ -1558,7 +1590,7 @@ return function(N)
 
   -- a driver's shortcut: end the regimen now
   function Sim:forceEnd(outcome)
-    if self.phase ~= "play" and self.phase ~= "countdown" then return false end
+    if self.phase ~= "play" and self.phase ~= "countdown" and self.phase ~= "between" then return false end
     if outcome and outcome.clear then
       if outcome.remaining then self.remaining = outcome.remaining end
       self.phase = "clear"
