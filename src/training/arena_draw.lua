@@ -16,6 +16,53 @@ return function(mod, deps)
   local host, Rules, Sim = deps.host, deps.Rules, deps.Sim
   local N = Rules.N
   local D = { assets = nil }
+  -- what the arena is drawn through: Sim.project (the 2D view), or, with 3D SUPER TRAINING on
+  -- (D.mode3d) and the device able (arena3d's available()), its camera's projector; set at the
+  -- top of each D.draw. Same shape: x, y (240x160 units) and k (px per world unit across / 118)
+  local proj = Sim.project
+  D.arena3d, D.mode3d = nil, false
+  local function in3d() return proj ~= Sim.project end
+  D.in3d = in3d
+  -- the floor's screen height under (x, z): the 2D view's fixed line, or the camera's
+  local function floorY(x, z)
+    if proj == Sim.project then return D.BOT_SHADOW_Y end
+    if D.arena3d and D.arena3d.floorY then return D.arena3d.floorY(x, z) end
+    local _, y = proj(x, 0, z)
+    return y
+  end
+  -- (3D SUPER TRAINING in the game's space: src/training/sim3d.lua) a sim played there this frame
+  local function game3d(sim) return sim and sim.game3d and proj ~= Sim.project end
+  -- a point of the balloon's side of the flat world (z 1: its middle, goals, the aim, the last
+  -- shot) on the screen
+  local function projB(x, y)
+    if proj ~= Sim.project and D.arena3d and D.arena3d.projectBalloon then return D.arena3d.projectBalloon(x, y) end
+    return proj(x, y, 1)
+  end
+  -- the balloon's radius: the flat world's, or the game's (its sprite for its model)
+  local function botR(sim)
+    if game3d(sim) then return sim:botR3() end
+    return N.BOT.R * sim.bot.scale
+  end
+  -- a bitbot on the screen, and its size
+  local function bitProj(sim, bit)
+    if game3d(sim) then
+      local X, Y, Z = sim:bitPos3(bit)
+      local sx, sy, k = proj(X, Y, Z)
+      return sx, sy, k, N.GAME3D.BIT_R
+    end
+    local sx, sy, k = proj(bit.x, bit.y, bit.z)
+    return sx, sy, k, bit.r
+  end
+  -- a goal's size: the flat world's, or the game's box
+  local function goalR(sim, g)
+    if game3d(sim) then
+      local _, _, _, half = sim:goalBox3(g)
+      return half
+    end
+    return g.r
+  end
+  -- the grass's height under a point of the world (the game's in its space)
+  local function groundOf(sim) return game3d(sim) and N.GAME3D.GROUND or 0 end
   local PITCH_ROWS = { 0.2, 0.5, 0.8 }
 
   local function art(id)
@@ -429,6 +476,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   -- a scene point to the screen, and back (the HUD's reticle, popups and aiming)
   function D.toScreen(T, x, y)
+    if proj ~= Sim.project then
+      local wx, wy = Sim.unproject(x, y)
+      local sx, sy, k = projB(wx, wy)
+      local _, _, k2 = Sim.project(wx, wy, 1)
+      return sx, sy, k / k2
+    end
     local z, px, py = view(T)
     return px + (x - px) * z, py + (y - py) * z, z
   end
@@ -495,8 +548,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- (D.BG.exit), wherever that is on this screen, on it or not
   function D.exitOffset(sim, T)
     local bx, by = sim:botOffset()
-    local cx, cy = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
-    local tx, ty = D.bgPoint(T, D.BG.exit.x, D.BG.exit.y)
+    local cx, cy = projB(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by)
+    local tx, ty
+    if proj ~= Sim.project and D.arena3d then
+      local E = D.arena3d.EXIT
+      tx, ty = D.arena3d.projectModel(E.x, E.y, E.z)
+    else
+      tx, ty = D.bgPoint(T, D.BG.exit.x, D.BG.exit.y)
+    end
     return tx - cx, ty - cy
   end
 
@@ -529,14 +588,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     -- pitch lines (PITCH_ROWS hoisted: this runs every frame)
     G2.setColor(1, 1, 1, 0.25)
     for i = -2, 2 do
-      local x0 = Sim.project(i * 0.5, 0, 0)
-      local x1 = Sim.project(i * 0.5, 0, 1)
+      local x0 = proj(i * 0.5, 0, 0)
+      local x1 = proj(i * 0.5, 0, 1)
       G2.line(x0, 150, x1, 92)
     end
     for _, z in ipairs(PITCH_ROWS) do
-      local _, y = Sim.project(0, 0, z)
-      local xl = Sim.project(-1, 0, z)
-      local xr = Sim.project(1, 0, z)
+      local _, y = proj(0, 0, z)
+      local xl = proj(-1, 0, z)
+      local xr = proj(1, 0, z)
       G2.line(xl, y, xr, y)
     end
 
@@ -651,7 +710,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   function drawShieldCage(G2, sim, cx, cy, rw, rh, fade)
     local C = D.CAGE
     local hw = rw * C.W
-    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local top, bottom = cy - rh * C.TOP, D.cageFoot or (D.BOT_SHADOW_Y + 4)
     local h = bottom - top
     local ry = hw * C.RIM_RY
     local flick = (0.9 + 0.1 * math.sin(sim.t * 13)) * (fade or 1)
@@ -719,7 +778,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   function drawCageShatter(G2, sim, cx, cy, rw, rh, u)
     local C, B = D.CAGE, D.CAGE_BREAK
     local hw = rw * C.W
-    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local top, bottom = cy - rh * C.TOP, D.cageFoot or (D.BOT_SHADOW_Y + 4)
     local h = bottom - top
     G2.push("all")
     G2.setBlendMode("add")
@@ -795,12 +854,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if not bot then return end
     local bx, by = sim:botOffset()
     local cyW = sim.botCY and sim:botCY() or N.BOT.CY
-    local sx, sy, k = Sim.project(bx, cyW + by, 1)
-    local _, _, _, hwFar = Sim.view()
-    local R = N.BOT.R * hwFar * bot.scale
+    local sx, sy, k = projB(bx, cyW + by)
+    local hwFar = 118 * k
+    local R = botR(sim) * hwFar
     local fx = bot.flinch > 0 and math.sin(sim.t * 50) * 3 or 0
     -- shadow and aura
-    local floorY = D.BOT_SHADOW_Y
+    local floorY = floorY(bx, 1)
     if not opts.noShadow then
       G2.setColor(0, 0, 0, 0.25)
       G2.ellipse("fill", sx, floorY, R * 0.9, 5)
@@ -815,10 +874,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     if shape then
       -- the Pokemon's own sprite as the balloon, at the same scale the goals use
-      local x1 = Sim.project(1, cyW, 1)
-      local x0 = Sim.project(0, cyW, 1)
+      local x1 = projB(1, cyW)
+      local x0 = projB(0, cyW)
       local unitPx = math.abs(x1 - x0)
-      local rPx = N.BOT.R * bot.scale * unitPx
+      local rPx = botR(sim) * (game3d(sim) and hwFar or unitPx)
       local ppx = rPx / shape.ppr
       drawBalloon(G2, shape, sx + fx, sy, ppx, bot.flinch > 0 and 0.8 or 1, 0.95, 0.3, 1, warn)
     else
@@ -862,9 +921,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     for _, g in ipairs(opts.noGoals and {} or sim.goals) do
       if g.hidden then goto nextgoal end
       local gx, gy = sim:goalPos(g)
-      local px, py = Sim.project(gx, gy, 1)
+      local px, py = projB(gx, gy)
       -- (goals keep their size as the balloon grows: they are the HUD's panes)
-      local gr = g.r * hwFar
+      local gr = goalR(sim, g) * hwFar
       local rgb = GOAL_RGB[g.kind] or GOAL_RGB.white
       local pulse = (g.kind == "chance") and (1 + 0.06 * math.sin(sim.t * 8)) or 1
       -- the game's goal panes (upper.bclyt, 32x32): target01 (white) or big_target (red), its
@@ -909,8 +968,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     -- bits (the dead ones wait to regenerate); a popped one deflates and falls off the screen
     for _, bit in ipairs(sim.bits) do
-      local px, py, kk = Sim.project(bit.x, bit.y, bit.z)
-      local r = bit.r * 118 * kk
+      local px, py, kk, br = bitProj(sim, bit)
+      local r = br * 118 * kk
       local ph = sim.t * 2.2 + (bit.id or 0) * 1.7
       if not bit.dead then
         -- a purple party balloon, bobbing and swaying on its own beat
@@ -971,6 +1030,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return math.max(1.5, 1 / math.max(inv, 1 / (r1 * 3)))
   end
   local function ballRadius(sim, b)
+    -- (in the game's space: its own size, drawn as the camera sees it)
+    if game3d(sim) then
+      local _, _, k = proj(b.x, b.y, b.z)
+      return math.max(1.5, (b.r or 1) * 118 * k)
+    end
     if b.game and D.GAME_BALL then return gameBallRadius(sim, b) end
     local B = N.ATTACK.BALL
     local hwNear = Sim.view()
@@ -1009,11 +1073,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local W = D.WARN
     local pz = sim.player.z or 0.1
     for _, b in ipairs(sim.balls) do
-      if b.z >= pz and not b.bounced and not b.lob then
-        local eta, hits, x = ballWarn(sim, b)
+      if (game3d(sim) and not b.past or not game3d(sim) and b.z >= pz) and not b.bounced and not b.lob then
+        local eta, hits, x, _, z3 = ballWarn(sim, b)
         if eta and eta <= W.SHADOW_S then
           local u = 1 - eta / W.SHADOW_S
-          local lx, ly, k = Sim.project(x, 0, pz)
+          local lx, ly, k
+          if game3d(sim) then lx, ly, k = proj(x, groundOf(sim), z3) else lx, ly, k = proj(x, 0, pz) end
           local rx = math.max(W.MIN_SHADOW, (b.w or b.r * 2) / 2 * 118 * k)
           local ry = rx * 0.3
           local R = hits and W.RED or nil
@@ -1064,23 +1129,34 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local pz = sim.player.z or 0.1
     if which ~= nil and sim.phase == "play" then drawLandings(G2, sim, which == "front") end
     for _, b in ipairs(sim.balls) do
-      local past = b.z < pz
+      local g3 = game3d(sim)
+      local past
+      if g3 then past = b.past and true or false else past = b.z < pz end
       -- past the trainee: gone in a moment
       local fade = 1
       if past and not b.bounced then
-        -- (a lob flies its arc with no vz: its depth at ~0.7 a second)
-        local vz = (b.lob or not b.vz or b.vz == 0) and 0.7 or math.abs(b.vz)
-        local since = (pz - b.z) / vz
+        local since
+        if g3 then
+          since = (sim.t or 0) - (b.pastT or sim.t or 0)
+        else
+          -- (a lob flies its arc with no vz: its depth at ~0.7 a second)
+          local vz = (b.lob or not b.vz or b.vz == 0) and 0.7 or math.abs(b.vz)
+          since = (pz - b.z) / vz
+        end
         fade = math.max(0, 1 - since / D.GAME_BALL.PAST_FADE_S)
       end
       if (which == nil or (which == "front") == past) and fade > 0 then
-      local px, py, k = Sim.project(b.x, b.y, b.z)
+      local px, py, k = proj(b.x, b.y, b.z)
       local rgb = BALL_RGB[b.kind] or BALL_RGB.small
-      local _, fy = Sim.project(b.x, 0, b.z)
+      local _, fy = proj(b.x, groundOf(sim), b.z)
       local eta, hits = nil, false
       if not past then eta, hits = ballWarn(sim, b) end
       if not (b.w or b.h) or b.game then
         local r = ballRadius(sim, b)
+        if proj ~= Sim.project and not game3d(sim) then
+          local _, _, k2 = Sim.project(b.x, b.y, b.z)
+          r = r * k / k2
+        end
         -- the game's tall / wide balls: the soccer ball stretched to their shape; a homing
         -- ball is blue and black (Wooble)
         local ax, ay = 1, 1
@@ -1095,7 +1171,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         local homing = P and Sim.homes(P)
         if b.lob and py + r < 0 then
           -- off the top: where it will land, in red on the grass
-          local lx, ly = Sim.project(b.lob.tx, 0, b.lob.tz)
+          local lx, ly = proj(b.lob.tx, 0, b.lob.tz)
           local pulse = 0.28 + 0.12 * math.sin(sim.t * 12)
           G2.setColor(1, 0.1, 0.1, pulse)
           G2.ellipse("fill", lx, ly, b.r * 118 * 1.2, 5)
@@ -1156,7 +1232,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 
   local function drawShots(G2, sim)
     for _, sh in ipairs(sim.shots) do
-      local px, py, k = Sim.project(sh.x, sh.y, sh.z)
+      local px, py, k = proj(sh.x, sh.y, sh.z)
       local r = math.max(2, sh.r * 118 * k)
       local img = art(("training/ball_%02d"):format(BALL_ART[sh.type] or 0))
       if img then
@@ -1384,26 +1460,25 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     local bot = sim.bot
     if bot and sim.goals then
-      local _, _, _, hwFar = Sim.view()
       for _, g in ipairs(sim.goals) do
         if not g.dead then
           local gx, gy = sim:goalPos(g)
-          local cx, cy = Sim.project(gx, gy, 1)
-          if touches(cx, cy, g.r * hwFar * bot.scale + D.RIDER_PAD) then return true end
+          local cx, cy, gk = projB(gx, gy)
+          if touches(cx, cy, goalR(sim, g) * 118 * gk * (game3d(sim) and 1 or bot.scale) + D.RIDER_PAD) then return true end
         end
       end
     end
     for _, bit in ipairs(sim.bits or {}) do
       if not bit.dead then
-        local cx, cy, kk = Sim.project(bit.x, bit.y, bit.z)
-        if touches(cx, cy, bit.r * 118 * kk + D.RIDER_PAD) then return true end
+        local cx, cy, kk, br = bitProj(sim, bit)
+        if touches(cx, cy, br * 118 * kk + D.RIDER_PAD) then return true end
       end
     end
     -- an attack still on its way (not yet past the trainee), to be seen and blocked
     local pz = sim.player and sim.player.z or 0.1
     for _, b in ipairs(sim.balls or {}) do
       if (b.z or 1) > pz then
-        local cx, cy = Sim.project(b.x, b.y, b.z)
+        local cx, cy = proj(b.x, b.y, b.z)
         if touches(cx, cy, ballRadius(sim, b) + D.RIDER_PAD) then return true end
       end
     end
@@ -1537,8 +1612,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 
   local function drawPlayer(G2, sim, s)
     local p = sim.player
-    local px, py, k = Sim.project(p.x, p.y or 0, p.z)
-    k = k * D.PLAYER_SCALE
+    local px, py, k = proj(p.x, p.y or 0, p.z)
+    if game3d(sim) then
+      -- the game's model for its sprite: TRAINEE_H tall, its feet on the actor point (the top of
+      -- the game's stand)
+      local pic0 = playerPic(s)
+      local h = pic0 and pic0.h * (pic0.k or 1) or 48
+      k = N.GAME3D.TRAINEE_H * 118 * k / h
+    else
+      k = k * D.PLAYER_SCALE
+    end
     local lift, hsx, hsy, lean, face = hopPose(sim)
     local board = boardImage()
     if board then
@@ -1546,7 +1629,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       lift, hsx, hsy = -math.sin(sim.t * 2 * math.pi * D.BOARD.bobHz) * D.BOARD.bob, 1, 1
     end
     -- its shadow on the grass below the stand
-    local _, gy = Sim.project(p.x, 0, p.z)
+    local _, gy = proj(p.x, groundOf(sim), p.z)
     local high = 1 - 0.4 * math.min(1, (p.y or 0) / (N.PLAYER.Y_MAX or 0.7))
     local srx, sry
     if board then
@@ -1627,7 +1710,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if (p.shatter or 0) > 0 then drawShatter(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.shatter) end
     -- the reticle (the game's HUD draws its own)
     if s and s.hudReticle then return end
-    local rx, ry = Sim.project(p.aim.x, p.aim.y, 1)
+    local rx, ry = projB(p.aim.x, p.aim.y)
     G2.setColor(1, 1, 1, 0.9)
     G2.circle("line", rx, ry, 5, 12)
     G2.line(rx - 8, ry, rx - 3, ry)
@@ -1908,16 +1991,81 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setLineWidth(1)
   end
 
+  -- 3D SUPER TRAINING's edges (the game's barrier, effect #3 at a limit, DllSparring.cro
+  -- 0x1450c): pressed against the top, the right or the left (the sim's p.edge bits 1 / 2 / 4) that
+  -- side's wall of light grid lights - 3D walls of the orbit's shape (arena3d A3.borderVerts),
+  -- drawn in the stadium's pass - held while pressed, fading over BORDER.FADE_S after. The card's
+  -- grid texture (st3d/sp_wall_01, a/1/1/4 e80), else a drawn grid; added light, cyan
+  D.BORDER = { FADE_S = 0.4, PASSES = 2, RGB = { 0.35, 0.95, 1 } }
+  local borderT = setmetatable({}, { __mode = "k" })   -- sim -> { t, [edge] = alpha }
+  local borders = { rgb = D.BORDER.RGB, passes = D.BORDER.PASSES }
+  local function drawnGrid()
+    if D.gridImage ~= nil then return D.gridImage or nil end
+    D.gridImage = false
+    local G = love and love.graphics
+    if not (G and G.newCanvas) then return nil end
+    local ok, img = pcall(function()
+      local c = G.newCanvas(64, 64, { dpiscale = 1 })
+      G.push("all")
+      G.setCanvas(c)
+      G.origin()
+      G.clear(0, 0, 0, 0)
+      G.setColor(1, 1, 1, 0.25)
+      G.rectangle("fill", 0, 0, 64, 64)
+      G.setColor(1, 1, 1, 1)
+      G.setLineWidth(3)
+      G.rectangle("line", 1.5, 1.5, 61, 61)
+      G.pop()
+      c:setWrap("repeat", "repeat")
+      return c
+    end)
+    if ok then D.gridImage = img end
+    return D.gridImage or nil
+  end
+  -- this frame's borders: each edge's alpha (1 while pressed, fading after) and the grid image
+  local function edgeBorders(sim)
+    local st = borderT[sim]
+    if not st then st = { t = sim.t or 0 }; borderT[sim] = st end
+    local dt = math.max(0, math.min(0.1, (sim.t or 0) - st.t))
+    st.t = sim.t or 0
+    local edge = sim.player and sim.player.edge or 0
+    local pulse = 0.85 + 0.15 * math.sin((sim.t or 0) * 14)
+    for _, bit in ipairs({ 1, 2, 4 }) do
+      local a = st[bit] or 0
+      if edge % (bit * 2) >= bit then a = 1 else a = math.max(0, a - dt / D.BORDER.FADE_S) end
+      st[bit] = a
+      borders[bit] = a * pulse
+    end
+    local img = art("st3d/sp_wall_01") or drawnGrid()
+    if img then img:setWrap("repeat", "repeat") end
+    borders.image = img
+    return borders
+  end
+  D.edgeBorders = edgeBorders
+
   function D.draw(G2, sim, s, T)
     if not sim then
       G2.setColor(0.1, 0.1, 0.15, 1)
       G2.rectangle("fill", 0, 0, 240, 160)
       return
     end
+    -- 3D SUPER TRAINING: its camera follows the trainee and the arena is drawn through it
+    local A3 = D.mode3d and not D.failed3d and D.arena3d or nil
+    if A3 and A3.available() then
+      A3.update(sim)
+      proj = A3.project
+    else
+      proj = Sim.project
+    end
+    -- (the sim's "a bitbot under the reticle" goes by what is seen)
+    sim.screenProject = proj ~= Sim.project and proj or nil
     local Hud = T and T.hud
     local pose = Hud and Hud.pose and Hud.pose(sim, s) or nil
+    -- the intro: the game's own camera (a/1/1/4 e77) easing into the play camera
+    if proj ~= Sim.project and pose and pose.cam then A3.update(sim, pose) end
     -- the view: the arena under it, in scene units (D.view); the HUD and the fades outside
     local vz, vpx, vpy = view(T)
+    if proj ~= Sim.project then vz = 1 end
     if vz < 1 then
       G2.push()
       G2.translate(vpx, vpy)
@@ -1929,9 +2077,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     -- grass, which shows at the area's middle; as it settles (k -> 1) the focus moves to the
     -- middle itself, so zoom 1 is the plain view. The HUD and the fades stay outside it.
     local cam = pose and pose.cam
+    if proj ~= Sim.project then cam = nil end
     if cam then
       local bx, by = sim:botOffset()
-      local fx = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
+      local fx = projB(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by)
       local mx, my = ex + ew / 2, ey + eh / 2
       local k = cam.k or 0
       local Fx, Fy = fx + (mx - fx) * k, (D.BOT_SHADOW_Y - 6) + (my - D.BOT_SHADOW_Y + 6) * k
@@ -1940,7 +2089,22 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.scale(cam.zoom, cam.zoom)
       G2.translate(-Fx, -Fy)
     end
-    drawBackground(G2, sim, T)
+    if proj ~= Sim.project then
+      -- the shield's cage stands on the grass under the balloon
+      local bx = sim:botOffset()
+      D.cageFoot = floorY(bx, 1) + 4
+      local ok, err = pcall(A3.drawStadium, G2, ex, ey, ew, eh, edgeBorders(sim))
+      if not ok then
+        -- give up on 3D for the rest of the run: the 2D view from now on
+        D.failed3d = true
+        proj, D.cageFoot = Sim.project, nil
+        if mod.log then mod.log:warn("3D SUPER TRAINING stopped (%s); drawing the 2D view", tostring(err)) end
+        drawBackground(G2, sim, T)
+      end
+    else
+      D.cageFoot = nil
+      drawBackground(G2, sim, T)
+    end
     -- the stadium comes up out of the dark under the intro's title
     if pose and pose.veil and pose.veil > 0 then
       G2.setColor(0.0, 0.12, 0.14, 0.85 * pose.veil)
@@ -1956,21 +2120,21 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       if (b.alpha or 1) > 0 then
         local bx, by = sim:botOffset()
         local cyW = sim.botCY and sim:botCY() or N.BOT.CY
-        local cx, cy = Sim.project(bx, cyW + by, 1)
+        local cx, cy = projB(bx, cyW + by)
         local sx, sy = b.sx or b.scale or 1, b.sy or b.scale or 1
         local dy = b.dy or 0
         if b.ground then
           -- lying on the grass: its foot on the floor at its depth, floating up as it rises
-          local _, _, _, hwFar = Sim.view()
-          local halfH = ((sim.shape and sim.shape.halfH) or 1) * N.BOT.R * sim.bot.scale * hwFar
-          local onGround = D.BOT_SHADOW_Y - halfH * sy
+          local _, _, kb = projB(bx, cyW + by)
+          local halfH = ((sim.shape and sim.shape.halfH) or 1) * botR(sim) * 118 * kb
+          local onGround = floorY(bx, 1) - halfH * sy
           dy = (onGround - cy) * (1 - (b.rise or 0))
         end
         dy = dy + (b.bob or 0)
         -- its shadow stays on the grass under it: as wide as it is, fading as it leaves
-        local _, _, _, hwFar = Sim.view()
-        local R = N.BOT.R * hwFar * sim.bot.scale
-        local floorY = D.BOT_SHADOW_Y
+        local _, _, kb = projB(bx, cyW + by)
+        local R = botR(sim) * 118 * kb
+        local floorY = floorY(bx, 1)
         local shadowA = 0.25 * (b.shadow or 1) * (b.alpha or 1)
         if shadowA > 0.01 then
           G2.setColor(0, 0, 0, shadowA)
@@ -2002,12 +2166,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     if pose and pose.twinkle then
       local bx, by = sim:botOffset()
-      local cx, cy = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
+      local cx, cy = projB(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by)
       drawTwinkle(G2, cx + (pose.twinkle.dx or 85), cy + (pose.twinkle.dy or -110), pose.twinkle.k)
     end
     local last = sim.player.lastShot
     if last and sim.phase == "play" then
-      local lx, ly = Sim.project(last.x, last.y, 1)
+      local lx, ly = projB(last.x, last.y)
       local mark = art("lyt/st_hud/target02_c")
       if mark then
         local iw = mark:getWidth()
@@ -2027,7 +2191,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if enter and enter < 1 then
       if enter > 0 then
         local p = sim.player
-        local px = Sim.project(p.x, p.y or 0, p.z)
+        local px = proj(p.x, p.y or 0, p.z)
         G2.push()
         G2.translate((ex + ew + 40 - px) * (1 - enter), 0)
         drawPlayer(G2, sim, s)
@@ -2037,6 +2201,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       drawPlayer(G2, sim, s)
     end
     drawBalls(G2, sim, "front")
+    -- (drivers: model points marked where the 3D camera puts them)
+    if D.debugMarks and proj ~= Sim.project then
+      G2.setColor(1, 0, 1, 1)
+      for _, m in ipairs(D.debugMarks) do
+        local mx, my = D.arena3d.projectModel(m[1], m[2], m[3])
+        G2.circle("line", mx, my, 4, 12)
+      end
+    end
     if cam then G2.pop() end
     if vz < 1 then G2.pop() end
     ex, ey, ew, eh = extent(T)

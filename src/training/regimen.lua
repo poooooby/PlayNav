@@ -19,14 +19,23 @@ return function(mod, T, deps)
   -- framed back, the HUD's brackets are stretched to fit the area (hud fitAdjust 5m); aiming,
   -- mapped onto the brackets in the frame's units, goes through that stretch and back under
   -- the view to the scene. -> the bracket fit (kx, ky, middle) or nil when the view is plain
+  -- 3D SUPER TRAINING drawing this frame (its camera, arena3d)
+  function T.is3d() return Draw and Draw.in3d and Draw.in3d() or false end
   function T.bracketFit()
     local e = T.topExtent
     if not (e and Draw and Draw.view) then return nil end
+    if T.is3d() then return nil end
     local z = Draw.view(T)
     if z >= 1 then return nil end
     return e.w / 240, e.h / 160, e.x + e.w / 2, e.y + e.h / 2
   end
+  -- in 3D a point of the screen aims where the camera's ray through it meets the balloon's
+  -- plane (handed back as the 2D view's point of that aim, which aim_app unprojects)
   function T.aimToScene(x, y)
+    if T.is3d() and Draw.arena3d then
+      local ax, ay = Draw.arena3d.unprojectToPlane(x, y, 1)
+      if ax then return Sim.project(ax, ay, 1) end
+    end
     local kx, ky, mx, my = T.bracketFit()
     if not kx then return x, y end
     local z, px, py = Draw.view(T)
@@ -34,6 +43,11 @@ return function(mod, T, deps)
     return px + (fx - px) / z, py + (fy - py) / z
   end
   function T.sceneToAim(x, y)
+    if T.is3d() and Draw.arena3d then
+      local wx, wy = Sim.unproject(x, y)
+      local sx, sy = Draw.arena3d.projectBalloon(wx, wy)
+      return sx, sy
+    end
     local kx, ky, mx, my = T.bracketFit()
     if not kx then return x, y end
     local fx, fy, z = T.toScreen(x, y)
@@ -158,7 +172,7 @@ return function(mod, T, deps)
   local SE = { goal_hit = "SE_BALL_BOUNCE_1", player_hit = "SE_NOT_EFFECTIVE", bot_pop = "SE_SUCCESS",
     blocked = "SE_SELECT", bit_pop = "SE_BALLOON_RED", chance_goal = "SE_EXP", overcharge = "SE_FAILURE",
     barrier_up = "SE_SELECT", attack_telegraph = "SE_SELECT", block_down = "SE_ICE_BREAK",
-    form_change = "SE_M_REFLECT" }
+    form_change = "SE_M_REFLECT", dist_step = "SE_M_DOUBLE_TEAM", edge = "SE_BALL_BOUNCE_1" }
 
   -- one event's haptic (src/haptics.lua): a goal hit pulses (harder charged), a hit taken
   -- knocks, the balloon popping and the clear burst; the stand-in sound's own is skipped
@@ -312,10 +326,50 @@ return function(mod, T, deps)
     T.onChange()
   end
 
+  -- the right stick's up / down (any gamepad; -1 up .. 1 down; 0 without one): 3D SUPER
+  -- TRAINING's forward / back (tests stand it in)
+  function T.readRightStick()
+    local js = love and love.joystick
+    if not (js and js.getJoysticks) then return 0 end
+    local ok, list = pcall(js.getJoysticks)
+    if not ok or type(list) ~= "table" then return 0 end
+    local best = 0
+    for _, pad in ipairs(list) do
+      local okG, isPad = pcall(pad.isGamepad, pad)
+      if okG and isPad then
+        local okY, y = pcall(pad.getGamepadAxis, pad, "righty")
+        if okY and type(y) == "number" and math.abs(y) > math.abs(best) then best = y end
+      end
+    end
+    return best
+  end
+  T.STICK = { STEP = 0.6, REARM = 0.3 }
+
+  -- 3D SUPER TRAINING's forward / back (the game's distance steps): on only while the regimen is
+  -- drawn in 3D; the right stick pushed up / down steps once a push, the mouse wheel once a notch
+  local function depthInput(s, sim)
+    local on = T.is3d and T.is3d() or false
+    -- (in the game's own space when the sim can - its attack data - else the flat world's steps)
+    if not (sim.setGame3d and sim:setGame3d(on)) then sim:setDepthSteps(on) end
+    if not on then T.wheelSteps = 0; return end
+    local y = T.readRightStick()
+    if math.abs(y) >= T.STICK.STEP then
+      if s.stickArmed ~= false then sim:stepDistance(y < 0 and -1 or 1) end
+      s.stickArmed = false
+    elseif math.abs(y) < T.STICK.REARM then
+      s.stickArmed = true
+    end
+    local w = T.wheelSteps or 0
+    while w >= 1 do sim:stepDistance(-1); w = w - 1 end
+    while w <= -1 do sim:stepDistance(1); w = w + 1 end
+    T.wheelSteps = w
+  end
+
   function T.onRegimenInput(input)
     local s = T.session
     local sim = T.sim
     if not (s and sim) or s.outro then return end
+    depthInput(s, sim)
     local dx = (input:isDown("right") and 1 or 0) - (input:isDown("left") and 1 or 0)
     local dz = (input:isDown("up") and 1 or 0) - (input:isDown("down") and 1 or 0)
     sim:setMove(dx, dz)

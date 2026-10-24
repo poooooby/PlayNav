@@ -193,15 +193,17 @@ return function(mod, Pointer, T, Rules, Sim)
       end
       if app.plainPad and inRect(x, y, BLOCK) then roles[ev.id] = "block"; sim:block(); return end
       roles[ev.id] = "aim"
+      app.aimPx, app.aimPy = x, y
       sim:aim(aimAt(sim, x, y))
       sim:pressFire()
     elseif ev.phase == "moved" then
       local role = roles[ev.id]
-      if role == "aim" then sim:aim(aimAt(sim, x, y)) end
+      if role == "aim" then app.aimPx, app.aimPy = x, y; sim:aim(aimAt(sim, x, y)) end
     elseif ev.phase == "released" or ev.phase == "cancelled" then
       local role = roles[ev.id]
       roles[ev.id] = nil
       if role == "aim" then
+        app.aimPx, app.aimPy = x, y
         sim:aim(aimAt(sim, x, y))
         sim:releaseFire()
       elseif role == "block" then
@@ -231,7 +233,12 @@ return function(mod, Pointer, T, Rules, Sim)
     if sim then sim:releaseFire() end
   end
 
-  function app:update(dt) end
+  -- 3D SUPER TRAINING: the camera moves with the trainee, so the last point touched is aimed
+  -- through it again every frame - the aim stays under the finger and the brackets
+  function app:update(dt)
+    local sim = T.sim
+    if sim and app.aimPx and T.is3d and T.is3d() then sim:aim(aimAt(sim, app.aimPx, app.aimPy)) end
+  end
 
   local function drawButton(G, r, label, font, on, dim)
     if dim then G.setColor(0.2, 0.22, 0.28, 1) elseif on then G.setColor(0.25, 0.7, 0.95, 1) else G.setColor(0.25, 0.3, 0.42, 1) end

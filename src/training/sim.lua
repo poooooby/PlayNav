@@ -273,6 +273,34 @@ return function(N)
   -- FIZZLE_F it breaks and the Pokemon stops for STUN_F; a Charged Shot is followed by AFTER_F
   -- with no shot or charge (p.lock)
   local CF = N.CHARGE.FPS
+
+  -- forward / back, 3D SUPER TRAINING's (the game's: N.PLAYER.DIST): on, the trainee stands at
+  -- a distance step and its depth follows it; off (the 2D view, or a far-player course), the
+  -- fixed depth as before
+  function Sim:setDepthSteps(on)
+    local p = self.player
+    if on and not self.course.farPlayer then
+      self.depthSteps = true
+      if not p.dist then
+        p.distStep = N.PLAYER.DIST_STEP0
+        p.dist = N.PLAYER.DIST[p.distStep]
+      end
+    elseif self.depthSteps then
+      self.depthSteps, p.dist, p.distStep = nil, nil, nil
+      p.z = self.course.farPlayer and 0.04 or (N.PLAYER.Z or 0.1)
+    end
+  end
+  -- one step nearer (d -1) or farther (+1); not while stunned or knocked back
+  function Sim:stepDistance(d)
+    local p = self.player
+    if not (self.depthSteps and p.dist) or self.phase ~= "play" or p.stun > 0 then return false end
+    local s = math.max(1, math.min(#N.PLAYER.DIST, p.distStep + (d < 0 and -1 or 1)))
+    if s == p.distStep then return false end
+    p.distStep = s
+    emit(self, "dist_step", { step = s, dist = N.PLAYER.DIST[s] })
+    return true
+  end
+
   function Sim:pressFire()
     local p = self.player
     if self.phase ~= "play" or p.stun > 0 or (p.lock or 0) > 0 then return false end
@@ -332,12 +360,16 @@ return function(N)
 
   -- the live bit nearest the reticle on screen (the aim on the balloon's plane, ax / ay), when
   -- the reticle is within the bit's drawn disk plus the shot's radius; nil otherwise
+  -- (self.screenProject: the projector the arena is drawn through, when it is not Sim.project -
+  -- 3D SUPER TRAINING's camera, set by the regimen - so "under the reticle" is as seen)
   function Sim:bitUnder(ax, ay, shotR)
-    local sx, sy = Sim.project(ax, ay, 1)
+    if self.game3d then return nil end
+    local project = self.screenProject or Sim.project
+    local sx, sy = project(ax, ay, 1)
     local best, bestD = nil, nil
     for _, bit in ipairs(self.bits) do
       if not bit.dead and bit.hp > 0 then
-        local bx, by, k = Sim.project(bit.x, bit.y, bit.z)
+        local bx, by, k = project(bit.x, bit.y, bit.z)
         local reach = (bit.r + (shotR or 0)) * V.NEAR.hw * k
         local d = (sx - bx) ^ 2 + (sy - by) ^ 2
         if d <= reach * reach and (not bestD or d < bestD) then best, bestD = bit, d end
@@ -387,6 +419,7 @@ return function(N)
     end
     local shot = { x = x0, y = y0, z = z0, vz = speed, vx = vx, vy = vy,
       r = r, points = math.floor(points + 0.5), type = kind, stage = charged and stage or 0, weak = weak, energy = charged }
+    if self.game3d then self:shot3(shot) end
     self.shots[#self.shots + 1] = shot
     self.stats.shots = self.stats.shots + 1
     if shot.energy then self.stats.energyShots = (self.stats.energyShots or 0) + 1 end
@@ -425,7 +458,7 @@ return function(N)
     local x, y = 0, 0
     local _, _, _, hw, hu = Sim.view()
     -- (`still`: a test's balloon that does not sway)
-    local sway = not self.still and (self.course.sway or (N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]))
+    local sway = not self.still and not self.game3d and (self.course.sway or (N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]))
     if sway and self.phase ~= "countdown" then
       -- (its own clock, held while it stands frozen after a cleared group)
       local w = 2 * math.pi * (self.swayT or 0) / sway.period
@@ -875,6 +908,7 @@ return function(N)
 
   -- a shot of a volley, built when it leaves: aimed at where the trainee is now (per axis)
   local function gameBall(self, shot)
+    if self.game3d then return self:gameBall3(shot) end
     local D = self.gameAttacks
     local P = D.projectiles[shot.p]
     if not P then return nil end
@@ -1139,6 +1173,8 @@ return function(N)
       end
       return
     end
+    -- (3D SUPER TRAINING plays the game's own scripts only: the hand-written schedule stands down)
+    if self.game3d then tickBarrier(self, step); return end
     local rel = self.t - (self.scheduleT0 or 0)
     local e = self.schedule[self.scheduleIdx]
     local cadence = 1
@@ -1212,6 +1248,7 @@ return function(N)
   end
 
   function Sim:updateShots(step)
+    if self.game3d then return self:updateShots3(step) end
     local keep = {}
     for _, sh in ipairs(self.shots) do
       local pz = sh.z
@@ -1335,6 +1372,7 @@ return function(N)
   -- that depth (x, y); nil when it is past,
   -- bounced, or never comes
   function Sim:ballEta(b)
+    if self.game3d then return self:ballEta3(b) end
     local p = self.player
     if b.bounced or b.z <= p.z then return nil end
     local t, x, y
@@ -1378,6 +1416,7 @@ return function(N)
   end
 
   function Sim:updateBalls(step)
+    if self.game3d then return self:updateBalls3(step) end
     local p = self.player
     local keep = {}
     for _, b in ipairs(self.balls) do
@@ -1448,7 +1487,7 @@ return function(N)
           end
         end
       end
-      if b.z < -0.2 then alive = false end
+      if b.z < math.min(0, p.z) - 0.2 then alive = false end
       if b.bounced and (b.z > 1.4 or b.y > 3 or math.abs(b.x) > 3) then alive = false end
       if alive then keep[#keep + 1] = b end
     end
@@ -1519,16 +1558,47 @@ return function(N)
     if (p.safe or 0) > 0 then p.safe = math.max(0, p.safe - step) end
     if p.shieldCd > 0 then p.shieldCd = math.max(0, p.shieldCd - step) end
     local canMove = p.stun <= 0 and p.burst <= 0
-    if canMove then
+    if self.game3d then
+      self:move3(step, canMove)
+    elseif canMove then
       local v = N.PLAYER.SPEED * (self.mods.moveMult or 1) * (p.shield > 0 and N.BLOCK.MOVE_MULT or 1)
       -- "Those Long Shots Are No Long Shot!": the player is kept at the far end of the box
       -- across and up / down on the stand's plane; "Those Long Shots Are No Long Shot!" keeps
       -- the stand at the far end
-      p.z = self.course.farPlayer and 0.04 or (N.PLAYER.Z or 0.1)
-      p.x = math.max(-N.PLAYER.X_MAX, math.min(N.PLAYER.X_MAX, p.x + p.mx * v * step))
+      if not (self.depthSteps and p.dist) then
+        p.z = self.course.farPlayer and 0.04 or (N.PLAYER.Z or 0.1)
+      end
+      local wantX = p.x + p.mx * v * step
+      p.x = math.max(-N.PLAYER.X_MAX, math.min(N.PLAYER.X_MAX, wantX))
       -- (up and down as fast on the screen as across: a world unit up is fewer screen units
       -- than one across at the trainee's depth, NEAR hw / hu)
-      p.y = math.max(0, math.min(N.PLAYER.Y_MAX or 0.7, (p.y or 0) + p.mz * v * (V.NEAR.hw / V.NEAR.hu) * step))
+      local wantY = (p.y or 0) + p.mz * v * (V.NEAR.hw / V.NEAR.hu) * step
+      p.y = math.max(0, math.min(N.PLAYER.Y_MAX or 0.7, wantY))
+      -- pressed against an edge (the game's bits: 1 the top, 2 the right, 4 the left; the
+      -- bottom only stops it): what the 3D view's border shows
+      p.edge = ((wantY > (N.PLAYER.Y_MAX or 0.7) and p.mz > 0) and 1 or 0)
+        + ((wantX > N.PLAYER.X_MAX and p.mx > 0) and 2 or 0)
+        + ((wantX < -N.PLAYER.X_MAX and p.mx < 0) and 4 or 0)
+    else
+      p.edge = 0
+    end
+    -- (3D SUPER TRAINING: pressed against an edge, the game's sound every 4 frames, 0x20a8)
+    if self.depthSteps and p.edge > 0 then
+      p.edgeT = (p.edgeT or 0) - step
+      if p.edgeT <= 0 then
+        p.edgeT = 4 / CF
+        emit(self, "edge", { edge = p.edge })
+      end
+    else
+      p.edgeT = 0
+    end
+    -- forward / back (3D SUPER TRAINING): the distance closes on its step, the depth with it
+    -- (in the game's space, move3 does it)
+    if self.depthSteps and p.dist and not self.game3d then
+      local want = N.PLAYER.DIST[p.distStep] or p.dist
+      local rate = N.PLAYER.DIST_SPEED * CF * (p.shield > 0 and 0.5 or 1) * step
+      if p.dist < want then p.dist = math.min(want, p.dist + rate) elseif p.dist > want then p.dist = math.max(want, p.dist - rate) end
+      p.z = 1 - (1 - (N.PLAYER.Z or 0.1)) * p.dist / N.PLAYER.DIST[N.PLAYER.DIST_STEP0]
     end
     if p.charging and p.stun <= 0 then
       p.chargeT = p.chargeT + step
@@ -1697,6 +1767,9 @@ return function(N)
       stats = self.stats, countdown = self.countdown,
     }
   end
+
+  -- (for src/training/sim3d.lua: 3D SUPER TRAINING's play in the game's space)
+  Sim._in = { emit = emit, GA = GA, FPS = FPS }
 
   return Sim
 end

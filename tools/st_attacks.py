@@ -6,7 +6,8 @@ projectiles they fire, and the bitbots. Only numbers go in (no art, no text).
 
 GARCs (DllSparring.cro's loader at 0x8300, ArcIDs 0x75..0x7e in order):
   a/1/1/7 courses (32 B): u16 +0 level, +2 seconds, +0xc + 4k phase id k (ffff none)
-  a/1/1/8 phases (236 B): +0 species, +2 target, +8 f32 script rate (units a frame), +0xc damage,
+  a/1/1/8 phases (236 B): +0 species, +2 target, +4 f32 balloon scale, +8 f32 script rate (units a
+          frame), +0xc damage, +0x18 sway, +0xb0 f32 middle height, +0xe4 f32 yaw,
           +0x10 list A, +0x19 / +0x1a / +0x1b / +0x1c second-form test (0 score left %, 1 time %,
           2 never) and thresholds, +0x20 f32 rate B, +0x24 damage B, +0x28 list B, +0xd6 bit record
   a/1/1/9 bit records (216 B): +2 hp, +0xc shot damage, +0x10 list (1 = fires)
@@ -162,7 +163,11 @@ def main(argv):
         b = phases_b[i]
         ph = {"species": u16(b, 0), "target": u16(b, 2), "rate": f32(b, 8), "damage": u16(b, 0xc),
               "list": u16(b, 0x10), "formIn": b[0x19], "formInPct": b[0x1a], "formOut": b[0x1b],
-              "formOutPct": b[0x1c], "rateB": f32(b, 0x20), "damageB": u16(b, 0x24), "listB": u16(b, 0x28)}
+              "formOutPct": b[0x1c], "rateB": f32(b, 0x20), "damageB": u16(b, 0x24), "listB": u16(b, 0x28),
+              # the balloon in the game's 3D space (DllSparring.cro): +4 f32 uniform scale (0x1774;
+              # it grows to 1.5x as it fills, 0x122e4), +0x18 sway on (12 sin 2t, 6 sin t, 0x11b58),
+              # +0xb0 its middle's height in model units (x the scale; 0x127b0), +0xe4 yaw degrees
+              "scale": f32(b, 4), "sway": b[0x18], "midY": f32(b, 0xb0), "yaw": f32(b, 0xe4)}
         bit = u16(b, 0xd6)
         if bit != 0xFFFF:
             bb = bits_b[bit]

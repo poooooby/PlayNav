@@ -17,14 +17,14 @@ return function(mod)
     if not src then
       -- no art (never extracted, or just cleared): nothing loaded earlier may still draw
       A.manifest = nil
-      A.images, A.missing, A.texts, A.tracks, A.sounds = {}, {}, {}, {}, {}
+      A.images, A.missing, A.texts, A.tracks, A.sounds, A.models = {}, {}, {}, {}, {}, {}
       A.loadedAt = os.time()
       return nil
     end
     local chunk = load(src, "=oras/manifest.lua")
     local ok, m = pcall(chunk)
     A.manifest = (ok and type(m) == "table") and m or nil
-    A.images, A.missing, A.texts, A.tracks, A.sounds = {}, {}, {}, {}, {}
+    A.images, A.missing, A.texts, A.tracks, A.sounds, A.models = {}, {}, {}, {}, {}, {}
     A.loadedAt = os.time()
     return A.manifest
   end
@@ -92,6 +92,22 @@ return function(mod)
     end
     A.texts[id] = lines or false
     return lines
+  end
+
+  -- a 3D model the extract read (recipe kind "model", src/import/bch.lua M.model): its meshes
+  -- (texture, priority, pos, uv, col, idx), or nil
+  A.models = {}
+  function A.model(id)
+    if A.models[id] ~= nil then return A.models[id] or nil end
+    local src = A.ready() and cacheRead("oras/model/" .. id:gsub("/", "_") .. ".lua") or nil
+    local m = nil
+    if src then
+      local chunk = load(src, "=oras/model/" .. id, "t", {})
+      local ok, t = pcall(chunk or error)
+      if ok and type(t) == "table" and type(t.meshes) == "table" then m = t end
+    end
+    A.models[id] = m or false
+    return m
   end
 
   -- a file the extract copied from a darc as it is (recipe kind "files"): the bytes of

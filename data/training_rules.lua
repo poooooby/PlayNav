@@ -334,12 +334,45 @@ N.BLOCK = { MAX_F = 20, DEF_K = 0.005, COOLDOWN_F = 30, SAFE_F = 25, MOVE_MULT =
 -- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
 -- below the top: (140 - 51) / 70.5 at the stand's depth)
 N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.72, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SPE_K = 0.001, SWIFT_MULT = 1.5,
-             HIT_STUN_S = 14 / 30, HIT_SAFE_F = 30 }
+             HIT_STUN_S = 14 / 30, HIT_SAFE_F = 30,
+             -- 3D SUPER TRAINING's forward / back (the game's): the trainee's distance from the
+             -- balloon in steps (game units; it starts on STEP0), closing at DIST_SPEED units a
+             -- frame (30 fps; half while guarding); the 2D view's depth (1 - Z) is DIST[STEP0]
+             DIST = { 180, 240, 300 }, DIST_STEP0 = 2, DIST_SPEED = 2 }
 
 -- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
 -- balloon's (FAR, z = 1) a world unit is hw px across and hu px up, and the floor is at y = fy.
 -- The balloon is drawn large (a sprite about 140 px wide hovering over the stadium's
 -- grass); the trainee's stand floats in front of it.
+-- 3D SUPER TRAINING plays in the game's own space, 1:1 (DllSparring.cro; units the game's, the
+-- balloon at the origin, y up, 30 frames a second), only with the option on (the 2D view keeps
+-- its tuning above):
+--   the trainee on a sphere about the balloon: elevation EL, azimuth AZ (90 in front), the
+--   radius a distance step (PLAYER.DIST), moving SPEED x (1 + Speed x SPE_K) units of arc a frame
+--   (x1.5 Swiftness, x0.5 guarding); its body ACTOR_IN inside that point, ACTOR_SIDE units of arc
+--   to the side and ACTOR_UP above the sphere's level; its hit shape a sphere of HIT_R; the
+--   camera EYE_UP over the sphere point (the code aims it at (0, EYE_UP, 0); the capture fits LOOK_Y)
+--   an enemy ball: its record's speed a frame, its semi-axes its hitbox (an ellipsoid touching
+--   the trainee's sphere hits); gone DESPAWN from where it left; homing (trainee - ball) x t / (t
+--   + k) on x and y, t its frames
+--   a goal: a box of half GOAL_HALF (GOAL_HALF_BIG for the red); a shot: the table SHOT (speed a
+--   frame, size) x (1 + Speed x 0.005), x (1 + HP x 0.00125), flying as a lob LOB over its line
+--   the balloon: its phase's scale (attack data `scale`), growing to GROW x as it fills, swaying
+--   SWAY (x amplitude, degrees a frame, y amplitude, degrees a frame) when its phase says
+--   ours (the sprites standing in for the 3D models): BAL_SIZE the balloon sprite's mean side
+--   at scale 1, its feet on the grass (GROUND) or, with a midY, its middle midY x scale above it; TRAINEE_H the trainee sprite's height; BIT_R a
+--   bitbot's size; PLAY_FOVY / LOOK_Y the play camera's field and the height it looks at (fitted to
+--   a capture: e77's intro camera has the same 37.85)
+N.GAME3D = { EL = { 0, 45 }, AZ = { 60, 120 }, SPEED = 2, SPE_K = 0.001, ACTOR_IN = 11.5, ACTOR_SIDE = 2.5,
+  ACTOR_UP = 3.5, HIT_R = 3, EYE_UP = 4.5, DESPAWN = 300, GOAL_HALF = 10, GOAL_HALF_BIG = 15, LOB = 6,
+  SHOT = { black = { 3.6, 1.0 }, yellow = { 3.6, 0.7 }, orange = { 3.6, 2.0 }, green = { 2.6, 1.5 },
+    blue = { 5.2, 0.85 }, weak = { 3.6, 0.7 } },
+  SHOT_CHARGED = { black = { 3.0, 1.0 }, yellow = { 3.0, 0.7 }, orange = { 3.0, 2.0 }, green = { 2.1, 1.5 },
+    blue = { 5.2, 0.85 }, weak = { 3.0, 0.7 } },
+  SHOT_SPE_K = 0.005, SHOT_HP_K = 0.00125, GROW = 1.5, SWAY = { 12, 2, 6, 1 },
+  BAL_SIZE = 105, GROUND = -6.7, TRAINEE_H = 1.6, BIT_R = 7, BIT_SPEED = 3.5, BIT_SHOT_R = 2.4, PLAY_FOVY = 37.85,
+  LOOK_Y = 31 }
+
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
 
 N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, GROW_K = 0.56, GROW_EASE = 10, SHAKE_HZ = 2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
@@ -456,6 +489,14 @@ N.EVIDENCE = {
   ["ATTACK"] = { class = "placeholder", source = "the kinds are verified (atwiki enemy patterns); speeds and counts are not", confidence = "low" },
   ["ATTACK.bit.regen_s"] = { class = "placeholder", source = "AS text 44:70: bits regenerate given enough time; the time is not stated", confidence = "low" },
   ["BLOCK"] = { class = "placeholder", source = "AS text 44:67: L throws up a barrier for a short period, not usable nonstop; longer with Def/SpD (gamepedia); lengths unknown", confidence = "low" },
+  ["GAME3D"] = { class = "verified", source = "DllSparring.cro (research 2026-10-24): the sphere (0xadcc), limits el 0..45 / az 60..120 (0x21f0-0x2200), speed stat+0xc = 2 x (1 + SPEv x 0.001) a frame, x0.5 guarding (0x21e0); the trainee actor at sphere(el, az + 2.5 units of arc, r - 11.5) + (0, 3.5, 0) (0xcaf0); its hit sphere radius 3 at every distance (table 0x18228); the camera at sphere(el, az, r) + (0, 4.5, 0) looking at (0, 4.5, 0) (0x6ed4); the enemy ball's hit: the trainee sphere's nearest point inside the ball's ellipsoid of its record's semi-axes (0x15900-0x15ac0), base += normalize(target - start) x speed a frame (0x163f4 / 0x15624), gone at 300 from its start (0x15ad4), homing (trainee - base) x t / (t + k) (0x155ec); goals boxes of half 10 / 15 (0xdf68 / 0xdf6c); shots: tables 0x18234 / 0x1833c (speed, size), x (1 + SPEv x 0.005), x (1 + HPv x 0.00125), a lob 6 over its line (0x16488); the balloon's phase scale a/1/1/8 +4, growing to 1.5x (0x122e4), sway (12 sin 2t, 6 sin t) degrees a frame (0x11b58)", confidence = "high" },
+  ["GAME3D.BAL_SIZE"] = { class = "measured", source = "ours (the balloon's 3D model stands in as its sprite): the sprite's mean side sqrt(w x h) at phase scale 1, fitted to the capture magneton-2 (Magneton, scale 0.7: the model 93 x 57 of the 240x160 frame at 240 out with the play camera, sqrt 73 frame = 73.5 game units); a floating balloon's middle is its phase's midY x scale above the grass (Magneton: 75 x 0.7 = 52.5, measured 53.1)", confidence = "low" },
+    ["GAME3D.TRAINEE_H"] = { class = "measured", source = "ours (the trainee's sprite for its model, its feet on the actor point - the top of the game's stand): Latias in the capture magneton-2 28 frame units tall 11.5 ahead (1.35 game units) plus a little for the ball it rides", confidence = "low" },
+  ["GAME3D.PLAY_FOVY"] = { class = "measured", source = "the play camera's projection is not in DllSparring.cro; with its eye (the trainee's sphere point + 4.5 up) the capture magneton-2's far Poke Ball (0, 401, -886) at frame y 26.7 and the pitch's far edge at 106.7 fit fovy ~38-40 looking up ~6 degrees: the intro camera e77's 37.85 and LOOK_Y 31 (the aim the code reads, (0, 4.5, 0), fits neither: it puts the edge at 83)", confidence = "medium" },
+  ["GAME3D.LOOK_Y"] = { class = "measured", source = "fitted with PLAY_FOVY to the capture magneton-2 (Poke Ball and pitch edge); near Magneton's middle (52.5 - 6.7 = 45.8 is its middle, so not the balloon's)", confidence = "low" },
+  ["GAME3D.BIT_R"] = { class = "placeholder", source = "ours: a bitbot's hit size against shots (its model e73 is ~47 long)", confidence = "low" },
+  ["GAME3D.GROUND"] = { class = "verified", source = "the stadium model's pitch lines (a/1/1/4 e75)", confidence = "high" },
+  ["PLAYER.DIST"] = { class = "verified", source = "DllSparring.cro: the trainee's radius targets {180, 240, 300} (table 0x1821c), the step index starting at 1 (0x6fc0), stepped one nearer / farther by button masks 4 / 8 (0x4338 / 0x43f4; blocked while stunned or knocked back), the radius closing at 2.0 units a frame (1.0 guarding; literals 0x45a4 / 0x45a0) - 30 frames a step - with SE 0x100102 (0x42c0-0x4590)", confidence = "high" },
   ["PLAYER"] = { class = "placeholder", source = "bounded box and faster with Spe verified; sizes are not", confidence = "low" },
   ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal (no longer used: GROW_K)", confidence = "low" },
   ["BOT.GROW_EASE"] = { class = "measured", source = "Wooble's graveler-2 capture: most of a growth step in the first frame, all of it within 0.2-0.3 s", confidence = "medium" },

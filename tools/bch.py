@@ -4,6 +4,7 @@ Usage:
   python tools/bch.py list <garc> [entry] [--deep]              # every BCH in a GARC: its textures (name, size, format)
   python tools/bch.py extract <garc> <entry> <outdir> [--deep]  # one entry's textures as PNGs
   python tools/bch.py find <romfs-dir> <regex>                  # textures named like regex, in every GARC (deep)
+  python tools/bch.py model <garc> <entry> <outdir>             # the entry's model: OBJ + MTL, the BCH, a Lua reference
 
 --deep also opens LZ entries and Game Freak's packages ('PC', 'GR', 'MM', 'AD' ...: a two-letter
 tag, a u16 count, count + 1 u32 offsets) and the packages inside them, where most of the 3D
@@ -213,6 +214,224 @@ def garc_bchs(path, deep=False):
                 yield k, p, blob
 
 
+def f32(b, p):
+    return struct.unpack_from('<f', b, p)[0]
+
+
+def f24(v):
+    """a PICA float24 (sign 1, exponent 7 biased 63, mantissa 16) -> float"""
+    if v & 0x7fffff == 0:
+        return 0.0
+    sign = -1.0 if v & 0x800000 else 1.0
+    e = (v >> 16) & 0x7f
+    m = v & 0xffff
+    return sign * (1 + m / 65536.0) * 2.0 ** (e - 63)
+
+
+# the vertex shader inputs' meanings, by input register (PICAAttributeName): what 0x2bb / 0x2bc
+# map each loaded attribute to
+ATTR_NAMES = ['pos', 'normal', 'tangent', 'color', 'uv0', 'uv1', 'uv2', 'bone', 'weight']
+ATTR_TYPES = {0: ('b', 1), 1: ('B', 1), 2: ('h', 2), 3: ('f', 4)}   # s8, u8, s16, f32
+
+
+def invert34(m):
+    """the inverse of an affine 3x4 (rows r0, r1, r2: [a b c tx]) -> 3x4"""
+    a, b, c, tx = m[0]
+    d, e, f, ty = m[1]
+    g_, h, i, tz = m[2]
+    det = a * (e * i - f * h) - b * (d * i - f * g_) + c * (d * h - e * g_)
+    if abs(det) < 1e-12:
+        return [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]]
+    inv = [[(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det],
+           [(f * g_ - d * i) / det, (a * i - c * g_) / det, (c * d - a * f) / det],
+           [(d * h - e * g_) / det, (b * g_ - a * h) / det, (a * e - b * d) / det]]
+    out = []
+    for r in range(3):
+        row = inv[r]
+        out.append([row[0], row[1], row[2], -(row[0] * tx + row[1] * ty + row[2] * tz)])
+    return out
+
+
+def apply34(m, x, y, z):
+    return (m[0][0] * x + m[0][1] * y + m[0][2] * z + m[0][3],
+            m[1][0] * x + m[1][1] * y + m[1][2] * z + m[1][3],
+            m[2][0] * x + m[2][1] * y + m[2][2] * z + m[2][3])
+
+
+def model(b, index=0):
+    """A BCH model's meshes in model space (twin of src/import/bch.lua M.model): per mesh its
+    material's texture, render priority, positions (each vertex moved by its bone's bind pose -
+    the inverse of the bone's stored inverse bind matrix; a skinned vertex by its first bone),
+    UVs and triangle indices. Offsets (BCH 0x21, as SPICA's H3D reads them): model table main
+    +0x00 / count +0x04; a model: materials +0x34 / +0x38 (0x2c each), meshes +0x40 / +0x44
+    (0x38 each), bones +0x70 / +0x74 (0x64 each), name +0x84; a mesh: material u16 +0, node u16
+    +4, priority u16 +6, attribute commands +8 / +0xc (gpu-relative), sub meshes +0x10 / +0x14
+    (0x34 each: bone count u16 +2, bone indices u16 x 20 +4, commands +0x2c / +0x30); a bone:
+    parent s16 +4, the inverse bind 3x4 +0x2c, name +0x5c; a material: texture 0 name +0x1c.
+    A sub mesh's first byte is its skinning: smooth (2) vertices are in model space (the bind
+    pose leaves them be), rigid (1) ones in their bone's (moved by its bind pose); the stadium's
+    flags are rigid and posed only by its animation (e74)."""
+    h = header(b)
+    m = h['main']
+    strs = h['strings']
+    gpu, data = h['gpu'], h['data']
+
+    def name_at(off):
+        try:
+            return cstring(b, strs + off)
+        except (ValueError, IndexError):
+            return None
+
+    mdl = m + u32(b, m + u32(b, m + 0x00) + 4 * index)
+    out = {'name': name_at(u32(b, mdl + 0x84)), 'materials': [], 'bones': [], 'meshes': []}
+    mat_tab, mat_n = u32(b, mdl + 0x34), u32(b, mdl + 0x38)
+    for k in range(mat_n):
+        e = m + mat_tab + k * 0x2c
+        out['materials'].append({'name': name_at(u32(b, e + 0x28)), 'texture': name_at(u32(b, e + 0x1c))})
+    bone_tab, bone_n = u32(b, mdl + 0x70), u32(b, mdl + 0x74)
+    worlds = []
+    for k in range(bone_n):
+        e = m + bone_tab + k * 0x64
+        parent = struct.unpack_from('<h', b, e + 4)[0]
+        inv = [[f32(b, e + 0x2c + 4 * (r * 4 + c)) for c in range(4)] for r in range(3)]
+        world = invert34(inv)
+        worlds.append(world)
+        out['bones'].append({'name': name_at(u32(b, e + 0x5c)), 'parent': parent, 'world': world})
+    mesh_tab, mesh_n = u32(b, mdl + 0x40), u32(b, mdl + 0x44)
+    # every mesh's vertex buffer start (data-relative), and the first index buffer's: a buffer
+    # runs to the next start, so a mesh's vertex count is its span over its stride - more than
+    # 256 vertices take u16 indices, whether or not 0x227's bit 31 says so (the stadium's
+    # spa_stadium00 mesh: 1516 vertices, its indices u16, the bit clear)
+    starts, first_ib = [], None
+    for k in range(mesh_n):
+        e = m + mesh_tab + k * 0x38
+        r = commands(b, gpu + u32(b, e + 8), u32(b, e + 0xc))
+        starts.append(r.get(0x203, [0])[0])
+        sub_tab, sub_n = u32(b, e + 0x10), u32(b, e + 0x14)
+        for s in range(sub_n):
+            se = m + sub_tab + s * 0x34
+            sr = commands(b, gpu + u32(b, se + 0x2c), u32(b, se + 0x30))
+            for a in sr.get(0x227, []):
+                a &= 0x7fffffff
+                first_ib = a if first_ib is None else min(first_ib, a)
+    bounds = sorted(set(starts + ([first_ib] if first_ib is not None else [])))
+
+    def span_end(start):
+        later = [x for x in bounds if x > start]
+        return later[0] if later else len(b) - data
+
+    for k in range(mesh_n):
+        e = m + mesh_tab + k * 0x38
+        mat = struct.unpack_from('<H', b, e)[0]
+        prio = struct.unpack_from('<H', b, e + 6)[0]
+        regs = commands(b, gpu + u32(b, e + 8), u32(b, e + 0xc))
+        fmt_lo = regs.get(0x201, [0])[0]
+        r202 = regs.get(0x202, [0])[0]
+        n_attr = (r202 >> 28) + 1
+        fixed_mask = (r202 >> 16) & 0xfff
+        fmts = []
+        for a in range(12):
+            nib = (fmt_lo >> (4 * a)) & 0xf if a < 8 else (r202 >> (4 * (a - 8))) & 0xf
+            fmts.append((nib & 3, (nib >> 2) + 1))
+        # which input register (meaning) each attribute index feeds
+        perm = regs.get(0x2bb, [0])[0] | (regs.get(0x2bc, [0])[0] << 32)
+        meaning = [ATTR_NAMES[(perm >> (4 * a)) & 0xf] if ((perm >> (4 * a)) & 0xf) < len(ATTR_NAMES) else 'user'
+                   for a in range(12)]
+        # buffer 0: offset (data-relative), its attributes in order, its stride
+        boff = regs.get(0x203, [0])[0]
+        order = regs.get(0x204, [0])[0] | ((regs.get(0x205, [0])[0] & 0xffff) << 32)
+        r205 = regs.get(0x205, [0])[0]
+        stride, count = (r205 >> 16) & 0xff, r205 >> 28
+        layout, at = [], 0
+        for slot in range(count):
+            a = (order >> (4 * slot)) & 0xf
+            if a >= 12:
+                # padding: 4 / 8 / 12 / 16 bytes
+                at += 4 * (a - 11)
+                continue
+            t, n = fmts[a]
+            ch, size = ATTR_TYPES[t]
+            align = size
+            at = (at + align - 1) // align * align
+            layout.append((meaning[a], a, ch, size, n, at))
+            at += size * n
+        subs, tris, used = [], [], set()
+        skin = 0
+        vcount = (span_end(boff) - boff) // stride if stride else 0
+        sub_tab, sub_n = u32(b, e + 0x10), u32(b, e + 0x14)
+        for s in range(sub_n):
+            se = m + sub_tab + s * 0x34
+            # skinning: 0 none, 1 rigid (vertices in their bone's space), 2 smooth (model space)
+            skin = max(skin, b[se])
+            nb = struct.unpack_from('<H', b, se + 2)[0]
+            bones_ = [struct.unpack_from('<H', b, se + 4 + 2 * i)[0] for i in range(min(nb, 20))]
+            sregs = commands(b, gpu + u32(b, se + 0x2c), u32(b, se + 0x30))
+            idx = []
+            for addr, cnt in zip(sregs.get(0x227, []), sregs.get(0x228, [])):
+                wide = (addr >> 31) or vcount > 256
+                base = data + (addr & 0x7fffffff)
+                for i in range(cnt):
+                    v = struct.unpack_from('<H', b, base + 2 * i)[0] if wide else b[base + i]
+                    idx.append(v)
+            for v in idx:
+                used.add(v)
+            subs.append({'bones': bones_, 'idx': idx})
+            tris.extend(idx)
+        nverts = (max(used) + 1) if used else 0
+        # each vertex's bone: the sub mesh's bone list through the vertex's first bone index
+        vbone = [None] * nverts
+        for sm in subs:
+            for v in sm['idx']:
+                if vbone[v] is None:
+                    vbone[v] = sm['bones']
+        pos, uv, col = [], [], []
+        for v in range(nverts):
+            vals = {}
+            for (mean, a, ch, size, n, off) in layout:
+                p = data + boff + v * stride + off
+                vals[mean] = struct.unpack_from('<' + ch * n, b, p)
+            x, y, z = vals.get('pos', (0, 0, 0))[:3]
+            bl = vbone[v] or [0]
+            bi = vals['bone'][0] if 'bone' in vals else 0
+            bone = bl[bi] if bi < len(bl) else (bl[0] if bl else 0)
+            if skin == 1 and bone < len(worlds):
+                x, y, z = apply34(worlds[bone], x, y, z)
+            pos.append((x, y, z))
+            u, w = vals.get('uv0', (0, 0))[:2]
+            uv.append((u, w))
+            cl = [l for l in layout if l[0] == 'color' and l[2] == 'B']
+            if cl:
+                c = vals['color']
+                col.append((c[0] / 255, c[1] / 255, c[2] / 255, (c[3] if len(c) > 3 else 255) / 255))
+        out['meshes'].append({'material': mat, 'texture': out['materials'][mat]['texture'] if mat < mat_n else None,
+                              'priority': prio, 'pos': pos, 'uv': uv, 'col': col or None, 'idx': tris, 'skin': skin,
+                              'layout': [(l[0], l[2], l[4]) for l in layout], 'stride': stride,
+                              'fixed': fixed_mask, 'attrs': n_attr})
+    return out
+
+
+def write_obj(mdl, path):
+    """the model as an OBJ + MTL to look at (textures by name, PNGs beside it)"""
+    base = os.path.splitext(path)[0]
+    with open(base + '.mtl', 'w') as f:
+        for mat in mdl['materials']:
+            f.write('newmtl %s\nKd 1 1 1\nmap_Kd %s.png\n\n' % (mat['name'], mat['texture']))
+    with open(path, 'w') as f:
+        f.write('mtllib %s.mtl\n' % os.path.basename(base))
+        vi = 1
+        for k, mesh in enumerate(mdl['meshes']):
+            f.write('o mesh%d_%s\nusemtl %s\n' % (k, mesh['texture'], mdl['materials'][mesh['material']]['name']))
+            for (x, y, z) in mesh['pos']:
+                f.write('v %.4f %.4f %.4f\n' % (x, y, z))
+            for (u, w) in mesh['uv']:
+                f.write('vt %.5f %.5f\n' % (u, w))
+            idx = mesh['idx']
+            for i in range(0, len(idx) - 2, 3):
+                a, b2, c = idx[i] + vi, idx[i + 1] + vi, idx[i + 2] + vi
+                f.write('f %d/%d %d/%d %d/%d\n' % (a, a, b2, b2, c, c))
+            vi += len(mesh['pos'])
+
+
 def main(argv):
     if len(argv) < 2:
         print(__doc__)
@@ -255,6 +474,31 @@ def main(argv):
                 except Exception as ex:
                     print('%s: %s' % (p, ex), file=sys.stderr)
         return 0
+    if argv[0] == 'model':
+        # python tools/bch.py model <garc> <entry> <outdir>: the entry's first model as an OBJ to
+        # look at, its unpacked BCH and a Lua reference for tests/bch_model_test.lua
+        entry, outdir = int(argv[2]), argv[3]
+        os.makedirs(outdir, exist_ok=True)
+        for k, j, b in garc_bchs(argv[1]):
+            if k != entry or b[:4] != b'BCH\x00':
+                continue
+            mdl = model(b)
+            stem = os.path.join(outdir, 'e%d' % entry)
+            open(stem + '.bch', 'wb').write(b)
+            write_obj(mdl, stem + '_model.obj')
+            with open(stem + '_model.lua', 'w') as f:
+                f.write('return { name = "%s", meshes = {\n' % mdl['name'])
+                for me in mdl['meshes']:
+                    sx = sum(x for x, _, _ in me['pos']); sy = sum(y for _, y, _ in me['pos']); sz = sum(z for _, _, z in me['pos'])
+                    su = sum(u for u, _ in me['uv']); sv = sum(v for _, v in me['uv'])
+                    sc = sum(sum(c) for c in me['col']) if me['col'] else 0
+                    f.write('  { texture = "%s", priority = %d, skin = %d, verts = %d, tris = %d, sum = { %.4f, %.4f, %.4f, %.5f, %.5f, %.4f }, idx = %d },\n'
+                            % (me['texture'], me['priority'], me['skin'], len(me['pos']), len(me['idx']) // 3, sx, sy, sz, su, sv, sc, sum(me['idx'])))
+                f.write('} }\n')
+            print('%s: %d meshes -> %s' % (mdl['name'], len(mdl['meshes']), stem))
+            return 0
+        print('no BCH model in entry', entry)
+        return 1
     if argv[0] == 'extract':
         entry, outdir = int(argv[2]), argv[3]
         os.makedirs(outdir, exist_ok=True)
