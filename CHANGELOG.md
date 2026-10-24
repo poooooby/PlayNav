@@ -5,6 +5,20 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-24 (beta)
+
+### Fixed
+
+- Super Training's wide balls can be escaped again: they follow you side to side only, so moving
+  up or down gets you clear (tall balls follow you up and down only; move sideways). They had
+  been chasing you both ways.
+- Moving up and down in a regimen is as quick on the screen as moving sideways; it was much slower.
+
+### Changed
+
+- Shots can be fired at most four times a second: rapid tapping no longer fires like a machine
+  gun. Charged Shots are unaffected.
+
 ## [0.7.1] - 2026-10-24 (beta)
 
 ### Fixed
