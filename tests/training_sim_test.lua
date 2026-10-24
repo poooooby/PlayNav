@@ -517,6 +517,7 @@ do
   T.check(sim:shotReady(), "a full meter covers a shot")
   local kinds = {}
   for _ = 1, 2 do
+    sim.player.refire = 0   -- (the refire delay is tested on its own)
     sim:pressFire(); sim:update(1 / 60); sim:releaseFire()
     for _, e in ipairs(sim:update(1 / 60)) do if e.kind == "shot_fired" or e.kind == "weak_shot" then kinds[#kinds + 1] = e.type end end
   end
@@ -868,6 +869,31 @@ do
   T.check(#a > 20, "...and there were events (" .. #a .. " chars)")
 end
 
+-- ------- rapid taps: at most one shot every SHOT.REFIRE_S (no machine-gunning, weak shots too)
+do
+  local function taps(every, secs)
+    local sim = make("lv1_hp")
+    run(sim, 3.2)
+    sim.script, sim.spawnQueue, sim.balls = nil, {}, {}
+    local shots, t, nextTap = 0, 0, 0
+    while t < secs do
+      if t >= nextTap then
+        sim:aim(0, 1); sim:pressFire()
+        for _, e in ipairs(sim:update(1 / 120)) do if e.kind == "shot_fired" or e.kind == "weak_shot" then shots = shots + 1 end end
+        sim:releaseFire()
+        nextTap = nextTap + every
+      end
+      for _, e in ipairs(sim:update(1 / 120)) do if e.kind == "shot_fired" or e.kind == "weak_shot" then shots = shots + 1 end end
+      t = t + 1 / 120
+    end
+    return shots
+  end
+  local n = taps(0.05, 2)
+  local most = math.floor(2 / N.SHOT.REFIRE_S) + 1
+  T.check(n >= most - 1 and n <= most, ("taps every 0.05 s for 2 s fire %d shots, not 40 (one per %.2f s)"):format(n, N.SHOT.REFIRE_S))
+  T.eq(taps(0.3, 3), 10, "...taps 0.3 s apart all fire")
+end
+
 -- ------- the game's attack scripts (data/training_attacks.lua from tools/st_attacks.py)
 
 do
@@ -1029,6 +1055,14 @@ do
     T.check(trial(36, "across", nil, 0.7), "...and one running into the edge")
     T.check(not trial(36, "across", nil, 0.7, 1.0), "...a juke (to the edge, cut back 1 s out) escapes it")
     T.check(trial(36, "across", nil, 0.7, 0.3), "...cut back 0.3 s out is too late")
+    T.check(not trial(36, "up"), "...moving up from the throw escapes it (it homes across only)")
+    T.check(not trial(36, "up", 0.4), "...even in its last 0.4 s (up and down as quick on screen as across)")
+    local ax, ay = Sim.homingAxes(GA.projectiles[36])
+    T.check(ax and not ay, "a wide ball homes across only")
+    ax, ay = Sim.homingAxes(GA.projectiles[37])
+    T.check(ay and not ax, "a tall ball homes up and down only")
+    ax, ay = Sim.homingAxes(GA.projectiles[57])
+    T.check(ax and ay, "a round ball homes both ways")
     T.check(trial(37, nil), "a tall ball meets a trainee standing still")
     T.check(not trial(37, "across", nil, 0.4, 1.0), "...a juke escapes it")
     T.check(not trial(57, "across", nil, 0.4, 1.0), "a round ball: a juke escapes it too")

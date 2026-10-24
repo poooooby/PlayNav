@@ -189,6 +189,8 @@ N.SHOT = {
   -- full Speed): an untrained Torchic's ~0.76 s, a fully trained one's ~0.25 s
   SPE_EXP = 1,
   SPEED_SCALE = 1.31,
+  -- the least time between two shots (a tap in it fires nothing): no machine-gunning taps
+  REFIRE_S = 0.25,
   SPE_K = 0.005,
   HP_K = 0.00125,
   STAT_REF = 100,
@@ -429,6 +431,7 @@ N.EVIDENCE = {
   ["BLOCK.MOVE_MULT"] = { class = "verified", source = "DllSparring.cro 0x1fa8-0x1fcc: move speed x0.5 while [0x284] / [0x288] (the guard) are set; firing blocked at 0x25b4", confidence = "high" },
   ["PLAYER.SPE_K"] = { class = "verified", source = "DllSparring.cro stat+0xc = 2 x (1 + SPEv x 0.001) at 0x5c8c-0x5cb4 (no EV total), x1.5 Swiftness at 0x5cb8-0x5ccc; an arc a frame on the stand's sphere, no inertia", confidence = "high" },
   ["SHOT.SPE_EXP"] = { class = "verified", source = "1: the game's Speed factor as it is (DllSparring.cro 0x2f84-0x2fcc); the exponent stays to sharpen it if wanted", confidence = "high" },
+  ["SHOT.REFIRE_S"] = { class = "inferred", source = "Wooble 2026-10-24: a delay so rapid taps cannot fire like a machine gun (the weak shot is free when the meter is short); the game's own gap between plain shots is not known (ours)", confidence = "medium" },
   ["SHOT.SPEED_SCALE"] = { class = "measured", source = "Wooble 2026-10-23, the game: a fully Speed-trained shot takes ~0.25 s to reach the target from the farthest point; x1.31 makes Torchic's at 252 Speed EVs 0.25 s (ours crosses the 0.9 depth at vz, whatever the angle)", confidence = "medium" },
   ["SHOT.SPE_K"] = { class = "verified", source = "DllSparring.cro 0x2f84-0x2fcc: shot speed = rec.speed x (1 + SPEv x 0.005), SPEv = stat+0x58 (base Spe + 2 EV_Spe)", confidence = "high" },
   ["SHOT.HP_K"] = { class = "verified", source = "DllSparring.cro 0x2f84-0x2fcc: shot size = rec.size x (1 + HPv x 0.00125), HPv = stat+0x4c (base HP + 2 EV_HP); x1.5 Big-Shot", confidence = "high" },

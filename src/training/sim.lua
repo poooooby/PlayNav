@@ -320,8 +320,11 @@ return function(N)
       p.firing = 0
       return true
     end
+    -- too soon after the last shot (SHOT.REFIRE_S): the tap fires nothing
+    if (p.refire or 0) > 0 then return false end
     self:fire(stage, nil, rise)
     if stage >= 1 then p.lock = N.CHARGE.AFTER_F / CF end
+    p.refire = N.SHOT.REFIRE_S or 0
     return true
   end
 
@@ -950,8 +953,19 @@ return function(N)
   -- homing (Wooble 2026-10-23, skill over the game's pull): a homing ball steers toward where
   -- the trainee is now on each axis it homes, no faster than HOMING.SPEED (slower than the
   -- trainee moves), and flies straight over its last HOLD_S - a trainee standing still is met,
-  -- one that moves away early enough outruns it; a wide or tall ball homes the same, its hitbox
-  -- wider or taller
+  -- one that moves away early enough outruns it; a wide ball homes across only (up or down
+  -- escapes it), a tall one up and down only (across escapes it)
+  -- the axes a homing ball steers on: a strong pull one way (k <= STRONG_K: the wide ball's
+  -- across, the tall ball's up and down) is its only one - its weak other pull does not home;
+  -- else every axis it pulls on (the round balls, both)
+  local function homingAxes(P)
+    local SK = N.ATTACK.HOMING.STRONG_K
+    local hx, hy = P.homeX or 0, P.homeY or 0
+    local sx, sy = hx > 0 and hx <= SK, hy > 0 and hy <= SK
+    if sx or sy then return sx, sy end
+    return hx > 0, hy > 0
+  end
+  Sim.homingAxes = homingAxes
   local function homingWant(self, b, n, bx, by)
     local p = self.player
     local wx, wy = gameWave(b, n)
@@ -965,8 +979,9 @@ return function(N)
     if ((b.flightN or 60) - n) / FPS <= H.HOLD_S / k then return end
     local tx, ty = homingWant(self, b, n, b.bx, b.by)
     local d = H.SPEED * k * step
-    if (P.homeX or 0) > 0 then b.hox = b.hox + math.max(-d, math.min(d, tx - b.hox)) end
-    if (P.homeY or 0) > 0 then b.hoy = b.hoy + math.max(-d, math.min(d, ty - b.hoy)) end
+    local ax, ay = homingAxes(P)
+    if ax then b.hox = b.hox + math.max(-d, math.min(d, tx - b.hox)) end
+    if ay then b.hoy = b.hoy + math.max(-d, math.min(d, ty - b.hoy)) end
   end
 
   local function fireVolley(self, vid)
@@ -1341,8 +1356,9 @@ return function(N)
           local steer = math.max(0, math.min(t, ((b.flightN or 60) - (self.t - b.t0) * FPS) / FPS - H.HOLD_S / k))
           local d = H.SPEED * k * steer
           local tx, ty = homingWant(self, b, n, bx, by)
-          if (P.homeX or 0) > 0 then ox = ox + math.max(-d, math.min(d, tx - b.hox)) end
-          if (P.homeY or 0) > 0 then oy = oy + math.max(-d, math.min(d, ty - b.hoy)) end
+          local ax, ay = homingAxes(P)
+          if ax then ox = ox + math.max(-d, math.min(d, tx - b.hox)) end
+          if ay then oy = oy + math.max(-d, math.min(d, ty - b.hoy)) end
         end
         x, y = bx + ox, by + oy
       elseif b.ring then
@@ -1487,6 +1503,7 @@ return function(N)
     local p = self.player
     if p.stun > 0 then p.stun = math.max(0, p.stun - step) end
     if (p.lock or 0) > 0 then p.lock = math.max(0, p.lock - step) end
+    if (p.refire or 0) > 0 then p.refire = math.max(0, p.refire - step) end
     if (p.smoke or 0) > 0 then p.smoke = math.max(0, p.smoke - step) end
     if (p.shatter or 0) > 0 then p.shatter = math.max(0, p.shatter - step) end
     if p.shield > 0 then
@@ -1509,7 +1526,9 @@ return function(N)
       -- the stand at the far end
       p.z = self.course.farPlayer and 0.04 or (N.PLAYER.Z or 0.1)
       p.x = math.max(-N.PLAYER.X_MAX, math.min(N.PLAYER.X_MAX, p.x + p.mx * v * step))
-      p.y = math.max(0, math.min(N.PLAYER.Y_MAX or 0.7, (p.y or 0) + p.mz * v * step))
+      -- (up and down as fast on the screen as across: a world unit up is fewer screen units
+      -- than one across at the trainee's depth, NEAR hw / hu)
+      p.y = math.max(0, math.min(N.PLAYER.Y_MAX or 0.7, (p.y or 0) + p.mz * v * (V.NEAR.hw / V.NEAR.hu) * step))
     end
     if p.charging and p.stun <= 0 then
       p.chargeT = p.chargeT + step
