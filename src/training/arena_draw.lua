@@ -1004,6 +1004,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       if g.hidden then goto nextgoal end
       local gx, gy = sim:goalPos(g)
       local px, py = projB(gx, gy)
+      -- (the game's space: the shield's target rides its own circle on the cage)
+      if g.kind == "marker" and g.orbit and game3d(sim) and sim.markerPos3 then px, py = proj(sim:markerPos3(g)) end
       -- (goals keep their size as the balloon grows: they are the HUD's panes)
       local gr = goalR(sim, g) * hwFar
       local rgb = GOAL_RGB[g.kind] or GOAL_RGB.white

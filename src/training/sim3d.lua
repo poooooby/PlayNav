@@ -135,11 +135,24 @@ return function(Sim, N, I)
   -- distance): its mean side sqrt(w x h) and its middle's height in game units, through the play
   -- camera (the eye 240 out at EYE_UP, looking at LOOK_Y, PLAY_FOVY)
   local sizeCache = {}
+  -- (a phase's id: the Megas share their species' number but not its model)
+  local phaseIds = setmetatable({}, { __mode = "k" })
+  local function phaseId(ph)
+    if phaseIds[ph] == nil then
+      phaseIds[ph] = false
+      for id, rec in pairs(GA and GA.phases or {}) do if rec == ph then phaseIds[ph] = id end end
+    end
+    return phaseIds[ph] or nil
+  end
   local function measured(self)
-    local sp = phase(self).species or (self.bot and self.bot.national)
-    local m = sp and G3.SIZE_PX and G3.SIZE_PX[sp]
+    local ph = phase(self)
+    local pid = phaseId(ph)
+    local sp = ph.species or (self.bot and self.bot.national)
+    local m = pid and G3.SIZE_PHASE and G3.SIZE_PHASE[pid]
+    local key = m and ("p" .. pid) or sp
+    m = m or (sp and G3.SIZE_PX and G3.SIZE_PX[sp])
     if not m then return nil end
-    local c = sizeCache[sp]
+    local c = sizeCache[key]
     if not c then
       local F = 80 / math.tan(rad(G3.PLAY_FOVY) / 2)
       local unit = (160 / 240) * 240 / F
@@ -147,7 +160,7 @@ return function(Sim, N, I)
       -- (a screen y in 400x240 px -> the game's height on the balloon's plane)
       local function height(py) return G3.EYE_UP + 240 * math.tan(math.atan((80 - py * 160 / 240) / F) + pitch) end
       c = { size = sqrt(m[1] * m[2]) * unit, tall = m[2] * unit, cy = height(m[3]), stands = m[4] or nil }
-      sizeCache[sp] = c
+      sizeCache[key] = c
     end
     return c
   end
@@ -170,8 +183,8 @@ return function(Sim, N, I)
   end
   -- the balloon's middle in the game's space: a measured one where the captures have it, a
   -- floating one (its phase's midY) its middle midY x scale above the grass, else its feet on the
-  -- grass; the game's sway (x 12 sin 2t,
-  -- y 6 sin t, degrees a frame) when its phase sways, our throw's dip and hit wobble over it
+  -- grass; the game's sway (x 12 sin a, y 6 sin b in game units, a / b turning 2 / 1 degrees a
+  -- frame) when its phase sways, our throw's dip and hit wobble over it
   function Sim:botCentre3()
     local R3 = self:botR3()
     local sh = self.shape
@@ -213,7 +226,24 @@ return function(Sim, N, I)
     return fx + (X - cx) / s3, fy + (Y - cy) * Sim.ASPECT / s3
   end
   -- a goal's box: its middle and half size
+  -- the shield's target in the game's space (0xe670): theta turns `spin` degrees a frame,
+  -- phi = 22.5 cos theta, psi = 90 + 22.5 sin theta, at (R cos psi cos phi, R sin phi + R / 2,
+  -- R sin psi cos phi) about the balloon's foot - a circle r 22.3 on the cage's face, turning
+  -- anticlockwise on the screen
+  function Sim:markerPos3(g)
+    local o = g.orbit
+    local th = rad((o.theta0 or 0) + (o.spin or 1) * (g.age or 0) * FPS)
+    local R, A = G3.SHIELD_R, G3.SHIELD_SWING
+    local phi, psi = rad(A * cos(th)), rad(90 + A * sin(th))
+    local bx = self:botCentre3()
+    return bx + R * cos(psi) * cos(phi), G3.SHIELD_Y0 + R * sin(phi) + R / 2, R * sin(psi) * cos(phi)
+  end
+
   function Sim:goalBox3(g)
+    if g.kind == "marker" and g.orbit then
+      local x, y, z = self:markerPos3(g)
+      return x, y, z, G3.SHIELD_HIT
+    end
     local gx, gy = self:goalPos(g)
     local X, Y, Z = self:toGame(gx, gy)
     local half = (g.kind == "chance") and G3.GOAL_HALF_BIG or (g.kind == "marker" and 6 or G3.GOAL_HALF)
@@ -318,6 +348,9 @@ return function(Sim, N, I)
         local rx, ry, rz = b.x - p.x, b.y - p.y, b.z - p.z
         if not b.past and rx * b.vx + ry * b.vy + rz * b.vz > 0 then b.past, b.pastT = true, self.t end
         if touches(self, b, b.x, b.y, b.z) then
+          if b.owner and b.owner.shot == b then
+            b.owner.freeAt = math.min(b.owner.freeAt or math.huge, self.t + G3.BIT_LINGER_F / FPS)
+          end
           if (p.safe or 0) > 0 then
             alive = false
             emit(self, "ball_absorbed", { ball = b.kind })
@@ -335,7 +368,9 @@ return function(Sim, N, I)
         end
         -- gone 300 from where it left (0x15ad4)
         local tx, ty, tz = b.vx * n, b.vy * n, b.vz * n
-        if tx * tx + ty * ty + tz * tz >= G3.DESPAWN * G3.DESPAWN then alive = false end
+        if b.owner then
+          if n >= G3.BIT_LIFE_F then alive = false end
+        elseif tx * tx + ty * ty + tz * tz >= G3.DESPAWN * G3.DESPAWN then alive = false end
       end
       if alive then keep[#keep + 1] = b end
     end
@@ -347,7 +382,8 @@ return function(Sim, N, I)
       if bit.dead then
         bit.regenT = bit.regenT - step
         if bit.regenT <= 0 then
-          bit.dead, bit.hp, bit.fireT, bit.poppedAt = false, A.hp, A.fire_every, nil
+          bit.dead, bit.hp, bit.fireT, bit.poppedAt = false, bit.maxHp or A.hp, A.fire_every, nil
+          bit.shot, bit.freeAt = nil, nil
           emit(self, "bit_regen", { id = bit.id })
         end
         keptBits[#keptBits + 1] = bit
@@ -357,8 +393,17 @@ return function(Sim, N, I)
           bit.x = bit.cx + cos(bit.loopA) * GA.BIT_LOOP_R
           bit.y = bit.cy + sin(bit.loopA) * GA.BIT_LOOP_R
         end
-        bit.fireT = bit.fireT - step
-        if bit.fireT <= 0 then
+        -- the game's (0x13e74): a bit fires only once its last shot is gone - BIT_LINGER_F after
+        -- a hit, its BIT_LIFE_F frames when dodged - and then winds up BIT_WINDUP_F
+        if bit.shot then
+          if bit.freeAt and self.t >= bit.freeAt then
+            bit.shot, bit.freeAt = nil, nil
+            bit.fireT = G3.BIT_WINDUP_F / FPS
+          end
+        else
+          bit.fireT = bit.fireT - step
+        end
+        if not bit.shot and bit.fireT <= 0 then
           bit.fireT = (bit.every or GA.BIT_EVERY_F) / FPS
           local x, y, z = self:bitPos3(bit)
           local dx, dy, dz = p.x - x, p.y - y, p.z - z
@@ -366,7 +411,8 @@ return function(Sim, N, I)
           local v = G3.BIT_SPEED
           self.balls[#self.balls + 1] = { g3 = true, x = x, y = y, z = z, sx0 = x, sy0 = y, sz0 = z,
             vx = dx / l * v, vy = dy / l * v, vz = dz / l * v, t0 = self.t, r = G3.BIT_SHOT_R,
-            ex = G3.BIT_SHOT_R, ey = G3.BIT_SHOT_R, ez = G3.BIT_SHOT_R, kind = "bit", damage = bit.damage }
+            ex = G3.BIT_SHOT_R, ey = G3.BIT_SHOT_R, ez = G3.BIT_SHOT_R, kind = "bit", damage = bit.damage, owner = bit }
+          bit.shot, bit.freeAt = self.balls[#self.balls], self.t + G3.BIT_LIFE_F / FPS
           emit(self, "bit_fire", { id = bit.id })
         end
         keptBits[#keptBits + 1] = bit
@@ -430,7 +476,7 @@ return function(Sim, N, I)
           local bx, by, bz = self:bitPos3(bit)
           local t = segBox(px, py, pz, sh.x, sh.y, sh.z, bx, by, bz, G3.BIT_R + sh.r)
           if t then
-            bit.hp = bit.hp - 1
+            bit.hp = bit.hp - (bit.maxHp and max(1, sh.points or 1) or 1)
             alive = false
             if bit.hp <= 0 then
               self.stats.bitsPopped = self.stats.bitsPopped + 1

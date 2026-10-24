@@ -964,6 +964,29 @@ do
       shotType = "black", level = course.level, still = true, gameAttacks = GA }, opts.rng or lcg(11))
   end
   T.check(GA and GA.courses and GA.phases and GA.volleys and GA.projectiles, "the game's attack data loads")
+  -- a secret balloon's goal groups are the card's: Blastoise 5 a group living 360 frames, its red
+  -- goal 300; Stunfisk one at a time, in turn, 75 frames
+  do
+    local bl = gameSim("secret_04")
+    bl:spawnGroup()
+    local n = 0
+    for _, g in ipairs(bl.goals) do if g.kind == "white" then n = n + 1 end end
+    local tm = Sim.goalTimer(bl)
+    T.check(n == 5 and math.abs(tm.gone - (360 / 30 + 0.2)) < 1e-9, ("Blastoise: %d goals a group, gone at %.2f s"):format(n, tm.gone))
+    bl:spawnChance()
+    T.check(math.abs(bl.goals[#bl.goals].life - 10) < 1e-9, "...its red goal 10 s")
+    local sf = gameSim("secret_05")
+    local seen = {}
+    for _ = 1, 3 do
+      sf.goals = {}
+      sf:spawnGroup()
+      seen[#seen + 1] = sf.goals[1] and sf.goals[1].anchor
+    end
+    T.check(#sf.goals == 1 and seen[1] ~= seen[2] and seen[2] ~= seen[3], "Stunfisk: one goal at a time, its anchors in turn (" .. table.concat(seen, " ") .. ")")
+    T.check(math.abs(Sim.goalTimer(sf).white - (0.625 * 75 / 30 + 0.2)) < 1e-9, "...white for 0.625 of its 75 frames")
+    -- a measured course keeps its captured timer
+    T.check(Sim.goalTimer(gameSim("lv2_hp")).cycle == 16.0, "Relicanth keeps its measured cycle")
+  end
   -- every course runs a minute of its script without trouble, and attacks
   local quiet = {}
   for _, c in ipairs(C.courses) do

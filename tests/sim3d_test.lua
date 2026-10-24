@@ -151,12 +151,21 @@ do
   T.check(Sim.measured3(ax).stands and near(feet, G3.GROUND, 1e-6), ("Axew stands with its feet on the grass (%.1f)"):format(feet))
   local tall = 2 * (ax.shape and ax.shape.halfH or 1) * ax:botR3()
   T.check(near(tall, G3.SIZE_PX[610][2] * unit, 1e-6), ("...as tall as the game's Axew (%.1f)"):format(tall))
-  local bs = make("secret_03")
+  -- a balloon with no size falls back to its phase's scale (Blastoise's row held back)
+  local keep = G3.SIZE_PX[9]
+  G3.SIZE_PX[9] = nil
+  local bs = make("secret_04")
   bs:setGame3d(true)
   bs:startScript()
   local ph = bs.script.phase
-  T.check(G3.SIZE_PX[ph.species] == nil and near(bs:botR3() * 2, G3.BAL_SIZE * ph.scale, 1e-6),
-    "an unmeasured balloon (Blastoise) by its phase's scale")
+  T.check(ph.species == 9 and near(bs:botR3() * 2, G3.BAL_SIZE * ph.scale, 1e-6), "an unsized balloon (Blastoise) by its phase's scale")
+  G3.SIZE_PX[9] = keep
+  -- every phase the courses use has a size (the Megas by their phase)
+  local missing = {}
+  for id, rec in pairs(GA.phases) do
+    if not ((G3.SIZE_PHASE or {})[id] or G3.SIZE_PX[rec.species]) then missing[#missing + 1] = id .. ":" .. tostring(rec.species) end
+  end
+  T.check(#missing == 0, "every phase sized (" .. (#missing == 0 and "all" or table.concat(missing, " ")) .. ")")
 end
 
 -- the edge ripples: a disc 2.5 above the trainee for the top, 2.5 to its right / left for the
@@ -187,6 +196,41 @@ do
   T.check(mz > lz and near(mx, G3.BIT_SPOTS[2][1]) and near(my, G3.BIT_SPOTS[2][2] + G3.BIT_LOOP_R),
     "the middle bitbot nearer the camera, its loop about its spot")
   T.check(near(lx, G3.BIT_SPOTS[1][1] + G3.BIT_LOOP_R), "...the left one on its loop left of the middle")
+end
+
+-- the shield's target on the card's circle: top of the turn at (0, R sin 22.5 + R / 2, R cos 22.5),
+-- on the sphere R about the balloon's foot, round once in 360 frames at spin 1
+do
+  local e = make("lv2_def")
+  e:setGame3d(true)
+  local bx = e:botCentre3()
+  local g = { kind = "marker", age = 0, orbit = { spin = 1, theta0 = 0 } }
+  local x, y, z = e:markerPos3(g)
+  local R = G3.SHIELD_R
+  T.check(near(x, bx, 1e-6) and near(y, R * math.sin(math.rad(22.5)) + R / 2, 1e-6) and near(z, R * math.cos(math.rad(22.5)), 1e-6),
+    ("the shield's target starts over the cage's face (%.1f, %.1f, %.1f)"):format(x, y, z))
+  g.age = 90 / 30
+  local lx = e:markerPos3(g)
+  g.age = 360 / 30
+  local x2, y2, z2 = e:markerPos3(g)
+  T.check(lx < bx and near(x2, x, 1e-6) and near(y2, y, 1e-6) and near(z2, z, 1e-6), "...a quarter turn takes it left (anticlockwise), a whole turn home")
+  local _, _, _, half = e:goalBox3(g)
+  T.check(half == G3.SHIELD_HIT, "...hit within 6")
+end
+
+-- a bitbot fires again only once its shot is gone: 30 frames after it lands, then a 30-frame
+-- wind-up - the middle one's interval ~94 frames (the captures'), from the trainee standing still
+do
+  local e = make("lv2_spd")
+  e:setGame3d(true)
+  e.player.safe = 1e9
+  e.bits = { { id = 2, x = 0, y = 0.5, z = 0.7, hp = 100, maxHp = 100, r = 0.1, cx = 0, cy = 0.5, loopA = 0, fireT = 0, game = true, every = 94 } }
+  local fires = {}
+  for _ = 1, 12 * 120 do
+    for _, ev in ipairs(e:update(1 / 120) or {}) do if ev.kind == "bit_fire" then fires[#fires + 1] = ev.t end end
+  end
+  local gap = #fires >= 2 and (fires[2] - fires[1]) * 30 or 0
+  T.check(gap > 85 and gap < 100, ("the middle bitbot fires every ~94 frames (%.1f)"):format(gap))
 end
 
 -- off: the 2D world as before

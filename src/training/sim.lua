@@ -662,12 +662,44 @@ return function(N)
     return goal.x or 0, goal.y or self:botCY()
   end
 
+  -- the balloon's goal groups from the card (N.GOALS.PHASE by phase id), when it has a row
+  local function goalCard(self)
+    local pid = self.script and self.script.phaseId
+    return pid and N.GOALS.PHASE and N.GOALS.PHASE[pid] or nil
+  end
+
+  -- a group of n of the balloon's anchors: in turn (`ordered`), else drawn at random
+  local function cardGroup(self, card)
+    local names = self.anchorNames
+    if not names then
+      names = {}
+      for k in pairs(self.anchors or {}) do names[#names + 1] = k end
+      table.sort(names)
+      self.anchorNames = names
+    end
+    local out = {}
+    if #names == 0 then return out end
+    if card.ordered then
+      self.anchorTurn = (self.anchorTurn or 0) % #names + 1
+      for i = 0, card.n - 1 do out[#out + 1] = names[(self.anchorTurn + i - 1) % #names + 1] end
+    else
+      local pool = {}
+      for i, k in ipairs(names) do pool[i] = k end
+      for _ = 1, math.min(card.n, #pool) do
+        out[#out + 1] = table.remove(pool, math.floor(self.rng() * #pool) + 1)
+      end
+    end
+    return out
+  end
+
   function Sim:spawnGroup()
     local groups = self.course.goals.groups
     if #groups == 0 then return end
     self.groupIndex = self.groupIndex % #groups + 1
     local group = groups[self.groupIndex]
     local max = self.course.goals.max or #group
+    local card = goalCard(self)
+    if card then group, max = cardGroup(self, card), card.n end
     local n = 0
     self.groupScored = 0
     self.chanceDone = false
@@ -683,7 +715,7 @@ return function(N)
   function Sim:spawnChance()
     local c = self.course.goals.chance or {}
     self.goals[#self.goals + 1] = self:placeGoal({ anchor = c.anchor or (self.course.goals.groups[1] or {})[1], kind = "chance", age = 0,
-      r = N.GOALS.CHANCE_R, hits = 0, life = c.secs or N.GOALS.CHANCE_S })
+      r = N.GOALS.CHANCE_R, hits = 0, life = (goalCard(self) and goalCard(self).chance / 30) or c.secs or N.GOALS.CHANCE_S })
     self.chanceDone = true
     emit(self, "chance_goal")
   end
@@ -691,6 +723,14 @@ return function(N)
   -- the course's goal timer (N.GOALS.TIMER: white, gone, cycle seconds; Wooble's captures)
   function goalTimer(self)
     local T = N.GOALS.TIMER
+    local card = goalCard(self)
+    if card then
+      -- the card's life L frames: white to 0.625 L (the HUD clip's frame 20 of 32), gone at L,
+      -- the next group 30 frames after; each 0.2 s on for the appear clip (fits every captured
+      -- course to ~0.2 s)
+      card.timer = card.timer or { white = 0.625 * card.life / 30 + 0.2, gone = card.life / 30 + 0.2, cycle = (card.life + 33) / 30 }
+      return card.timer
+    end
     return (T and (T[self.course.id] or T[self.isSecret and "secret" or self.level] or T.default))
       or { white = N.GOALS.YELLOW_AT, gone = N.GOALS.GONE_AT, cycle = N.GOALS.GONE_AT + 1 }
   end
@@ -895,7 +935,7 @@ return function(N)
     local pid = ids and ids[self.botIndex]
     local ph = pid and D.phases[pid]
     if not ph then return end
-    self.script = { phase = ph, form = false, list = ph.list, idx = 0, stage = "next", left = 0, reps = 0 }
+    self.script = { phase = ph, phaseId = pid, form = false, list = ph.list, idx = 0, stage = "next", left = 0, reps = 0 }
   end
 
   -- the second form: on while the score left is at most its entry % and not at most its exit %
@@ -1031,7 +1071,7 @@ return function(N)
   end
 
   -- the balloon's shield and the target that breaks it (a marker goal that roams its shape)
-  function raiseShield(self, secs)
+  function raiseShield(self, secs, spin)
     if self.barrier then return end
     local S = N.ATTACK.SHIELD
     local own = S.COURSE and S.COURSE[self.course.id]
@@ -1039,7 +1079,9 @@ return function(N)
     self.barrier = { t = 0, marker = "center", maxS = (secs or N.ATTACK.barrier.max_s) + (S.TAIL_S or 0), script = true }
     -- the target circles the balloon (screen angles: y down, so the world's is their negative)
     self.goals[#self.goals + 1] = { kind = "marker", age = 0, r = N.GOALS.MARKER_R, hits = 0,
-      orbit = { a = math.rad(-S.START_DEG), w = math.rad(S.DEG_S), r = S.ORBIT_R, up = S.ORBIT_UP } }
+      orbit = { a = math.rad(-S.START_DEG), w = math.rad(S.DEG_S * (spin or 1)), r = S.ORBIT_R, up = S.ORBIT_UP,
+        -- (the game's space: its turn a frame and a start a multiple of 45 degrees, 0xbacc)
+        spin = spin or 1, theta0 = self.game3d and 45 * math.floor(self.rng() * 8) or 0 } }
     emit(self, "barrier_up")
   end
 
@@ -1053,9 +1095,14 @@ return function(N)
     for _ = 1, math.min(n, GA.MAX_BITS - alive) do
       local slot = #self.bits + 1
       local x = xs[(slot - 1) % #xs + 1]
+      -- (the game's space: the record's HP, taken down by each shot's points, and its loop from
+      -- a multiple of 45 degrees, 0x13d24)
+      local g3 = self.game3d and rec and rec.hp
       -- each circles its own loop (clockwise on screen), all firing together
-      self.bits[#self.bits + 1] = { id = slot, x = x, y = A.y, z = A.z, hp = A.hp, r = A.r, cx = x, cy = A.y,
-        loopA = slot * 2.1, fireT = GA.BIT_FIRST_S, damage = rec and rec.damage, game = true,
+      self.bits[#self.bits + 1] = { id = slot, x = x, y = A.y, z = A.z, hp = g3 and rec.hp or A.hp, maxHp = g3 and rec.hp or nil,
+        r = A.r, cx = x, cy = A.y,
+        loopA = self.game3d and math.rad(45 * math.floor(self.rng() * 8)) or slot * 2.1,
+        fireT = GA.BIT_FIRST_S, damage = rec and rec.damage, game = true,
         every = own.every and own.every[(slot - 1) % #own.every + 1] or GA.BIT_EVERY_F }
     end
     emit(self, "bits_spawned", { n = n })
@@ -1103,8 +1150,12 @@ return function(N)
       elseif sc.stage == "pose" then
         if st and st.cmd ~= 0 then
           local own = GA.COURSE and GA.COURSE[self.course.id] or {}
+          -- (a balloon with no capture: its phase's timing read from its model, by pose)
+          local card = GA.PHASE and sc.phaseId and GA.PHASE[sc.phaseId]
+          local pose = st.pose or 0
           local key = (st.fire and st.fire >= 0) and st.fire
             or (st.cmd == 2 and own.shieldKey) or own.key
+            or (card and ((card.keys and card.keys[pose]) or card.key))
             or (GA.FIRE_KEY_COURSE and GA.FIRE_KEY_COURSE[self.course.id]) or GA.FIRE_KEY_U
           sc.stage, sc.left = "act", sc.left + key
           -- the balloon winds up for the throw (drawn: a dip, then up as it lets go)
@@ -1112,8 +1163,10 @@ return function(N)
         else
           -- a wait: its recovery and the idle pose played out
           local own = GA.COURSE and GA.COURSE[self.course.id]
+          local card = GA.PHASE and sc.phaseId and GA.PHASE[sc.phaseId]
           local pose = st and st.pose or 0
-          local extra = (own and own.pose and own.pose[pose]) or (GA.WAIT_POSE_U and GA.WAIT_POSE_U[pose]) or 0
+          local extra = (own and own.pose and own.pose[pose]) or (card and card.pose and card.pose[pose])
+            or (GA.WAIT_POSE_U and GA.WAIT_POSE_U[pose]) or 0
           sc.stage, sc.left = "recover", sc.left + (st and st.recover or 45) + extra
         end
       elseif sc.stage == "act" then
@@ -1127,7 +1180,7 @@ return function(N)
           -- the shield (Wooble: Graveler): up for at most `count` frames with a moving yellow
           -- target on it; the balloon takes no goal while it stands and its script waits until
           -- the target is hit or the time runs out
-          raiseShield(self, st.count / FPS)
+          raiseShield(self, st.count / FPS, st.spin)
           sc.stage, sc.left = "shield", 0
         end
         if sc.stage == "shield" then
