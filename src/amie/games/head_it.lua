@@ -171,6 +171,13 @@ return function(mod, Pointer, G, Games, Rules, host)
     local m = st.mons[i]
     return m.shown and not m.leaving and m.t >= ENTER_S
   end
+  -- a ball still falling on Pokemon i (one it can head)
+  local function fallingOn(i)
+    for _, b in ipairs(st.balls) do
+      if b.slot == i and b.state == "fall" and not b.missed and not b.gone then return true end
+    end
+    return false
+  end
 
   -- ------- the HUD's words
 
@@ -384,14 +391,17 @@ return function(mod, Pointer, G, Games, Rules, host)
     st.stageF = 0
     st.interval = stageRow()[1]
     st.counter = -1
+    st.toLeave = st.toLeave or {}
     for i = 1, 3 do
       if i <= stage + 1 then
+        st.toLeave[i] = nil
         if i > before + 1 or not st.mons[i].shown then
           if i > 1 then effect("appear", slotX(i), 120 - MON_FOOT) end
           showMon(i)
         end
-      else
-        hideMon(i)
+      elseif st.mons[i].shown and not st.mons[i].leaving then
+        -- (a side with yarn still coming down on it stays to head it, then goes)
+        st.toLeave[i] = true
       end
     end
     if stage > before then st.entering = ENTER_S * FPS end
@@ -615,6 +625,13 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   local function tickPlay()
     if st.entering and st.entering > 0 then st.entering = st.entering - 1 end
+    -- the sides a step sent away go once nothing is falling on them
+    for i, go in pairs(st.toLeave or {}) do
+      if go and not fallingOn(i) then
+        st.toLeave[i] = nil
+        hideMon(i)
+      end
+    end
     -- the clock, and the stages it moves through
     if st.diff ~= "unlimited" then
       st.timer = st.timer - 1

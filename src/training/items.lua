@@ -8,8 +8,9 @@
 --
 -- The three Gen 4 stones are registered as ST_DUSK_STONE etc. so they never fight another
 -- mod over the plain id: national_dex_gen3 registers DUSK_STONE / SHINY_STONE / DAWN_STONE
--- with its own evolutions, and when such an item exists by the time a prize is handed
--- out, the prize is that item (its index), not this mod's copy.
+-- with its own evolutions. For every item of ours, when another mod has registered it by
+-- the time a prize is handed out (the plain id, or a Wing by its later name, HEALTH_FEATHER),
+-- the prize is that mod's item (its index), not this mod's copy, and its use is that mod's.
 --
 -- I = items(mod, { host, Rules, data })
 
@@ -30,17 +31,28 @@ return function(mod, deps)
   local function regId(def) return isStone(def) and ("ST_" .. plainId(def)) or plainId(def) end
   I.regId, I.plainId = regId, plainId
 
-  -- a stone another mod registered under the plain id wins; learned when first asked
+  -- the ids another mod might give one of ours: the plain id, and a Wing's later name
+  local function otherIds(def)
+    local ids = { plainId(def) }
+    if def.slug:match("%-wing$") then ids[2] = (plainId(def):gsub("_WING$", "_FEATHER")) end
+    return ids
+  end
+  I.otherIds = otherIds
+  -- another mod's copy of one of ours wins; learned when first asked. (A Wing's plain id is
+  -- also the one we register: a mod that took it first leaves ours unregistered - the
+  -- registry refuses a second record - and its record, with its own index, is found here.)
   local function resolve(def)
-    if def and isStone(def) then
+    if def and not def.shared then
       local reg = mod.content and mod.content.items
-      local ok, existing = false, nil
-      if reg then ok, existing = pcall(reg.get, reg, plainId(def)) end
-      local idx = ok and type(existing) == "table" and tonumber(existing.index) or nil
-      if idx and idx ~= def.ownIndex then
-        def.shared = true
-        def.index = idx
-        I.byIndex[idx] = def
+      for _, id in ipairs(reg and otherIds(def) or {}) do
+        local ok, existing = pcall(reg.get, reg, id)
+        local idx = ok and type(existing) == "table" and tonumber(existing.index) or nil
+        if idx and idx ~= def.ownIndex then
+          def.shared = true
+          def.index = idx
+          I.byIndex[idx] = def
+          break
+        end
       end
     end
     return def
@@ -186,7 +198,8 @@ return function(mod, deps)
     end
     mod.hooks:wrap("item.use", function(next, game, extra, id, partySlot, bag)
       local def = I.def(id)
-      if def and def.stat then
+      -- (only our own copy: another mod's item of the same name keeps its own use)
+      if def and def.stat and tonumber(id) == def.ownIndex then
         local ok, kind, text = I.useWing(def, partySlot)
         return ok, kind, text
       end

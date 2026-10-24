@@ -130,3 +130,4 @@ tests/drivers/ball_warn_probe.lua
 tests/drivers/bit_pop_probe.lua
 tests/drivers/lv1_attack_probe.lua
 tests/drivers/shot_speed_probe.lua
+tests/training_items_test.lua
