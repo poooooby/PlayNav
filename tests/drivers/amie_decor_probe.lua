@@ -49,7 +49,7 @@ local function body(game, log)
   local X = loader and loader.exports and loader.exports.play_nav
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
-  loader.modOptions.play_nav.display = "split"
+  loader.modOptions.play_nav.display_mode = "combined"
   local Extract = X._test.extract and X._test.extract()
   if Extract then
     waitFor(function() return Extract.state ~= "running" and Extract.state ~= "finishing" end, 60 * 300)
@@ -192,7 +192,7 @@ local function body(game, log)
   -- the check: back to the room, the puff falling in
   tapAt("check", deco.tapPoint("corner"))
   waitFor(function() return Apps:active().id == "home" end, 60 * 60)
-  waitFor(function() local P = home.screen(); return P and P:entry("okashi_fall") ~= nil end, 600)
+  waitFor(function() return home.falling() end, 600)
   into(home, 4)
   log("mode:", R.state() and R.state().mode, "app:", Apps:active().id)
   shot("a19_room_puff_falling")

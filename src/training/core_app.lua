@@ -234,7 +234,11 @@ return function(mod, Pointer, T, Rules, Radar, host)
       end
       return
     end
-    if inRect(x, y, BAGS) then T.enterBags(); return end
+    if inRect(x, y, BAGS) then
+      if T.playSe then T.playSe("bags_open") end
+      T.enterBags()
+      return
+    end
     for i, p in ipairs(party()) do
       local r = slotOf(i)
       if r and not p.active and inRect(x, y, r) then

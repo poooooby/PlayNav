@@ -250,22 +250,45 @@ return function(mod, deps)
   end
 
   -- balloon blue: the sprite's light and shade on a blue ramp, sampled sharp-bilinear so the
-  -- blown-up pixels stay square; `silhouette` 1 draws the flat outline colour
+  -- blown-up pixels stay square; `silhouette` 1 draws the flat outline colour. `puff` (the
+  -- reach, in texels, of the inflation) shades it as a blown-up foil balloon: the alpha around
+  -- each texel says how deep inside the outline it is (darker at the seams, fuller inside) and
+  -- which way its edge faces (lit from the upper left, a glint on the bulges)
   local BALLOON_SRC = [[
-uniform vec2 texSize;
+uniform highp vec2 texSize;
 uniform vec2 pxPerTexel;
 uniform vec3 dark;
 uniform vec3 light;
 uniform float silhouette;
+uniform float puff;
 vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
-  vec2 texel = uv * texSize;
-  vec2 base = floor(texel);
+  highp vec2 texel = uv * texSize;
+  highp vec2 base = floor(texel);
   vec2 d = fract(texel) - 0.5;
   vec2 region = 0.5 - 0.5 / pxPerTexel;
   vec2 f = (d - clamp(d, -region, region)) * pxPerTexel + 0.5;
   vec4 p = Texel(tex, (base + f) / texSize);
   float l = dot(p.rgb, vec3(0.299, 0.587, 0.114));
   vec3 c = mix(dark, light, smoothstep(0.02, 0.98, l));
+  if (puff > 0.0 && silhouette < 0.5 && p.a > 0.0) {
+    vec2 g = vec2(0.0);
+    float s = 0.0;
+    for (int i = 0; i < 12; i++) {
+      float ang = float(i) * 0.5235988;
+      vec2 dir = vec2(cos(ang), sin(ang));
+      float a1 = Texel(tex, (texel + dir * puff * 0.4) / texSize).a;
+      float a2 = Texel(tex, (texel + dir * puff) / texSize).a;
+      s += a1 + a2;
+      g += dir * (a1 + a2);
+    }
+    float inner = s / 24.0;
+    float gl = length(g);
+    float lit = gl > 0.01 ? dot(-g / gl, vec2(-0.6, -0.8)) * min(1.0, gl / 3.0) : 0.0;
+    c *= mix(0.72, 1.06, smoothstep(0.4, 0.95, inner));
+    c += vec3(0.28, 0.32, 0.36) * max(0.0, lit);
+    c *= 1.0 - 0.3 * max(0.0, -lit);
+    c += vec3(0.55) * smoothstep(0.45, 0.85, lit) * smoothstep(0.55, 0.8, inner);
+  }
   c = mix(c, color.rgb, silhouette);
   return vec4(c, p.a * color.a);
 }
@@ -286,9 +309,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return balloonShader
   end
 
+  -- the inflation's reach in sprite texels (BALLOON_SRC's `puff`), against the bot's radius
+  D.PUFF = { texels = 7, minTexels = 3 }
+  -- a glow round the balloon's own outline (the attack's warning): its silhouette spread
+  -- GLOW.reach screen units out in GLOW.steps directions
+  D.GLOW = { reach = 5, steps = 12 }
   -- draw the shape's sprite centred (its bbox centre) on (x, y), `ppx` screen units per
-  -- sprite pixel, alpha a
-  local function drawBalloon(G2, shape, x, y, ppx, a)
+  -- sprite pixel, alpha a; glow (optional): r, g, b, a of a halo round its outline
+  local function drawBalloon(G2, shape, x, y, ppx, a, gr, gg, gb, ga)
     local img = shape.image
     local sh = balloon()
     local HD = mod.hd
@@ -306,9 +334,22 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       BAL_PPT[1], BAL_PPT[2] = math.max(1, out / tpu), math.max(1, out / tpu)
       sh:send("texSize", BAL_TEX)
       sh:send("pxPerTexel", BAL_PPT)
+      sh:send("puff", math.max(D.PUFF.minTexels, D.PUFF.texels * shape.ppr * tpu / 40))
       G2.setShader(sh)
-      -- the outline: the silhouette nudged around it
       sh:send("silhouette", 1)
+      if ga and ga > 0 then
+        -- the halo: the silhouette spread out round the outline, added
+        G2.setBlendMode("add")
+        G2.setColor(gr, gg, gb, ga * a / 3)
+        local n, rr = D.GLOW.steps, D.GLOW.reach
+        for i = 0, n - 1 do
+          local ang = i / n * 2 * math.pi
+          draw(math.cos(ang) * rr, math.sin(ang) * rr)
+          draw(math.cos(ang) * rr * 0.5, math.sin(ang) * rr * 0.5)
+        end
+        G2.setBlendMode("alpha")
+      end
+      -- the outline: the silhouette nudged around it
       G2.setColor(0.02, 0.1, 0.32, a)
       local o = math.max(1, ppx * 0.7)
       draw(-o, 0); draw(o, 0); draw(0, -o); draw(0, o)
@@ -477,10 +518,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       bg:setWrap((bgShrinks(T) or view(T) < 1) and "mirroredrepeat" or "clamp", "clamp")
       G2.setColor(1, 1, 1, 1)
       G2.draw(bg, bgQuad, ex, ey, 0, s, s)
-      if sim and sim.bot and sim.bot.aura > 0 then
-        G2.setColor(1, 0.2, 0.2, 0.15 + 0.15 * math.sin(sim.t * 20))
-        G2.rectangle("fill", ex, ey, ew, eh)
-      end
       return
     end
     G2.setColor(0.36, 0.6, 0.92, 1)
@@ -502,15 +539,255 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local xr = Sim.project(1, 0, z)
       G2.line(xl, y, xr, y)
     end
-    if sim and sim.bot and sim.bot.aura > 0 then
-      G2.setColor(1, 0.2, 0.2, 0.15 + 0.15 * math.sin(sim.t * 20))
-      G2.rectangle("fill", 0, 0, 240, 160)
-    end
+
   end
 
   -- the balloon's shadow: on the far grass behind the trainee's stand (the stadium's grass
   -- starts near y 118), so it is never taken for the trainee's own
   D.BOT_SHADOW_Y = 124
+  -- a plain party balloon's outline about (x, y), radius R: rounder on top, narrowing to the
+  -- tie at the bottom (y + 1.1 R), for a bot with no sprite
+  local BODY_PTS = {}
+  local function balloonBody(x, y, R)
+    local n = 28
+    for i = 0, n - 1 do
+      local t = i / n * 2 * math.pi
+      local down = (1 - math.cos(t)) / 2          -- 0 at the top, 1 at the bottom
+      BODY_PTS[i * 2 + 1] = x + math.sin(t) * R * 0.9 * (1 - 0.3 * down * down)
+      BODY_PTS[i * 2 + 2] = y - math.cos(t) * R * (math.cos(t) < 0 and 1.1 or 0.95)
+    end
+    return BODY_PTS
+  end
+
+  local drawAura, drawShieldCage, drawCageShatter, drawClearPuffs
+  -- a bitbot's string: `len` and end `sway` in its radii
+  local BIT_STRING = { len = 1.6, sway = 0.25, segs = 10 }
+  local BIT_PTS = {}
+  -- a popped bitbot: ZIP_S darting about as the air goes (up ZIP_UP and aside ZIP_X radii,
+  -- turning SPIN radians, down to SHRINK of its size, CRUMPLE its height), then FALL_S
+  -- dropping at G units a second squared, fluttering FLUTTER_X radii at FLUTTER_HZ
+  D.BIT_POP = { ZIP_S = 0.35, ZIP_UP = 1.2, ZIP_X = 0.8, SPIN = 9, SHRINK = 0.5, CRUMPLE = 0.75,
+    FALL_S = 2.2, G = 260, FLUTTER_X = 0.6, FLUTTER_HZ = 1.4 }
+  -- a purple party balloon about (x, y), radius r, its string waving on `ph`, turned rot,
+  -- scaled sx / sy; flat 0..1 takes the air out of it (duller, no shine)
+  local function drawBitBalloon(G2, x, y, r, ph, rot, sx, sy, flat)
+    G2.push()
+    G2.translate(x, y)
+    G2.rotate(rot)
+    G2.scale(sx, sy)
+    local k = r * 0.22
+    -- its string, hanging from the tie and waving
+    local top = r * 1.1 + k
+    for i = 0, BIT_STRING.segs do
+      local u = i / BIT_STRING.segs
+      BIT_PTS[i * 2 + 1] = math.sin(u * math.pi * 1.5 - ph * 1.3) * r * BIT_STRING.sway * u
+      BIT_PTS[i * 2 + 2] = top + u * r * BIT_STRING.len
+    end
+    G2.setLineWidth(math.max(1, r * 0.07))
+    G2.setColor(0.25, 0.08, 0.38, 0.9)
+    G2.line(BIT_PTS)
+    G2.setLineWidth(math.max(0.6, r * 0.035))
+    G2.setColor(0.95, 0.92, 1, 0.95)
+    G2.line(BIT_PTS)
+    G2.setColor(0.42, 0.16, 0.62, 1)
+    G2.polygon("fill", -k * 0.3, r * 1.05, k * 0.3, r * 1.05, k * 0.8, r * 1.1 + k, -k * 0.8, r * 1.1 + k)
+    local d = 1 - 0.3 * flat
+    G2.setColor(0.62 * d, 0.3 * d, 0.86 * d, 0.97)
+    G2.polygon("fill", balloonBody(0, 0, r))
+    G2.setColor(0.78 * d, 0.5 * d, 0.97 * d, 0.9 * (1 - 0.6 * flat))
+    G2.polygon("fill", balloonBody(-r * 0.08, -r * 0.1, r * 0.72))
+    if flat < 1 then
+      G2.setColor(1, 1, 1, 0.75 * (1 - flat))
+      G2.ellipse("fill", -r * 0.4, -r * 0.45, r * 0.13, r * 0.24)
+    end
+    G2.setColor(0.3, 0.08, 0.45, 1)
+    G2.setLineWidth(math.max(1, r * 0.08))
+    G2.polygon("line", balloonBody(0, 0, r))
+    G2.setLineWidth(1)
+    G2.pop()
+  end
+
+  -- the marked attack's aura (Wooble's Lv1 captures: Axew, Magnemite, Noibat): a magenta glow
+  -- about 1.6 balloon radii out behind it, sparkles, and dark streaks rising through it in
+  -- its last part; `a` its strength now
+  D.AURA = { W = 1.45, H = 1.3, STREAKS = 11, RISE = 0.9 }
+  -- (rw / rh: the balloon's half width / height on screen)
+  function drawAura(G2, sim, x, y, rw, rh, a)
+    local A = D.AURA
+    local R = math.max(rw, rh)
+    G2.push("all")
+    G2.setBlendMode("add")
+    for i = 5, 1, -1 do
+      local k = i / 5
+      G2.setColor(0.8, 0.12, 0.85, 0.2 * a)
+      G2.ellipse("fill", x, y, rw * A.W * k, rh * A.H * k, 40)
+    end
+    G2.setBlendMode("alpha")
+    G2.setLineWidth(math.max(1, R * 0.05))
+    for i = 1, A.STREAKS do
+      local u = (i - 0.5) / A.STREAKS
+      local sx = x + (u - 0.5) * 2 * rw * A.W * 0.85
+      local ph = (sim.t * A.RISE + i * 0.37) % 1
+      local y0 = y + rh * A.H * (0.8 - 1.7 * ph)
+      G2.setColor(0.25, 0.02, 0.3, 0.55 * a * math.sin(math.pi * ph))
+      G2.line(sx, y0, sx, y0 - rh * 0.4)
+    end
+    G2.setColor(1, 0.8, 1, 0.8 * a)
+    for i = 1, 6 do
+      local ang = sim.t * 1.7 + i * 1.05
+      local rr = 1.05 + 0.25 * math.sin(sim.t * 3 + i)
+      G2.circle("fill", x + math.cos(ang) * rr * rw * A.W * 0.85, y + math.sin(ang) * rr * rh * A.H * 0.85, math.max(0.6, R * 0.03), 6)
+    end
+    G2.setLineWidth(1)
+    G2.pop()
+  end
+
+  -- the balloon's shield (Wooble's Graveler capture): a cylinder of light round it from above
+  -- its head to the grass, CAGE.W of its half width: pale cyan bars turning slowly with grid
+  -- rings, a bright rim at the top, a white beam down the middle and a magenta glow rising from
+  -- its foot, all added light (the balloon shows through)
+  D.CAGE = { W = 1.4, TOP = 1.3, BARS = 18, RINGS = 4, SPIN = 0.25, GLOW = 0.38, RIM_RY = 0.13, TOP_GLOW = 0.16 }
+  -- (fade: 1 standing, falling to 0 as it runs out)
+  function drawShieldCage(G2, sim, cx, cy, rw, rh, fade)
+    local C = D.CAGE
+    local hw = rw * C.W
+    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local h = bottom - top
+    local ry = hw * C.RIM_RY
+    local flick = (0.9 + 0.1 * math.sin(sim.t * 13)) * (fade or 1)
+    G2.push("all")
+    G2.setBlendMode("add")
+    -- the body of light, and the magenta glow at its foot (strips fading upward)
+    G2.setColor(0.25, 0.6, 1, 0.13 * flick)
+    G2.rectangle("fill", cx - hw, top, hw * 2, h)
+    local n = 10
+    for i = 0, n - 1 do
+      local u = i / n
+      G2.setColor(0.9, 0.12, 0.95, 0.45 * (1 - u) * (1 - u) * flick)
+      G2.rectangle("fill", cx - hw, bottom - (u + 1 / n) * h * C.GLOW, hw * 2, h * C.GLOW / n + 0.5)
+      -- the light along the top, fading down
+      G2.setColor(0.4, 0.95, 1, 0.22 * (1 - u) * (1 - u) * flick)
+      G2.rectangle("fill", cx - hw, top + u * h * C.TOP_GLOW, hw * 2, h * C.TOP_GLOW / n + 0.5)
+    end
+    G2.setColor(0.9, 0.2, 0.95, 0.45 * flick)
+    G2.ellipse("fill", cx, bottom, hw, ry * 1.2, 40)
+    -- the bars: round the cylinder, cyan above, pink toward the foot
+    G2.setLineWidth(math.max(1, hw * 0.012))
+    local spin = sim.t * C.SPIN
+    for i = 0, C.BARS - 1 do
+      local th = (i / C.BARS + spin) * 2 * math.pi
+      local x = cx + hw * math.sin(th)
+      local front = math.cos(th)
+      local a = (0.3 + 0.2 * front) * flick
+      local yt, yb = top + ry * front, bottom + ry * front
+      local split = yt + (yb - yt) * 0.62
+      for pass = 1, 2 do
+        -- a soft wide glow, then the bar
+        local k = pass == 1 and 0.35 or 1
+        G2.setLineWidth(math.max(1, hw * (pass == 1 and 0.045 or 0.012)))
+        G2.setColor(0.55, 0.95, 1, a * k)
+        G2.line(x, yt, x, split)
+        G2.setColor(0.95, 0.35, 1, a * k)
+        G2.line(x, split, x, yb)
+      end
+    end
+    -- the grid rings and the rim
+    for k = 1, C.RINGS do
+      local y = top + h * k / (C.RINGS + 1)
+      local pink = k / (C.RINGS + 1) > 0.62
+      if pink then G2.setColor(0.95, 0.4, 1, 0.22 * flick) else G2.setColor(0.6, 0.95, 1, 0.2 * flick) end
+      G2.ellipse("line", cx, y, hw, ry, 40)
+    end
+    G2.setLineWidth(math.max(1, hw * 0.02))
+    G2.setColor(0.45, 0.95, 1, 0.4 * flick)
+    G2.ellipse("line", cx, top, hw, ry, 48)
+    G2.setColor(0.3, 0.8, 1, 0.12 * flick)
+    G2.ellipse("fill", cx, top, hw, ry, 48)
+    -- the beam down the middle
+    G2.setColor(1, 1, 1, 0.12 * flick)
+    G2.rectangle("fill", cx - hw * 0.05, top, hw * 0.1, h)
+    G2.setColor(1, 1, 1, 0.35 * flick)
+    G2.setLineWidth(math.max(1, hw * 0.015))
+    G2.line(cx, top, cx, bottom)
+    G2.pop()
+  end
+
+  -- the shield shattering when its target is hit: a flash through the cylinder, then its bars
+  -- broken into pieces flying out and falling, turning, fading over S (u 0..1 through it);
+  -- run out instead, it fades over FADE_S
+  D.CAGE_BREAK = { S = 0.9, FADE_S = 0.5, PIECES = 3, SPREAD = 0.9, FALL = 140 }
+  function drawCageShatter(G2, sim, cx, cy, rw, rh, u)
+    local C, B = D.CAGE, D.CAGE_BREAK
+    local hw = rw * C.W
+    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local h = bottom - top
+    G2.push("all")
+    G2.setBlendMode("add")
+    -- the flash
+    local fa = math.max(0, 1 - u * 4)
+    if fa > 0 then
+      G2.setColor(0.7, 0.95, 1, 0.55 * fa)
+      G2.rectangle("fill", cx - hw * (1 + u), top, hw * 2 * (1 + u), h)
+      G2.setColor(1, 0.5, 1, 0.4 * fa)
+      G2.ellipse("fill", cx, bottom, hw * (1 + u), hw * C.RIM_RY * 1.5, 40)
+    end
+    -- the pieces: each bar in PIECES lengths, out from the middle and down, turning
+    local a = (1 - u) * (1 - u)
+    G2.setLineWidth(math.max(1.2, hw * 0.02))
+    for i = 0, C.BARS - 1 do
+      local th = (i / C.BARS) * 2 * math.pi
+      local side = math.sin(th)
+      for k = 0, B.PIECES - 1 do
+        local f0 = k / B.PIECES
+        local len = h / B.PIECES * 0.8
+        local seed = (i * 7 + k * 13) % 11 / 11
+        local x = cx + hw * side * (1 + B.SPREAD * u * (0.6 + 0.8 * seed))
+        local y = top + h * (f0 + 0.5 / B.PIECES) + B.FALL * u * u * (0.5 + seed) - 30 * u * (1 - seed)
+        local rot = (seed - 0.5) * 5 * u + side * u
+        local dx, dy = math.sin(rot) * len / 2, math.cos(rot) * len / 2
+        if f0 < 0.6 then G2.setColor(0.6, 0.95, 1, 0.8 * a) else G2.setColor(1, 0.45, 1, 0.8 * a) end
+        G2.line(x - dx, y - dy, x + dx, y + dy)
+      end
+    end
+    G2.pop()
+  end
+
+  -- a cleared group's puffs (Wooble's magneton-2 capture): a white-green flash on both sides,
+  -- streaks shooting out and down, then grey-white clouds lingering and fading, ~1.4 s
+  D.CLEAR_PUFF = { S = 1.4, CLOUDS = 5, STREAKS = 5 }
+  function drawClearPuffs(G2, e, x, y, rw, rh)
+    local P = D.CLEAR_PUFF
+    local u = e / P.S
+    G2.push("all")
+    for side = -1, 1, 2 do
+      local bx = x + side * rw * 1.05
+      if e < 0.25 then
+        G2.setBlendMode("add")
+        G2.setColor(0.85, 1, 0.85, 0.6 * (1 - e / 0.25))
+        G2.ellipse("fill", bx + side * rw * 0.5, y, rw * 0.9, rh * 0.9, 24)
+        G2.setBlendMode("alpha")
+      end
+      if e < 0.45 then
+        local a = 1 - e / 0.45
+        G2.setLineWidth(math.max(1, rw * 0.04))
+        G2.setColor(0.9, 1, 0.6, 0.8 * a)
+        for i = 1, P.STREAKS do
+          local ang = math.rad(-10 + i * 12)
+          local r0, r1 = rw * (0.2 + e * 2), rw * (0.6 + e * 3.5)
+          G2.line(bx + side * math.cos(ang) * r0, y + math.sin(ang) * r0, bx + side * math.cos(ang) * r1, y + math.sin(ang) * r1)
+        end
+      end
+      for i = 1, P.CLOUDS do
+        local k = i / P.CLOUDS
+        local cx = bx + side * rw * (0.2 + 0.9 * k) * (0.6 + 0.6 * u)
+        local cy = y - rh * (0.2 - 0.5 * k) - rh * 0.3 * u
+        G2.setColor(0.92, 0.94, 0.95, 0.55 * (1 - u) * (1 - u))
+        G2.circle("fill", cx, cy, rw * (0.25 + 0.15 * k) * (0.7 + 0.8 * u), 16)
+      end
+    end
+    G2.pop()
+  end
+
   -- opts.noShadow: the caller draws the shadow on the grass; opts.noGoals: the goals are gone
   local function drawBot(G2, sim, opts)
     opts = opts or {}
@@ -528,18 +805,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0, 0, 0, 0.25)
       G2.ellipse("fill", sx, floorY, R * 0.9, 5)
     end
-    if bot.aura > 0 then
-      G2.setColor(1, 0.3, 0.2, 0.45)
-      G2.circle("fill", sx + fx, sy, R * 1.25, 32)
-    end
-    if sim.barrier then
-      G2.setColor(0.4, 0.9, 1, 0.3)
-      G2.circle("fill", sx + fx, sy, R * 1.15, 32)
-      G2.setColor(0.6, 1, 1, 0.8)
-      G2.circle("line", sx + fx, sy, R * 1.15, 32)
-    end
+    -- the attack's warning (a step the game marks): a magenta aura behind the balloon with dark
+    -- streaks rising through it, and a glow round its outline
+    local warn = bot.aura > 0 and 0.75 + 0.25 * math.sin(sim.t * 18) or 0
     local img, kind = botPic(bot)
     local shape = sim.shape and sim.shape.image and sim.shape or nil
+    if warn > 0 then
+      drawAura(G2, sim, sx + fx, sy, R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1), warn)
+    end
     if shape then
       -- the Pokemon's own sprite as the balloon, at the same scale the goals use
       local x1 = Sim.project(1, cyW, 1)
@@ -547,38 +820,51 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local unitPx = math.abs(x1 - x0)
       local rPx = N.BOT.R * bot.scale * unitPx
       local ppx = rPx / shape.ppr
-      drawBalloon(G2, shape, sx + fx, sy, ppx, bot.flinch > 0 and 0.8 or 1)
-    elseif img then
-      local iw, ih = img:getDimensions()
-      local scale = (2 * R) / math.max(iw, ih)
-      if kind == "pic" then
-        -- the balloon: a blue-tinted sprite in a round body
-        G2.setColor(0.45, 0.6, 1, 0.9)
-        G2.circle("fill", sx + fx, sy, R, 32)
-        G2.setColor(0.7, 0.85, 1, 1)
-        G2.draw(img, sx + fx, sy, 0, scale * 0.9, scale * 0.9, iw / 2, ih / 2)
-      else
-        -- the ORAS course badge already carries the balloon's ring; let it fill the body
-        G2.setColor(1, 1, 1, 1)
-        G2.draw(img, sx + fx, sy, 0, scale * 1.35, scale * 1.35, iw / 2, ih / 2)
-      end
+      drawBalloon(G2, shape, sx + fx, sy, ppx, bot.flinch > 0 and 0.8 or 1, 0.95, 0.3, 1, warn)
     else
-      G2.setColor(0.45, 0.6, 1, 1)
-      G2.circle("fill", sx + fx, sy, R, 32)
+      -- no sprite: a plain party balloon, the badge or the front pic on it
+      local body = balloonBody(sx + fx, sy, R)
+      if warn > 0 then
+        G2.setColor(0.95, 0.3, 1, 0.45 * warn)
+        G2.polygon("fill", balloonBody(sx + fx, sy, R * 1.2))
+        body = balloonBody(sx + fx, sy, R)
+      end
+      G2.setColor(0.45, 0.6, 1, 0.95)
+      G2.polygon("fill", body)
+      G2.setColor(1, 1, 1, 0.45)
+      G2.ellipse("fill", sx + fx - R * 0.4, sy - R * 0.5, R * 0.16, R * 0.28)
+      if img then
+        local iw, ih = img:getDimensions()
+        local scale = (2 * R) / math.max(iw, ih)
+        G2.setColor(0.7, 0.85, 1, 1)
+        local k = kind == "pic" and 0.9 or 1.2
+        G2.draw(img, sx + fx, sy, 0, scale * k, scale * k, iw / 2, ih / 2)
+      else
+        G2.setColor(1, 1, 1, 0.9)
+        G2.printf(("#%d"):format(bot.national or 0), sx - 30, sy - 6, 60, "center")
+      end
       G2.setColor(0.25, 0.35, 0.7, 1)
-      G2.circle("line", sx + fx, sy, R, 32)
-      G2.setColor(1, 1, 1, 0.9)
-      G2.printf(("#%d"):format(bot.national or 0), sx - 30, sy - 6, 60, "center")
+      G2.polygon("line", balloonBody(sx + fx, sy, R))
     end
-    if not shape then
-      G2.setColor(1, 1, 1, 0.6)
-      G2.circle("line", sx + fx, sy, R, 32)
+    -- a cleared group: puffs of air from both its sides (CLEAR_PUFF)
+    if sim.clearPuffAt and sim.t - sim.clearPuffAt < D.CLEAR_PUFF.S then
+      drawClearPuffs(G2, sim.t - sim.clearPuffAt, sx + fx, sy, R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1))
+    end
+    local cw, ch = R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1)
+    if sim.barrier then
+      drawShieldCage(G2, sim, sx + fx, sy, cw, ch)
+    elseif sim.shieldBrokeAt and sim.t - sim.shieldBrokeAt < D.CAGE_BREAK.S then
+      drawCageShatter(G2, sim, sx + fx, sy, cw, ch, (sim.t - sim.shieldBrokeAt) / D.CAGE_BREAK.S)
+    elseif sim.shieldFadedAt and sim.t - sim.shieldFadedAt < D.CAGE_BREAK.FADE_S then
+      drawShieldCage(G2, sim, sx + fx, sy, cw, ch, 1 - (sim.t - sim.shieldFadedAt) / D.CAGE_BREAK.FADE_S)
     end
     -- goals
     for _, g in ipairs(opts.noGoals and {} or sim.goals) do
+      if g.hidden then goto nextgoal end
       local gx, gy = sim:goalPos(g)
       local px, py = Sim.project(gx, gy, 1)
-      local gr = g.r * hwFar * bot.scale
+      -- (goals keep their size as the balloon grows: they are the HUD's panes)
+      local gr = g.r * hwFar
       local rgb = GOAL_RGB[g.kind] or GOAL_RGB.white
       local pulse = (g.kind == "chance") and (1 + 0.06 * math.sin(sim.t * 8)) or 1
       -- the game's goal panes (upper.bclyt, 32x32): target01 (white) or big_target (red), its
@@ -590,8 +876,27 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       if ring then
         local iw, ih = ring:getDimensions()
         local sc = (gr * 2 * pulse) / iw
-        if g.kind == "fading" then G2.setColor(1, 0.9, 0.3, 1) else G2.setColor(1, 1, 1, 1) end
-        G2.draw(ring, px + fx, py, 0, sc, sc, iw / 2, ih / 2)
+        -- orange once it is running out, see-through over its last FADE_S
+        local fa = 1
+        local tm = Sim.goalTimer and Sim.goalTimer(sim)
+        local gone = tm and tm.gone or N.GOALS.GONE_AT
+        local fadeS = math.min(N.GOALS.FADE_S or 1.5, (gone - (tm and tm.white or N.GOALS.YELLOW_AT)) * 0.33)
+        if g.kind == "fading" and g.age >= gone - fadeS then fa = 0.4 end
+        if g.kind == "marker" then
+          -- the shield's target: glowing light, turning slowly and pulsing
+          local mp = 1.25 * (1 + 0.08 * math.sin(sim.t * 7))
+          -- (it fades in after the shield goes up)
+          local ma = g.orbit and math.min(1, g.age / N.ATTACK.SHIELD.FADE_IN_S) or 1
+          G2.setColor(1, 1, 1, ma)
+          G2.draw(ring, px + fx, py, sim.t * 1.5, sc * mp, sc * mp, iw / 2, ih / 2)
+          G2.setBlendMode("add")
+          G2.setColor(1, 1, 1, 0.4 * ma)
+          G2.draw(ring, px + fx, py, sim.t * 1.5, sc * mp * 1.12, sc * mp * 1.12, iw / 2, ih / 2)
+          G2.setBlendMode("alpha")
+        else
+          if g.kind == "fading" then G2.setColor(1, 0.65, 0.2, fa) else G2.setColor(1, 1, 1, 1) end
+          G2.draw(ring, px + fx, py, 0, sc, sc, iw / 2, ih / 2)
+        end
       else
         G2.setLineWidth(2)
         G2.setColor(rgb[1], rgb[2], rgb[3], 0.95)
@@ -600,19 +905,48 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         G2.circle("fill", px + fx, py, gr * 0.6 * pulse, 16)
         G2.setLineWidth(1)
       end
+      ::nextgoal::
     end
-    -- bits (the dead ones wait to regenerate)
+    -- bits (the dead ones wait to regenerate); a popped one deflates and falls off the screen
     for _, bit in ipairs(sim.bits) do
-      if bit.dead then goto nextbit end
       local px, py, kk = Sim.project(bit.x, bit.y, bit.z)
       local r = bit.r * 118 * kk
-      G2.setColor(0.75, 0.4, 0.95, 0.95)
-      G2.circle("fill", px, py, r, 16)
-      G2.setColor(1, 1, 1, 0.8)
-      G2.circle("line", px, py, r, 16)
-      G2.setColor(0.2, 0.9, 0.3, 1)
-      G2.rectangle("fill", px - r, py - r - 4, 2 * r * (bit.hp / N.ATTACK.bit.hp), 2)
-      ::nextbit::
+      local ph = sim.t * 2.2 + (bit.id or 0) * 1.7
+      if not bit.dead then
+        -- a purple party balloon, bobbing and swaying on its own beat
+        drawBitBalloon(G2, px, py + math.sin(ph) * r * 0.08, r, ph, math.sin(ph * 0.7) * 0.12, 1, 1, 0)
+        G2.setColor(0.2, 0.9, 0.3, 1)
+        G2.rectangle("fill", px - r, py - r - 4, 2 * r * (bit.hp / N.ATTACK.bit.hp), 2)
+      elseif bit.poppedAt then
+        local P = D.BIT_POP
+        local e = sim.t - bit.poppedAt
+        if e < P.ZIP_S + P.FALL_S then
+          local side = ((bit.id or 1) % 2 == 0) and 1 or -1
+          local u = math.min(1, e / P.ZIP_S)
+          -- the air rushing out: it darts up and about, spinning and shrinking
+          local x = px + side * math.sin(u * math.pi * 1.5) * r * P.ZIP_X
+          local y = py - r * P.ZIP_UP * math.sin(u * math.pi * 0.5)
+          local rot = side * u * P.SPIN
+          local sc = 1 - (1 - P.SHRINK) * u
+          local wob = 1 + 0.25 * math.sin(e * 55) * (1 - u * 0.5)
+          if e < P.ZIP_S then
+            -- puffs of air from the tie, behind it
+            G2.setColor(1, 1, 1, 0.6 * (1 - u))
+            for i = 1, 3 do
+              local back = i * r * 0.35
+              G2.circle("fill", x - math.sin(rot) * (r * sc + back), y + math.cos(rot) * (r * sc + back), r * 0.18 * (1 - u * 0.5), 8)
+            end
+          else
+            -- then the limp skin drops, fluttering side to side
+            local f = e - P.ZIP_S
+            x = x + math.sin(f * P.FLUTTER_HZ * 2 * math.pi) * r * P.FLUTTER_X
+            y = y + 0.5 * P.G * f * f
+            rot = rot + math.sin(f * P.FLUTTER_HZ * 2 * math.pi + 1) * 0.7
+            wob = 1
+          end
+          drawBitBalloon(G2, x, y, r, ph, rot, sc * wob, sc * P.CRUMPLE / wob, u)
+        end
+      end
     end
   end
 
@@ -620,7 +954,23 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- N.ATTACK.BALL.FAR of its size at the balloon to its size at the trainee, and on past it up
   -- to the level's cap). A lobbed ball off the top of the screen shows where it will come down
   -- as a red shadow on the grass; back on screen it casts its own.
+  -- the game's projectiles drawn as its camera shows them (Wooble's Lv1 captures): ~17 px across
+  -- of its 400 at launch for a size-4.8 ball (PX_PER_UNIT of radius here a unit of its size),
+  -- GROW times that at the trainee, 1 / size falling evenly with the depth flown (perspective)
+  -- (a ball past the trainee grows no more and fades out over PAST_FADE_DZ of depth, ~0.1 s,
+  -- rather than swelling over the camera)
+  D.GAME_BALL = { PX_PER_UNIT = 1.06, GROW = 13, PAST = 1, PAST_FADE_DZ = 0.07 }
+  local function gameBallRadius(sim, b)
+    local G = D.GAME_BALL
+    local pz = sim.player.z or 0.1
+    local u = math.min(G.PAST, math.max(0, (1 - b.z) / math.max(0.05, 1 - pz)))
+    local r0 = math.max(b.game.sx or 0, b.game.sy or 0) * G.PX_PER_UNIT
+    local r1 = r0 * G.GROW
+    local inv = (1 - u) / r0 + u / r1
+    return math.max(1.5, 1 / math.max(inv, 1 / (r1 * 3)))
+  end
   local function ballRadius(sim, b)
+    if b.game and D.GAME_BALL then return gameBallRadius(sim, b) end
     local B = N.ATTACK.BALL
     local hwNear = Sim.view()
     local pz = sim.player.z or 0.1
@@ -628,24 +978,111 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local far = B and B.FAR or 1
     local r = b.r * hwNear * (far + (1 - far) * t)
     if B then
+      -- (the game's own projectiles keep their sizes: its giants are meant to be giant)
       local lv = sim.isSecret and "secret" or sim.level
-      r = math.min(r, (B.CAP[lv] or 1) * B.SPRITE_R * hwNear)
+      local cap = b.game and 4 or (B.CAP[lv] or 1)
+      r = math.min(r, cap * B.SPRITE_R * hwNear)
     end
     return math.max(1.5, r)
+  end
+
+  -- how near a ball is (Sim:ballEta: its arrival, and whether it would hit the trainee standing
+  -- still): over its last SHADOW_S each incoming ball casts a shadow on the trainee's line where
+  -- it will cross, darkening as it comes, with a ring closing in on it from RING_FROM times its
+  -- size (red when the spot is on the trainee); over its last BLINK_S a ball that would hit
+  -- blinks a red outline BLINK_HZ times a second and the trainee's own shadow blinks red with it.
+  -- Sizes in screen units, at least MIN_SHADOW / MIN_RING across, so a small ball's still show.
+  D.WARN = { SHADOW_S = 1.5, BLINK_S = 0.5, BLINK_HZ = 7, RED = { 0.95, 0.08, 0.08 },
+    MIN_SHADOW = 7, MIN_RING = 6, RING_W = 1.6, RING_FROM = 3 }
+  local function ballWarn(sim, b)
+    if not sim.ballEta then return nil, false end
+    return sim:ballEta(b)
+  end
+  local function blinkOn(sim)
+    return math.floor(sim.t * D.WARN.BLINK_HZ * 2) % 2 == 0
+  end
+  -- every incoming ball's arrival spot on the trainee's line: `over` false draws the shadows
+  -- and the rings of balls that miss (under the trainee), true the rings of balls that would
+  -- hit (over it, else its board hides them)
+  local function drawLandings(G2, sim, over)
+    local W = D.WARN
+    local pz = sim.player.z or 0.1
+    for _, b in ipairs(sim.balls) do
+      if b.z >= pz and not b.bounced and not b.lob then
+        local eta, hits, x = ballWarn(sim, b)
+        if eta and eta <= W.SHADOW_S then
+          local u = 1 - eta / W.SHADOW_S
+          local lx, ly, k = Sim.project(x, 0, pz)
+          local rx = math.max(W.MIN_SHADOW, (b.w or b.r * 2) / 2 * 118 * k)
+          local ry = rx * 0.3
+          local R = hits and W.RED or nil
+          if not over then
+            if R then G2.setColor(R[1], R[2], R[3], 0.2 + 0.5 * u) else G2.setColor(0, 0, 0, 0.12 + 0.3 * u) end
+            G2.ellipse("fill", lx, ly, rx * (0.6 + 0.4 * u), ry * (0.6 + 0.4 * u))
+          end
+          if (R ~= nil) == (over == true) then
+            -- the ring closing in on it as the ball comes
+            local ring = 1 + (W.RING_FROM - 1) * (1 - u)
+            G2.setLineWidth(math.max(1, ry * (R and 0.4 or 0.3)))
+            if R then G2.setColor(1, 0.2, 0.15, 0.45 + 0.55 * u) else G2.setColor(1, 1, 1, 0.2 + 0.35 * u) end
+            G2.ellipse("line", lx, ly, rx * ring, ry * ring)
+            G2.setLineWidth(1)
+          end
+        end
+      end
+    end
+  end
+  -- the red outline round a ball about to hit
+  local function ballBlink(G2, sim, x, y, rx, ry, eta, hits)
+    if not (hits and eta and eta <= D.WARN.BLINK_S and blinkOn(sim)) then return end
+    local W = D.WARN
+    local R = W.RED
+    G2.setLineWidth(math.max(W.RING_W, rx * 0.22))
+    G2.setColor(R[1], R[2], R[3], 0.95)
+    G2.ellipse("line", x, y, math.max(W.MIN_RING, rx * 1.18 + 1), math.max(W.MIN_RING, ry * 1.18 + 1))
+    G2.setColor(R[1], R[2], R[3], 0.35)
+    G2.ellipse("fill", x, y, math.max(W.MIN_RING, rx * 1.18 + 1), math.max(W.MIN_RING, ry * 1.18 + 1))
+    G2.setLineWidth(1)
+  end
+  -- the soonest ball that would hit the trainee where it stands (for its shadow), or nil
+  function D.soonestHit(sim)
+    local best
+    for _, b in ipairs(sim.balls or {}) do
+      local eta, hits = ballWarn(sim, b)
+      if hits and eta and (not best or eta < best) then best = eta end
+    end
+    return best
   end
 
   -- which = "behind" (still coming) or "front" (past the trainee), drawn either side of it
   local function drawBalls(G2, sim, which)
     local soccer = art("lyt/st_hud/target_ball00") or art("training/ball_00")
     local pz = sim.player.z or 0.1
+    if which ~= nil and sim.phase == "play" then drawLandings(G2, sim, which == "front") end
     for _, b in ipairs(sim.balls) do
       local past = b.z < pz
-      if which == nil or (which == "front") == past then
+      -- past the trainee: gone in a moment
+      local fade = 1
+      if past and not b.bounced then fade = math.max(0, 1 - (pz - b.z) / D.GAME_BALL.PAST_FADE_DZ) end
+      if (which == nil or (which == "front") == past) and fade > 0 then
       local px, py, k = Sim.project(b.x, b.y, b.z)
       local rgb = BALL_RGB[b.kind] or BALL_RGB.small
       local _, fy = Sim.project(b.x, 0, b.z)
-      if not (b.w or b.h) then
+      local eta, hits = nil, false
+      if not past then eta, hits = ballWarn(sim, b) end
+      if not (b.w or b.h) or b.game then
         local r = ballRadius(sim, b)
+        -- the game's tall / wide balls: the soccer ball stretched to their shape; a homing
+        -- ball is blue and black (Wooble)
+        local ax, ay = 1, 1
+        local P = b.game
+        if P and P.sx and P.sy and P.sx ~= P.sy then
+          local m = math.max(P.sx, P.sy)
+          ax, ay = P.sx / m, P.sy / m
+        end
+        -- blue and black: the homing kinds the game colours (both ways, or a strong pull one
+        -- way); Golem's pillars pull weakly up and down only and stay black
+        local homing = P and Sim.homes(P)
         if b.lob and py + r < 0 then
           -- off the top: where it will land, in red on the grass
           local lx, ly = Sim.project(b.lob.tx, 0, b.lob.tz)
@@ -655,23 +1092,33 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
           G2.setColor(1, 0.2, 0.2, pulse + 0.2)
           G2.ellipse("line", lx, ly, b.r * 118 * 1.2, 5)
         else
-          G2.setColor(0, 0, 0, b.lob and 0.35 or 0.2)
+          G2.setColor(0, 0, 0, (b.lob and 0.35 or 0.2) * fade)
           G2.ellipse("fill", px, fy, r * 0.9, math.max(2, r * 0.25))
           if soccer then
             local iw = soccer:getWidth()
-            G2.setColor(1, 1, 1, 1)
-            G2.draw(soccer, px, py, sim.t * 5 + (b.x or 0) * 3, (r * 2) / iw, (r * 2) / iw, iw / 2, iw / 2)
+            -- a ball knocked back off the shield glows cyan
+            -- (the game's balls: white at Lv1, black with grey panels from Lv2 on, blue and black
+            -- when they home; a bitbot's stay white)
+            local dark = P and (sim.isSecret or (sim.level or 1) >= 2)
+            if b.bounced then G2.setColor(0.55, 1, 1, 1)
+            elseif homing then G2.setColor(0.3, 0.5, 1, fade)
+            elseif dark then G2.setColor(0.42, 0.44, 0.48, fade)
+            else G2.setColor(1, 1, 1, fade) end
+            -- (a stretched one does not spin, so its shape reads)
+            local spin = (ax == 1 and ay == 1) and (sim.t * 5 + (b.x or 0) * 3) or 0
+            G2.draw(soccer, px, py, spin, (r * 2) / iw * ax, (r * 2) / iw * ay, iw / 2, iw / 2)
           else
-            G2.setColor(0.95, 0.95, 0.95, 1)
-            G2.circle("fill", px, py, r, 16)
-            G2.setColor(0.1, 0.1, 0.1, 1)
-            G2.circle("line", px, py, r, 16)
+            if homing then G2.setColor(0.3, 0.45, 0.95, fade) else G2.setColor(0.95, 0.95, 0.95, fade) end
+            G2.ellipse("fill", px, py, r * ax, r * ay, 16)
+            G2.setColor(0.1, 0.1, 0.1, fade)
+            G2.ellipse("line", px, py, r * ax, r * ay, 16)
           end
+          ballBlink(G2, sim, px, py, r * ax, r * ay, eta, hits)
         end
       else
       G2.setColor(0, 0, 0, 0.2)
       G2.ellipse("fill", px, fy, (b.w or b.r * 2) / 2 * 118 * k, 3)
-      G2.setColor(rgb[1], rgb[2], rgb[3], 1)
+      G2.setColor(rgb[1], rgb[2], rgb[3], fade)
       if b.w or b.h then
         G2.ellipse("fill", px, py, (b.w or b.r * 2) / 2 * 118 * k, (b.h or b.r * 2) / 2 * 70 * k)
       else
@@ -679,6 +1126,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       end
       G2.setColor(1, 1, 1, 0.7)
       if not (b.w or b.h) then G2.circle("line", px, py, b.r * 118 * k, 16) end
+      ballBlink(G2, sim, px, py, (b.w or b.r * 2) / 2 * 118 * k, (b.h or b.r * 2) / 2 * ((b.w or b.h) and 70 or 118) * k, eta, hits)
       end
       end
     end
@@ -753,6 +1201,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local kx, ky = qw / pw, qh / ph
     return qx + x0 * kx, qy + y0 * ky, qx + (x1 + 1) * kx, qy + (y1 + 1) * ky
   end
+  D.opaqueBox = opaqueBox
 
   -- gen3-hd-sprites (optional): the spec a pic was tagged with by its provider, holding the
   -- full-resolution texture the battle would draw in its place (`texture`, `quad`, `scale`:
@@ -956,6 +1405,117 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return st.a
   end
 
+  -- the Charged Shot's fire, drawn: tongues of flame rising over the rider's box (w x h, feet at
+  -- fx, fy), flickering; stage 2 taller, wider and orange at the edges. Added light.
+  local drawFire, drawSmoke, drawShield, drawShatter
+  -- the shield (Wooble's capture 2026-10-23_17-28-44): a see-through green dome of hexagons
+  -- round the trainee and its stand, flaring bright as a stopped ball breaks it; the shatter a
+  -- white-pink flash and hexagon pieces drifting out and up
+  D.SHIELD = { HEX = 9, PAD = 1.6, ALPHA = 0.42, PIECES = 12 }
+  local function hexagon(G2, x, y, r, mode)
+    G2.polygon(mode or "line", x + r, y, x + r / 2, y - r * 0.866, x - r / 2, y - r * 0.866,
+      x - r, y, x - r / 2, y + r * 0.866, x + r / 2, y + r * 0.866)
+  end
+  local function domeBox(fx, fy, w, h, k)
+    local S = D.SHIELD
+    local rx = math.max(w, 26 * k) / 2 * S.PAD
+    local ry = math.max(h, 30 * k) / 2 * S.PAD
+    return fx, fy - ry * 0.85, rx, ry
+  end
+  function drawShield(G2, sim, fx, fy, w, h, k, breakT)
+    local S = D.SHIELD
+    local cx, cy, rx, ry = domeBox(fx, fy, w, h, k)
+    local flare = breakT and (1 - breakT / (N.BLOCK.BREAK_F / N.CHARGE.FPS)) or 0
+    local a = S.ALPHA + 0.35 * flare + 0.08 * math.sin(sim.t * 9)
+    G2.push("all")
+    G2.stencil(function() G2.ellipse("fill", cx, cy, rx, ry, 32) end, "replace", 1)
+    G2.setStencilTest("greater", 0)
+    G2.setBlendMode("add")
+    G2.setColor(0.25, 0.9, 0.55, 0.12 + 0.25 * flare)
+    G2.ellipse("fill", cx, cy, rx, ry, 32)
+    -- the net itself in front of the trainee: drawn over it, not added light
+    G2.setBlendMode("alpha")
+    local hr = S.HEX * k
+    G2.setLineWidth(math.max(1.2, 1.1 * k))
+    G2.setColor(0.35 + 0.5 * flare, 0.95, 0.55 + 0.3 * flare, math.min(1, a + 0.3))
+    local dx, dy = hr * 1.5, hr * 1.732
+    local row = 0
+    for y = cy - ry - dy, cy + ry + dy, dy / 2 do
+      local off = (row % 2) * dx / 2
+      for x = cx - rx - dx + off, cx + rx + dx, dx do hexagon(G2, x, y, hr * 0.95) end
+      row = row + 1
+    end
+    G2.setStencilTest()
+    G2.setColor(0.6, 1, 0.8, a)
+    G2.ellipse("line", cx, cy, rx, ry, 32)
+    G2.pop()
+  end
+  function drawShatter(G2, sim, fx, fy, w, h, k, left)
+    local S = D.SHIELD
+    local cx, cy, rx, ry = domeBox(fx, fy, w, h, k)
+    local u = 1 - math.max(0, math.min(1, left / N.BLOCK.SHATTER_S))
+    G2.push("all")
+    G2.setBlendMode("add")
+    -- the flash
+    local fa = math.max(0, 1 - u * 2.5)
+    G2.setColor(1, 0.75, 0.9, 0.6 * fa)
+    G2.ellipse("fill", cx, cy, rx * (1 + 0.3 * u), ry * (1 + 0.3 * u), 32)
+    G2.setColor(1, 1, 1, 0.5 * fa)
+    G2.ellipse("fill", cx, cy, rx * 0.6, ry * 0.6, 24)
+    -- the pieces
+    G2.setLineWidth(math.max(1, 0.9 * k))
+    for i = 0, S.PIECES - 1 do
+      local ang = i / S.PIECES * 2 * math.pi + 0.4
+      local d = 0.7 + 0.9 * u
+      local x = cx + math.cos(ang) * rx * d
+      local y = cy + math.sin(ang) * ry * d - u * 24 * k
+      G2.setColor(0.7, 1, 0.85, 0.8 * (1 - u))
+      hexagon(G2, x, y, S.HEX * k * (0.8 - 0.4 * u))
+    end
+    G2.pop()
+  end
+  D.FIRE = { TONGUES = 7, HEIGHT = { 1.05, 1.45 }, WIDTH = { 1.0, 1.3 }, ALPHA = { 0.55, 0.7 } }
+  local FIRE_OUTER = { { 1, 0.92, 0.3 }, { 1, 0.5, 0.08 } }
+  local FIRE_INNER = { { 1, 1, 0.7 }, { 1, 0.9, 0.35 } }
+  local function tongue(G2, x, base, w, h, lean)
+    G2.polygon("fill", x - w, base, x - w * 0.55, base - h * 0.45, x + lean * w, base - h,
+      x + w * 0.55, base - h * 0.45, x + w, base)
+  end
+  function drawFire(G2, sim, fx, fy, w, h, k, stage)
+    local F = D.FIRE
+    local st = math.min(2, stage)
+    local W, H = math.max(w, 18 * k) * F.WIDTH[st], math.max(h, 24 * k) * F.HEIGHT[st]
+    local t = sim.t
+    G2.push("all")
+    G2.setBlendMode("add")
+    for layer = 1, 2 do
+      local col = layer == 1 and FIRE_OUTER[st] or FIRE_INNER[st]
+      local sc = layer == 1 and 1 or 0.62
+      for i = 0, F.TONGUES - 1 do
+        local u = (i + 0.5) / F.TONGUES - 0.5
+        local flick = 0.75 + 0.25 * math.sin(t * (9 + i * 1.7) + i * 2.1)
+        local hi = H * sc * (1 - 1.3 * u * u) * flick
+        local x = fx + u * W * 0.9 * sc
+        G2.setColor(col[1], col[2], col[3], F.ALPHA[st] * (layer == 1 and 0.75 or 0.9))
+        tongue(G2, x, fy + 2 * k, W / F.TONGUES * 0.85 * sc, hi, 0.35 * math.sin(t * 6 + i))
+      end
+    end
+    G2.pop()
+  end
+  -- the smoke after a fizzle: grey puffs drifting up and fading over the stop (`left` seconds)
+  function drawSmoke(G2, sim, fx, fy, w, h, k, left)
+    local total = N.CHARGE.STUN_F / N.CHARGE.FPS
+    local u = 1 - math.max(0, math.min(1, left / total))
+    for i = 0, 5 do
+      local ang = i * 1.05
+      local x = fx + math.sin(ang * 2.3) * w * 0.35
+      local y = fy - h * (0.3 + 0.12 * (i % 3)) - u * 26 * k
+      local r = (7 + 3 * (i % 2)) * k * (0.7 + 0.8 * u)
+      G2.setColor(0.6, 0.6, 0.62, 0.55 * (1 - u))
+      G2.circle("fill", x, y, r, 14)
+    end
+  end
+
   local function drawPlayer(G2, sim, s)
     local p = sim.player
     local px, py, k = Sim.project(p.x, p.y or 0, p.z)
@@ -968,32 +1528,34 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     -- its shadow on the grass below the stand
     local _, gy = Sim.project(p.x, 0, p.z)
-    G2.setColor(0, 0, 0, 0.3)
     local high = 1 - 0.4 * math.min(1, (p.y or 0) / (N.PLAYER.Y_MAX or 0.7))
+    local srx, sry
     if board then
       local bk = k * D.BOARD.scale
-      G2.ellipse("fill", px, gy, D.BOARD.cx * 0.9 * bk * high, 6 * bk * high)
+      srx, sry = D.BOARD.cx * 0.9 * bk * high, 6 * bk * high
     else
       local shrink = (1 - 0.25 * (lift / math.max(1, D.HOP.HEIGHT))) * high
-      G2.ellipse("fill", px, gy, 18 * k * shrink, 5 * k * shrink)
+      srx, sry = 18 * k * shrink, 5 * k * shrink
+    end
+    -- a ball about to hit: the shadow blinks red with it
+    local soon = sim.phase == "play" and D.soonestHit(sim)
+    local warn = soon and soon <= D.WARN.BLINK_S and blinkOn(sim)
+    if warn then
+      local R = D.WARN.RED
+      G2.setColor(R[1] * 0.7, R[2], R[3], 0.55)
+    else
+      G2.setColor(0, 0, 0, 0.3)
+    end
+    G2.ellipse("fill", px, gy, srx, sry)
+    if warn then
+      local R = D.WARN.RED
+      G2.setLineWidth(math.max(1.5, sry * 0.35))
+      G2.setColor(R[1], R[2], R[3], 0.9)
+      G2.ellipse("line", px, gy, srx * 1.1, sry * 1.1)
+      G2.setLineWidth(1)
     end
     local pic = playerPic(s)
     local stage = sim:chargeStage()
-    if p.charging and stage > 0 then
-      local ring = art("training/charge")
-      if ring then
-        local sc = (36 + 10 * stage) * k / 64
-        G2.setColor(1, 1, 1, 0.5 + 0.15 * stage)
-        G2.draw(ring, px, py - 20 * k, sim.t * 4, sc, sc, 32, 32)
-      else
-        G2.setColor(1, 0.9, 0.4, 0.3 + 0.1 * stage)
-        G2.circle("fill", px, py - 20 * k, (16 + 6 * stage) * k, 24)
-      end
-    end
-    if p.shield > 0 then
-      G2.setColor(0.4, 0.9, 1, 0.5)
-      G2.arc("fill", px, py - 18 * k, 26 * k, -math.pi * 0.9, -math.pi * 0.1, 16)
-    end
     local feetY = py + 2 - lift * k
     -- the rider's box on screen: its sprite as drawn, and the board under it
     local x0, y0, x1, y1 = px - 12 * k, feetY - 28 * k, px + 12 * k, feetY
@@ -1011,6 +1573,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       y1 = math.max(y1, feetY + (bh - D.BOARD.feetY) * bk)
     end
     local see = D.riderAlpha(sim, x0, y0, x1, y1)
+    -- the shield: a dome of hexagons between the trainee and the balloon - the camera is behind
+    -- the trainee, so it is drawn first and the trainee and its stand over it
+    if p.shield > 0 then drawShield(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.breakT) end
     if board then
       -- under the rider, rolling and pitching with it
       local pitch = boardPitch(sim)
@@ -1035,6 +1600,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0.95, 0.6, 0.2, see)
       G2.circle("fill", px, py - 14 * k, 12 * k, 16)
     end
+    -- the charge's fire over the Pokemon (yellow when Charged, a bigger yellow-orange at full),
+    -- and the smoke it leaves when the charge fizzles
+    if p.charging and stage > 0 then drawFire(G2, sim, px, feetY, x1 - x0, feetY - y0, k, stage) end
+    if (p.smoke or 0) > 0 then drawSmoke(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.smoke) end
+    -- the shield's shatter when it goes (the shield itself is drawn behind the trainee)
+    if (p.shatter or 0) > 0 then drawShatter(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.shatter) end
     -- the reticle (the game's HUD draws its own)
     if s and s.hudReticle then return end
     local rx, ry = Sim.project(p.aim.x, p.aim.y, 1)
@@ -1115,11 +1686,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0, 0, 0, 0.5)
       G2.circle("fill", gx, gy, 10, 20)
     end
-    local full = sim.guts >= N.GUTS.FULL_AT
+    -- the meter grows from the middle out, as the game's
+    local full = sim.guts >= 1
     G2.setColor(full and 1 or 0.98, full and 0.85 or 0.6, full and 0.3 or 0.15, 1)
-    if sim.guts > 0.001 then
-      G2.arc("fill", gx, gy, 9, -math.pi / 2, -math.pi / 2 + sim.guts * 2 * math.pi, 20)
-    end
+    if sim.guts > 0.001 then G2.circle("fill", gx, gy, 9 * sim.guts, 20) end
     G2.setColor(1, 1, 1, 0.8)
     G2.circle("line", gx, gy, 10, 20)
     if sim.bot and sim.bot.aura > 0 then
@@ -1432,7 +2002,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     drawBalls(G2, sim, "behind")
     drawShots(G2, sim)
-    if s then s.hudReticle = Hud and Hud.P ~= nil and Hud.sim == sim or nil end
+    if s then s.hudReticle = Hud and (Hud.P ~= nil or Hud.engine) and Hud.sim == sim or nil end
     -- the trainee rides in from past the area's right edge (hud.pose playerIn: 0 off, 1 there)
     local enter = pose and pose.playerIn
     if enter and enter < 1 then

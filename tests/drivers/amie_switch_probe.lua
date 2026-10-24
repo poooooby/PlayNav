@@ -57,8 +57,8 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   local opts = loader.modOptions.play_nav
-  local savedDisplay = opts.display
-  opts.display = "split"
+  local savedDisplay = opts.display_mode
+  opts.display_mode = "combined"
   local R, Apps = X.amie, X.apps
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function win(ax, ay)
@@ -148,7 +148,7 @@ local function body(game, log)
     U.wait(5)
   end)
   if not ok then log("probe body failed:", tostring(err)) end
-  opts.display = savedDisplay
+  opts.display_mode = savedDisplay
   log("DONE")
 end
 

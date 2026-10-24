@@ -48,7 +48,7 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   local R, Apps, S = X.amie, X.apps, X.amie.session
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
-  loader.modOptions.play_nav.display = "split"
+  loader.modOptions.play_nav.display_mode = "combined"
   -- wait out the import if it is running
   if X.import then waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120) end
   log("open play:", R.openPlay())

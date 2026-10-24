@@ -42,6 +42,14 @@ return function(mod, Pointer, T, Rules, Sim)
   end
 
   local function inRect(x, y, r) return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h end
+  local function now() return (love and love.timer and love.timer.getTime()) or os.clock() end
+  -- the exit asks twice (the game's): the first tap closes a ring round the button - four arcs
+  -- on the diagonals closing in from 1.8x the button to 1.35x as they fade in, holding, then
+  -- spreading out again as they fade (seconds); a second tap while it shows leaves
+  local EXIT_RING = { IN = 0.2, HOLD = 0.85, OUT = 0.15, FAR = 1.8, NEAR = 1.35 }
+  local function exitArmed()
+    return app.exitArm ~= nil and now() - app.exitArm < EXIT_RING.IN + EXIT_RING.HOLD + EXIT_RING.OUT
+  end
 
   -- the aim reach of the running regimen (a sprite balloon reaches further)
   local function reach(sim)
@@ -132,8 +140,15 @@ return function(mod, Pointer, T, Rules, Sim)
   end
   app.clockText = clock
 
-  -- the game's screen for this regimen, or nil (no extracted art)
+  -- the engine draws the screen (src/training/ui_art.lua's Assets.engine); off, the game's
+  local function engineUi()
+    local A = app.assets
+    return A ~= nil and A.engine ~= nil
+  end
+
+  -- the game's screen for this regimen, or nil (no extracted art, or the engine draws it)
   local function screen()
+    if engineUi() then return nil end
     local sim = T.sim
     if app.screen and app.screenSim == sim then return app.screen end
     local S = T.lyt
@@ -167,15 +182,16 @@ return function(mod, Pointer, T, Rules, Sim)
     end
     if not sim then return end
     local x, y = ev.x, ev.y
-    local P = app.screen
+    local P = (not engineUi()) and app.screen or nil
     if ev.phase == "pressed" then
       if inRect(x, y, EXIT) then
         roles[ev.id] = "exit"
+        app.exitHeld = true
         if P then P:play("touch") end
         if mod.haptics then mod.haptics.pulse("tick") end
         return
       end
-      if not P and inRect(x, y, BLOCK) then roles[ev.id] = "block"; sim:block(); return end
+      if app.plainPad and inRect(x, y, BLOCK) then roles[ev.id] = "block"; sim:block(); return end
       roles[ev.id] = "aim"
       sim:aim(aimAt(sim, x, y))
       sim:pressFire()
@@ -188,9 +204,23 @@ return function(mod, Pointer, T, Rules, Sim)
       if role == "aim" then
         sim:aim(aimAt(sim, x, y))
         sim:releaseFire()
+      elseif role == "block" then
+        sim:unblock()
       elseif role == "exit" then
+        app.exitHeld = false
         if P then P:play("release") end
-        if inRect(x, y, EXIT) then T.quitRegimen() end
+        if inRect(x, y, EXIT) then
+          if exitArmed() then
+            app.exitArm = nil
+            T.quitRegimen()
+          else
+            app.exitArm = now()
+            app.exitClosed = false
+            -- the game's own ring (pane 1o): in from 2x as it fades in
+            if P then P:play("exit_open") end
+            if T.playSe then T.playSe("exit_arm") end
+          end
+        end
       end
     end
   end
@@ -266,6 +296,11 @@ return function(mod, Pointer, T, Rules, Sim)
     local t = sim and sim.t or 0
     if app.lastT then P:advance(math.max(0, math.min(0.25, t - app.lastT)) * 30) end
     app.lastT = t
+    -- the exit's ring out again (back to 2x, fading) when no second tap came
+    if app.exitArm and not app.exitClosed and now() - app.exitArm >= EXIT_RING.IN + EXIT_RING.HOLD then
+      app.exitClosed = true
+      P:play("exit_close")
+    end
     -- the return button lights once play begins (passive -> active)
     local live = sim and sim.phase ~= "countdown"
     if live ~= app.live then
@@ -285,6 +320,157 @@ return function(mod, Pointer, T, Rules, Sim)
     G.pop()
   end
 
+  -- ------- the aim screen drawn by the engine (layout units, 320 x LH): the navy field with the
+  -- + pattern drifting, the green bands top and bottom with their angled edges and corner ticks,
+  -- the brackets either side, the reticle at the aim, the best time, the return button
+  local FIELD_TOP = { 0, 20, 64, 6, 256, 6, 320, 20 }
+  local function rgb(r, g, b, a) return r / 255, g / 255, b / 255, (a or 255) / 255 end
+  local fieldMesh, fieldLH = nil, nil
+  local function field(G)
+    if not fieldMesh or fieldLH ~= LH then
+      local bot = 206 + D
+      local function v(x, y, c) return { x, y, 0, 0, c[1] / 255, c[2] / 255, c[3] / 255, 1 } end
+      local top, low = { 6, 38, 62 }, { 10, 78, 108 }
+      fieldMesh = G.newMesh({ v(0, 20, top), v(64, 6, top), v(256, 6, top), v(320, 20, top),
+        v(320, bot - 14, low), v(256, bot, low), v(64, bot, low), v(0, bot - 14, low) }, "fan", "static")
+      fieldLH = LH
+    end
+    G.setColor(1, 1, 1, 1)
+    G.draw(fieldMesh)
+  end
+  -- the bands' outlines are concave (their field edge dips): triangulated once per shape
+  local bandsLH, bandTris = nil, nil
+  local function bands(G)
+    if bandsLH ~= LH then
+      local bot, tri = 206 + D, love.math.triangulate
+      bandTris = {
+        tri({ 0, -16, 320, -16, 320, 20, 256, 6, 64, 6, 0, 20 }),
+        tri({ 0, 14, 62, 0, 258, 0, 320, 14, 320, 20, 256, 6, 64, 6, 0, 20 }),
+        tri({ 0, bot - 14, 64, bot, 256, bot, 320, bot - 14, 320, LH + 2, 0, LH + 2 }),
+        tri({ 0, bot - 14, 64, bot, 256, bot, 320, bot - 14, 320, bot - 8, 258, bot + 6, 62, bot + 6, 0, bot - 8 }),
+      }
+      bandsLH = LH
+    end
+    -- the outer green, then the darker stripe along the field's edge
+    for i, tris in ipairs(bandTris) do
+      if i % 2 == 1 then G.setColor(rgb(30, 172, 126)) else G.setColor(rgb(16, 132, 100)) end
+      for j = 1, #tris do G.polygon("fill", tris[j]) end
+    end
+  end
+  local function ticks(G)
+    local bot = 206 + D
+    G.setColor(rgb(40, 190, 140))
+    G.setLineWidth(2.4)
+    G.line(64, 18, 72, 14, 88, 12)
+    G.line(256, 18, 248, 14, 232, 12)
+    G.line(64, bot - 12, 72, bot - 8, 88, bot - 7)
+    G.line(256, bot - 12, 248, bot - 8, 232, bot - 7)
+  end
+  local function brackets(G)
+    local cy = AIM.cy
+    G.setColor(rgb(24, 160, 124, 230))
+    G.setLineWidth(2.2)
+    G.arc("line", "open", 160 - 18, cy, 75, math.rad(158), math.rad(202), 24)
+    G.arc("line", "open", 160 + 18, cy, 75, math.rad(-22), math.rad(22), 24)
+  end
+  local function pattern(G, t)
+    local A = app.assets
+    local tile = A and A.image and A.image("training/home_bg_ptn")
+    if not tile then return end
+    tile:setWrap("repeat", "repeat")
+    local tw, th = tile:getDimensions()
+    local ox, oy = (t * 6) % tw, (t * 3) % th
+    app.aimQuad = app.aimQuad or G.newQuad(0, 0, 320 + tw, LH + th, tw, th)
+    app.aimQuad:setViewport(0, 0, 320 + tw, LH + th, tw, th)
+    G.setColor(rgb(30, 150, 140, 60))
+    G.draw(tile, app.aimQuad, -ox, -oy)
+  end
+  local function reticle(G, sim)
+    if not sim then return end
+    local lx, ly = layoutPointFor(sim, sim.player.aim.x, sim.player.aim.y)
+    G.setColor(rgb(40, 230, 170))
+    G.setLineWidth(1.8)
+    G.circle("line", lx, ly, 6.5, 24)
+    G.circle("line", lx, ly, 3, 16)
+    if sim.player.charging then
+      local f = math.min(1, sim.player.chargeT * N.CHARGE.FPS / N.CHARGE.FIZZLE_F)
+      local stage = sim:chargeStage()
+      G.setColor(rgb(250, stage >= 2 and 90 or 200, 40))
+      G.setLineWidth(2.2)
+      G.arc("line", "open", lx, ly, 10, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 24)
+    end
+  end
+  -- the exit's ring (the first tap; EXIT_RING above)
+  local function drawExitRing(G, cx, cy, r)
+    local a0 = app.exitArm
+    if not a0 then return end
+    local t = now() - a0
+    local R = EXIT_RING
+    local k, alpha
+    if t < R.IN then
+      local u = t / R.IN
+      u = 1 - (1 - u) * (1 - u)
+      k, alpha = R.FAR + (R.NEAR - R.FAR) * u, u
+    elseif t < R.IN + R.HOLD then
+      k, alpha = R.NEAR, 1
+    elseif t < R.IN + R.HOLD + R.OUT then
+      local u = (t - R.IN - R.HOLD) / R.OUT
+      k, alpha = R.NEAR + (R.FAR - R.NEAR) * u * u, 1 - u
+    else
+      app.exitArm = nil
+      return
+    end
+    local rr = r * k
+    G.setLineStyle("smooth")
+    for pass = 1, 2 do
+      G.setLineWidth(pass == 1 and r * 0.28 or r * 0.16)
+      G.setColor(0.72, 0.95, 0.95, alpha * (pass == 1 and 0.25 or 0.6))
+      for q = 0, 3 do
+        local mid = math.pi / 4 + q * math.pi / 2
+        G.arc("line", "open", cx, cy, rr, mid - math.rad(30), mid + math.rad(30), 18)
+      end
+    end
+    G.setLineWidth(1)
+  end
+  app.exitRingT = function() return app.exitArm and now() - app.exitArm or nil end
+
+  local function exitButton(G, live)
+    local A = app.assets
+    local img = A and A.image and A.image("training/btn_return")
+    local k = app.exitHeld and 0.93 or 1
+    if not img then return end
+    local iw = img:getDimensions()
+    local size = 44 * k
+    if live then G.setColor(1, 1, 1, 1) else G.setColor(0.55, 0.62, 0.6, 1) end
+    G.draw(img, 291, 212 + D, 0, size / iw, size / iw, iw / 2, iw / 2)
+    drawExitRing(G, 291, 212 + D, 22)
+  end
+  local function drawAim(G, sim, small)
+    local t = sim and sim.t or 0
+    G.push()
+    G.translate(0, -(app.bleed or BLEED))
+    G.scale(K, K)
+    G.setColor(rgb(30, 172, 126))
+    G.rectangle("fill", 0, -BLEED / K - 2, 320, LH + BLEED / K + 4)
+    field(G)
+    pattern(G, t)
+    bands(G)
+    ticks(G)
+    brackets(G)
+    reticle(G, sim)
+    -- the best time, white on the lower band
+    local s = T.session
+    local rec = s and s.course and T.courseRecord and T.courseRecord(s.course.id)
+    G.setFont(small)
+    local k = 11 / math.max(1, small:getHeight())
+    G.setColor(1, 1, 1, 1)
+    G.print(T.resultText and T.resultText("bestTime") or "Best Time:", 16, 211 + D, 0, k, k)
+    G.print(rec and rec.best and clock(rec.best) or "-:--.-", 16, 224 + D, 0, k, k)
+    exitButton(G, sim and sim.phase ~= "countdown")
+    G.pop()
+    G.setColor(1, 1, 1, 1)
+  end
+
   function app:draw(G, w, h)
     local s = T.session
     local font, small = fonts()
@@ -292,7 +478,7 @@ return function(mod, Pointer, T, Rules, Sim)
     if not s then return end
     if s.mode == "result" then
       local Rs = T.results
-      if Rs and Rs.list and Rs.bottom then
+      if Rs and Rs.list and (Rs.bottom or Rs.engine) then
         G.push()
         G.translate(0, -(app.bleed or BLEED))
         G.scale(K, K)
@@ -310,8 +496,11 @@ return function(mod, Pointer, T, Rules, Sim)
       return
     end
     local sim = T.sim
+    app.plainPad = false
+    if engineUi() then drawAim(G, sim, small); return end
     local P = screen()
     if P then drawScreen(G, P, sim); return end
+    app.plainPad = true
     G.setColor(0.09, 0.11, 0.16, 1)
     G.rectangle("fill", 0, -(app.bleed or 0), w, h + (app.bleed or 0))
     -- the pad
@@ -342,8 +531,8 @@ return function(mod, Pointer, T, Rules, Sim)
       local rx, ry = app.padPointFor(sim.player.aim.x, sim.player.aim.y)
       local stage = sim:chargeStage()
       if sim.player.charging then
-        local f = math.min(1, sim.player.chargeT / N.CHARGE.OVER_S)
-        G.setColor(stage >= 3 and 1 or 0.98, stage >= 3 and 0.3 or 0.75, 0.2, 0.9)
+        local f = math.min(1, sim.player.chargeT * N.CHARGE.FPS / N.CHARGE.FIZZLE_F)
+        G.setColor(stage >= 2 and 1 or 0.98, stage >= 2 and 0.3 or 0.75, 0.2, 0.9)
         G.arc("line", rx, ry, 14, -math.pi / 2, -math.pi / 2 + f * 2 * math.pi, 20)
       end
       local ring = art("training/aim")

@@ -26,8 +26,8 @@ local function body(game, log)
   local X = game.mods.exports.play_nav
   game.mods.modOptions.play_nav = game.mods.modOptions.play_nav or {}
   local opts = game.mods.modOptions.play_nav
-  local saved = opts.display
-  opts.display = "split"
+  local saved = opts.display_mode
+  opts.display_mode = "combined"
   local T = X.training.session
   local ok, err = pcall(function()
     X.training.open()
@@ -70,7 +70,7 @@ local function body(game, log)
     U.wait(30)
     X.training.finish()
   end)
-  opts.display = saved
+  opts.display_mode = saved
   if not ok then log("failed:", tostring(err)) end
   log("DONE")
 end

@@ -13,7 +13,7 @@ return function(mod)
 
   -- the manifest the extractor writes when the set is complete
   function A.refresh()
-    local src = cacheRead("oras/manifest.lua")
+    local src = not A.cardOff and cacheRead("oras/manifest.lua") or nil
     if not src then
       -- no art (never extracted, or just cleared): nothing loaded earlier may still draw
       A.manifest = nil
@@ -29,7 +29,10 @@ return function(mod)
     return A.manifest
   end
 
+  -- A.cardOff (option USE ROM ASSETS off): the card image's cache is left unread, so every
+  -- caller takes PlayNav's own art, sounds and words
   function A.ready()
+    if A.cardOff then return false end
     if A.manifest == nil and A.loadedAt == nil then A.refresh() end
     return A.manifest ~= nil
   end
@@ -42,9 +45,14 @@ return function(mod)
     return out
   end
 
-  -- love Image or nil
+  -- love Image or nil. A.engine (set in main: src/training/ui_art.lua) draws the UI ids
+  -- itself, so those never come from the card image.
   function A.image(id)
     if not (love and love.graphics and love.image and love.data) then return nil end
+    if A.engine then
+      local drawn, owned = A.engine(id)
+      if drawn or owned then return drawn end
+    end
     local img = A.images[id]
     if img then return img end
     if A.missing[id] then return nil end
@@ -96,9 +104,31 @@ return function(mod)
   end
 
   -- a music track the extract decoded (recipe kind "stream", id "bgm/<name>"):
-  -- { sd = love SoundData, rate, channels, samples, loop, loopStart } or nil
+  -- { sd = love SoundData, rate, channels, samples, loop, loopStart } or nil. Without the
+  -- card image's, PlayNav's own file for the id (A.ownMusic[id] = a path in the mod, looping
+  -- whole) stands in.
   A.tracks = {}
+  A.ownMusic = { ["bgm/sp_menu"] = "assets/stmenu.ogg" }
+  local function ownTrack(id)
+    local path = A.ownMusic[id]
+    if not (path and love and love.sound and love.filesystem and mod.read) then return false end
+    local ok, sd = pcall(function()
+      local bytes = mod:read(path)
+      return bytes and love.sound.newSoundData(love.filesystem.newFileData(bytes, path:match("[^/]+$")))
+    end)
+    if not (ok and sd) then
+      mod.log:warn("music %s (%s) failed to load: %s", id, path, tostring(sd))
+      return false
+    end
+    return { sd = sd, rate = sd:getSampleRate(), channels = sd:getChannelCount(), samples = sd:getSampleCount(),
+      loop = true, loopStart = 0 }
+  end
   function A.music(id)
+    -- PlayNav's own songs (src/chipmusic.lua) take their ids before the card image's
+    if A.engineMusic then
+      local own, owned = A.engineMusic(id)
+      if own or owned then return own end
+    end
     if A.tracks[id] ~= nil then return A.tracks[id] or nil end
     local track = false
     local m = A.ready() and A.manifest.assets or nil
@@ -120,6 +150,7 @@ return function(mod)
         end
       end
     end
+    if not track then track = ownTrack(id) end
     A.tracks[id] = track
     return track or nil
   end
@@ -127,6 +158,11 @@ return function(mod)
   -- a sound effect the extract rendered (recipe kind "sfx", id "se/<name>"): love SoundData or nil
   A.sounds = {}
   function A.sound(id)
+    -- PlayNav's own effects (src/chipmusic.lua) take their ids before the card image's
+    if A.engineSound then
+      local own, owned = A.engineSound(id)
+      if own or owned then return own end
+    end
     if A.sounds[id] ~= nil then return A.sounds[id] or nil end
     local sd = false
     local m = A.ready() and A.manifest.assets or nil

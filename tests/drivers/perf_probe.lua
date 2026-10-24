@@ -42,7 +42,7 @@ local function body(game, log)
   if not X then log("FAIL no exports"); return end
   game.mods.modOptions.play_nav = game.mods.modOptions.play_nav or {}
   local SECOND = os.getenv("PLAYNAV_DISPLAY") == "second_screen"
-  game.mods.modOptions.play_nav.display = SECOND and "second_screen" or "split"
+  game.mods.modOptions.play_nav.display_mode = SECOND and "separate" or "combined"
   if os.getenv("PERF_NO_KG") == "1" then
     game.mods.hooks:removeOwner("kanto_gear")
     if game.mods.events then game.mods.events:removeOwner("kanto_gear") end

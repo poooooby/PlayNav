@@ -1,0 +1,164 @@
+"""Bake Pokemon-Amie's wallpapers and their drawer thumbnails into one indexed atlas (Wilds of
+Hoenn's colour-number trick, as tools/decor_atlas.py).
+
+The 34 wallpapers (320x240) and their 34 thumbnails (40x40) come from a backgrounds page
+provided via The Spriters Resource (attribution in assets/credits.txt): a teal grid,
+each wallpaper in a cell with its thumbnail in the cell beside it, each at the cell's top left.
+CELLS below says which cell holds which. A wallpaper holds up to a few thousand colours, so the
+numbers are 16-bit: 0 transparent, 1..n an entry of that picture's own palette. Out:
+  assets/amie_walls.png   one 16-bit greyscale image, the pictures packed in shelves
+  data/amie_walls.lua     { depth = 16, cells = { [id] = { x, y, w, h, pal } } }, pal = "rrggbbaa"
+src/amie/decor_art.lua expands a cell into a full-colour image the first time it is drawn.
+
+  python tools/wall_atlas.py "<...Pokemon-Amie - Backgrounds.png>"
+"""
+import os
+import re
+import sys
+
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+WIDTH = 680
+
+# the page's cells (their top-left corners) and the picture each holds
+CELLS = [
+    (2, 2, "wall/normal"),
+    (324, 2, "thumb/normal"),
+    (2, 244, "wall/fire"),
+    (324, 244, "thumb/fire"),
+    (2, 486, "wall/water"),
+    (324, 486, "thumb/water"),
+    (2, 728, "wall/electric"),
+    (324, 728, "thumb/electric"),
+    (2, 970, "wall/grass"),
+    (324, 970, "thumb/grass"),
+    (2, 1212, "wall/ice"),
+    (324, 1212, "thumb/ice"),
+    (2, 1454, "wall/fighting"),
+    (324, 1454, "thumb/fighting"),
+    (2, 1696, "wall/poison"),
+    (324, 1696, "thumb/poison"),
+    (2, 1938, "wall/ground"),
+    (324, 1938, "thumb/ground"),
+    (2, 2180, "wall/flying"),
+    (324, 2180, "thumb/flying"),
+    (2, 2422, "wall/psychic"),
+    (324, 2422, "thumb/psychic"),
+    (2, 2664, "wall/bug"),
+    (324, 2664, "thumb/bug"),
+    (2, 2906, "wall/rock"),
+    (324, 2906, "thumb/rock"),
+    (2, 3148, "wall/ghost"),
+    (324, 3148, "thumb/ghost"),
+    (2, 3390, "wall/dragon"),
+    (324, 3390, "thumb/dragon"),
+    (2, 3632, "wall/dark"),
+    (324, 3632, "thumb/dark"),
+    (2, 3874, "wall/steel"),
+    (324, 3874, "thumb/steel"),
+    (2, 4116, "wall/fairy"),
+    (324, 4116, "thumb/fairy"),
+    (2, 4358, "wall/pink"),
+    (324, 4358, "thumb/pink"),
+    (2, 4600, "wall/blue"),
+    (324, 4600, "thumb/blue"),
+    (2, 4842, "wall/orange"),
+    (324, 4842, "thumb/orange"),
+    (2, 5084, "wall/green"),
+    (324, 5084, "thumb/green"),
+    (2, 5326, "wall/purple"),
+    (324, 5326, "thumb/purple"),
+    (2, 5568, "wall/brown"),
+    (324, 5568, "thumb/brown"),
+    (2, 5810, "wall/yellow"),
+    (324, 5810, "thumb/yellow"),
+    (2, 6052, "wall/white"),
+    (324, 6052, "thumb/white"),
+    (2, 6294, "wall/black"),
+    (324, 6294, "thumb/black"),
+    (2, 6536, "wall/pink_cloud"),
+    (324, 6536, "thumb/pink_cloud"),
+    (2, 6778, "wall/blue_cloud"),
+    (324, 6778, "thumb/blue_cloud"),
+    (2, 7020, "wall/sunset"),
+    (324, 7020, "thumb/sunset"),
+    (2, 7262, "wall/polka_dot"),
+    (324, 7262, "thumb/polka_dot"),
+    (2, 7504, "wall/punk"),
+    (324, 7504, "thumb/punk"),
+    (2, 7746, "wall/checkered"),
+    (324, 7746, "thumb/checkered"),
+    (2, 7988, "wall/chic"),
+    (324, 7988, "thumb/chic"),
+]
+
+
+def sizes():
+    src = open(os.path.join(ROOT, "data", "decor_catalog.lua"), encoding="utf-8").read()
+    out = {}
+    for m in re.finditer(r'id = "((?:wall|thumb)/[^"]+)".*?w = (\d+), h = (\d+)', src):
+        out[m.group(1)] = (int(m.group(2)), int(m.group(3)))
+    return out
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    page = Image.open(sys.argv[1]).convert("RGBA")
+    size = sizes()
+    missing = sorted(set(size) - {c[2] for c in CELLS})
+    if missing:
+        sys.exit(f"no cell for {missing}")
+    # shelves: tallest first, left to right
+    items = sorted(CELLS, key=lambda c: (-size[c[2]][1], c[2]))
+    places, x, y, shelf = {}, 0, 0, 0
+    for _, _, id_ in items:
+        w, h = size[id_]
+        if x + w > WIDTH:
+            x, y, shelf = 0, y + shelf, 0
+        places[id_] = (x, y)
+        x += w
+        shelf = max(shelf, h)
+    atlas = Image.new("I;16", (WIDTH, y + shelf), 0)
+    rows = []
+    for cx, cy, id_ in CELLS:
+        w, h = size[id_]
+        px = page.crop((cx, cy, cx + w, cy + h)).load()
+        pal, index = [], {}
+        ax, ay = places[id_]
+        for yy in range(h):
+            for xx in range(w):
+                p = px[xx, yy]
+                if p[3] == 0:
+                    continue
+                if p not in index:
+                    pal.append(p)
+                    index[p] = len(pal)
+                atlas.putpixel((ax + xx, ay + yy), index[p])
+        if len(pal) > 65535:
+            sys.exit(f"{id_}: {len(pal)} colours")
+        rows.append((id_, ax, ay, w, h, pal))
+
+    png = os.path.join(ROOT, "assets", "amie_walls.png")
+    atlas.save(png, optimize=True)
+    lines = [
+        "-- generated by tools/wall_atlas.py: Pokemon-Amie's wallpapers and their thumbnails in",
+        "-- assets/amie_walls.png (16-bit grey value = colour number, 0 transparent) and their",
+        "-- palettes. Art: see assets/credits.txt (Pokemon-Amie backgrounds).",
+        "return {",
+        "  depth = 16,",
+        "  cells = {",
+    ]
+    for id_, ax, ay, w, h, pal in sorted(rows):
+        hexes = ", ".join('"%02x%02x%02x%02x"' % p for p in pal)
+        lines.append(f'    ["{id_}"] = {{ x = {ax}, y = {ay}, w = {w}, h = {h}, pal = {{ {hexes} }} }},')
+    lines += ["  },", "}", ""]
+    with open(os.path.join(ROOT, "data", "amie_walls.lua"), "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines))
+    print(f"{len(rows)} pictures; {png} {atlas.size} {os.path.getsize(png)} bytes")
+
+
+if __name__ == "__main__":
+    main()

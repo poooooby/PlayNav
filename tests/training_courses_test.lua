@@ -86,7 +86,7 @@ do
   T.eq(C.byId.lv3_def.name, "Break It! Golem's Defensive Line!", "...for Golem too")
   T.eq(C.byId.secret_01.order, 20, "the first secret course is entry 20")
   T.eq(C.byId.secret_12.order, 31, "...the last 31")
-  T.check(C.byId.lv2_spe.motion and C.byId.lv2_spe.motion.bob, "Aerodactyl soars")
+  T.check(C.byId.lv2_spe.sway and C.byId.lv2_spe.sway.ay >= 9, "Aerodactyl soars (its sway, +-9.5 px every 5.4 s)")
   T.check(C.byId.secret_10.roaming, "Probopass's goals roam")
 end
 
@@ -125,11 +125,13 @@ do
   T.eq(BB.size, 96, "the bots' cells are 96 square")
   local missing, maxRow = {}, -1
   for _, c in ipairs(C.courses) do
-    for _, b in ipairs(c.bots) do
-      local key = tostring(b.national) .. (b.mega and "-mega" or "")
-      local cell = BB.cells[key]
-      if not cell then missing[#missing + 1] = key
-      elseif cell.row > maxRow then maxRow = cell.row end
+    for _, list in ipairs({ c.bots, c.alphaBots or {} }) do
+      for _, b in ipairs(list) do
+        local key = tostring(b.national) .. (b.mega and "-mega" or "")
+        local cell = BB.cells[key]
+        if not cell then missing[#missing + 1] = key
+        elseif cell.row > maxRow then maxRow = cell.row end
+      end
     end
   end
   T.eq(#missing, 0, "every Balloon Bot has a sprite (missing: " .. table.concat(missing, ", ") .. ")")
@@ -153,6 +155,27 @@ do
     T.eq(u32(17), 96, "...96 wide")
     T.eq(u32(21), 96 * n, "...a cell per bot tall")
   end
+end
+
+-- every balloon carries the game's damage per hit (its course data, a/1/1/8 +0xc)
+do
+  local missing = {}
+  for _, c in ipairs(C.courses) do
+    for i, b in ipairs(c.bots) do
+      if not (type(b.damage) == "number" and b.damage > 0) then missing[#missing + 1] = c.id .. "#" .. i end
+    end
+  end
+  T.eq(#missing, 0, "every balloon has the game's damage (" .. table.concat(missing, ", ") .. ")")
+  T.eq(C.byId.lv1_atk.bots[1].damage, 50, "Axew's 50")
+  T.eq(C.byId.secret_06.bots[1].damage2, 2500, "Aegislash's second form 2500")
+  -- the finale's line by version (GARC a/1/1/7 row 31: Omega Ruby Aron, Alpha Sapphire Larvitar)
+  local fin = C.byId.secret_12
+  T.eq(C.botsFor(fin, "ruby")[1].national, 304, "Ruby: Omega Ruby's Aron line")
+  T.eq(C.botsFor(fin, "emerald")[1].national, 304, "Emerald: the Aron line")
+  T.eq(C.botsFor(fin, "sapphire")[1].national, 246, "Sapphire: Alpha Sapphire's Larvitar line")
+  T.eq(C.botsFor(fin, "leafgreen")[4].national, 248, "LeafGreen: ...to Mega Tyranitar")
+  T.check(C.botsFor(fin, "leafgreen")[4].mega and C.botsFor(fin, "sapphire")[4].damage == 2500, "...its Mega, 2500 a hit")
+  T.eq(C.botsFor(C.byId.lv1_hp, "sapphire")[1].national, 320, "every other course is the same in both")
 end
 
 T.finish()

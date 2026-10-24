@@ -1,5 +1,5 @@
-PlayNav - credits for the files in assets/
-==========================================
+PlayNav - credits for the files in assets/ and for adapted code
+===============================================================
 
 Item icons (assets/items.png)
 ----------------------------
@@ -41,6 +41,11 @@ Hover board (assets/hoverboard.png)
 The board your Pokemon rides during a Super-Training Regimen: Wooble's own pixel art, made for
 PlayNav.
 
+Super Training regimen picker music (assets/stmenu.ogg)
+-------------------------------------------------------
+The music while you choose a Super-Training Regimen, when the card image's own track has not
+been extracted: Wooble's original music, made for PlayNav.
+
 Balloon Bot sprites (assets/balloon_bots.png)
 ---------------------------------------------
 The Pokemon every Super-Training Balloon Bot is made in the image of (Mega Aggron too): the
@@ -54,3 +59,105 @@ tools/balloon_atlas.py). From the pack's credits, "Pokemon Battler Sprites":
 The Gen 6 bots are Noibat, Noivern, Dragalge, Tyrantrum, Aurorus, Aegislash, Scatterbug,
 Spewpa, Vivillon and Mega Aggron; the rest are Gen 1-5. Pokemon and their designs are
 (c) Nintendo / Creatures Inc. / GAME FREAK Inc.; PlayNav is an unofficial fan project.
+
+Pokemon-Amie Decoration sprites (assets/amie_decor.png)
+-------------------------------------------------------
+The 172 Decor cushions and objects, packed into one atlas of colour numbers with the palettes
+in data/amie_decor.lua (by tools/decor_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Pokemon-Amie backgrounds (assets/amie_walls.png)
+------------------------------------------------
+The 34 room wallpapers and their drawer thumbnails, packed into one atlas of 16-bit colour
+numbers with the palettes in data/amie_walls.lua (by tools/wall_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Poke Puffs (assets/amie_puffs.png)
+----------------------------------
+The 26 Poke Puffs, packed into one atlas of colour numbers with the palettes in
+data/amie_puffs.lua (by tools/puff_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Pokemon-Amie hand (assets/amie_hand.png)
+----------------------------------------
+The hand you pet and feed with in PLAY, every frame of it (its reactions to a burn, a shock,
+a freeze, water, junk, a hit and a hurt, and the tap sparkle), packed into one atlas of colour
+numbers with the palettes in data/amie_hand.lua (by tools/hand_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Berry Picker (assets/amie_berry.png)
+------------------------------------
+Berry Picker's tree and bush backdrops, the berries and their heaps, the grass, the bubbles,
+notes and star, the score digits, the HIGH SCORE stamp and the stylus, packed into one atlas of
+16-bit colour numbers with the palettes in data/amie_berry.lua (by tools/berry_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Head It (assets/amie_head.png)
+------------------------------
+Head It's sky and touch-screen backdrops, the rainbows, the yarn balls (the giant ones too),
+the "!" and "!!" bubbles, the head-hit puff, the score digits and the stylus, packed into one
+atlas of 16-bit colour numbers with the palettes in data/amie_head.lua (by tools/head_atlas.py).
+
+  Original IP/Graphics: (c) Pokemon Company (from the game X/Y)
+  Provided via The Spriters Resource
+
+Tile Puzzle trees (assets/amie_tile.png)
+----------------------------------------
+The trees on Tile Puzzle's shores (a spruce, an oak, a row of pines and a bush, by day and by
+night), from TREE PIXEL PACK (128) by AstroCom (https://astrocom.space), shrunk into the
+scene's sheet and packed into one atlas of 16-bit colour numbers with the palettes in
+data/amie_tile.lua (by tools/tile_trees.py). The rest of Tile Puzzle's picture - its sky, sea, night stars and photo
+frames - is drawn by PlayNav (src/amie/ui_art.lua).
+
+PLAY treeline (assets/amie_scene.png)
+-------------------------------------
+The band of trees along PLAY's horizon, built from PIXEL BUSHES PACK by AstroCom
+(https://astrocom.space): its round bushes, shrubs and berry bushes shrunk, turned to the
+scene's teal and arranged into the strip, packed into one atlas of 16-bit colour numbers with the
+palette in data/amie_scene.lua (by tools/play_bushes.py).
+
+PLAY lawn (assets/amie_grass.png)
+---------------------------------
+PLAY's lawn and the grass standing on it, from the GRASS+ tile sheet by SciGho: a ground tile
+turned to the lawn's bright green under the scene's lighter oval, and the sheet's grass tufts,
+clump and blades turned to the lawn's greens, packed into one atlas of 16-bit colour numbers
+with the palettes in data/amie_grass.lua (by tools/play_grass.py).
+
+Split-screen layout (src/layout.lua Layout.gear, Layout.fitRect)
+-----------------------------------------------------------------
+How the split screen shares the window between the game and the touch screen - the shares,
+the gap, the bottom safe area, the swap and the fit - is adapted from Kanto Gear's
+THEME:windowLayout and THEME:fitRect, by AverageConsumer, used with the author's permission:
+https://github.com/AverageConsumer/kanto-gear
+
+  MIT License
+
+  Copyright (c) 2026 AverageConsumer
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.

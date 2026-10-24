@@ -81,16 +81,47 @@ N.CLOCK = {
   TARGET = { [1] = 150, [2] = 120, [3] = 120, secret = 90, secret_long = 120 },
 }
 
+-- the changeover between a course's balloons (Wooble's capture s4/1, The Troubles Keep on
+-- Coming?!; seconds from the last hit): the beaten one collapses onto the grass over DEFLATE
+-- and lies there as a puddle, the screen fades to black over FADE_OUT and back over FADE_IN with
+-- the next lying flat at SWAP_S, 30 s go onto the clock at BONUS_S, it inflates where it lies
+-- over INFLATE, its name shows over NAME, and play (goals, its first warning) at PLAY_S; the
+-- clock stands still throughout
+N.BETWEEN = { DEFLATE = { 0.2, 1.3 }, FADE_OUT = { 3.7, 3.9 }, SWAP_S = 4.5, FADE_IN = { 4.6, 4.8 },
+  BONUS_S = 5.8, INFLATE = { 6.1, 8.2 }, NAME = { 8.8, 10.1 }, PLAY_S = 10.2 }
+
 N.GOALS = {
-  YELLOW_AT = 8,      -- a white goal turns yellow
-  GONE_AT = 12,       -- and vanishes
+  YELLOW_AT = 7.7,    -- a white goal turns orange
+  GONE_AT = 12.2,     -- and vanishes, fading over its last FADE_S
+  FADE_S = 1.5,
   CHANCE_S = 15,      -- a red Chance Goal stays this long without a score
   CHANCE_ODDS = 0.5,  -- chance it appears once a group is cleared (when CHANCE_EVERY is off)
   CHANCE_EVERY = 2,   -- the red goal comes after every second cleared group
-  GROUP_GAP_S = 1.5,
-  -- goal radius in world units at the balloon's depth: the game's goal panes are 32x32 of its
-  -- 400x240 top screen, 16 px of radius = 9.6 px here = 0.08 units (N.VIEW.FAR.hw 120)
-  R = 0.08,
+  GROUP_GAP_S = 0.9,
+  CHANCE_DELAY_S = 0.5,  -- a cleared group's red goal comes this long after (the balloon frozen)
+  EXPIRE_GAP_S = 0.95,  -- after a group that ran out unscored
+  MIN_GAP_S = 0.4,
+  -- a group's timer by course (Wooble's Lv1 / Lv2 captures): white for `white` s, then orange,
+  -- gone at `gone`, and a group that ran out is followed on `cycle` from when it came
+  TIMER = {
+    default = { white = 7.7, gone = 12.2, cycle = 13.2 },
+    lv2_hp = { white = 9.55, gone = 13.4, cycle = 16.0 },
+    lv2_atk = { white = 9.6, gone = 14.0, cycle = 16.05 },
+    lv2_def = { white = 7.8, gone = 12.3, cycle = 13.2 },
+    lv2_spa = { white = 9.5, gone = 15.3, cycle = 15.9 },
+    lv2_spd = { white = 5.1, gone = 8.1, cycle = 9.0 },
+    lv2_spe = { white = 5.05, gone = 8.1, cycle = 9.1 },
+    lv3_hp = { white = 9.6, gone = 15.3, cycle = 16.1 },
+    lv3_atk = { white = 9.5, gone = 15.2, cycle = 16.1 },
+    lv3_def = { white = 7.8, gone = 12.3, cycle = 13.2 },
+    lv3_spa = { white = 9.4, gone = 15.2, cycle = 16.0 },
+    lv3_spd = { white = 3.3, gone = 5.3, cycle = 6.13 },
+    lv3_spe = { white = 3.3, gone = 4.5, cycle = 6.05 },
+  },
+  -- goal radius in world units at the balloon's depth: the game's goals show 26.5 px across of
+  -- its 400x240 top screen (Wooble's Lv1 captures; the panes are 32x32 with their glow), 13.25
+  -- px of radius = 7.95 px here = 0.066 units (N.VIEW.FAR.hw 120)
+  R = 0.066,
   CHANCE_R = 0.08,
   MARKER_R = 0.08,
   -- goals travel over the balloon's own shape (the Pokemon's sprite): bot-local units per
@@ -101,46 +132,74 @@ N.GOALS = {
     -- the regular goals stay where they appear (they move with the balloon: N.BOT.SWAY);
     -- only the fleeing and roaming courses' goals travel
     SPEED = { [1] = 0, [2] = 0, [3] = 0, secret = 0 },
-    MOTION_SPEED = 0, ROAM_SPEED = 0.55, FLEE_SPEED = 1.1,
+    MOTION_SPEED = 0, ROAM_SPEED = 0.55, FLEE_SPEED = 1.1, MARKER_SPEED = 0.6,
     RADIUS = 0.45, MOTION_RADIUS = 0.8, PAUSE_S = 0.6,
   },
 }
 
+-- a held touch charges from the press, whatever the meter holds (the game counts frames at 30
+-- a second): Charged at STAGE_F[1], full at STAGE_F[2]; held FIZZLE_F, the charge breaks and the
+-- Pokemon can neither move, shoot nor charge for STUN_F; after a Charged Shot, AFTER_F with no
+-- shot or charge. A Charged Shot's points rise from x1 at stage 1 to x(1 + MULT_RISE) at stage 2.
 N.CHARGE = {
-  STAGE_S = { 0.5, 1.0, 1.6 },  -- time held for stage 1 / 2 / 3
-  OVER_S = 2.6,                 -- held past this: the charge breaks
-  STUN_S = 1.0,                 -- and the Pokemon stops for about a second
-  MULT = { 1, 2, 3 },           -- points multiplier per stage (stage 3 = 3x)
-  SIZE = { 1, 1.2, 1.4 },
+  FPS = 30,
+  STAGE_F = { 50, 66 },
+  FIZZLE_F = 96,
+  STUN_F = 30,
+  AFTER_F = 15,
+  MULT_RISE = 2,
   YELLOW_BURST = 7,             -- a max-charge yellow shot fires this many balls
 }
 
+-- the energy meter: CAP units (the sim keeps it as a fraction), refilled every frame by
+-- int(PER_FRAME * (1 + (DEFv + EV total) * DEF_K)), DEFv = base Def + Sp. Def + 2 x their EVs;
+-- a shot whose cost is more than the meter holds is the weak shot (costs nothing). The meter
+-- starts empty. RATE is the refill a second with no stats known (a fake host).
 N.GUTS = {
-  RATE = 0.5,           -- fraction of the circle refilled per second
-  DEF_BONUS = 0.5,      -- +50% at 252 Def+SpD EVs (linear)
-  FULL_AT = 1.0,        -- a full meter turns the shot into the species' Energy Shot
-  WEAK_BELOW = 0.2,     -- less than this left: a weak black ball
-  START = 1.0,
+  CAP = 500,
+  PER_FRAME = 4,
+  DEF_K = 0.0025,
+  START = 0,
+  RATE = 0.5,
 }
 
 -- per Energy Shot colour: relative size, speed, points and guts cost
 N.SHOT = {
   -- the game's shot table (DllSparring.cro .rodata 0x18234, one 20-byte record per colour in
   -- this order: points, speed, size, cost, ?): its ratios on our scale, black anchoring it
-  -- (black: speed 3.6, size 1.0, cost 180 in the game's units)
-  black  = { speed = 2.2, r = 0.07, mult = 1.0, cost = 0.25 },
-  yellow = { speed = 2.2, r = 0.049, mult = 0.3, cost = 0.0139, rapid = 0.12 },
-  orange = { speed = 2.2, r = 0.14, mult = 0.8, cost = 0.25 },
-  green  = { speed = 1.589, r = 0.105, mult = 2.0, cost = 0.4167 },
-  blue   = { speed = 3.178, r = 0.0595, mult = 1.0, cost = 0.4167 },
-  weak   = { speed = 2.2, r = 0.049, mult = 0.15, cost = 0.0 },
+  -- (black: speed 3.6, size 1.0, cost 180 in the game's units); the speeds halved 2026-10-23
+  -- (Wooble) against the game's Speed factor, which makes a trained Pokemon's shots up to ~2x;
+  -- `cost` / `chargedCost` are the meter's CAP 500 shares (table A / table B at 0x1833C, a
+  -- Charged Shot's), `chargedSpeed` table B's speed against A's
+  black  = { speed = 1.1, r = 0.07, mult = 1.0, cost = 0.36, chargedCost = 0.36, chargedSpeed = 3.0 / 3.6 },
+  yellow = { speed = 1.1, r = 0.049, mult = 0.3, cost = 0.02, chargedCost = 0.1, chargedSpeed = 3.0 / 3.6, rapid = 0.12 },
+  orange = { speed = 1.1, r = 0.14, mult = 0.8, cost = 0.36, chargedCost = 0.36, chargedSpeed = 3.0 / 3.6 },
+  green  = { speed = 0.7945, r = 0.105, mult = 2.0, cost = 0.6, chargedCost = 0.6, chargedSpeed = 2.1 / 2.6 },
+  blue   = { speed = 1.589, r = 0.0595, mult = 1.0, cost = 0.6, chargedCost = 0.6, chargedSpeed = 1 },
+  weak   = { speed = 1.1, r = 0.049, mult = 0.15, cost = 0.0, chargedCost = 0.0, chargedSpeed = 3.0 / 3.6 },
   RAPID = "yellow",      -- the colour whose max charge bursts (YELLOW_BURST balls); holding never fires
   BIG_SHOT_SIZE = 1.5,
-  HP_SIZE_BONUS = 0.4,   -- +40% radius at 252 HP EVs
-  SPE_SPEED_BONUS = 0.4,
+  HP_SIZE_BONUS = 0.4,   -- +40% radius at 252 HP EVs (only without the Pokemon's stats)
+  SPE_SPEED_BONUS = 3.0,  -- x4 at 252 Speed EVs (only without the Pokemon's stats)
+  -- the game's: speed x (1 + SPEv x SPE_K), SPEv = base Speed + 2 x its EVs; size x (1 + HPv x
+  -- HP_K), HPv = base HP + 2 x its EVs. Our shot table's speeds and sizes are those at
+  -- SPEv / HPv = STAT_REF (the game's scale is not ours), so the factors are taken against it.
+  -- Every shot's speed is scaled by SPEED_SCALE so a fully Speed-trained shot crosses in ~0.25 s
+  -- as the game's does (Wooble 2026-10-23), the game's factor kept (SPE_EXP 1, x3 from none to
+  -- full Speed): an untrained Torchic's ~0.76 s, a fully trained one's ~0.25 s
+  SPE_EXP = 1,
+  SPEED_SCALE = 1.31,
+  SPE_K = 0.005,
+  HP_K = 0.00125,
+  STAT_REF = 100,
 }
 
+-- a hit scores the shot's power: P x the colour's power, at least 1 (a Charged Shot by its
+-- charge, N.CHARGE.MULT_RISE). P = (base Atk + Sp. Atk) div 5 + (their EVs) div 4 + 0.5 x min(EV
+-- total, 50) + 0.2 x the EV total's next 50 + 0.1 x its next 410, x STRENGTH_MULT with Strength.
+-- BASE / ATK_BONUS only when the Pokemon's stats are not known (a fake host).
 N.POINTS = {
+  EV_STEPS = { { 50, 0.5 }, { 100, 0.2 }, { 510, 0.1 } },
   BASE = { [1] = 20, [2] = 60, [3] = 90, secret = 100 },  -- a plain goal per course level
   CHANCE_MULT = 1.0,     -- a Chance Goal scores like a plain goal, repeatedly
   ATK_BONUS = 0.5,       -- +50% at 252 Atk+SpA EVs
@@ -149,7 +208,12 @@ N.POINTS = {
 
 N.DAMAGE = {
   small = 50, big = 150, ring = 100, homing = 100, cross = 120, wave = 200, bit = 40,
-  HP_REDUCE = 0.5,       -- -50% at 252 HP EVs
+  HP_REDUCE = 0.5,       -- -50% at 252 HP EVs (only without the Pokemon's stats)
+  -- the game's: a hit's loss x 1 / (1 + (HPv + EV total) x LOSS_K)
+  LOSS_K = 0.005,
+  -- each balloon's own damage (data/training_courses.lua, the game's course data) for its balls;
+  -- a bitbot's shot that share of it. The per-kind numbers above only for a course without it.
+  BIT_SHARE = 0.8,
   TOUGHEN_MULT = 1 / 1.5,  -- the bag table's 1.5, as damage taken divided by it
   SUDDEN_DEATH = 9999,   -- the Hydreigon course
   LEVEL_MULT = { 1, 1.25, 1.5, secret = 1.5 },   -- higher levels take more per hit
@@ -157,6 +221,57 @@ N.DAMAGE = {
 
 N.ATTACK = {
   TELEGRAPH_S = 1.0,
+  -- the game's attack scripts (data/training_attacks.lua, run by src/training/sim.lua): its units
+  -- to ours - the trainee moves on a sphere 240 out from the balloon, 30 degrees either side
+  -- (+-120 units across) and up to 45 degrees (170 units) up; our stand +-0.8 across, 1.25 up and
+  -- 0.9 deep - so UNIT for x / y (and sizes), DEPTH_UNIT along the flight; FIRE_KEY_U the units
+  -- a pose takes to its fire key (the step's -1; the game reads it from the pose's animation,
+  -- at most 90); a bitbot fires every BIT_EVERY_F frames at SPEED units a frame, radius R
+  -- SIZE_UNIT: a projectile's size (the game draws them in 3D, near the camera, so they look far
+  -- bigger than the field's scale): its normal ball (4.8) at our ball's 0.06, a giant (27) 0.34
+  -- (calibrated on Wooble's six Lv1 captures, 2026-10-23: a ball takes ~1.45 s from launch to
+  -- the trainee, so the flight is DEPTH units; a wait step lasts its recovery plus the idle pose's
+  -- WAIT_POSE_U; a throw leaves FIRE_KEY_U after its wind-up starts (FIRE_KEY_COURSE: a pose that
+  -- runs longer); yaw / pitch are ANGLE_DEG degrees a unit (the spread balls fly well clear))
+  GAME = { UNIT = 0.8 / 120, SIZE_UNIT = 0.06 / 4.8, DEPTH = 196, DEPTH_UNIT = 0.9 / 196, FIRE_KEY_U = 22,
+    FIRE_KEY_COURSE = { lv1_hp = 42 }, WAIT_POSE_U = { [0] = 50, [1] = 70, [2] = 55 }, ANGLE_DEG = 6,
+    -- each balloon's own animation lengths (Wooble's Lv1 / Lv2 captures; the poses are its
+    -- model's): `pose` the idle a wait plays out (units past its recovery), `key` the wind-up to
+    -- the throw, `shieldKey` the wind-up to a shield
+    COURSE = {
+      lv1_hp = { pose = { [0] = 61 }, key = 42 },
+      lv1_atk = { pose = { [0] = 55 }, key = 20 },
+      lv1_def = { pose = { [0] = 52, [1] = 65 }, key = 24 },
+      lv1_spa = { pose = { [0] = 39 }, key = 21 },
+      lv1_spd = { pose = { [1] = 91 }, key = 22 },
+      lv1_spe = { pose = { [0] = 49 }, key = 20 },
+      lv2_hp = { pose = { [0] = 81 }, key = 21 },
+      lv2_atk = { pose = { [0] = 42 }, key = 21 },
+      lv2_def = { pose = { [2] = 53 }, key = 35, shieldKey = 18 },
+      lv2_spa = { pose = { [0] = 62 }, key = 22 },
+      lv2_spd = { key = 20 },
+      lv2_spe = { pose = { [0] = 41, [1] = 49 }, key = 20 },
+      -- Lv3 (the s3 captures)
+      lv3_hp = { pose = { [2] = 100 }, key = 20 },
+      lv3_atk = { pose = { [0] = 60 }, key = 20 },
+      lv3_def = { pose = { [0] = 45, [2] = 110 }, key = 42, shieldKey = 22 },
+      lv3_spa = { pose = { [0] = 82 }, key = 22 },
+      lv3_spd = { pose = { [2] = 64 }, key = 25 },
+      lv3_spe = { pose = { [0] = 63, [2] = 57 }, key = 21 },
+    },
+    -- bitbots by course: spots across (world units at their depth) and each one's fire interval
+    -- in frames (the s2 / s3 captures: Tentacruel's three together every ~103; Wailord's and
+    -- Dragalge's middle one, nearer the camera, every ~94, the sides every ~105)
+    BITS = {
+      lv2_spd = { x = { -0.64, -0.28, 0.38 }, every = { 103, 103, 103 } },
+      lv3_hp = { x = { -0.53, 0, 0.53 }, every = { 105, 94, 105 } },
+      lv3_spd = { x = { -0.52, 0.04, 0.52 }, every = { 105, 94, 105 } },
+    },
+    -- bitbots (Wooble's Tentacruel capture): each fires every BIT_EVERY_F frames, all three
+    -- together, the first BIT_FIRST_S after they appear; each circles a loop BIT_LOOP_R across
+    -- every BIT_LOOP_S, about its spot in BIT_X
+    BIT_EVERY_F = 103, BIT_FIRST_S = 1.2, BIT_LOOP_S = 6, BIT_LOOP_R = 0.18, BIT_X = { -0.55, -0.2, 0.35 },
+    BIT_SPEED = 3.5, BIT_R = 2.4, MAX_BITS = 3 },
   small = { speed = 1.19, r = 0.06, gap = 0.35 },
   big = { speed = 0.77, r = 0.16 },
   ring = { speed = 0.94, n = 8, r = 0.06, spin = 1.2, ring_r = 0.45 },
@@ -166,6 +281,17 @@ N.ATTACK = {
   wave_wide = { speed = 0.85, w = 1.4 },
   bit = { z = 0.7, r = 0.1, hp = 3, fire_every = 2.5, y = 0.5, regen_s = 12 },
   barrier = { max_s = 25 },
+  -- homing (Wooble 2026-10-23): a round homing ball is dodged by moving at all in its last
+  -- LOCK_S; a wide one follows across to the end (dodge by moving up or down), a tall one up and
+  -- down (dodge left or right). An axis pulling with k <= STRONG_K follows to the end; a locked
+  -- axis hits only if the trainee is within DODGE of where it was when it locked
+  HOMING = { LOCK_S = 0.25, STRONG_K = 4, DODGE = 0.03 },
+  -- a balloon's shield (Wooble's Graveler capture): its target fades in over FADE_IN_S (not
+  -- hittable until then) and circles the balloon ORBIT_R world units out about a point ORBIT_UP
+  -- above its middle, from START_DEG on screen (0 right, 90 down) anticlockwise at DEG_S
+  SHIELD = { FADE_IN_S = 1.2, TAIL_S = 1.0, ORBIT_R = 0.21, ORBIT_UP = 0.04, START_DEG = 123, DEG_S = 29.3,
+    -- a course's own orbit (Golem: r 44 px, 31.1 deg/s from the top)
+    COURSE = { lv3_def = { ORBIT_R = 0.22, START_DEG = -97, DEG_S = 31.1 } } },
   -- a ball lobbed up off the top of the screen that comes down where the trainee stood when it
   -- was thrown: `flight` seconds, `peak` world units over its straight path at the top
   lob = { flight = 2.6, peak = 3.2, r = 0.12 },
@@ -178,16 +304,25 @@ N.ATTACK = {
            CAP = { [1] = 1, [2] = 1, [3] = 2, secret = 2 }, FAR = 0.35 },
 }
 
-N.BLOCK = { LEN = 0.6, COOLDOWN = 1.5, DEF_BONUS = 0.5 }
+-- the guard (L / R held): up while held, at most int(MAX_F x (1 + DEFv x DEF_K)) frames,
+-- DEFv = base Def + Sp. Def + 2 x their EVs; dropped (released, or run out) it cannot rise again
+-- for COOLDOWN_F; while up the Pokemon moves at MOVE_MULT and cannot shoot; a ball it stops
+-- leaves it untouchable for SAFE_F. LEN / COOLDOWN / DEF_BONUS only without the Pokemon's stats.
+-- A stopped ball bounces off the shield, which shatters BREAK_F frames later (Wooble's capture
+-- 2026-10-23_17-28-44: blocked at 3.4 s, shattered at 4.0); held to its length it shatters too
+-- (12.1 -> 13.6 s); the pieces fly for SHATTER_S.
+N.BLOCK = { MAX_F = 20, DEF_K = 0.005, COOLDOWN_F = 30, SAFE_F = 25, MOVE_MULT = 0.5, BREAK_F = 18, SHATTER_S = 0.6,
+  LEN = 0.6, COOLDOWN = 1.5, DEF_BONUS = 0.5 }
 
 -- the trainee stands on a floating stand and moves across and up / down on a plane facing the
 -- balloon (the d-pad); Z is its fixed depth, Y_MAX how high it can rise
--- (SPEED is 25% under 1.1 for a steadier stand; the balls' speeds and the lob's flight are
--- eased to match)
+-- (SPEED was 25% under 1.1 for a steadier stand, the balls' speeds and the lob's flight eased to
+-- match; halved 2026-10-23 (Wooble) toward the game's: its stand crosses side to side in ~3.8 s
+-- at SPEv 100, the game's speed then x(1 + SPEv x SPE_K) against that)
 -- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
 -- below the top: (140 - 51) / 70.5 at the stand's depth)
-N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.82, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SWIFT_MULT = 1.5,
-             HIT_STUN_S = 0.6 }
+N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.41, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SPE_K = 0.001, SWIFT_MULT = 1.5,
+             HIT_STUN_S = 14 / 30, HIT_SAFE_F = 30 }
 
 -- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
 -- balloon's (FAR, z = 1) a world unit is hw px across and hu px up, and the floor is at y = fy.
@@ -195,17 +330,22 @@ N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.82, R = 0.12, H = 0.3
 -- grass); the trainee's stand floats in front of it.
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
 
-N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
+N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, GROW_K = 0.56, GROW_EASE = 10, SHAKE_HZ = 2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
           -- a sprite balloon is taller than the round one: it hovers higher, sized so that even
           -- fully grown it stays inside the sky the aim pad reaches (AIM_X across, 0..AIM_Y up)
           SHAPE_CY = 1.04, AIM_X = 1.6, AIM_Y = 2.05,
           RAGE_AT = 2400, CALM_AT = 2400,
           -- the balloon's sway in the game's top-screen pixels (400x240), by level: a loop ax
-          -- across and ay up and down every period seconds (measured live, see EVIDENCE); a
-          -- goal hit makes it shake for SHAKE_S, SHAKE_PX at the start, fading
-          SWAY = { [1] = { ax = 12, ay = 28, period = 4.6 }, [2] = { ax = 9, ay = 14, period = 9 },
+          -- across and ay up and down every period seconds; a goal hit makes it shake for
+          -- SHAKE_S, SHAKE_PX x the level's SHAKE_SCALE at the start, fading. Lv3 / secret as
+          -- measured live; Lv1 / Lv2 ramp up to it (see EVIDENCE)
+          SWAY = { [1] = { ax = 0.5, ay = 5, period = 3.5 }, [2] = { ax = 1.5, ay = 2.5, period = 4 },
                    [3] = { ax = 25, ay = 45, period = 9 }, secret = { ax = 25, ay = 45, period = 9 } },
-          SHAKE_S = 3, SHAKE_PX = 12,
+          SHAKE_S = 0.7, SHAKE_PX = 9,
+          SHAKE_SCALE = { [1] = 1, [2] = 1, [3] = 1, secret = 1 },
+          -- a throw (Wooble's Lv1 captures): a dip of DIP_PX through the first DIP_AT of the
+          -- wind-up, up to RISE_PX above its place as the ball leaves, held HOLD_S, then back
+          WINDUP = { DIP_PX = 10, RISE_PX = 8, DIP_AT = 0.65, HOLD_S = 1.4 },
           RAGE_CADENCE = 0.6, RAGE_SPEED = 1.3, RAGE_DAMAGE = 1.5,   -- Aegislash past 2400
           CALM_CADENCE = 1.8, CALM_SPEED = 0.8 }                      -- Roserade past 2400
 
@@ -235,31 +375,57 @@ N.EVIDENCE = {
   ["BAG_ODDS.DOUBLE_UP_POKERUS_MULT"] = { class = "placeholder", source = "Bulbapedia Pokerus: raises the Double-Up rate, amount unknown", confidence = "low" },
   ["BAG_ODDS.clear"] = { class = "inferred", source = "atwiki: size random, maybe tied to clear time; game-de: faster clears give bigger bags", confidence = "low" },
   ["CLOCK.TIME"] = { class = "inferred", source = "Gamer Guides time-to-beat 0:30 / 1:00 / 1:30-3:00 equals 3:00 minus the JP target records; GameFAQs: remaining time", confidence = "medium" },
-  ["CLOCK.EXTRA_BOT_S"] = { class = "verified", source = "Bulbapedia; atwiki", confidence = "high" },
+  ["CLOCK.EXTRA_BOT_S"] = { class = "verified", source = "Bulbapedia; atwiki; Wooble's capture s4/1: a +30 rises into the clock (2:18 -> 2:48) during the changeover, not a reset", confidence = "high" },
+  ["BETWEEN"] = { class = "measured", source = "Wooble's capture s4/1 (secret_01, 10 fps) 2026-10-23: last hit 42.2 s, Aurorus collapses 42.4-43.5 (puffs), a flat puddle to 45.9, fade 45.9-46.1, black to 46.7, fade in 46.8-47.0 with Tyrantrum lying flat, +30 at 48.0, inflating where it lies 48.3-50.4, its name 51.0-52.3, aura and goals 52.4; the clock frozen 42.2-52.4; the score 0 / the same target", confidence = "high" },
   ["CLOCK.COUNTDOWN_S"] = { class = "placeholder", source = "", confidence = "low" },
   ["CLOCK.TARGET"] = { class = "verified", source = "pente.koro-pokemon.com/xy/supatore-list (target records); ORAS Wiki", confidence = "high" },
-  ["GOALS.YELLOW_AT"] = { class = "verified", source = "ORAS Wiki (oraswiki.com)", confidence = "medium" },
-  ["GOALS.GONE_AT"] = { class = "verified", source = "ORAS Wiki", confidence = "medium" },
+  ["GOALS.YELLOW_AT"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23 (all six, unscored groups): white 7.6-7.9 s, then orange; the ORAS Wiki's 8 s", confidence = "high" },
+  ["GOALS.GONE_AT"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: orange 3.0 s, a see-through fade 1.5 s, spun out at ~12.2-12.4 s; the ORAS Wiki's 12 s", confidence = "high" },
+  ["GOALS.FADE_S"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: the faint orange before a goal goes, ~1.5 s (Wailmer, Geodude, Magnemite; Noibat ~1.1)", confidence = "medium" },
+  ["GOALS.TIMER"] = { class = "measured", source = "Wooble's Lv1 / Lv2 captures 2026-10-23 (agents' frame reads, 10 fps): Lv1 all six white 7.6-7.9 / gone ~12.2 / every 13.2 s; Lv3 (s3): Wailord 9.6 / 15.3 / 16.1, Haxorus 9.5 / 15.2 / 16.1, Golem 7.8 / 12.3 / 13.2 (held under its shield), Magnezone 9.4 / 15.2 / ~16, Dragalge 3.3 / 5.3 / 6.13, Noivern 3.3 / 4.5 / 6.05 (one goal at a time); Relicanth 9.55 / 13.4 / 16.0, Fraxure 9.6 / ~14 / 16.05, Graveler 7.8 / ~12.3 / 13.2 (its goals hidden and their timer held under its shield), Magneton 9.5 / 15.3 / 15.9, Tentacruel 5.1 / 8.1 / 9.0, Aerodactyl 5.05 / 8.1 / 9.1", confidence = "high" },
+  ["GOALS.MIN_GAP_S"] = { class = "placeholder", source = "ours: the least gap after a group runs out", confidence = "low" },
+  ["GOALS.EXPIRE_GAP_S"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: a group that ran out is followed 0.7-1.0 s later (new groups every 13.0-13.2 s; Noibat 1.4)", confidence = "medium" },
   ["GOALS.CHANCE_S"] = { class = "measured", source = "AS text 44:62: red goals disappear after a set amount of time; ORAS Wiki: over 10 seconds; live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: one stood 10.4 s before its first hit and stayed after hits", confidence = "medium" },
   ["GOALS.CHANCE_ODDS"] = { class = "placeholder", source = "AS text 45:84: a red bonus goal needs every white goal blasted first (necessary, not always sufficient); gamepedia.jp", confidence = "low" },
   ["GOALS.CHANCE_EVERY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: a single goal that takes several hits came after the second group of three each time", confidence = "medium" },
-  ["GOALS.GROUP_GAP_S"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: the next group 1.5 s after the last goal of one bursts (2 s once at Lv3)", confidence = "medium" },
-  ["GOALS.R"] = { class = "measured", source = "upper.bclyt in a/1/1/4: the goal panes 0..e are 32x32 (target01, big_target); scaled to this view", confidence = "medium" },
+  ["GOALS.CHANCE_DELAY_S"] = { class = "measured", source = "Wooble's magneton-2 capture: the red goal fades in 0.5 s after the clearing hit (settled at 0.7), the balloon holding its pose and puffing air from both sides ~1.4 s; it took two hits of +177 each (a plain goal's)", confidence = "medium" },
+  ["GOALS.GROUP_GAP_S"] = { class = "measured", source = "Wooble's magneton-2 capture: the next group 0.9 s after a cleared one's last hit; earlier live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: the next group 1.5 s after the last goal of one bursts (2 s once at Lv3)", confidence = "medium" },
+  ["GOALS.R"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: goals 25.5-27 px across on the 400x240 top screen in all six (upper.bclyt's panes are 32x32 with their glow); scaled to this view", confidence = "high" },
   ["GOALS.CHANCE_R"] = { class = "measured", source = "upper.bclyt: the big goal uses the same 32x32 panes", confidence = "medium" },
   ["GOALS.MARKER_R"] = { class = "placeholder", source = "", confidence = "low" },
   ["GOALS.WANDER.SPEED"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: goals stay where they appear and move only with the balloon", confidence = "medium" },
   ["GOALS.WANDER"] = { class = "inferred", source = "AS text 44:64 (goals on arms, wings and other moving bits make aiming harder), 45:87 / 45:99 / 45:104 (fleeing, constantly moving goals); the speeds and ranges are ours", confidence = "low" },
-  ["CHARGE.STAGE_S"] = { class = "placeholder", source = "atwiki: three stages", confidence = "low" },
-  ["CHARGE.OVER_S"] = { class = "placeholder", source = "AS text 44:68: if you wait too long, your aura will fizzle out; atwiki / pente", confidence = "low" },
-  ["CHARGE.STUN_S"] = { class = "inferred", source = "atwiki: about one second unable to act", confidence = "medium" },
-  ["CHARGE.MULT"] = { class = "inferred", source = "AS text 44:68: a Charged Shot nets triple points; stage 2 unknown", confidence = "medium" },
-  ["CHARGE.SIZE"] = { class = "placeholder", source = "", confidence = "low" },
+  ["CHARGE.FPS"] = { class = "verified", source = "the game runs Super Training at 30 fps (5400.0 = the 180 s clock)", confidence = "high" },
+  ["CHARGE.STAGE_F"] = { class = "verified", source = "DllSparring.cro charge state [r4+0x26c] at 0x2598-0x29ac, frames held [r4+0x274]: cmp #0x32 (stage 1, 0x27a8), cmp #0x42 (stage 2, 0x2844); capture 2026-10-23_16-43-37 yellow 6.5 s, red 7.0 s", confidence = "high" },
+  ["CHARGE.FIZZLE_F"] = { class = "verified", source = "DllSparring.cro cmp #0x60 at 0x28e0 (effect 0x41 the smoke, SE 0x1000f2); capture 8-9 s", confidence = "high" },
+  ["CHARGE.STUN_F"] = { class = "verified", source = "DllSparring.cro [r4+0x290] = 30 at 0x2934, blocks moving (0x1f94), firing (0x2eec), charging (0x2608)", confidence = "high" },
+  ["CHARGE.AFTER_F"] = { class = "verified", source = "DllSparring.cro [r4+0x28c] = 15 after a Charged Shot (0x29a0)", confidence = "high" },
+  ["CHARGE.MULT_RISE"] = { class = "verified", source = "DllSparring.cro 0x3140-0x3180: power x (1 + 2 x min((t - 50) / 16, 1)), 2.0 at 0x2a1c; capture +531 = 177 x 3", confidence = "high" },
   ["CHARGE.YELLOW_BURST"] = { class = "verified", source = "atwiki: 7 shots at max charge", confidence = "medium" },
-  ["GUTS.RATE"] = { class = "placeholder", source = "game-de: a careful rhythm gets Energy Shots almost by itself, so the refill is quick", confidence = "low" },
-  ["GUTS.FULL_AT"] = { class = "inferred", source = "AS text a/0/7/3 44:60: when you are full of that energy, the shots you let loose transform into Energy Shots; atwiki: a small meter gives a low-scoring black ball", confidence = "medium" },
-  ["GUTS.DEF_BONUS"] = { class = "placeholder", source = "direction verified (Def/SpD fill guts faster)", confidence = "low" },
-  ["GUTS.WEAK_BELOW"] = { class = "placeholder", source = "atwiki: a small meter gives a weak black ball; AS text 44:60 (Energy Shots need a full meter)", confidence = "low" },
-  ["GUTS.START"] = { class = "placeholder", source = "", confidence = "low" },
+  ["GUTS.CAP"] = { class = "verified", source = "DllSparring.cro 0x1f18-0x1f38: filled only below 0x1f4, clamped to it; the circle's clip frame = the meter (0x1f3c)", confidence = "high" },
+  ["GUTS.PER_FRAME"] = { class = "verified", source = "DllSparring.cro 0x5cec-0x5d0c: int(4 x (1 + (DEFv + EV total) x 0.0025)); capture: empty to full in ~1.6 s", confidence = "high" },
+  ["GUTS.DEF_K"] = { class = "verified", source = "DllSparring.cro 0x5cec-0x5d0c (DEFv = stat+0x54)", confidence = "high" },
+  ["GUTS.START"] = { class = "verified", source = "DllSparring.cro 0x5cd4: the meter starts at 0", confidence = "high" },
+  ["GUTS.RATE"] = { class = "placeholder", source = "only without the Pokemon's stats", confidence = "low" },
+  ["BLOCK.BREAK_F"] = { class = "measured", source = "capture 2026-10-23_17-28-44 (10 fps): the ball bounces off at 3.4 s, the shield shatters at 4.0 s", confidence = "medium" },
+  ["BLOCK.SHATTER_S"] = { class = "measured", source = "capture 2026-10-23_17-28-44: the flash and pieces fade over ~0.6 s (4.0 -> 4.6, 13.6 -> 14.2)", confidence = "medium" },
+  ["BLOCK.MAX_F"] = { class = "verified", source = "DllSparring.cro guard state [r4+0x280] 0x23d0-0x2594: up while button 0x100 is held, down at counter [0x298] = stat+0x44 = int(20 x (1 + 0.005 x DEFv)) (0x5e50-0x5e60)", confidence = "high" },
+  ["BLOCK.DEF_K"] = { class = "verified", source = "DllSparring.cro 0x5e50-0x5e60 (DEFv = stat+0x54; no bag, no EV total)", confidence = "high" },
+  ["BLOCK.COOLDOWN_F"] = { class = "verified", source = "DllSparring.cro state 2: [0x29c] cmp #0x1e at 0x256c, then the button must be let go (0x2578-0x2594)", confidence = "high" },
+  ["BLOCK.SAFE_F"] = { class = "verified", source = "DllSparring.cro 0x2a64-0x2b44: a blocked hit gives 25 frames untouchable (and a push back)", confidence = "high" },
+  ["BLOCK.MOVE_MULT"] = { class = "verified", source = "DllSparring.cro 0x1fa8-0x1fcc: move speed x0.5 while [0x284] / [0x288] (the guard) are set; firing blocked at 0x25b4", confidence = "high" },
+  ["PLAYER.SPE_K"] = { class = "verified", source = "DllSparring.cro stat+0xc = 2 x (1 + SPEv x 0.001) at 0x5c8c-0x5cb4 (no EV total), x1.5 Swiftness at 0x5cb8-0x5ccc; an arc a frame on the stand's sphere, no inertia", confidence = "high" },
+  ["SHOT.SPE_EXP"] = { class = "verified", source = "1: the game's Speed factor as it is (DllSparring.cro 0x2f84-0x2fcc); the exponent stays to sharpen it if wanted", confidence = "high" },
+  ["SHOT.SPEED_SCALE"] = { class = "measured", source = "Wooble 2026-10-23, the game: a fully Speed-trained shot takes ~0.25 s to reach the target from the farthest point; x1.31 makes Torchic's at 252 Speed EVs 0.25 s (ours crosses the 0.9 depth at vz, whatever the angle)", confidence = "medium" },
+  ["SHOT.SPE_K"] = { class = "verified", source = "DllSparring.cro 0x2f84-0x2fcc: shot speed = rec.speed x (1 + SPEv x 0.005), SPEv = stat+0x58 (base Spe + 2 EV_Spe)", confidence = "high" },
+  ["SHOT.HP_K"] = { class = "verified", source = "DllSparring.cro 0x2f84-0x2fcc: shot size = rec.size x (1 + HPv x 0.00125), HPv = stat+0x4c (base HP + 2 EV_HP); x1.5 Big-Shot", confidence = "high" },
+  ["SHOT.STAT_REF"] = { class = "inferred", source = "ours: the stat value at which our shot table's absolute speeds and sizes hold", confidence = "low" },
+  ["ATTACK.GAME"] = { class = "inferred", source = "DllSparring.cro: the trainee on a sphere of radius 240 (0x6fbc), azimuth 60..120, elevation 0..45 (0x2004-0x2098); the scale to our stand is ours; the pose's own fire key is at most 90 units (0xa96c). Calibrated on Wooble's Lv1 captures 2026-10-23 (Wailmer, Axew, Geodude, Magnemite, Tentacool, Noibat; agents' frame reads at 10 fps): launch -> trainee 1.4-1.5 s (DEPTH 196 at speed 4.5), Magnemite's homing 2.0 s; wind-up start -> ball ~1.3-1.6 s at rate 0.5, 2.7-2.9 s at 0.25 (FIRE_KEY_U 22), Wailmer's 2.8 s (42); the first wind-up / aura 5.6-7.1 s in and the loops (Wailmer 20 s, Geodude 11.2 + 19.4 s, Axew 5.9 / 5.5 s apart, Magnemite 8.4 s steps, Noibat 13.1 s) fit wait = recover + 45 (pose 0) / + 80 (pose 1) within ~1 s; the spread volleys (Axew's rings of 8, Geodude's diamond, Noibat's 4 strays) fly off screen past the trainee, ~6 degrees a yaw / pitch unit; bits at 3.5 a frame, radius 2.4 (a/2/1/2/4 #0, 0x9fcc), at most 3 (0xbb4c); Tentacruel's capture (s2): the three appear together, first fire 1.2 s later, then all together every ~3.45 s (103 frames; the code's 32 was not their rate), each on its own clockwise loop every 6.0 s (~40 px across), at about -128 / -56 / +75 px across from the balloon; their shots 80 against its 120 (the bit record), -19 against -29 seen", confidence = "medium" },
+  ["DAMAGE.BIT_SHARE"] = { class = "placeholder", source = "ours: a bitbot's shot against a ball (the game's other attack classes not traced; one adds a flat 4 unblockable at 0x143c4)", confidence = "low" },
+  ["PLAYER.HIT_SAFE_F"] = { class = "verified", source = "DllSparring.cro 0x2c14-0x2c2c: after an unblocked hit [0x1d4] = 30 frames untouchable, a knockback of 2 units back over 14 frames ([0x1ec], no moving or charging)", confidence = "high" },
+  ["DAMAGE.LOSS_K"] = { class = "verified", source = "DllSparring.cro 0x5c54-0x5c80: stat+0 = 1 / (1 + (HPv + EV total) x 0.005), / 1.5 Toughen Up; applied to a hit's loss at 0x2b48-0x2b8c", confidence = "high" },
+  ["SHOT.cost"] = { class = "verified", source = "DllSparring.cro table A 0x18234 / B 0x1833C cost ints (180, 10/50, 180, 300, 300, 0) over the meter's 500; a cost above the meter fires the weak shot free (0x2f34, 0x2f48)", confidence = "high" },
+  ["POINTS.EV_STEPS"] = { class = "verified", source = "DllSparring.cro stat+0x5c at 0x5ed4-0x5ff8: (Atk + SpA bases) div 5 + (EVs) div 4 + 0.5 min(X, 50) + 0.2 clamp(X-50, 0, 50) + 0.1 clamp(X-100, 0, 410), x1.5 Strength; a hit's score is the shot's power (0xa5a4, 0xf694)", confidence = "high" },
   ["SHOT"] = { class = "inferred", source = "the game's shot table, DllSparring.cro .rodata 0x18234 (6 x { points, speed, size, cost, ? } in the order black, yellow, orange, green, blue, weak; a slower variant at 0x1833C): the ratios between colours are the game's, the absolute scale is ours (black anchors it); the cost field read as energy (the weak shot costs 0)", confidence = "medium" },
   ["POINTS.BASE"] = { class = "placeholder", source = "", confidence = "low" },
   ["POINTS.CHANCE_MULT"] = { class = "placeholder", source = "JP guides call it a chance to rack up points; no multiplier is stated", confidence = "low" },
@@ -275,7 +441,10 @@ N.EVIDENCE = {
   ["ATTACK.bit.regen_s"] = { class = "placeholder", source = "AS text 44:70: bits regenerate given enough time; the time is not stated", confidence = "low" },
   ["BLOCK"] = { class = "placeholder", source = "AS text 44:67: L throws up a barrier for a short period, not usable nonstop; longer with Def/SpD (gamepedia); lengths unknown", confidence = "low" },
   ["PLAYER"] = { class = "placeholder", source = "bounded box and faster with Spe verified; sizes are not", confidence = "low" },
-  ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal", confidence = "low" },
+  ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal (no longer used: GROW_K)", confidence = "low" },
+  ["BOT.GROW_EASE"] = { class = "measured", source = "Wooble's graveler-2 capture: most of a growth step in the first frame, all of it within 0.2-0.3 s", confidence = "medium" },
+  ["BOT.GROW_K"] = { class = "measured", source = "Wooble's graveler-2 capture 2026-10-23: each +177 hit inflates the balloon a step (height 79.5 -> 121.5 px at 94% of 1500), feet fixed; scale ~ 1 + 0.56 x score / target, most of a step in one frame then a small wobble", confidence = "medium" },
+  ["BOT.SHAKE_HZ"] = { class = "measured", source = "Wooble's magneton-2 capture: a goal hit twists the balloon side to side ~+-10 px, ~0.5 s a swing, settled in ~0.7 s; Graveler's (graveler-2) a +-1-1.5 px wobble in the same time", confidence = "low" },
   ["BOT.SCALE_MAX"] = { class = "placeholder", source = "Wooble (2026-10-12): 1.2, so the large balloon of this view stays on the top screen; the game's own cap is not measured", confidence = "low" },
   ["BOT.R"] = { class = "placeholder", source = "", confidence = "low" },
   ["BOT.SHAPE_CY"] = { class = "placeholder", source = "ours: the sprite balloon's centre, so it fits the visible sky (y 0..2.09 at the bot's depth)", confidence = "low" },
@@ -285,7 +454,11 @@ N.EVIDENCE = {
   ["VIEW"] = { class = "placeholder", source = "ours: the layout of Wooble's concept for the top screen (2026-10-12)", confidence = "low" },
   ["ATTACK.BALL"] = { class = "inferred", source = "Wooble (2026-10-12): the attacks are the game's soccer ball, bigger at higher levels (up to the sprite's size at Lv1 / Lv2, about twice at Lv3), growing as they come at the trainee; the multipliers are ours", confidence = "low" },
   ["ATTACK.lob"] = { class = "inferred", source = "Wooble (2026-10-12): balls lobbed up off screen come down on the trainee, a red shadow marking where; flight and height are ours", confidence = "low" },
-  ["BOT.SWAY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: Lv1 a loop of +-12 x +-28 px every 4.6 s, Lv2 +-9 x +-14 px slowly, Lv3 swings of up to 120 px (the secret courses take Lv3's until measured)", confidence = "medium" },
+  ["BOT.SWAY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: Lv1 a loop of +-12 x +-28 px every 4.6 s, Lv2 +-9 x +-14 px slowly, Lv3 swings of up to 120 px (the secret courses take Lv3's until measured). Lv1 from Wooble's six Lv1 captures 2026-10-23 (the old read was Noibat's goal riding its wing): a vertical bob, Wailmer +-6 / 4 s, Geodude +-5 / 3.3 s, Magnemite +-4.75 / 2.35 s, Axew +-1 (still), Tentacool +-11 eased / ~12 s, Noibat +-5 across / 6.6 s - the default +-0.5 x +-5 every 3.5 s, each course's own in data/training_courses.lua `sway`; Lv2 from the s2 captures (Relicanth +-2.8 x +-3.5 / 5.5 s, Fraxure +-2 / 2.8, Graveler +-1.5 / 3.2, Magneton +-2.5 x +-2 / 3.95, Tentacruel a slow sink, Aerodactyl +-9.5 / 5.4): the default +-1.5 x +-2.5 every 4 s", confidence = "low" },
+  ["ATTACK.HOMING"] = { class = "measured", source = "Wooble 2026-10-23, the game: regular homing dodged by moving as long as the trainee was not still for the 0.25 s before contact; horizontal (the wide ball, homeX 1) always hits unless moving up / down; vertical (the tall ball, homeY 1) unless moving left / right; the game's homing k 1 (strong) vs 12-40 (the round balls, the other axis)", confidence = "medium" },
+  ["ATTACK.SHIELD"] = { class = "measured", source = "Wooble's Graveler capture (s2) 2026-10-23: the target fades in ~1.2 s after the shield, circles (199,118) at r 42 px (fit residual 0.5 px over 34 frames) counter-clockwise on screen at 29.3 deg/s (12.3 s a turn), from 123 deg; one hit breaks it; the goals hidden under it, their timer held; unhit it breaks up the same way after ~21.0 s (graveler-2: up 3.15 -> 24.12, the step's 600 frames + TAIL_S); Golem's (s3) the same but r 44, 31.1 deg/s from -97 deg (the top)", confidence = "high" },
+  ["BOT.WINDUP"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: every throw a dip (Wailmer ~14 px, Magnemite ~12, Geodude ~10, Noibat ~20), a snap up (Wailmer to -16, Magnemite +2.5 over its top) as the ball leaves, held 1.3-1.5 s while it flies (Magnemite), then back; some also turn (Axew, Magnemite 30-45 degrees), not drawn", confidence = "medium" },
+  ["BOT.SHAKE_SCALE"] = { class = "placeholder", source = "ours (Wooble 2026-10-23, the movement ramping by level): the after-goal shake x0.35 Lv1, x0.7 Lv2, x1 Lv3 / secret", confidence = "low" },
   ["BOT.SHAKE_S"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: after a goal the others jitter +-10-20 px for 3-5 s", confidence = "medium" },
   ["BOT.SHAKE_PX"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st", confidence = "medium" },
   ["PLAYER.Y_MAX"] = { class = "inferred", source = "the game: the trainee's stand moves up and down as well as across (Wooble)", confidence = "medium" },

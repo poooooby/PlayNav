@@ -14,16 +14,28 @@ local function body(game, log)
     end
     return pred() and true or false
   end
+  -- one frame; a frame over STALL_S is logged with the sounds started just before it
+  local STALL_S, lastFrame, recent = 0.1, nil, {}
+  local function step()
+    U.wait(1)
+    local now = love.timer.getTime()
+    if lastFrame and now - lastFrame > STALL_S then
+      log(("  STALL %.0f ms after: %s"):format((now - lastFrame) * 1000, table.concat(recent, ", ")))
+    end
+    lastFrame = now
+    for i = #recent, 1, -1 do recent[i] = nil end
+  end
+  local function noteSound(what) recent[#recent + 1] = what end
   local function waitSecs(secs)
     local t0 = love.timer.getTime()
-    while love.timer.getTime() - t0 < secs do U.wait(1) end
+    while love.timer.getTime() - t0 < secs do step() end
   end
   -- wait on the wall clock (the session runs on it) for pred, at most secs
   local function waitUntil(pred, secs)
     local t0 = love.timer.getTime()
     while love.timer.getTime() - t0 < secs do
       if pred() then return true end
-      U.wait(1)
+      step()
     end
     return pred() and true or false
   end
@@ -71,8 +83,8 @@ local function body(game, log)
   -- PLAYNAV_DISPLAY=second_screen runs it on the second display (the desktop companion
   -- window): touches go in through feedSecond in the pushed frame's pixels
   local SECOND = os.getenv("PLAYNAV_DISPLAY") == "second_screen"
-  loader.modOptions[MOD_ID].display = SECOND and "second_screen" or "split"
-  log("display:", loader.modOptions[MOD_ID].display)
+  loader.modOptions[MOD_ID].display_mode = SECOND and "separate" or "combined"
+  log("display:", loader.modOptions[MOD_ID].display_mode)
   loader.modOptions[MOD_ID].prompt_always = false
   if X.import then
     waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120)
@@ -84,12 +96,18 @@ local function body(game, log)
     Audio._bgmVolume = (tonumber(os.getenv("PROBE_MUSIC_VOL")) or 7) / 7
     log("music volume set to", Audio._bgmVolume)
   end
+  -- PROBE_OWN_MENU=1: as without the card image's picker track (PlayNav's own stands in)
+  if os.getenv("PROBE_OWN_MENU") == "1" then
+    local A = X._test.assets()
+    if A and A.manifest and A.manifest.assets then A.manifest.assets["bgm/sp_menu"] = nil end
+    if A then A.tracks["bgm/sp_menu"] = nil end
+  end
   local function musicState()
     local M = TR.session and TR.session.music
     local v = M and M.voice
     local playing = v and v.src and v.src:isPlaying()
-    return ("music %s playing %s pos %s held %s | field paused %s stopped %s song %s"):format(
-      tostring(M and M.current), tostring(playing), tostring(v and v.pos), tostring(M and M.holding),
+    return ("music %s game song %s playing %s pos %s held %s | field paused %s stopped %s song %s"):format(
+      tostring(M and M.current), tostring(M and M.gameCurrent), tostring(playing), tostring(v and v.pos), tostring(M and M.holding),
       tostring(okAu and Audio._bgmPaused), tostring(okAu and Audio.isBgmStopped and Audio.isBgmStopped()),
       tostring(okAu and Audio._currentSong and Audio._currentSong.id))
   end
@@ -99,10 +117,17 @@ local function body(game, log)
     local play0 = Sfx.play
     Sfx.play = function(id, opts)
       local h = play0(id, opts)
+      noteSound(id)
       local sim = TR.session.sim
       log(("  sfx %s %s%s"):format(id, h and "played" or "MISSING", sim and (" at sim t %.2f %s"):format(sim.t or 0, sim.phase or "") or ""))
       return h
     end
+  end
+  -- the game's own effects played as stand-ins
+  local th = X._test and X._test.trainingHost and X._test.trainingHost()
+  if th and th.playSe then
+    local se0 = th.playSe
+    th.playSe = function(name, ...) noteSound(tostring(name)); return se0(name, ...) end
   end
   local function shot(name)
     log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING")
@@ -357,6 +382,12 @@ local function body(game, log)
   waitFor(function() return TR.session.session.trans == nil end, 4000)
   U.wait(5)
   log("courses mode:", TR.state().mode, "app", Apps:active().id)
+  do
+    local A = X._test.assets()
+    local tk = A and A.music("bgm/sp_menu")
+    log(("picker track: %s Hz, %s channels, %.1f s"):format(tostring(tk and tk.rate), tostring(tk and tk.channels),
+      tk and tk.samples / tk.rate or 0))
+  end
   shot("t05_courses")
   local coursesApp = Apps:get("training_courses")
   local tile = coursesApp.geometry().slots[2]
@@ -391,6 +422,31 @@ local function body(game, log)
     shot(at[2])
   end
   waitUntil(function() return sim and sim.phase == "play" end, 15)
+  -- PROBE_EXIT=1: the exit asks twice - one tap rings the button and stays, the ring runs out,
+  -- then two taps leave
+  if os.getenv("PROBE_EXIT") == "1" then
+    local E = aim.geometry().EXIT
+    local ex, ey = E.x + E.w / 2, E.y + E.h / 2
+    do
+      local st, r = X.state(), X.state().rect
+      log("exit run: mode", tostring(st.mode), "rect", r and ("%d,%d %dx%d"):format(r.x, r.y, r.w or 0, r.h or 0) or "none")
+    end
+    tapAt("exit1", ex, ey)
+    for _, at in ipairs({ { 0.1, "x01_ring_closing" }, { 0.5, "x02_ring_held" }, { 1.12, "x03_ring_spreading" } }) do
+      waitUntil(function() local t = aim.exitRingT(); return t == nil or t >= at[1] end, 3)
+      shot(at[2])
+    end
+    log("one tap: mode", TR.state().mode, "sim", tostring(TR.session.sim ~= nil))
+    waitSecs(0.5)
+    log("ring gone:", tostring(aim.exitRingT() == nil), "mode", TR.state().mode)
+    tapAt("exit2", ex, ey)
+    waitSecs(0.3)
+    tapAt("exit3", ex, ey)
+    waitSecs(1.0)
+    log("two taps: mode", TR.state().mode, "sim", tostring(TR.session.sim ~= nil))
+    shot("x04_left")
+    return
+  end
   log("play: phase", sim and sim.phase, "goals", sim and #sim.goals, "remaining", sim and sim.remaining)
   -- the player sprite as the arena has it, saved for a look (player_sprite.png)
   do

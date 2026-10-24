@@ -2,7 +2,7 @@
 -- reads (src/import/fingerprint.lua's keys) in Pokemon Alpha Sapphire (USA) Rev 2. Hashes
 -- only; the extract job compares the player's copy against them, row by row.
 return {
-  recipe = 35,
+  recipe = 36,
   rows = {
     ["a/0/1/0:1:0"] = { size = 85543, crc = "c2b12aaf" },
     ["a/0/1/6:0:0"] = { size = 82088, crc = "600eec16" },

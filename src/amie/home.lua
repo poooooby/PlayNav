@@ -1,11 +1,10 @@
--- HOME: the Pokemon-Amie room on the bottom screen, played from the game's own layout
--- (kawaii_lower.bclyt, a/0/2/6 entry 0). The wallpaper, the
--- placed decor, the set-out puff, visitors, gifts and the wandering Pokemon are drawn in
--- the layout's 320x240 units; the layout adds the scalloped frame (5z, opened by
--- window_open), the menu (f: the dim 5h and the game's PLAY / DECORATE / SWITCH buttons)
--- and, while the menu is up, the bubbles over the Pokemon that say how much it wants Poke
--- Puffs (g, okashi_hungry1..5) and play (h, asobi_play1..5), with hearts for its affection
--- (5n, heart_nakayosi1..5). A puff set out in DECORATE falls onto its spot (okashi_fall).
+-- HOME: the Pokemon-Amie room on the bottom screen, laid out as the game's (kawaii_lower and
+-- kawaii_windows, a/0/2/6 entry 0) and drawn here: the wallpaper, the placed decor, the
+-- set-out puff, visitors, gifts and the wandering Pokemon in the layout's 320x240 units; over
+-- them the scalloped frame (opening on entry), the menu (the dim and the PLAY / DECORATE /
+-- SWITCH buttons) and, while the menu is up, the bubbles over the Pokemon that say how much it
+-- wants Poke Puffs and play, with hearts for its affection. A puff set out in DECORATE falls
+-- onto its spot. SWITCH is the party list. The pictures are src/amie/ui_art.lua's.
 -- State: src/amie/session.lua (mode "home"); numbers: data/amie_rules.lua; the room's
 -- units and spots: src/amie/decor.lua.
 
@@ -60,7 +59,6 @@ return function(mod, Pointer, G, Rules, Store, host)
   local lastKey = nil
   local away = true       -- left the screen: the next frame on it opens the frame again
   local fade = nil        -- { t, dir = 1 out to black | -1 in from black, after = fn }
-  local P, Pfail = nil, false
   local fallPending = false
   local FADE_S = 10 / FPS
 
@@ -85,40 +83,131 @@ return function(mod, Pointer, G, Rules, Store, host)
   local function toLow(x, y) return x / L, (y + bleed()) / L - D end
   local function inBox(x, y, b) return b and x >= b[1] and x <= b[1] + b[3] and y >= b[2] and y <= b[2] + b[4] end
 
-  -- the game's screen, or nil (no extracted art: the room draws without it)
-  local ROOM_PANES = { "1t", "8", "g", "h", "5n", "17", "3", "4", "18", "31", "1h", "1j", "1l", "1n", "1p", "1r",
-    "2w", "2r", "2o", "w", "x", "y", "z", "10" }
-  local BUTTONS = { "5e", "5f", "5g" }
-  local function screen()
-    if P or Pfail then return P end
-    local S = mod.lyt
-    P = S and S.open("amie_room", "kawaii_lower.bclyt", { "amie_room" }) or nil
-    if not P then Pfail = S == nil; return nil end
-    -- drawn by us (drawScene: the decor under the visitors and the Pokemon)
-    for _, n in ipairs({ "3b", "8", "1t", "17", "3", "4", "18", "31" }) do P:set(n, "visible", false) end
-    -- the game fills the buttons with its own art (a/0/2/6 entry 1)
-    P:setImage("5", art("ui/btn_play"))
-    P:setImage("11", art("ui/btn_decorate"))
-    P:setImage("13", art("ui/btn_switch"))
-    P:play("window_open")
-    app.shapeDirty = true
-    return P
-  end
-  app.screen = screen
+  -- ------- the room's own screen, drawn here in the layout's units (320 wide, LH tall; the
+  -- game's kawaii_lower: the scalloped frame over everything, the menu's dim and buttons, the
+  -- bubbles over the Pokemon, a set-out puff falling onto its spot). Timings are in the
+  -- game's 30 fps frames. On a taller screen the room's contents sit D/2 lower and the
+  -- buttons D lower; the frame and the dim stretch to the whole height.
 
-  local function applyShape()
-    if not P or (P.shapeLH == LH and not app.shapeDirty) then return end
-    P.shapeLH, app.shapeDirty = LH, false
-    if D <= 0 then
-      P.stretchY, P.stretchMode, P.adjust = nil, nil, nil
-      return
+  -- a value along keys { { frame, value }... }, straight between them, held past the ends
+  local function track(keys, f)
+    if f <= keys[1][1] then return keys[1][2] end
+    for i = 2, #keys do
+      local a, b = keys[i - 1], keys[i]
+      if f <= b[1] then
+        local t = (f - a[1]) / math.max(1e-6, b[1] - a[1])
+        return a[2] + (b[2] - a[2]) * t
+      end
     end
-    P.stretchY, P.stretchMode = LH / 240, "backdrop"
-    local adj = {}
-    -- y is up in the layout: down the screen is a negative dy
-    for _, n in ipairs(ROOM_PANES) do adj[n] = { dy = -D / 2 } end
-    for _, n in ipairs(BUTTONS) do adj[n] = { dy = -D } end
-    P.adjust = adj
+    return keys[#keys][2]
+  end
+  local function smooth(t) t = math.max(0, math.min(1, t)); return t * t * (3 - 2 * t) end
+
+  -- the frame opening (window_open, 10 frames): the window grows from nothing about the
+  -- middle as the lace's sides draw back with it, white at first, settling to 200/255
+  local OPEN_F = 10
+  local FRAME_ALPHA = 200 / 255
+  local openF = nil            -- frames into the opening; nil once open
+  local LILAC = { 212 / 255, 187 / 255, 245 / 255 }
+  local function drawFrame(G2)
+    local img = art("lyt/amie_room/frame")
+    local f = openF or OPEN_F
+    local s = smooth(f / OPEN_F)
+    local a = f <= 5 and 1 or 1 + (FRAME_ALPHA - 1) * (f - 5) / 5
+    local white = 1 - math.min(1, f / OPEN_F)
+    -- the window's box: 320 across, as tall again stretched to the screen's height
+    local hw, hh = 160 * s, 160 * s * LH / 240
+    local cx, cy = 160, LH / 2
+    local function paint(mode)
+      if mode == "add" then G2.setColor(white, white, white, a) else G2.setColor(1, 1, 1, a) end
+      if img and s > 0 then
+        local iw, ih = img:getDimensions()
+        local kx, ky = hw / iw, hh / ih
+        -- the texture is the top-right quarter; the others mirror it
+        G2.draw(img, cx, cy - hh, 0, kx, ky)
+        G2.draw(img, cx, cy - hh, 0, -kx, ky)
+        G2.draw(img, cx, cy + hh, 0, kx, -ky)
+        G2.draw(img, cx, cy + hh, 0, -kx, -ky)
+      end
+      if s < 1 then
+        if mode == "add" then G2.setColor(white, white, white, a) else G2.setColor(LILAC[1], LILAC[2], LILAC[3], a) end
+        G2.rectangle("fill", -40, -40, cx - hw + 40, LH + 80)
+        G2.rectangle("fill", cx + hw, -40, 360 - cx - hw, LH + 80)
+        G2.rectangle("fill", cx - hw, -40, hw * 2, cy - hh + 40)
+        G2.rectangle("fill", cx - hw, cy + hh, hw * 2, LH + 40 - cy - hh)
+      end
+    end
+    paint("alpha")
+    if white > 0 then
+      G2.setBlendMode("add")
+      paint("add")
+      G2.setBlendMode("alpha")
+    end
+  end
+
+  -- the menu: the room dimmed (black at 128) and the three buttons, D lower on a taller screen
+  local MENU_BUTTONS = {   -- which, art, x, y, w, h (the hit box is the same)
+    { "play", "ui/btn_play", 160, 181, 90, 54 },
+    { "decorate", "ui/btn_decorate", 75, 180, 74, 46 },
+    { "switch", "ui/btn_switch", 245, 180, 74, 46 },
+  }
+  local function buttonBox(which)
+    for _, b in ipairs(MENU_BUTTONS) do
+      if b[1] == which then return b[3] - b[5] / 2, b[4] + D - b[6] / 2, b[5], b[6] end
+    end
+  end
+
+  -- the bubbles over the Pokemon while the menu is up: how much it wants puffs (the cake, left)
+  -- and play (the note, right), its affection (hearts, middle); each kind sends up 1-5 of its
+  -- icon by level, rising and swaying (okashi_hungryNN / asobi_playNN / heart_nakayosiNN)
+  local RISES = {   -- by level: the loop's length, then { first frame, frames } of each rise
+    { 60, { 0, 30 } },
+    { 60, { 0, 30 }, { 30, 30 } },
+    { 40, { 0, 20 }, { 10, 20 }, { 20, 20 } },
+    { 60, { 0, 20 }, { 30, 20 }, { 10, 20 }, { 20, 20 } },
+    { 70, { 0, 20 }, { 30, 20 }, { 10, 20 }, { 40, 20 }, { 20, 20 }, { 50, 20 } },
+  }
+  local bubbleF = 0
+  local bubbleLevels = { 0, 0, 0 }   -- puffs, play, hearts
+  local BUBBLE_KINDS = {   -- art, dx, size
+    { "lyt/amie_room/icon_okashi", -35, 50 },
+    { "lyt/amie_room/icon_asobi", 35, 50 },
+    { "lyt/amie_room/particle_01", 0, 30 },
+  }
+  local function drawRise(G2, img, x, y, size, u, len)
+    local slow = len >= 30
+    local ty = track(slow and { { 0, 54 }, { 16, 76.6 }, { 30, 88 } } or { { 0, 54 }, { 10, 76.6 }, { 20, 88 } }, u)
+    local a = track({ { 0, 0 }, { 5, 1 }, { slow and 25 or 10, 1 }, { len, 0 } }, u)
+    local k = track(slow and { { 0, 1 }, { 8, 1.1 }, { 12, 1 } } or { { 0, 1 }, { 4, 1.1 }, { 8, 1 } }, u)
+    local rz = track({ { 0, 0 }, { len / 2, -5 }, { len, 10 } }, u)
+    if a <= 0 then return end
+    local iw, ih = img:getDimensions()
+    G2.setColor(1, 1, 1, a)
+    -- the layout's turn is anticlockwise (y up): the other way on screen
+    G2.draw(img, x, y - ty, -math.rad(rz), size * k / iw, size * k / ih, iw / 2, ih / 2)
+  end
+  local function drawBubbles(G2)
+    local ax, ay = pet.x, pet.y + D / 2
+    for i, kind in ipairs(BUBBLE_KINDS) do
+      local lvl = bubbleLevels[i]
+      local img = lvl > 0 and art(kind[1])
+      if img then
+        local plan = RISES[math.min(5, lvl)]
+        local f = bubbleF % plan[1]
+        for j = 2, #plan do
+          local u = f - plan[j][1]
+          if u >= 0 and u <= plan[j][2] then drawRise(G2, img, ax + kind[2], ay, kind[3], u, plan[j][2]) end
+        end
+      end
+    end
+  end
+
+  -- a set-out puff falling onto its spot (okashi_fall, 10 frames): from above the screen,
+  -- tilted, a little bounce
+  local FALL_F = 10
+  local fallF = nil
+  local function fallY(f)
+    return 120 - track({ { 0, 150 }, { 6, 24 }, { 8, 29 }, { 10, 24 } }, f)
   end
 
   local function showEmote(id, secs)
@@ -186,28 +275,18 @@ return function(mod, Pointer, G, Rules, Store, host)
   end
 
   -- the menu's bubbles: how much it wants puffs and play (5 - level, none when full), and its
-  -- affection level as hearts; each the game's own looping clip
+  -- affection level as hearts (drawBubbles)
   local function needs(s)
     local m = s.meters
     return math.max(0, 5 - Rules.level(m.fullness)), math.max(0, 5 - Rules.level(m.enjoyment)),
       Rules.level(m.affection)
   end
   local function showBubbles(on)
-    if not P then return end
     local s = G.session
     local hungry, bored, hearts = 0, 0, 0
     if on and s then hungry, bored, hearts = needs(s) end
-    local function one(pane, clip, n)
-      if n > 0 then
-        P:set(pane, "visible", true)
-        P:play(clip .. string.format("%02d", math.min(5, n)), { loop = true })
-      else
-        P:set(pane, "visible", false)
-      end
-    end
-    one("g", "okashi_hungry", hungry)
-    one("h", "asobi_play", bored)
-    one("5n", "heart_nakayosi", hearts)
+    bubbleLevels[1], bubbleLevels[2], bubbleLevels[3] = hungry, bored, hearts
+    bubbleF = 0
   end
 
   local function setMenu(on)
@@ -216,10 +295,6 @@ return function(mod, Pointer, G, Rules, Store, host)
       G.se("room_menu", "SE_SELECT")
     else
       menu = nil
-    end
-    if P then
-      for _, n in ipairs({ "f", "5h", "5e", "5", "5f", "11", "5g", "13" }) do P:set(n, "visible", on and true or false) end
-      for _, n in ipairs({ "5", "11", "13" }) do P:clear(n, "sx"); P:clear(n, "sy") end
     end
     showBubbles(on)
   end
@@ -232,23 +307,18 @@ return function(mod, Pointer, G, Rules, Store, host)
     return 60 + (i - 1) * 50, 190
   end
   function app.giftPos(i) return fromRoom(giftRoomPos(i)) end
-  local BUTTON_PANE = { play = "7", decorate = "15", switch = "16" }
-  local BUTTON_ART = { play = "5", decorate = "11", switch = "13" }
   function app.buttonPos(which)
-    local b
-    if P then
-      local x, y, w, h = P:box(BUTTON_PANE[which])
-      if x then b = { x + w / 2, y + h / 2 } end
-    end
-    b = b or ({ play = { 160, 181 + D }, decorate = { 75, 180 + D }, switch = { 245, 180 + D } })[which]
-    return b[1] * L, b[2] * L - bleed()
+    local x, y, w, h = buttonBox(which)
+    return (x + w / 2) * L, (y + h / 2) * L - bleed()
   end
   function app.closePos() return RETURN[1] * L, (RETURN[2] + D) * L - bleed() end
   function app.menuOpen() return menu ~= nil end
+  -- a set-out puff is falling onto its spot
+  function app.falling() return fallF ~= nil end
   -- something is still moving (a fade, a button's bounce, the frame opening, a puff falling)
   function app.busy()
     if fade or fallPending or (menu and menu.press) then return true end
-    if P and not (P:finished("window_open") and P:finished("okashi_fall")) then return true end
+    if openF or fallF then return true end
     return false
   end
 
@@ -256,45 +326,35 @@ return function(mod, Pointer, G, Rules, Store, host)
     fade = { t = 0, dir = 1, after = after }
   end
 
-  -- ------- SWITCH: the game's party list (kawaii_windows.bclyt, pack amie_room), sliding in
-  -- from the right over the room. The party sits in medallions (slots 7e..7r: button_pokemon
-  -- and the party icon), the heart (9e) on the one in the room. The panel shows the chosen
-  -- one's icon, name and meters (five hearts / puffs / notes each, filled or the black ones);
-  -- "Switch Pokémon!" (at) shows when the chosen one is another, and brings it into the room;
-  -- the return (86) slides the list away. Driven with set(): the layout's clips all carry
-  -- the same master-timeline tracks.
-  local W, Wfail = nil, false
-  local SLOTS = {   -- { slot pane, medallion, icon, heart anchor }
-    { "7e", "bu", "7c", "9l" }, { "7f", "bw", "7g", "9m" }, { "7i", "by", "7j", "9n" },
-    { "7l", "c0", "7m", "9o" }, { "7o", "c2", "7p", "9p" }, { "7r", "c4", "7s", "9q" },
-  }
-  local METERS = {   -- { label, panes, filled, empty, meter }
-    { "a3", { "8m", "8o", "8q", "8s", "8u" }, "heart_00", "heart_01", "affection" },
-    { "a5", { "a7", "a9", "ab", "ad", "af" }, "ic_hungry", "ic_hungry_black", "fullness" },
-    { "ah", { "aj", "al", "an", "ap", "ar" }, "ic_asobu", "ic_asobu_black", "enjoyment" },
-  }
+  -- ------- SWITCH: the party list, sliding in from the right over the room (the game's
+  -- kawaii_windows, drawn here in its units). A pink striped room under a lilac bar, the party
+  -- in gold medallions with the heart on the one in the room, a ruled card with the chosen
+  -- one's icon, name and meters (five hearts / cakes / notes, full or spent), "Switch Pokémon!"
+  -- when the chosen one is another (it comes into the room), the return sliding the list away.
+  -- On a taller screen the list sits up to 18 lower (SW_DOWN) and the foot (the guide line, its
+  -- ribbon, the return) D lower; the pink runs on down to it.
   local SLIDE_S = 6 / FPS
   local PRESS = { 1, 0.9, 0.8, 0.9, 1, 0.95, 0.9, 0.95, 1 }   -- pokelist_select's bounce
+  local SW_DOWN = 18
+  local METERS = {   -- { label key, y, filled, spent, meter, w, h }
+    { "affection", 90, "heart_00", "heart_01", "affection", 16, 16 },
+    { "fullness", 115, "ic_hungry", "ic_hungry_black", "fullness", 16, 18 },
+    { "enjoyment", 140, "ic_asobu", "ic_asobu_black", "enjoyment", 18, 18 },
+  }
+  local changeShown = false   -- the Switch button is up (another Pokemon chosen)
+  local swName = ""
+  local swLevels = { 0, 0, 0 }
   local function ease(f) f = math.max(0, math.min(1, f)); return 1 - (1 - f) ^ 3 end
 
-  local function windows()
-    if W or Wfail then return W end
-    local S = mod.lyt
-    W = S and S.open("amie_room", "kawaii_windows.bclyt", { "amie_room" }) or nil
-    if not W then Wfail = true; return nil end
-    -- the list's own parts on; the other windows (messages, gifts) stay hidden
-    for _, n in ipairs({ "7b", "cc", "ax", "9z", "a1", "a3", "a5", "ah", "at", "av", "az" }) do W:set(n, "visible", true) end
-    for _, m in ipairs(METERS) do for _, n in ipairs(m[2]) do W:set(n, "visible", true) end end
-    W:set("ch", "visible", false)
-    -- the icons are drawn by us (party icons are two-frame sheets)
-    W:set("9z", "visible", false)
-    W:setText("ax", G.tx("switch"), { align = "center", valign = "center" })
-    W:setText("84", G.tx("selectMon"), { align = "left", valign = "center" })
-    W:setText("av", G.tx("switch"), { align = "left", valign = "center" })
-    W:setText("a3", G.tx("affection"), { align = "left", valign = "center" })
-    W:setText("a5", G.tx("fullness"), { align = "left", valign = "center" })
-    W:setText("ah", G.tx("enjoyment"), { align = "left", valign = "center" })
-    return W
+  -- where things are (layout units on the screen, the slide left out): x, y, w, h
+  local function swDown() return math.min(D, SW_DOWN) end
+  local function swBox(what, i)
+    local dn = swDown()
+    if what == "slot" then return 35 + 50 * (i - 1) - 21, 54 + dn - 21, 42, 42 end
+    if what == "heart" then return 20 + 50 * (i - 1) - 10, 44 + dn - 10, 20, 20 end
+    if what == "icon" then return 73 - 20, 105 + dn - 15, 40, 30 end
+    if what == "button" then return 160 - 139, 180 + dn - 26, 278, 52 end
+    if what == "return" then return 305 - 15, 225 + D - 15, 30, 30 end
   end
 
   local function swParty()
@@ -309,41 +369,23 @@ return function(mod, Pointer, G, Rules, Store, host)
     return 1
   end
 
-  -- the panel for slot i: name, meters, and the button when it is another Pokemon
+  -- the card for slot i: name, meters, and the button when it is another Pokemon
   local function showSelected(i)
-    if not W then return end
     local party = swParty()
     local mon = party[i]
     if not mon then return end
     local egg = host.isEgg and host.isEgg(mon)
-    W:setText("a1", egg and "Egg" or (host.displayName and host.displayName(mon) or "?"),
-      { align = "center", valign = "center" })
+    swName = egg and "Egg" or (host.displayName and host.displayName(mon) or "?")
     local m = Store.meters(host.monKey(mon))
-    for _, row in ipairs(METERS) do
-      local lvl = egg and 0 or Rules.level(m[row[5]] or 0)
-      for j, pane in ipairs(row[2]) do
-        W:setImage(pane, W:image((j <= lvl and row[3] or row[4]) .. ".bclim"))
-      end
-    end
-    local other = i ~= activeSlot(party) and not egg
-    for _, n in ipairs({ "at", "av", "az" }) do W:set(n, "visible", other) end
+    for r, row in ipairs(METERS) do swLevels[r] = egg and 0 or Rules.level(m[row[5]] or 0) end
+    changeShown = i ~= activeSlot(party) and not egg
   end
 
   local function openSwitch()
-    windows()
     local party = swParty()
     local act = activeSlot(party)
     sw = { phase = "in", t = 0, sel = act, heart = act, heartT = 1 }
-    if W then
-      for i, sl in ipairs(SLOTS) do
-        W:set(sl[1], "visible", i <= #party)
-        W:set(sl[2], "visible", i <= #party)
-        W:set(sl[3], "visible", false)
-        W:clear(sl[1], "sx"); W:clear(sl[1], "sy")
-      end
-      W:clear("at", "sx"); W:clear("at", "sy")
-      showSelected(act)
-    end
+    showSelected(act)
     G.se("room_button", "SE_SELECT")
   end
 
@@ -352,31 +394,22 @@ return function(mod, Pointer, G, Rules, Store, host)
     sw.phase, sw.t, sw.after = "out", 0, after
   end
 
-  -- the guide line, its rule and the return keep to the screen's foot (drawn D lower)
-  local FOOT = { "84", "86", "c8" }
-  local function footBox(name)
-    local bx, by, bw, bh = W:box(name)
-    if bx and (name == "84" or name == "86" or name == "c8") then by = by + D end
-    return bx, by, bw, bh
-  end
-  local function hitPane(name, ax, ay)
-    local bx, by, bw, bh = footBox(name)
-    return bx and ax >= bx and ax <= bx + bw and ay >= by and ay <= by + bh
-  end
+  local function inRect(ax, ay, x, y, w, h) return x and ax >= x and ax <= x + w and ay >= y and ay <= y + h end
 
   -- a press: its bounce, then its work (stepSwitch)
   local function switchPointer(ax, ay)
-    if not (sw and sw.phase == "open" and not sw.press and W) then return end
+    if not (sw and sw.phase == "open" and not sw.press) then return end
     local party = swParty()
-    if hitPane("86", ax, ay) then
+    if inRect(ax, ay, swBox("return")) then
       G.se("back", "SE_SELECT")
-      sw.press = { pane = "86", t = 0, act = function() closeSwitch() end }
+      sw.press = { what = "return", t = 0, act = function() closeSwitch() end }
       return
     end
-    if hitPane("az", ax, ay) and sw.sel ~= activeSlot(party) and not (host.isEgg and host.isEgg(party[sw.sel])) then
+    if changeShown and inRect(ax, ay, swBox("button")) and sw.sel ~= activeSlot(party)
+      and not (host.isEgg and host.isEgg(party[sw.sel])) then
       G.se("switch_to", "SE_SUCCESS")
       local i = sw.sel
-      sw.press = { pane = "at", t = 0, act = function()
+      sw.press = { what = "button", t = 0, act = function()
         if G.switchTo(party[i]) then
           sw.heart, sw.heartT = i, 0
           showSelected(i)
@@ -386,9 +419,9 @@ return function(mod, Pointer, G, Rules, Store, host)
       return
     end
     for i = 1, #party do
-      if hitPane(SLOTS[i][2], ax, ay) then
+      if inRect(ax, ay, swBox("slot", i)) then
         G.se("select", "SE_SELECT")
-        sw.press = { pane = SLOTS[i][1], t = 0, act = function()
+        sw.press = { what = "slot", i = i, t = 0, act = function()
           if host.isEgg and host.isEgg(party[i]) then G.say(G.tx("egg"), 2.5) end
           sw.sel = i
           showSelected(i)
@@ -405,10 +438,8 @@ return function(mod, Pointer, G, Rules, Store, host)
       local p = sw.press
       p.t = p.t + dt
       local f = math.floor(p.t * FPS) + 1
-      local k = PRESS[math.min(#PRESS, f)]
-      if W then W:set(p.pane, "sx", k); W:set(p.pane, "sy", k) end
+      p.k = PRESS[math.min(#PRESS, f)]
       if f > #PRESS then
-        if W then W:clear(p.pane, "sx"); W:clear(p.pane, "sy") end
         sw.press = nil
         p.act()
       end
@@ -429,20 +460,6 @@ return function(mod, Pointer, G, Rules, Store, host)
     end
   end
 
-  -- for the driver: where to tap on the list (app units) and its state
-  function app.switchPos(what, i)
-    if not W then return nil end
-    local pane = (what == "slot" and SLOTS[i or 1] and SLOTS[i or 1][2]) or (what == "button" and "az") or (what == "return" and "86")
-    local bx, by, bw, bh
-    if pane then bx, by, bw, bh = footBox(pane) end
-    if not bx then return nil end
-    return (bx + bw / 2) * L, (by + bh / 2) * L - bleed()
-  end
-  function app.switchState()
-    if not sw then return nil end
-    return { phase = sw.phase, sel = sw.sel, heart = sw.heart, pressing = sw.press ~= nil, waiting = sw.wait ~= nil }
-  end
-
   local function swOffset()
     if not sw then return 320 end
     if sw.phase == "in" then return 320 * (1 - ease(sw.t / SLIDE_S)) end
@@ -450,65 +467,160 @@ return function(mod, Pointer, G, Rules, Store, host)
     return 0
   end
 
+  -- for the driver: where to tap on the list (app units) and its state
+  function app.switchPos(what, i)
+    if not sw then return nil end
+    local x, y, w, h = swBox(what == "slot" and "slot" or what, i or 1)
+    if not x then return nil end
+    return (x + swOffset() + w / 2) * L, (y + h / 2) * L - bleed()
+  end
+  function app.switchState()
+    if not sw then return nil end
+    return { phase = sw.phase, sel = sw.sel, heart = sw.heart, pressing = sw.press ~= nil, waiting = sw.wait ~= nil }
+  end
+
+  -- text in a box the way the game's text panes set it: its 19-unit font rasterised at the
+  -- size it lands on screen, black, centred on the box's height, squeezed if too wide
+  local swFonts = {}
+  local function swText(G2, text, x, y, w, h, align)
+    local x0, y0 = G2.transformPoint(0, 0)
+    local x1, y1 = G2.transformPoint(0, 1)
+    local k = math.sqrt((x1 - x0) ^ 2 + (y1 - y0) ^ 2)
+    if k <= 0 then return end
+    local size = math.max(4, math.floor(19 * k * 0.64 + 0.5))
+    local font = swFonts[size]
+    if font == nil then
+      local ok, f = pcall(G2.newFont, size)
+      font = ok and f or false
+      swFonts[size] = font
+    end
+    if not font then return end
+    local inv = 1 / k
+    local lw, lh = font:getWidth(text) * inv, font:getHeight() * inv
+    local sx = lw > w and w / lw or 1
+    local tx = align == "left" and x or x + (w - lw * sx) / 2
+    G2.setFont(font)
+    G2.setColor(0, 0, 0, 1)
+    G2.print(text, tx, y + (h - lh) / 2, 0, inv * sx, inv)
+  end
+
+  -- an image drawn into a box about its middle, scaled by k
+  local function swImage(G2, id, x, y, w, h, k, sx, sy)
+    local img = art(id)
+    if not img then return end
+    k = k or 1
+    local iw, ih = img:getDimensions()
+    G2.draw(img, x + w / 2, y + h / 2, 0, (sx or 1) * w * k / iw, (sy or 1) * h * k / ih, iw / 2, ih / 2)
+  end
+
+  -- a band of the lilac bar (its corner mirrored for the right end, its inner column between),
+  -- the torn edge down, or up when flip
+  local barQuads = {}
+  local pinkQuad = nil
+  local function bar(G2, y, flip)
+    local img = art("lyt/amie_room/bar_title")
+    if not img then return end
+    local iw, ih = img:getDimensions()
+    local q = barQuads[img]
+    if not q then q = love.graphics.newQuad(iw - 1, 0, 1, ih, iw, ih); barQuads[img] = q end
+    local sy = flip and -1 or 1
+    local oy = flip and y + ih or y
+    G2.draw(img, 0, oy, 0, 1, sy)
+    G2.draw(img, 320, oy, 0, -1, sy)
+    G2.draw(img, q, iw, oy, 0, 320 - 2 * iw, sy)
+  end
+
   local function drawSwitch(G2, s)
-    if not windows() then return end
     local off = swOffset()
-    W:set("7u", "tx", off)
-    W:set("7b", "tx", off)
-    -- the heart on the Pokemon in the room: at its medallion's anchor, popping in when moved
+    local dn = swDown()
     local party = swParty()
-    local a = SLOTS[sw.heart] and SLOTS[sw.heart][4]
-    local hx, hy, hw, hh
-    if a then hx, hy, hw, hh = W:box(a) end
-    if hx then
-      W:set("9e", "visible", true)
-      W:set("9e", "alpha", 255)
-      W:set("9c", "alpha", 255)
-      W:set("9e", "tx", hx + hw / 2 - 160)
-      W:set("9e", "ty", 120 - (hy + hh / 2))
-      local k = 2 - ease(sw.heartT)
-      W:set("9c", "sx", k); W:set("9c", "sy", k)
-    else
-      W:set("9e", "visible", false)
+    local p = sw.press
+    local function pk(what, i) return p and p.what == what and (i == nil or p.i == i) and p.k or 1 end
+    G2.push()
+    G2.translate(off, 0)
+    G2.setColor(1, 1, 1, 1)
+    -- the pink room, the bar along the top and its twin at the foot
+    local pink = art("lyt/amie_room/goods_win_c")
+    if pink then
+      pink:setWrap("repeat", "repeat")
+      local iw, ih = pink:getDimensions()
+      local h = 220 + D
+      if not (pinkQuad and pinkQuad.h == h and pinkQuad.img == pink) then
+        pinkQuad = { h = h, img = pink, q = love.graphics.newQuad(0, 0, 320 / 18 * iw, h / 18 * ih, iw, ih) }
+      end
+      G2.draw(pink, pinkQuad.q, 0, 10, 0, 18 / iw, 18 / ih)
     end
-    -- a taller screen: the list down from under the top strip as far as the room allows; the
-    -- layout's lower part drawn again D lower first (the pink to the foot, the guide line and
-    -- the return there), then the list over it unstretched
-    local down = math.min(D, 18)
-    W.adjust = D > 0 and { ["7b"] = { dy = -down }, cf = { dy = -down }, ca = { dy = -down } } or nil
-    if D > 0 then
-      local heart = hx ~= nil
-      for _, n in ipairs({ "7b", "cf", "ca", "9e" }) do W:set(n, "visible", false) end
+    -- the top bar, its torn foot reaching under the ribbon below the title (which comes down
+    -- with the list): the window's own corner stops a few units short of it
+    bar(G2, -8)
+    bar(G2, dn)
+    -- the foot's bar, turned over, and a second one higher over it: its body covers the first's
+    -- torn edge, its own torn edge goes under the guide line's ribbon
+    bar(G2, 212 + D, true)
+    bar(G2, 200 + D, true)
+    -- the card, the ribbons, the return, the guide line
+    swImage(G2, "lyt/amie_room/win_pokelist", 11, 74 + dn, 298, 80)
+    swImage(G2, "lyt/amie_room/goods_win_line_dw", 0, 186 + D, 320, 26)
+    swImage(G2, "lyt/amie_room/goods_win_line_up", 0, 26 + dn, 320, 26)
+    local rx, ry, rw, rh = swBox("return")
+    swImage(G2, "lyt/amie_room/button_back", rx, ry, rw, rh, pk("return"))
+    swText(G2, G.tx("selectMon"), 4, 215 + D, 280, 20, "left")
+    -- the title on its paper tab (the tab's corner, mirrored round)
+    for _, m in ipairs({ { 20, 1, 1 }, { 160, -1, 1 }, { 20, 1, -1 }, { 160, -1, -1 } }) do
+      local ty = m[3] > 0 and -2 or 16
+      G2.setColor(1, 1, 1, 1)
+      swImage(G2, "lyt/amie_room/bg_tab", m[1], ty + dn, 140, 18, 1, m[2], m[3])
+    end
+    swText(G2, G.tx("switch"), 25, 6 + dn, 270, 20, "center")
+    -- the party's medallions
+    for i = 1, #party do
+      local x, y, w, h = swBox("slot", i)
+      G2.setColor(1, 1, 1, 1)
+      swImage(G2, "lyt/amie_room/button_pokemon", x, y, w, h, pk("slot", i))
+    end
+    -- the card's words and meters
+    swText(G2, swName, 23, 120 + dn, 100, 20, "center")
+    for r, row in ipairs(METERS) do
+      swText(G2, G.tx(row[1]), 134, row[2] + dn - 10, 70, 20, "left")
+      for j = 1, 5 do
+        G2.setColor(1, 1, 1, 1)
+        local cx = 214 + 20 * (j - 1)
+        swImage(G2, "lyt/amie_room/" .. (j <= swLevels[r] and row[3] or row[4]), cx - row[6] / 2, row[2] + dn - row[7] / 2, row[6], row[7])
+      end
+    end
+    -- the Switch button
+    if changeShown then
+      local x, y, w, h = swBox("button")
+      local k = pk("button")
+      G2.setColor(1, 1, 1, 1)
+      swImage(G2, "lyt/amie_room/button_change", x, y, w, h, k)
       G2.push()
-      G2.translate(0, D)
-      W:draw(G2)
+      G2.translate(160, y + h / 2); G2.scale(k, k); G2.translate(-160, -(y + h / 2))
+      swText(G2, G.tx("switch"), 75, y + h / 2 - 10, 190, 20, "left")
       G2.pop()
-      for _, n in ipairs({ "7b", "cf", "ca" }) do W:set(n, "visible", true) end
-      W:set("9e", "visible", heart)
-      for _, n in ipairs(FOOT) do W:set(n, "visible", false) end
-      W:draw(G2)
-      for _, n in ipairs(FOOT) do W:set(n, "visible", true) end
-    else
-      W:draw(G2)
     end
-    -- the party icons in the medallions and the chosen one's in the panel
-    local function icon(mon, pane, k)
-      local bx, by, bw, bh = W:box(pane)
+    -- the heart on the Pokemon in the room: on its medallion's corner, popping in when moved
+    if sw.heart and sw.heart <= #party then
+      local x, y, w, h = swBox("heart", sw.heart)
+      local k = 2 - ease(sw.heartT)
+      G2.setColor(1, 1, 1, 1)
+      swImage(G2, "lyt/amie_room/heart_00", x + w / 2 - 8, y + h / 2 - 8, 16, 16, k)
+    end
+    -- the party icons in the medallions and the chosen one's on the card
+    local function icon(mon, x, y, w, h, k)
       local ic = mon and host.icon and host.icon(mon)
-      if not (bx and ic and ic.image and ic.quads) then return end
+      if not (ic and ic.image and ic.quads) then return end
       local q = ic.quads[math.floor(love.timer.getTime() * 3) % (ic.frames or 1)] or ic.quads[0]
       G2.setColor(1, 1, 1, 1)
-      drawPixel(ic.image, q, bx + bw / 2, by + bh / 2 + 4, 0, k, k, (ic.w or 32) / 2, (ic.h or 32) / 2 + 4)
+      drawPixel(ic.image, q, x + w / 2, y + h / 2 + 4, 0, k, k, (ic.w or 32) / 2, (ic.h or 32) / 2 + 4)
     end
     for i, mon in ipairs(party) do
-      local sl = SLOTS[i]
-      local pk = 1
-      if sw.press and sw.press.pane == sl[1] then
-        pk = PRESS[math.min(#PRESS, math.floor(sw.press.t * FPS) + 1)]
-      end
-      icon(mon, sl[2], 1.15 * pk)
+      local x, y, w, h = swBox("slot", i)
+      icon(mon, x, y, w, h, 1.15 * pk("slot", i))
     end
-    icon(party[sw.sel], "9z", 1.25)
+    local x, y, w, h = swBox("icon")
+    icon(party[sw.sel], x, y, w, h, 1.25)
+    G2.pop()
   end
 
   -- ------- input
@@ -524,18 +636,12 @@ return function(mod, Pointer, G, Rules, Store, host)
     local x, y = toRoom(ev.x, ev.y)
     if menu then
       if menu.press then return end
-      -- the game's buttons, where the layout has them this frame
+      -- the menu's buttons
       local ax, ay = ev.x / L, (ev.y + bleed()) / L
-      for which, pane in pairs(BUTTON_PANE) do
-        local bx, by, bw, bh
-        if P then bx, by, bw, bh = P:box(pane) end
-        local hit
-        if bx then hit = ax >= bx and ax <= bx + bw and ay >= by and ay <= by + bh
-        else
-          local px, py = app.buttonPos(which)
-          hit = math.abs(ev.x - px) <= 30 and math.abs(ev.y - py) <= 18
-        end
-        if hit then
+      for _, b in ipairs(MENU_BUTTONS) do
+        local which = b[1]
+        local bx, by, bw, bh = buttonBox(which)
+        if ax >= bx and ax <= bx + bw and ay >= by and ay <= by + bh then
           G.se("select", "SE_SELECT")
           menu.press = { which = which, t = 0 }
           return
@@ -592,10 +698,8 @@ return function(mod, Pointer, G, Rules, Store, host)
 
   local function onEnter(s)
     away = false
-    if P then
-      P:play("window_open")
-      setMenu(false)
-    end
+    openF = 0
+    setMenu(false)
     -- back from DECORATE: up from black; a puff just set out falls onto its spot
     if s.fromDecorate then
       fade = { t = 0, dir = -1 }
@@ -604,7 +708,7 @@ return function(mod, Pointer, G, Rules, Store, host)
     -- (it falls once the room is up from black: held back until the fade ends)
     if s.puffDrop then
       s.puffDrop = nil
-      fallPending = P ~= nil
+      fallPending = true
     end
   end
 
@@ -615,9 +719,11 @@ return function(mod, Pointer, G, Rules, Store, host)
       return
     end
     if s.key ~= lastKey then resetFor(s) end
-    screen()
     if away then onEnter(s) end
-    if P then P:advance((dt or 0) * FPS) end
+    local df = (dt or 0) * FPS
+    if openF then openF = openF + df; if openF >= OPEN_F then openF = nil end end
+    if fallF then fallF = fallF + df; if fallF >= FALL_F then fallF = nil end end
+    bubbleF = bubbleF + df
     if fade then
       fade.t = fade.t + (dt or 0)
       if fade.t >= FADE_S then
@@ -626,18 +732,14 @@ return function(mod, Pointer, G, Rules, Store, host)
         if after then after() end
       end
     end
-    if fallPending and not fade and P then
+    if fallPending and not fade then
       fallPending = false
-      P:play("okashi_fall")
+      fallF = 0
     end
     if menu and menu.press then
       menu.press.t = menu.press.t + (dt or 0)
       local f = math.floor(menu.press.t * FPS) + 1
-      local k = BOUNCE[math.min(#BOUNCE, f)]
-      if P then
-        local pane = BUTTON_ART[menu.press.which]
-        P:set(pane, "sx", k); P:set(pane, "sy", k)
-      end
+      menu.press.k = BOUNCE[math.min(#BOUNCE, f)]
       if f > #BOUNCE then runButton(menu.press.which) end
     end
     for i = #particles, 1, -1 do
@@ -815,11 +917,7 @@ return function(mod, Pointer, G, Rules, Store, host)
   local function puffPos()
     local Dc = G.Decor
     local x, y = Dc and Dc.PUFF_SPOT.x or 160, (Dc and Dc.PUFF_SPOT.y or 116) - (Dc and Dc.PUFF_LIFT or 20)
-    if P and P:entry("okashi_fall") then
-      local bx, by, bw, bh = P:box("1t")
-      -- the box is on screen (the shape's D/2 included); the scene draws D/2 lower itself
-      if bx then x, y = bx + bw / 2, by + bh / 2 - D / 2 end
-    end
+    if fallF then y = fallY(fallF) end
     return x, y
   end
 
@@ -888,7 +986,6 @@ return function(mod, Pointer, G, Rules, Store, host)
   -- ride in two reused records, so a frame's depth sort allocates nothing
   local floor, actors = {}, {}
   local puffRec, petRec = { y = 0, puff = nil }, { y = 0, pet = true }
-  local BUBBLES = { "g", "h", "5n" }
   local function byY(a, b) return a.y < b.y end
   local function drawScene(G2, s, room)
     for i = #floor, 1, -1 do floor[i] = nil end
@@ -997,17 +1094,21 @@ return function(mod, Pointer, G, Rules, Store, host)
     G2.translate(0, D / 2)
     drawScene(G2, s, room)
     G2.pop()
-    if P then
-      if menu then
-        -- the bubbles ride over the Pokemon (the layout parks them off to the right)
-        for _, n in ipairs(BUBBLES) do
-          P:set(n, "tx", pet.x - 160)
-          P:set(n, "ty", 120 - pet.y)
+    if menu then
+      G2.setColor(0, 0, 0, 128 / 255)
+      G2.rectangle("fill", -40, -40, 400, LH + 80)
+      for _, b in ipairs(MENU_BUTTONS) do
+        local img = art(b[2])
+        if img then
+          local k = menu.press and menu.press.which == b[1] and menu.press.k or 1
+          local iw, ih = img:getDimensions()
+          G2.setColor(1, 1, 1, 1)
+          G2.draw(img, b[3], b[4] + D, 0, b[5] * k / iw, b[6] * k / ih, iw / 2, ih / 2)
         end
       end
-      applyShape()
-      P:draw(G2)
+      drawBubbles(G2)
     end
+    drawFrame(G2)
     drawBottom(G2, s)
     if sw then
       G2.push("all")
@@ -1026,7 +1127,7 @@ return function(mod, Pointer, G, Rules, Store, host)
 
   function app:releaseAll()
     menu, sw = nil, nil
-    if P then setMenu(false) end
+    setMenu(false)
   end
   function app.leave()
     app:releaseAll()

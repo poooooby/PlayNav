@@ -22,6 +22,49 @@ return function(mod, base)
     return base.available() and H.Pokemon ~= nil and H.Pokemon.evsOf ~= nil and H.Pokemon.applyStats ~= nil
   end
 
+  -- the game's own songs for Super Training: which set this game carries ("frlg" for FireRed /
+  -- LeafGreen, "emerald", "rs" for Ruby / Sapphire), and playing one through the game's music
+  -- player (faded over, as the game changes map music)
+  local FAMILY = { firered = "frlg", leafgreen = "frlg", emerald = "emerald", ruby = "rs", sapphire = "rs" }
+  -- the GBA game being played ("ruby", "sapphire", "emerald", "firered", "leafgreen"), or nil
+  function H.gameVersion()
+    local R = H.Runtime3
+    local ok, session = pcall(function() return R and R.getSession() end)
+    local v = ok and type(session) == "table" and session.version or nil
+    return v and tostring(v):lower() or nil
+  end
+  function H.songFamily()
+    local R = H.Runtime3
+    local ok, session = pcall(function() return R and R.getSession() end)
+    local v = ok and type(session) == "table" and session.version or nil
+    return v and FAMILY[tostring(v):lower()] or nil
+  end
+  -- a song by name, as a number, when this game has it
+  function H.songId(name)
+    local A = H.Audio
+    if not (A and A.songs) then return nil end
+    local ok, id = pcall(function() return A.songs()[name] end)
+    return ok and tonumber(id) or nil
+  end
+  function H.fieldSong()
+    local A = H.Audio
+    if not (A and A.currentMapMusic) then return nil end
+    local ok, id = pcall(A.currentMapMusic)
+    return ok and tonumber(id) or nil
+  end
+  function H.fadeToSong(id, speed)
+    local A = H.Audio
+    if not (A and id) then return false end
+    local fn = A.fadeOutAndPlay or A.playSong
+    return pcall(fn, id, speed or 2, speed or 2) == true
+  end
+  -- the song playing faded to silence (no field song to go back to)
+  function H.fadeOutSong(speed)
+    local A = H.Audio
+    if not (A and A.fadeOutBgm) then return false end
+    return pcall(A.fadeOutBgm, speed or 2) == true
+  end
+
   function H.pushLayer(module)
     return pcall(H.Stack.push, H.LAYER_ID, module, { hideBelow = true, fullscreen = true })
   end

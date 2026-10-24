@@ -115,7 +115,7 @@ end
 --   portrait   the touch screen as wide as the window allows (4:3), sitting on the pad's
 --              room; the playfield is everything above it, full width
 --   landscape  the touch screen as without fill; the playfield is the whole column left of it
--- opts = { gameW, gameH, dpi, reserveBottom, margin, gap, x, y, fill }
+-- opts = { gameW, gameH, dpi, reserveBottom, margin, gap, x, y, fill, safe }
 -- Returns { orientation, game = {x,y,w,h,scale} (the playfield handed to the engine),
 -- picture = {x,y,w,h,scale} (where the 240x160 frame lands), surface = {x,y,w,h,scale} }.
 Layout.MIN_MATCH = 0.8
@@ -128,6 +128,9 @@ function Layout.dual(ww, wh, opts)
   local gap = opts.gap or 8
   local ox, oy = opts.x or 0, opts.y or 0
   local portrait = wh >= ww
+  -- `safe` % of the window's foot left free first (BOTTOM SAFE AREA, as Layout.gear)
+  local safe = math.max(0, math.min(50, tonumber(opts.safe) or 0))
+  wh = math.max(1, wh - math.floor(wh * safe / 100))
   local fill = opts.fill == true
   local reserve = portrait and math.max(0, opts.reserveBottom or 0) or 0
   local availW = portrait and ww or (ww - margin * 2)
@@ -185,6 +188,85 @@ function Layout.dual(ww, wh, opts)
     fill = fill }
 end
 
+
+-- Split screen as Kanto Gear lays out its COMBINED SCREEN, so the two mods share one look:
+-- the window cut into the game's part and the touch screen's by a share (stacked: the touch
+-- screen 36% of the height under the game; side: 34% of the width right of it; `size` 20..80
+-- overrides), a gap of 1% of the shorter side (at least 2), `safe` % taken off the foot first,
+-- `swapped` trading the two parts; the touch screen fitted into its part at one scale and
+-- centred, the game's part handed to the engine, which centres the 240x160 frame in it at a
+-- whole scale. THEME:windowLayout and THEME:fitRect adapted from Kanto Gear (MIT,
+-- (c) 2026 AverageConsumer, github.com/AverageConsumer/kanto-gear). OVERLAY: the game has the
+-- whole window and the touch screen floats over it in `corner` (top_left / top_right /
+-- bottom_left / bottom_right), `gap` in from the edges, 42% of the height tall (`size`
+-- overrides) and at most 38% of the width, in the Gear's 160:144 box; a swap is not taken
+-- there (the game stays the full window). Positions land on whole physical pixels (`dpi`);
+-- `reserveBottom` (window units) is kept free under both parts.
+-- FULLSCREEN (Kanto Gear's FULLSCREEN SWAP): the game and the touch screen each the whole
+-- window, one shown at a time (the caller picks), no safe area.
+-- opts = { layout = "auto" | "stacked" | "side" | "overlay" | "fullscreen", corner, size, safe, swapped, dpi,
+--   reserveBottom, gameW, gameH, x, y }
+-- Returns { orientation, game, picture, surface } as Layout.dual does.
+function Layout.fitRect(rect, width, height)
+  local scale = math.min(rect.w / width, rect.h / height)
+  local w, h = width * scale, height * scale
+  return { x = math.floor(rect.x + (rect.w - w) / 2), y = math.floor(rect.y + (rect.h - h) / 2),
+    w = w, h = h, scale = scale }
+end
+
+function Layout.gear(ww, wh, opts)
+  opts = opts or {}
+  if ww < 1 or wh < 1 then return nil end
+  local gw, gh = opts.gameW or 240, opts.gameH or 160
+  local dpi = (opts.dpi and opts.dpi > 0) and opts.dpi or 1
+  local ox, oy = opts.x or 0, opts.y or 0
+  local mode = opts.layout
+  if mode == "large" then mode = "overlay" end
+  if mode ~= "stacked" and mode ~= "side" and mode ~= "overlay" and mode ~= "fullscreen" then
+    mode = ww >= wh and "side" or "stacked"
+  end
+  local height = wh - math.max(0, opts.reserveBottom or 0)
+  local safe = mode == "fullscreen" and 0 or math.max(0, math.min(50, tonumber(opts.safe) or 0))
+  height = math.max(1, height - math.floor(height * safe / 100))
+  local width = ww
+  local gap = math.max(2, math.floor(math.min(width, height) * 0.01))
+  local requested = tonumber(opts.size)
+  local function share(fallback) return math.max(20, math.min(80, requested or fallback)) / 100 end
+  local game, gear
+  if mode == "fullscreen" then
+    game = { x = 0, y = 0, w = width, h = height }
+    gear = { x = 0, y = 0, w = width, h = height }
+  elseif mode == "stacked" then
+    local gearH = math.floor((height - gap) * share(36))
+    game = { x = 0, y = 0, w = width, h = height - gearH - gap }
+    gear = { x = 0, y = game.h + gap, w = width, h = gearH }
+  elseif mode == "side" then
+    local gearW = math.floor((width - gap) * share(34))
+    game = { x = 0, y = 0, w = width - gearW - gap, h = height }
+    gear = { x = game.w + gap, y = 0, w = gearW, h = height }
+  else
+    local gearH = math.floor(height * share(42))
+    local gearW = math.min(math.floor(width * (requested and share(42) or 0.38)), math.floor(gearH * 160 / 144))
+    local corner = opts.corner or "bottom_right"
+    local left = corner == "top_left" or corner == "bottom_left"
+    local top = corner == "top_left" or corner == "top_right"
+    game = { x = 0, y = 0, w = width, h = height }
+    gear = { x = left and gap or width - gearW - gap, y = top and gap or height - gearH - gap, w = gearW, h = gearH }
+  end
+  if opts.swapped and mode ~= "overlay" and mode ~= "fullscreen" then game, gear = gear, game end
+  local function snap(v) return math.floor(v * dpi + 1e-6) / dpi end
+  game = { x = snap(ox + game.x), y = snap(oy + game.y), w = snap(game.w), h = snap(game.h) }
+  local fit = Layout.fitRect(gear, Layout.W, Layout.H)
+  local surface = { x = snap(ox + fit.x), y = snap(oy + fit.y), w = fit.w, h = fit.h, scale = fit.scale }
+  -- where the engine's Display.fit puts the frame: the largest whole scale, centred
+  local kk = math.max(1, math.floor(math.min(game.w * dpi / gw, game.h * dpi / gh) + 1e-9))
+  local fw, fh = gw * kk / dpi, gh * kk / dpi
+  local picture = { x = snap(game.x + (game.w - fw) / 2), y = snap(game.y + (game.h - fh) / 2), w = fw, h = fh,
+    scale = kk / dpi }
+  game.scale = picture.scale
+  return { orientation = (mode == "stacked" or (mode == "overlay" and wh >= ww)) and "portrait" or "landscape",
+    game = game, picture = picture, surface = surface, fill = true, mode = mode, overlay = mode == "overlay" }
+end
 
 -- Window (or pushed-frame) coordinates to logical surface coordinates.
 -- Returns lx, ly, inside.

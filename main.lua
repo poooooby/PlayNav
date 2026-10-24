@@ -58,11 +58,52 @@ end
 return function(mod)
   mod.options:define({
     { key = "affection_benefits", label = "AFFECTION BENEFITS", type = "toggle", default = true },
-    { key = "display", label = "TOUCH SCREEN", type = "choice", default = "auto",
-      choices = { { "AUTO", "auto" }, { "SECOND SCREEN", "second_screen" },
-        { "SPLIT SCREEN", "split" }, { "OFF", "off" } } },
+    -- Where PlayNav's touch screen goes when it is called (the START menu's PLAYNAV, Kanto Gear's
+    -- apps; it never shows otherwise): Kanto Gear's display options, the same keys, choices and
+    -- dependencies (its PHONE / BROWSER and AUTO BATTLE SCREEN left out), so a dual-screen mod
+    -- reads the same everywhere. K-GEAR takes every one of them from the Gear (its rows hide).
+    -- On K-GEAR every other display row hides. The engine's options screen hides a row on
+    -- `equals` / `not_equals` only, so QUICK SWAP (the Gear's: separate or combined) shows in
+    -- every mode but K-GEAR.
+    { key = "display_mode", label = "DISPLAY MODE", type = "choice", default = "kanto_gear",
+      choices = { { "K-GEAR", "kanto_gear" }, { "FULLSCREEN SWAP", "fullscreen" },
+        { "COMBINED SCREEN", "combined" }, { "SEPARATE SCREENS", "separate" } } },
+    { key = "fullscreen_start", label = "START SCREEN", type = "choice", default = "playnav",
+      visible_if = { key = "display_mode", equals = "fullscreen" },
+      choices = { { "GAME", "game" }, { "PLAYNAV", "playnav" } } },
+    { key = "combined_layout", label = "LAYOUT", type = "choice", default = "auto",
+      visible_if = { key = "display_mode", equals = "combined" },
+      choices = { { "AUTO", "auto" }, { "STACKED", "stacked" }, { "SIDE BY SIDE", "side" },
+        { "OVERLAY", "overlay" } } },
+    { key = "combined_primary", label = "PRIMARY VIEW", type = "choice", default = "game",
+      visible_if = { key = "display_mode", equals = "combined" },
+      choices = { { "GAME", "game" }, { "PLAYNAV", "playnav" } } },
+    { key = "secondary_size", label = "SECONDARY SIZE", type = "choice", default = "auto",
+      visible_if = { key = "display_mode", equals = "combined" },
+      choices = { { "AUTO", "auto" }, { "20%", 20 }, { "25%", 25 }, { "30%", 30 }, { "35%", 35 },
+        { "40%", 40 }, { "45%", 45 }, { "50%", 50 }, { "55%", 55 }, { "60%", 60 }, { "65%", 65 },
+        { "70%", 70 }, { "75%", 75 }, { "80%", 80 } } },
+    { key = "bottom_safe_area", label = "BOTTOM SAFE AREA", type = "choice", default = 0,
+      visible_if = { key = "display_mode", equals = "combined" },
+      choices = { { "OFF", 0 }, { "10%", 10 }, { "15%", 15 }, { "20%", 20 },
+        { "25%", 25 }, { "30%", 30 }, { "35%", 35 }, { "40%", 40 } } },
+    { key = "overlay_corner", label = "OVERLAY CORNER", type = "choice", default = "bottom_right",
+      visible_if = { key = "display_mode", equals = "combined" },
+      choices = { { "TOP LEFT", "top_left" }, { "TOP RIGHT", "top_right" },
+        { "BOTTOM LEFT", "bottom_left" }, { "BOTTOM RIGHT", "bottom_right" } } },
+    { key = "overlay_button", label = "OVERLAY BUTTON", type = "choice", default = "off",
+      visible_if = { key = "display_mode", equals = "combined" },
+      choices = { { "OFF", "off" }, { "R3", "rightstick" }, { "L3", "leftstick" }, { "F7", "f7" } } },
+    { key = "display_target", label = "PLAYNAV OUTPUT", type = "choice", default = "auto",
+      visible_if = { key = "display_mode", equals = "separate" },
+      choices = { { "AUTO", "auto" }, { "MAIN SCREEN", "handheld" }, { "SECOND SCREEN", "secondary" } } },
+    { key = "screen_swap", label = "QUICK SWAP (Y)", type = "toggle", default = false,
+      visible_if = { key = "display_mode", not_equals = "kanto_gear" } },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
-    { key = "extract_on_boot", label = "EXTRACT AMIE ART ON BOOT", type = "toggle", default = true },
+    -- off: PlayNav's own art, sounds and words, no card image needed (the PLAYNAV screen's
+    -- USE FALLBACK ASSETS turns it off; on again, the card image is checked again)
+    { key = "use_rom_assets", label = "USE ROM ASSETS", type = "toggle", default = true },
+    { key = "extract_on_boot", label = "EXTRACT OR/AS ASSETS ON BOOT", type = "toggle", default = true },
     -- an action: switching it on clears the cache, then it switches itself back off
     -- a button as far as the options screen allows (it has no button row): a two-way choice
     -- that reads PRESS TO CLEAR; pressed in the game it clears at once and reads PRESS TO CLEAR
@@ -131,6 +172,8 @@ return function(mod)
   local makeStore = loadSibling(mod, "src/amie/store.lua")
   local makeHost = loadSibling(mod, "src/refresh/host_gen3.lua")
   local makeSession = loadSibling(mod, "src/amie/session.lua")
+  -- PLAY's and DECORATE's screens are laid out in Lua (src/amie/panes.lua)
+  mod.panes = loadSibling(mod, "src/amie/panes.lua")
   local makePlayApp = loadSibling(mod, "src/amie/play.lua")
   local makeHomeApp = loadSibling(mod, "src/amie/home.lua")
   local DecorCatalog = loadSibling(mod, "data/decor_catalog.lua")
@@ -238,6 +281,22 @@ return function(mod)
   -- that shares the host adapter, the apps and the surface, never the session
 
   local Training, TRules, TStore, TItems, trainHost = nil, nil, nil, nil, nil
+  local UiArt, Chip, TrainingWords = nil, nil, nil
+  local DecorArt, AdaptArt = {}, nil
+  -- the engine's art first: Amie's Decor (PlayNav's atlases), the pictures made from them, then
+  -- the drawn UI
+  local function engineArt(id)
+    for _, art in ipairs(DecorArt) do
+      local img, owned = art.image(id)
+      if owned then return img, true end
+    end
+    if AdaptArt then
+      local img, owned = AdaptArt.image(id)
+      if owned then return img, true end
+    end
+    if UiArt then return UiArt.image(id) end
+    return nil
+  end
   do
     local TrainingNumbers = loadSibling(mod, "data/training_rules.lua")
     local ShotTypes = loadSibling(mod, "data/training_shot_types.lua")
@@ -250,6 +309,8 @@ return function(mod)
     local Radar = loadSibling(mod, "src/training/radar.lua")
     local makeCoreApp = loadSibling(mod, "src/training/core_app.lua")
     local Courses = loadSibling(mod, "data/training_courses.lua")
+    -- the balloons' attack scripts, from the game's course data (tools/st_attacks.py)
+    if Courses then Courses.gameAttacks = loadSibling(mod, "data/training_attacks.lua") end
     local makeSim = loadSibling(mod, "src/training/sim.lua")
     local makeRegimen = loadSibling(mod, "src/training/regimen.lua")
     local makeArenaDraw = loadSibling(mod, "src/training/arena_draw.lua")
@@ -291,7 +352,14 @@ return function(mod)
         end
         if makeMusic then
           local okM, music = pcall(makeMusic, mod, Training, trainHost)
-          if okM and type(music) == "table" then Training.music = music else mod.log:warn("training music failed to build: %s", tostring(music)) end
+          if okM and type(music) == "table" then
+            Training.music = music
+            -- on FireRed / LeafGreen, Emerald, Ruby and Sapphire the game's own songs
+            local gameSongs = loadSibling(mod, "data/training_game_songs.lua")
+            if type(gameSongs) == "table" then music.GAME_SONGS = gameSongs end
+          else
+            mod.log:warn("training music failed to build: %s", tostring(music))
+          end
         end
         makeRegimen(mod, Training, { host = trainHost, Rules = TRules, Store = TStore, Items = TItems,
           Courses = Courses, Sim = TSim, Draw = Draw })
@@ -330,6 +398,76 @@ return function(mod)
     if makeAssets then
       Assets = makeAssets(mod)
       Assets.enabled = true
+      -- Super Training's UI is drawn by the engine, not taken from the card image
+      local makeUiArt = Training and TRules and loadSibling(mod, "src/training/ui_art.lua")
+      if makeUiArt then
+        local okU, ui = pcall(makeUiArt, mod, { Rules = TRules, statRgb = Training.STAT_RGB, courses = Training.Courses,
+          botSprite = Training.Draw and Training.Draw.botSprite,
+          shapeFor = Training.Draw and Training.Draw.shapeFor, drawBalloon = Training.Draw and Training.Draw.drawBalloon,
+          -- the final course's picture shows the version's line
+          gameVersion = function() return trainHost and trainHost.gameVersion and trainHost.gameVersion() end })
+        if okU and type(ui) == "table" then
+          UiArt = ui
+          Assets.engine = ui.image
+          -- Pokemon-Amie's room draws through the same maker
+          local makeAmieArt = ui.gen and loadSibling(mod, "src/amie/ui_art.lua")
+          if makeAmieArt then
+            local okA, errA = pcall(makeAmieArt, mod, ui.kit, ui.gen, function(id) return (engineArt(id)) end)
+            if not okA then mod.log:warn("amie ui art failed to build: %s", tostring(errA)) end
+          end
+          -- and its Decor (cushions, objects, wallpapers), Poke Puffs, hand, Berry Picker's and
+          -- Head It's art, Tile Puzzle's trees and PLAY's treeline and lawn come from PlayNav's own
+          -- atlases
+          local makeDecorArt = loadSibling(mod, "src/amie/decor_art.lua")
+          for _, set in ipairs({ { "data/amie_decor.lua", "assets/amie_decor.png" },
+              { "data/amie_walls.lua", "assets/amie_walls.png" },
+              { "data/amie_puffs.lua", "assets/amie_puffs.png" },
+              { "data/amie_hand.lua", "assets/amie_hand.png" },
+              { "data/amie_berry.lua", "assets/amie_berry.png" },
+              { "data/amie_head.lua", "assets/amie_head.png" },
+              { "data/amie_tile.lua", "assets/amie_tile.png" },
+              { "data/amie_scene.lua", "assets/amie_scene.png" },
+              { "data/amie_grass.lua", "assets/amie_grass.png" } }) do
+            local cells = makeDecorArt and loadSibling(mod, set[1])
+            if type(cells) == "table" then
+              local okD, art = pcall(makeDecorArt, mod, cells, set[2])
+              if okD and type(art) == "table" then
+                DecorArt[#DecorArt + 1] = art
+                Assets.engine = engineArt
+              else
+                mod.log:warn("amie decor art (%s) failed to build: %s", set[1], tostring(art))
+              end
+            end
+          end
+          -- the minigames' pictures the pages lack, made from the atlases' (data/amie_adapt.lua)
+          local makeAdapt = loadSibling(mod, "src/amie/adapt_art.lua")
+          local adaptList = loadSibling(mod, "data/amie_adapt.lua")
+          if makeAdapt and type(adaptList) == "table" then
+            local okA2, adapt = pcall(makeAdapt, mod, adaptList, function(id) return (engineArt(id)) end)
+            if okA2 and type(adapt) == "table" then AdaptArt = adapt
+            else mod.log:warn("amie adapted art failed to build: %s", tostring(adapt)) end
+          end
+        else
+          mod.log:warn("training ui art failed to build: %s", tostring(ui))
+        end
+      end
+      -- its words are PlayNav's own
+      if Training then
+        local words = loadSibling(mod, "data/training_words.lua")
+        if type(words) == "table" then Training.words, TrainingWords = words, words end
+      end
+      -- its sound effects are PlayNav's own, rendered by the chip synth in the background (its
+      -- music is the game's own songs: data/training_game_songs.lua)
+      local makeChip = Training and loadSibling(mod, "src/chipmusic.lua")
+      if makeChip then
+        local okC, chip = pcall(makeChip, mod)
+        if okC and type(chip) == "table" then
+          Chip = chip
+          Assets.engineSound = chip.sound
+        else
+          mod.log:warn("chip music failed to build: %s", tostring(chip))
+        end
+      end
       for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile",
         "training_core", "training_bags", "training_courses", "training_aim" }) do
         local a = Apps:get(id)
@@ -422,6 +560,9 @@ return function(mod)
         end
         return id, true, 0
       end
+      -- on FireRed / LeafGreen, Emerald, Ruby and Sapphire the game's own songs
+      local gameSongs = loadSibling(mod, "data/amie_game_songs.lua")
+      if type(gameSongs) == "table" then M.GAME_SONGS = gameSongs end
     else
       mod.log:warn("amie music failed to build: %s", tostring(M))
     end
@@ -517,18 +658,90 @@ return function(mod)
     return c.value
   end
 
+  -- one of Kanto Gear's options, read from the loader as the engine's own options:get does
+  -- (stored, else its default); nil when the Gear is not installed or is disabled
+  local function gearOption(key)
+    if state.gearOptions then return state.gearOptions[key] end   -- a test's stand-in Gear
+    local loader = state.game and state.game.mods
+    -- the loader's own record of the Gear (mod:find answers only once the Gear has run and
+    -- published its exports, and the option is wanted from the first frame)
+    local rec = loader and loader.mods and loader.mods.kanto_gear
+    if not rec or rec.state == "disabled" or rec.state == "failed" then return nil end
+    local stored = loader.modOptions and loader.modOptions.kanto_gear
+    local v = stored and stored[key]
+    if v == nil then
+      for _, row in ipairs(loader.optionSchemas and loader.optionSchemas.kanto_gear or {}) do
+        if row.key == key then v = row.default end
+      end
+    end
+    return v
+  end
+  local function gearDisplay() return gearOption("display_mode") end
+
+  -- a display setting as it applies now: the Gear's while K-GEAR follows it (state.gearDriven,
+  -- set by displayChoice), else PlayNav's own (the same keys)
+  local function displaySetting(key)
+    if state.gearDriven then
+      local v = gearOption(key)
+      if v ~= nil then return v end
+    end
+    return mod.options:get(key)
+  end
+
+  -- DISPLAY MODE as it applies now: "fullscreen" | "combined" | "separate", or "detect" (K-GEAR
+  -- without the Gear: separate when a second display is there, else combined). The Gear's PHONE
+  -- / BROWSER reads as combined. Before the Gear's set, DISPLAY MODE was the key `display`
+  -- (SPLIT / COMBINED SCREEN -> combined, SECOND SCREEN -> separate, AUTO / OFF / K-GEAR ->
+  -- K-GEAR); it is read while `display_mode` was never set. state.gearOverride is a test's.
+  local OLD_DISPLAY = { split = "combined", combined = "combined", second_screen = "separate" }
+  local GEAR_MODE = { fullscreen = "fullscreen", combined = "combined", separate = "separate", phone = "combined" }
+  local function displayChoice()
+    local loader = state.game and state.game.mods
+    local stored = loader and loader.modOptions and loader.modOptions[mod.id]
+    local choice = stored and stored.display_mode
+    if choice == nil then
+      choice = stored and OLD_DISPLAY[stored.display] or mod.options:get("display_mode") or "kanto_gear"
+    end
+    state.gearDriven = false
+    if choice == "kanto_gear" then
+      local g = state.gearOverride
+      if g == nil then g = gearDisplay() end
+      choice = g and GEAR_MODE[g] or "detect"
+      state.gearDriven = g ~= nil
+      if state.gearMode ~= g then
+        state.gearMode = g
+        mod.log:info("display mode follows Kanto Gear's %s -> %s", tostring(g), choice)
+      end
+    end
+    if not GEAR_MODE[choice] and choice ~= "detect" then choice = "combined" end
+    return choice
+  end
+
+  -- state.mode: "split" (the window shared: state.displayStyle "fullscreen" | "combined"),
+  -- "second_screen" (PlayNav on the second display), "handheld" (PlayNav on the main window, the
+  -- game on the second display) or "off" (not called)
   local function wantedMode()
-    local choice = mod.options:get("display")
-    if choice == "off" or not surfaceWanted() then return "off" end
-    if choice == "split" then return "split" end
+    local choice = displayChoice()
+    if not surfaceWanted() then return "off" end
     local SS = second()
     local usable = false
     if SS and SS.usable then
       local ok, u = pcall(SS.usable)
       usable = ok and u == true
     end
-    if choice == "second_screen" then return usable and "second_screen" or "split" end
-    if usable and bridgeCheck(SS, "detected") then return "second_screen" end
+    if choice == "detect" then
+      choice = (usable and bridgeCheck(SS, "detected")) and "separate" or "combined"
+    end
+    if choice == "separate" then
+      -- PLAYNAV OUTPUT: SECOND SCREEN (and AUTO) puts PlayNav on the second display, MAIN SCREEN
+      -- ("handheld", the Gear's value too) keeps it on the main window and sends the game to the
+      -- second display; QUICK SWAP trades the two. Without a second display the window is shared.
+      local handheld = displaySetting("display_target") == "handheld"
+      if state.swapped then handheld = not handheld end
+      if usable then state.displayStyle = "separate"; return handheld and "handheld" or "second_screen" end
+      choice = "combined"
+    end
+    state.displayStyle = choice
     return "split"
   end
 
@@ -537,16 +750,19 @@ return function(mod)
     mod.log:info("display mode %s -> %s", state.mode, mode)
     Pointer:cancel()
     Apps:releaseAll(state.game)
-    if state.mode == "second_screen" then
+    -- PlayNav holds the second display in both its modes there (the Gear then keeps off it)
+    local holds = { second_screen = true, handheld = true }
+    if holds[state.mode] and not holds[mode] then
       local g = secondGate()
       if g then g:release() end
     end
     -- the display is enabled afresh each time the mode is entered
     state.ssEnabled, state.ssShown = false, false
-    if mode == "second_screen" then
+    if holds[mode] and not holds[state.mode] then
       local g = secondGate()
       if g then g:claim() end
     end
+    if state.mode == "handheld" then state.gameRead, state.gameCanvas = nil, nil end
     state.mode = mode
     state.rect = nil
     state.pushAt = 0
@@ -681,7 +897,8 @@ return function(mod)
 
   -- Gen 3 has no viewport seam, but it fits its picture into the rectangle
   -- Playfield.cutout reports. In split mode the mod lays out picture and
-  -- surface (src/layout.lua Layout.dual, New 3DS XL style), hands the picture area to the
+  -- surface (src/layout.lua: Layout.dual, New 3DS XL style, for SPLIT SCREEN; Layout.gear, Kanto
+  -- Gear's, for COMBINED SCREEN), hands the picture area to the
   -- engine through src/cutout.lua, and keeps the rest for the surface, so
   -- both scale with the window and never overlap. Without the cutout seam
   -- the surface falls back to the free strip under the engine's own placement.
@@ -689,8 +906,8 @@ return function(mod)
   -- a second (the player can move its controls), the layout only when one of those moved
   local layoutCache = {}
   -- the overworld is on the top screen (no PlayNav layer on top of the engine's stack: Super
-  -- Training's home): the playfield takes all the room the touch screen leaves (Layout.dual
-  -- `fill`); a regimen fills too (topFills); with Amie, the picker or results up, the exact picture
+  -- Training's home) or a regimen (topFills) paints the game's whole part of the split; other
+  -- layers draw the 240x160 frame the engine centres in it
   local function overworldLive()
     if not (HdTop and HdTop.topLayer) then return false end
     local ok, layer = pcall(HdTop.topLayer)
@@ -716,24 +933,95 @@ return function(mod)
       return nil
     end
   end
+  -- QUICK SWAP (Y; F6 on a keyboard): always in FULLSCREEN SWAP, in COMBINED / SEPARATE when
+  -- the option is on; OVERLAY BUTTON (R3 / L3 / F7) hides and shows the overlay. As Kanto Gear's
+  -- pollScreenSwap: the buttons' rising edges, read every frame while PlayNav is up.
+  local swapHeld, overlayHeld = false, false
+  local function pollSwap()
+    local style = state.displayStyle
+    local swapOn = style == "fullscreen" or displaySetting("screen_swap") == true
+    local button = displaySetting("overlay_button") or "off"
+    local overlayOn = style == "combined" and displaySetting("combined_layout") == "overlay" and button ~= "off"
+    local down, odown = false, false
+    local kb = love and love.keyboard
+    if kb and kb.isDown then
+      if swapOn then local ok, d = pcall(kb.isDown, "f6"); down = ok and d or false end
+      if overlayOn and button == "f7" then local ok, d = pcall(kb.isDown, "f7"); odown = ok and d or false end
+    end
+    local js = love and love.joystick
+    if (swapOn or (overlayOn and button ~= "f7")) and js and js.getJoysticks then
+      local ok, pads = pcall(js.getJoysticks)
+      for _, pad in ipairs(ok and pads or {}) do
+        if pad.isGamepadDown then
+          if swapOn then
+            local okD, d = pcall(pad.isGamepadDown, pad, "y")
+            if okD and d then down = true end
+          end
+          if overlayOn and button ~= "f7" then
+            local okO, d = pcall(pad.isGamepadDown, pad, button)
+            if okO and d then odown = true end
+          end
+        end
+      end
+    end
+    if down and not swapHeld then
+      state.swapped = not state.swapped
+      Pointer:cancel()
+      Surface.dirty = true
+      mod.log:info("quick swap: %s", state.swapped and "swapped" or "back")
+    end
+    if odown and not overlayHeld then
+      state.overlayHidden = not state.overlayHidden
+      Pointer:cancel()
+      Surface.dirty = true
+    end
+    swapHeld, overlayHeld = down, odown
+  end
+
   local function gen3Rect(vp)
     local ww, wh = vp.width or 0, vp.height or 0
     if ww < 1 or wh < 1 then return nil end
     if Cutout and Cutout.pf then
       local c, now, dpi = layoutCache, Pointer.now(), windowDpi()
       local fill = topFills()
+      local style = state.displayStyle or "combined"
       local moved = c.ww ~= ww or c.wh ~= wh or c.dpi ~= dpi or c.fill ~= fill or c.H ~= Layout.H
+        or c.style ~= style or c.swap ~= state.swapped
       if moved or now >= (c.padAt or 0) then
         local reserve = padReserve(ww, wh)
         c.padAt = now + 1
-        if moved or c.reserve ~= reserve or c.lay == nil then
-          c.ww, c.wh, c.dpi, c.reserve, c.fill, c.H = ww, wh, dpi, reserve, fill, Layout.H
-          c.lay = Layout.dual(ww, wh, { dpi = dpi, reserveBottom = reserve, fill = fill }) or false
+        -- Kanto Gear's layouts (src/layout.lua Layout.gear) on the settings as they apply now
+        -- (displaySetting: the Gear's under K-GEAR), re-read once a second
+        local layout = style == "fullscreen" and "fullscreen" or displaySetting("combined_layout")
+        local size, corner = displaySetting("secondary_size"), displaySetting("overlay_corner")
+        local primary = displaySetting("combined_primary")
+        local safe = tonumber(displaySetting("bottom_safe_area")) or 0
+        -- PRIMARY VIEW: the touch screen first ("playnav", the Gear's own "gear"); QUICK SWAP turns it
+        local swapped = (primary ~= nil and primary ~= "game") ~= (state.swapped == true)
+        local gk = ("%s|%s|%s|%s|%s|%s"):format(style, tostring(layout), tostring(size), tostring(safe),
+          tostring(swapped), tostring(corner))
+        if moved or c.reserve ~= reserve or c.gk ~= gk or c.lay == nil then
+          c.ww, c.wh, c.dpi, c.reserve, c.fill, c.H, c.gk, c.style, c.swap =
+            ww, wh, dpi, reserve, fill, Layout.H, gk, style, state.swapped
+          c.lay = Layout.gear(ww, wh, { dpi = dpi, reserveBottom = style == "fullscreen" and 0 or reserve,
+            layout = layout, corner = corner, size = size ~= "auto" and size or nil, safe = safe,
+            swapped = swapped }) or false
         end
       end
       local lay = c.lay
       if lay then
         Cutout:set(lay.game)
+        -- the touch screen out of sight: FULLSCREEN SWAP showing the game (START SCREEN, QUICK
+        -- SWAP), or OVERLAY hidden by its button; the game then has the window and every touch
+        state.coverWindow = false
+        if style == "fullscreen" then
+          local start = displaySetting("fullscreen_start")
+          local playnavFirst = start ~= "game"
+          if playnavFirst == (state.swapped == true) then return nil end
+          state.coverWindow = true
+        elseif lay.overlay and state.overlayHidden then
+          return nil
+        end
         return lay.surface
       end
     end
@@ -747,6 +1035,71 @@ return function(mod)
       if r and r.scale >= 1 then return r end
     end
     return Layout.split(ww, wh, {}).surface
+  end
+
+  -- USE ROM ASSETS: on, the card image's extracted assets (the PLAYNAV screen gates the apps
+  -- until they are there); off, PlayNav's own and no gate
+  local gateDisabled = false   -- the flow tests run on fake hosts, not the player's cache
+  local function romOn()
+    if state.forceRom ~= nil then return state.forceRom end   -- a driver's, never saved
+    return mod.options:get("use_rom_assets") ~= false
+  end
+  -- on: the card image's assets alone (its art, layouts, sounds, words and tracks; none of
+  -- PlayNav's drawn art, synthesized effects, own words or the GBA songs); off: PlayNav's own
+  local function applyRomOption()
+    if not Assets then return end
+    local off = not romOn()
+    if Assets.cardOff ~= off then
+      Assets.cardOff = off
+      Assets.refresh()
+    end
+    Assets.engine = (off and (UiArt or DecorArt[1] or AdaptArt)) and engineArt or nil
+    Assets.engineSound = (off and Chip) and Chip.sound or nil
+    if Training then
+      Training.words = off and TrainingWords or nil
+      if Training.music then Training.music.cardOnly = not off end
+    end
+    if Amie and Amie.text then Amie.text.ownText = off end
+    if amieMusic then amieMusic.cardOnly = not off end
+  end
+  applyRomOption()
+
+  -- an option written back, saved: mods get no options setter, so this writes where the Mod
+  -- Manager's own setOption does (the loader's table, the save's options) and has the engine
+  -- write options.lua
+  local function writeOption(key, value)
+    local game = state.game
+    local loader = game and game.mods
+    if loader then
+      loader.modOptions = loader.modOptions or {}
+      loader.modOptions[mod.id] = loader.modOptions[mod.id] or {}
+      loader.modOptions[mod.id][key] = value
+    end
+    local saved = game and game.save and game.save.options and game.save.options.modOptions
+    if saved then
+      saved[mod.id] = saved[mod.id] or {}
+      saved[mod.id][key] = value
+    end
+    if game and game.writeOptions then
+      local ok, err = pcall(game.writeOptions, game)
+      if not ok then mod.log:warn("saving option %s failed: %s", key, tostring(err)) end
+    end
+  end
+
+  -- the player's answer on the PLAYNAV screen, kept across boots and saves:
+  -- { rom = true } extract; { rom = false, why = "missing" | "wrong" | "declined" } fallback
+  -- (missing / wrong: the screen is offered again once a usable card image is there)
+  local CHOICE = "asset_choice.lua"
+  local function readChoice()
+    local ok, src = pcall(mod.cache.read, mod.cache, CHOICE)
+    local chunk = ok and type(src) == "string" and load(src, "=" .. CHOICE, "t", {}) or nil
+    local okC, t = pcall(chunk or error)
+    return okC and type(t) == "table" and t or nil
+  end
+  local function writeChoice(rom, why)
+    local body = rom == nil and "return {}\n"
+      or ("return { rom = %s, why = %q }\n"):format(tostring(rom), tostring(why or ""))
+    pcall(mod.cache.write, mod.cache, CHOICE, body)
   end
 
   -- once per boot: if the player's card image is there and the art is not
@@ -763,14 +1116,31 @@ return function(mod)
       local booting = game and game.phase ~= nil and game.phase ~= "field"
       if booting or extractTicks < 30 then return end
       extractChecked = true
-      local what = Extract.check()
-      if what ~= "complete" and Extract.lastManifestError then
-        mod.log:info("import: manifest not usable yet (%s)", tostring(Extract.lastManifestError))
-      end
-      if what == "ready" and mod.options:get("extract_on_boot") ~= false then
-        if Extract.start() then Apps:setActive("import", state.game) end
-      elseif what == "complete" and Assets then
-        Assets.refresh()
+      applyRomOption()
+      local choice = readChoice()
+      if not romOn() then
+        -- the fallback was taken while the card image was missing or wrong: once a usable
+        -- one is there, the choice is offered again
+        local why = choice and choice.why
+        if (why == "missing" or why == "wrong") and Extract.check() == "ready" then
+          mod.log:info("import: a card image is there now; offering the OR/AS assets again")
+          Apps:setActive("import", state.game)
+        end
+      else
+        local what = Extract.check()
+        if what ~= "complete" and Extract.lastManifestError then
+          mod.log:info("import: manifest not usable yet (%s)", tostring(Extract.lastManifestError))
+        end
+        local chose = choice and choice.rom == true
+        if what == "ready" and chose and mod.options:get("extract_on_boot") ~= false then
+          if Extract.start() then Apps:setActive("import", state.game) end
+        elseif what == "complete" and Assets then
+          Assets.refresh()
+        elseif not chose and not gateDisabled then
+          -- nothing chosen yet (the first launch, or USE ROM ASSETS switched back on in the
+          -- launcher): the PLAYNAV screen asks
+          Apps:setActive("import", state.game)
+        end
       end
     end
     if Extract.state == "running" or Extract.state == "finishing" then
@@ -787,9 +1157,8 @@ return function(mod)
   -- PlayNav needs its extracted art: any attempt to open Pokemon-Amie or Super Training
   -- with the cache missing or stale lands on the PLAYNAV screen instead (Begin extraction,
   -- the progress bar, or the missing-card-image warning). True = gated, the screen is up.
-  local gateDisabled = false   -- the flow tests run on fake hosts, not the player's cache
   local function importGate()
-    if not Extract or gateDisabled then return false end
+    if not Extract or gateDisabled or not romOn() then return false end
     if Extract.state == "running" or Extract.state == "finishing" or not Extract.cacheComplete() then
       Extract.check()
       Apps:setActive("import", state.game)
@@ -846,6 +1215,16 @@ return function(mod)
         if not menu then return false, "menu missing" end
         if Assets then Assets.refresh() end
         return menu.show({ shutters = true })
+      end
+      -- BEGIN EXTRACTION: remembered, so a paused run resumes on the next boot
+      gateApp.onExtract = function() writeChoice(true) end
+      -- USE FALLBACK ASSETS: USE ROM ASSETS goes off; why = "missing" / "wrong" / "declined"
+      gateApp.useFallback = function(why)
+        writeChoice(false, why)
+        writeOption("use_rom_assets", false)
+        if Extract then Extract.cancel() end
+        applyRomOption()
+        mod.log:info("import: fallback assets chosen (%s)", tostring(why))
       end
     end
   end
@@ -909,30 +1288,30 @@ return function(mod)
     if Amie and Amie.session then pcall(Amie.finish) end
     local ok, err = pcall(Extract.clear)
     if not ok then mod.log:warn("clearing the extracted art failed: %s", tostring(err)) end
-    Apps:setActive("import", state.game)
+    if romOn() then Apps:setActive("import", state.game) end
   end
-  -- the option back to PRESS TO CLEAR, saved: mods get no options setter, so this writes
-  -- where the Mod Manager's own setOption does (the loader's table, the save's options) and
-  -- has the engine write options.lua
-  local function resetClearOption()
-    local game = state.game
-    local loader = game and game.mods
-    if loader then
-      loader.modOptions = loader.modOptions or {}
-      loader.modOptions[mod.id] = loader.modOptions[mod.id] or {}
-      loader.modOptions[mod.id].clear_rom_art = false
-    end
-    local saved = game and game.save and game.save.options and game.save.options.modOptions
-    if saved and saved[mod.id] then saved[mod.id].clear_rom_art = false end
-    if game and game.writeOptions then
-      local ok, err = pcall(game.writeOptions, game)
-      if not ok then mod.log:warn("saving CLEAR EXTRACTED ART back off failed: %s", tostring(err)) end
-    end
-  end
+  -- the option back to PRESS TO CLEAR, saved
+  local function resetClearOption() writeOption("clear_rom_art", false) end
   mod.events:on("mod.options_changed", function(ev)
-    if type(ev) ~= "table" or ev.mod ~= "play_nav" or ev.key ~= "clear_rom_art" or ev.value ~= true then return end
-    clearExtractedArt()
-    resetClearOption()
+    if type(ev) ~= "table" or ev.mod ~= "play_nav" then return end
+    if ev.key == "clear_rom_art" and ev.value == true then
+      clearExtractedArt()
+      resetClearOption()
+    elseif ev.key == "use_rom_assets" and Extract then
+      if ev.value == false then
+        -- PlayNav's own from now on; nothing more is asked
+        writeChoice(false, "declined")
+        Extract.cancel()
+        applyRomOption()
+        if Apps:active().id == "import" then Apps:setActive("play", state.game) end
+      else
+        -- on again: the card image is checked again and the PLAYNAV screen offers it (or says
+        -- it is missing / not Alpha Sapphire) unless its assets are already extracted
+        writeChoice(nil)
+        applyRomOption()
+        if Extract.check() ~= "complete" then Apps:setActive("import", state.game) end
+      end
+    end
   end)
 
   -- While a mouse pointer is down on the surface, follow the real cursor
@@ -995,6 +1374,13 @@ return function(mod)
       end
     end
     tickExtract()
+    if Chip then
+      local okC, errC = pcall(Chip.update)
+      if not okC and not state.chipWarned then
+        state.chipWarned = true
+        mod.log:warn("chip music failed: %s", tostring(errC))
+      end
+    end
     -- CLEAR EXTRACTED ART switched on in the launcher, before PlayNav loaded: no change event
     -- reaches us then, so it is honoured once, on the first frame in the field
     -- (drivers call _test.keepArt() before the field so a run on a machine whose options have
@@ -1045,8 +1431,11 @@ return function(mod)
     end
     if mode == "off" then
       state.rect = nil
+      -- each call starts on START SCREEN / PRIMARY VIEW, the overlay shown
+      state.swapped, state.overlayHidden = nil, nil
       return
     end
+    pollSwap()
 
     local vw, vh = viewport and viewport.width, viewport and viewport.height
     if vw ~= state.lastW or vh ~= state.lastH then
@@ -1063,6 +1452,15 @@ return function(mod)
         ensureGen3Touch()
         local rect = gen3Rect(viewport or {})
         state.rect = rect
+        if rect and state.coverWindow and love and love.graphics then
+          -- FULLSCREEN SWAP: the touch screen alone on the window
+          love.graphics.push("all")
+          love.graphics.origin()
+          love.graphics.setScissor()
+          love.graphics.setColor(0, 0, 0, 1)
+          love.graphics.rectangle("fill", 0, 0, (viewport and viewport.width) or 0, (viewport and viewport.height) or 0)
+          love.graphics.pop()
+        end
         if rect then
           local k = Surface:densityFor(rect)
           if needsDraw or k ~= Surface.k then Surface:render(drawAll, k) end
@@ -1071,6 +1469,26 @@ return function(mod)
       elseif needsDraw then
         Surface:render(drawAll)
       end
+      return
+    end
+
+    if mode == "handheld" then
+      -- PLAYNAV OUTPUT MAIN SCREEN: the game went to the second display in render.output, which
+      -- left the window black; PlayNav fills it, fitted and centred (Kanto Gear's own placement)
+      local SS = second()
+      local now = Pointer.now()
+      if SS and (not state.ssEnabled or (not state.ssShown and now >= (state.ssRetryAt or 0))) then
+        pcall(SS.setEnabled, true)
+        state.ssEnabled, state.ssRetryAt = true, now + 1
+      end
+      local ww, wh = (viewport and viewport.width) or 0, (viewport and viewport.height) or 0
+      if ww < 1 or wh < 1 then state.rect = nil; return end
+      local fit = Layout.fitRect({ x = 0, y = 0, w = ww, h = wh }, Layout.W, Layout.H)
+      local rect = { x = fit.x, y = fit.y, w = fit.w, h = fit.h, scale = fit.scale }
+      state.rect = rect
+      local k = Surface:densityFor(rect)
+      if needsDraw or k ~= Surface.k then Surface:render(drawAll, k) end
+      Surface:blit(rect)
       return
     end
 
@@ -1159,7 +1577,79 @@ return function(mod)
   -- engine draws it (1:1, scissored to the playfield) and reports it drawn: an outer mod then
   -- passes it through (Kanto Gear also drops its own touch area then). A shader preset keeps
   -- the engine's own path.
+  -- PLAYNAV OUTPUT MAIN SCREEN: the finished game frame goes to the second display, scaled to
+  -- at most 960x540 and read back without a stall, up to 60 times a second (Kanto Gear's
+  -- handheld output, its capture and pacing); the window is left black for PlayNav (tick)
+  local function pushGame(ctx)
+    local SS = second()
+    local G = love and love.graphics
+    if not (SS and G and ctx.canvas) then return end
+    local now = Pointer.now()
+    local read = state.gameRead
+    if read and read.pollImageData and now >= (state.gameRetryAt or 0) then
+      local okP, image = pcall(read.pollImageData, read)
+      if okP and image then
+        local okS, shown = pcall(SS.push, image, image:getWidth(), image:getHeight(), 0x000000, "secondary:cover")
+        state.ssShown = okS and shown ~= false
+        state.gameRead = nil
+        if not state.ssShown then state.gameRetryAt = now + 0.25 end
+      end
+    end
+    if state.gameRead or now < (state.gameNext or 0) then return end
+    local ww = math.max(1, ctx.width or G.getWidth())
+    local wh = math.max(1, ctx.height or G.getHeight())
+    local k = math.min(960 / ww, 540 / wh)
+    local cw, ch = math.max(1, math.floor(ww * k + 0.5)), math.max(1, math.floor(wh * k + 0.5))
+    local c = state.gameCanvas
+    if not c or c:getWidth() ~= cw or c:getHeight() ~= ch then
+      c = G.newCanvas(cw, ch, { dpiscale = 1 })
+      c:setFilter("linear", "linear")
+      state.gameCanvas = c
+    end
+    G.push("all")
+    G.setCanvas(c)
+    G.origin()
+    G.setScissor()
+    G.setShader()
+    G.setBlendMode("alpha")
+    G.clear(0, 0, 0, 1)
+    G.setColor(1, 1, 1, 1)
+    G.draw(ctx.canvas, 0, 0, 0, cw / ww, ch / wh)
+    G.pop()
+    state.gameNext = now + 1 / 60
+    if c.requestImageData and c.pollImageData and pcall(c.requestImageData, c) then
+      state.gameRead = c
+    elseif c.newImageData then
+      local okI, image = pcall(c.newImageData, c)
+      if okI and image then
+        local okS, shown = pcall(SS.push, image, cw, ch, 0x000000, "secondary:cover")
+        state.ssShown = okS and shown ~= false
+      end
+    end
+  end
+
+  -- the engine hands its finished frame to render.output only when a mod asks
+  mod.hooks:wrap("render.output_enabled", function(next)
+    if mod.generation == 3 and state.mode == "handheld" then return true end
+    return next()
+  end, -10000)
+
   mod.hooks:wrap("render.output", function(next, ctx)
+    if mod.generation == 3 and state.mode == "handheld" and type(ctx) == "table" and ctx.canvas then
+      local okG, err = pcall(pushGame, ctx)
+      if not okG and not state.pushGameWarned then
+        state.pushGameWarned = true
+        mod.log:warn("sending the game to the second display failed: %s", tostring(err))
+      end
+      local G = love.graphics
+      G.push("all")
+      G.setCanvas()
+      G.origin()
+      G.setScissor()
+      G.clear(0, 0, 0, 1)
+      G.pop()
+      return true
+    end
     if mod.generation == 3 and state.mode == "split" and state.rect and type(ctx) == "table"
         and ctx.canvas and Cutout and Cutout:active() then
       local okFx, FX = pcall(require, "src.render.ShaderFX")
@@ -1202,14 +1692,37 @@ return function(mod)
     if HdTop then HdTop.standDown() end
   end
 
+  -- Super Training's regimens run at 1X whatever the game's speed (fast-forward) is set to: the
+  -- regimen, its fade in and its results tick on the engine's logic steps (their layer is a
+  -- menu layer), so a GAME SPEED above NORMAL would play the balloon, the attacks and the timer
+  -- that many times faster
+  local function regimenUp()
+    local s = Training and Training.session
+    if type(s) ~= "table" then return false end
+    if s.mode == "regimen" or s.mode == "result" then return true end
+    local tr = s.trans
+    return type(tr) == "table" and (tr.to == "regimen" or tr.from == "result")
+  end
+  if not (mod.supports and not mod:supports("hooks", "core.logic_speed")) then
+    mod.hooks:wrap("core.logic_speed", function(next, game)
+      if regimenUp() then return 1 end
+      return next(game)
+    end)
+  end
+
   mod.hooks:wrap("render.hud", function(next, game, viewport)
     syncHd()
-    local ok, err = pcall(tick, game, viewport)
-    if not ok then mod.log:warn("frame tick failed: %s", tostring(err)) end
-    if HdTop and mod.generation == 3 then
+    -- the top screen first, PlayNav's touch screen over it: on the OVERLAY layout the panel sits
+    -- on the game's picture, and a filling top screen (a regimen) would otherwise paint it out
+    if HdTop and mod.generation == 3 and state.mode == "handheld" then
+      -- the top screen is the game's frame on the second display, drawn into it plainly
+      HdTop.standDown()
+    elseif HdTop and mod.generation == 3 then
       local okT, errT = pcall(HdTop.draw, viewport)
       if not okT then mod.log:warn("top screen overlay failed: %s", tostring(errT)) end
     end
+    local ok, err = pcall(tick, game, viewport)
+    if not ok then mod.log:warn("frame tick failed: %s", tostring(err)) end
     return next(game, viewport)
   end)
 
@@ -1414,6 +1927,14 @@ return function(mod)
     tapButton = function(btn) return mod.input:tap(state.game, btn) end,
     lastViewport = function() return state.lastViewport end,
     surfaceWanted = surfaceWanted,
+    -- DISPLAY MODE after K-GEAR is resolved; gearMode(v) stands in for Kanto Gear's display_mode
+    displayChoice = function() return displayChoice() end,
+    gearMode = function(v) state.gearOverride = v end,
+    -- a stand-in for Kanto Gear's options ({ display_mode, combined_layout, ... }); nil = the Gear's
+    gearOptions = function(t) state.gearOptions = t; state.gearOverride = t and t.display_mode or nil end,
+    gearDisplay = function() return gearDisplay() end,
+    layoutCache = function() return layoutCache end,
+    displayOption = function() return mod.options:get("display") end,
     setRefreshHost = function(fakeHost)
       if not Amie then return false end
       for k, v in pairs(fakeHost) do amieHost[k] = v end
@@ -1433,9 +1954,79 @@ return function(mod)
     extract = function() return Extract end,
     assets = function() return Assets end,
     setImportGate = function(on) gateDisabled = on == false end,
-    keepArt = function() state.keepArt = true end,
+    -- a driver run: the player's art is left alone, and so are PlayNav's options on disk - a
+    -- driver sets them in memory (DISPLAY MODE and the like) and the engine saves the loader's
+    -- options as it goes, so every options write in the run carries PlayNav's options as they
+    -- were when the run began
+    keepArt = function()
+      state.keepArt = true
+      if state.optionsGuarded then return end
+      state.optionsGuarded = true
+      local loader = state.game and state.game.mods
+      local bucket = loader and loader.modOptions and loader.modOptions[mod.id]
+      if type(bucket) ~= "table" then
+        mod.log:warn("driver run: PlayNav's options not reachable yet; options.lua is not guarded")
+        state.optionsGuarded = false
+        return
+      end
+      local snap = {}
+      for k, v in pairs(bucket) do snap[k] = v end
+      local okS, SaveData = pcall(require, "src.core.SaveData")
+      if not (okS and type(SaveData) == "table") then return end
+      for _, name in ipairs({ "saveSessionOptions", "saveOptions" }) do
+        local write = SaveData[name]
+        if type(write) == "function" then
+          SaveData[name] = function(opts, ...)
+            -- only the values a driver changed go back, and only for keys the write holds:
+            -- nothing is added (the engine prunes keys PlayNav no longer defines)
+            local mo = type(opts) == "table" and opts.modOptions or nil
+            local live = mo and mo[mod.id]
+            local changed = nil
+            if type(live) == "table" then
+              for k, v in pairs(live) do
+                if snap[k] ~= nil and snap[k] ~= v then
+                  changed = changed or {}
+                  changed[k] = v
+                  live[k] = snap[k]
+                end
+              end
+            end
+            local ok, a, b, c = pcall(write, opts, ...)
+            if changed then for k, v in pairs(changed) do live[k] = v end end
+            if not ok then error(a, 0) end
+            return a, b, c
+          end
+        end
+      end
+    end,
+    -- the PLAYNAV screen's stored choice and the USE ROM ASSETS option as PlayNav reads it
+    assetChoice = function()
+      return { read = readChoice, write = writeChoice, remove = function()
+        pcall(mod.cache.delete, mod.cache, CHOICE)
+      end, romOn = romOn, apply = applyRomOption }
+    end,
+    -- a driver's USE ROM ASSETS for this run only (options.lua untouched); nil = the option's
+    forceRom = function(on) state.forceRom = on; applyRomOption() end,
+    -- false: the card image's UI art again (for side-by-side shots); true: the engine's
+    -- false: the card image's effects again; true: PlayNav's own
+    engineMusic = function(on)
+      if Assets then
+        Assets.engineSound = (on ~= false and Chip) and Chip.sound or nil
+      end
+      return Chip
+    end,
+    -- false: the card image's text again; true: PlayNav's own words
+    engineText = function(on)
+      if Training then Training.words = (on ~= false) and TrainingWords or nil end
+      if Amie and Amie.text then Amie.text.ownText = on ~= false end
+      return Training and Training.words
+    end,
+    engineUi = function(on)
+      if Assets then Assets.engine = (on ~= false and UiArt) and engineArt or nil end
+      return UiArt
+    end,
   }
 
   mod.log:info("PlayNav ready (gen %s, touch screen %s)", tostring(mod.generation),
-    tostring(mod.options:get("display")))
+    tostring(mod.options:get("display_mode")))
 end

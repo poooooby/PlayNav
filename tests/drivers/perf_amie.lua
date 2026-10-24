@@ -39,7 +39,7 @@ local function body(game, log)
   local X = game.mods and game.mods.exports and game.mods.exports.play_nav
   if not X then log("FAIL no exports"); return end
   game.mods.modOptions.play_nav = game.mods.modOptions.play_nav or {}
-  game.mods.modOptions.play_nav.display = "split"
+  game.mods.modOptions.play_nav.display_mode = "combined"
   game.mods.hooks:removeOwner("kanto_gear")
   if game.mods.events then game.mods.events:removeOwner("kanto_gear") end
   if X.import then

@@ -45,7 +45,19 @@ local function body(game, log)
   local R = X.amie
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   local opts = loader.modOptions.play_nav
-  opts.display = "split"
+  -- the player's DISPLAY MODE is put back before the run ends: the engine saves the loader's
+  -- options to options.lua as it quits
+  local display0, safe0 = opts.display_mode, opts.bottom_safe_area
+  opts.display_mode = os.getenv("PROBE_DISPLAY") or "combined"   -- combined | fullscreen
+  opts.bottom_safe_area = tonumber(os.getenv("PROBE_SAFE")) or safe0   -- BOTTOM SAFE AREA %
+  -- PROBE_GEAR_LAYOUT=auto|stacked|side|overlay: a stand-in Kanto Gear on Combined Screen with
+  -- that layout (PROBE_GEAR_CORNER for overlay), followed through K-GEAR
+  if os.getenv("PROBE_GEAR_LAYOUT") then
+    opts.display_mode = "kanto_gear"
+    X._test.gearOptions({ display_mode = "combined", combined_layout = os.getenv("PROBE_GEAR_LAYOUT"),
+      overlay_corner = os.getenv("PROBE_GEAR_CORNER") or "bottom_right", secondary_size = "auto",
+      bottom_safe_area = 0, combined_primary = "game" })
+  end
   if X.import then waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120) end
   log("open room:", R.open())
   U.wait(10)
@@ -65,10 +77,16 @@ local function body(game, log)
     U.wait(10)
     log(("%dx%d picture %-22s surface %s"):format(size[1], size[2], picture(), surface()))
     U.shot(game, ("%s/split_%dx%d.png"):format(dir, size[1], size[2]))
+    do
+      local c = X._test.layoutCache and X._test.layoutCache()
+      log(("  pad reserve %s, layout %s"):format(tostring(c and c.reserve), tostring(c and c.lay and c.lay.mode)))
+    end
   end
   R.session.finish()
   U.wait(5)
   log("closed: picture back to", picture(), "mode", X.state().mode)
+  opts.display_mode, opts.bottom_safe_area = display0, safe0
+  X._test.gearOptions(nil)
 end
 
 return function(game)

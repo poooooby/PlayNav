@@ -23,6 +23,36 @@ return function(mod, Files, Player)
     return ok and b or nil
   end
 
+  -- PlayNav's own copy of a pack's layouts and clips (data/lyt/<pack>.lua, made by
+  -- tools/lyt_data.lua: the same tables src/lytfile.lua parses, as numbers), read when the
+  -- card image's files are not there; the pane tree's back links are rebuilt here
+  S.packs = {}
+  local function packData(pack)
+    if S.packs[pack] == nil then
+      local t = false
+      local src = mod.read and mod:read("data/lyt/" .. pack .. ".lua")
+      local chunk = src and load(src, "=data/lyt/" .. pack, "t", {})
+      local ok, res = pcall(chunk or error)
+      if ok and type(res) == "table" then t = res end
+      S.packs[pack] = t
+    end
+    return S.packs[pack] or nil
+  end
+  local function relink(L)
+    L.byName = {}
+    local function walk(p, parent)
+      p.parent = parent
+      L.byName[p.name] = p
+      for _, c in ipairs(p.children or {}) do walk(c, p) end
+    end
+    if L.root then walk(L.root, nil) end
+    return L
+  end
+  local function own(pack, kind, name)
+    local d = packData(pack)
+    return d and d[kind] and d[kind][name] or nil
+  end
+
   function S.layout(pack, name)
     local key = pack .. "/" .. name
     if S.layouts[key] == nil then
@@ -33,6 +63,10 @@ return function(mod, Files, Player)
         if ok then L, why = res, err else why = res end
       end
       if not L and b then mod.log:warn("layout %s did not parse (%s); the screen keeps its drawn fallback", key, tostring(why)) end
+      if not L and not b then
+        L = own(pack, "layouts", name)
+        if L then relink(L) end
+      end
       S.layouts[key] = L or false
     end
     return S.layouts[key] or nil
@@ -46,6 +80,8 @@ return function(mod, Files, Player)
       if b then
         local ok, res = pcall(Files.clip, b)
         C = ok and res or nil
+      else
+        C = own(pack, "clips", name)
       end
       S.clips[key] = C or false
     end

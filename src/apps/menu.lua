@@ -18,7 +18,7 @@ return function(mod, Pointer, deps)
 
   local W, H = 256, 178
   local SH, DH = H, 0
-  app.CLOSE = { x = 236, y = -8, r = 10 }
+  app.CLOSE = { x = 237, y = 3, r = 12 }   -- in the banner's band
   local CARD = { x = 16, w = 224, h = 58, gap = 12, top = 36 }
   local SINK_S, FADE_S = 0.14, 0.25
 

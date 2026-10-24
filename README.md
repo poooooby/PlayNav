@@ -36,15 +36,12 @@ on a touch screen below the game or on a device's second display.
 
 ### Core Mechanics
 
-- 📱 **A touch screen of your own:** On a single screen (a phone, a PC window) the game and the
-  touch screen are laid out like a New 3DS XL: the game as large as it fits, and the touch screen
-  at the same height. Held upright, the game is at the top with the touch screen just under it,
-  leaving room for the on-screen pad below. Held sideways, the game is on the left and the touch
-  screen beside it, both along the top. While you walk the overworld with Super Training's home
-  screen open, the touch screen widens to sit on the pad and the overworld fills everything above
-  it (or the whole left side, held sideways). On a device with a second display, such as the AYN Thor,
-  the touch screen moves there at its sharpest and the game keeps the whole main screen.
-  It only appears when you need it, so other mods can use that screen the rest of the time.
+- 📱 **A touch screen of your own:** It appears only when you call PlayNav, laid out exactly as
+  Kanto Gear lays out its own screen, with the same Display Mode choices: **Fullscreen Swap**
+  (PlayNav or the game fills the window, Y swaps them), **Combined Screen** (stacked, side by side,
+  or a panel over the game) or **Separate Screens** (a second display, such as the AYN Thor's).
+  With **K-Gear** it simply follows Kanto Gear's settings, so switching between the two is
+  seamless. The touch screen is always drawn at your display's full sharpness.
 - 🧸 **Pokémon-Amie:** Spend time with your Pokémon to raise its affection, and it fights better
   for you.
 - 🏋️ **Super Training:** Raise your Pokémon's EVs with training bags and shooting regimens.
@@ -195,9 +192,19 @@ Open **OPTIONS → MODS → PlayNav**.
 | Option | Choices | Default | What it does |
 |---|---|---|---|
 | **AFFECTION BENEFITS** | On / Off | On | Affection's bonuses in battle. Off for vanilla battles. |
-| **TOUCH SCREEN** | Auto / Second Screen / Split Screen / Off | Auto | Where the touch screen goes. Auto uses a second display when there is one, otherwise splits the window. |
+| **DISPLAY MODE** | K-Gear / Fullscreen Swap / Combined Screen / Separate Screens | K-Gear | Where the touch screen goes when you call PlayNav (the START menu's PLAYNAV or Kanto Gear's apps; it never shows otherwise). The same choices and settings as Kanto Gear's Display Mode, so every dual-screen mod reads alike. **K-Gear** uses Kanto Gear's own settings for all of this (the rows below hide), so you set it once in the Gear; without Kanto Gear it uses a second display when there is one, else Combined Screen. |
+| **START SCREEN** | Game / PlayNav | PlayNav | Fullscreen Swap: which one shows first when you call PlayNav. Y (F6 on a keyboard) swaps them. |
+| **LAYOUT** | Auto / Stacked / Side by Side / Overlay | Auto | Combined Screen: the game and PlayNav one above the other, side by side, or PlayNav as a panel over the game. |
+| **PRIMARY VIEW** | Game / PlayNav | Game | Combined Screen: which one gets the larger part. |
+| **SECONDARY SIZE** | Auto / 20% – 80% | Auto | Combined Screen: how much of the window the smaller part takes. |
+| **BOTTOM SAFE AREA** | Off / 10% – 40% | Off | Combined Screen: keep the bottom of the window free for touch controls (a phone's on-screen buttons). |
+| **OVERLAY CORNER** | Top Left / Top Right / Bottom Left / Bottom Right | Bottom Right | Combined Screen, Overlay: where the panel sits. |
+| **OVERLAY BUTTON** | Off / R3 / L3 / F7 | Off | Combined Screen, Overlay: a button that hides and shows the panel. |
+| **PLAYNAV OUTPUT** | Auto / Main Screen / Second Screen | Auto | Separate Screens: which display PlayNav uses. Main Screen keeps PlayNav on your main screen and sends the game to the second display. |
+| **QUICK SWAP (Y)** | On / Off | Off | Y (F6 on a keyboard) swaps the game and PlayNav. |
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
-| **EXTRACT AMIE ART ON BOOT** | On / Off | On | Unpack the art from your card image automatically on the first start after you add it. |
+| **USE ROM ASSETS** | On / Off | On | On: the 3DS game's own art, layouts, music, sounds and text, from your Omega Ruby or Alpha Sapphire copy (nothing of PlayNav's stands in). Off: PlayNav's own, no copy needed. **Use fallback assets** on the PlayNav screen turns it off; turning it back on checks for your copy again. |
+| **EXTRACT OR/AS ASSETS ON BOOT** | On / Off | On | Once you have chosen to extract, resume or start the unpacking automatically at the next start. |
 | **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
 | **HAPTICS** | High / Medium / Low / Off | Medium | How strongly your phone or handheld vibrates for touches and play: menu presses, petting, bites, high fives, minigame hits, punching bags and Balloon Bot hits. No effect on a PC. |
@@ -221,11 +228,13 @@ Open **OPTIONS → MODS → PlayNav**.
    | **Size** | 2,147,483,648 bytes (2 GiB) |
    | **MD5** | `0563f9dee1b95de32d579e40c20e2bfc` |
 
-   The launcher keeps a private copy. On the next start the PlayNav screen
-   unpacks the art, music, sound effects and text with a progress bar — a few seconds, in the
-   background while you play — then tells you the copy can be removed under Imported files.
-   If the automatic start is off, the same screen offers **Begin extraction** whenever you
-   open Pokémon-Amie or Super Training.
+   The launcher keeps a private copy. The first time PlayNav starts, its screen
+   asks: **Begin extraction** unpacks the art, music, sound effects and text with a progress
+   bar (a few seconds, in the background while you play), then tells you the copy can be
+   removed under Imported files; **Use fallback assets** uses PlayNav's own instead. Without a
+   copy, or with the wrong one, the screen says so (**OR/AS ROM not found** / **Incorrect ROM
+   added**) and offers the fallback assets; if you add the right copy later, PlayNav offers
+   it again on the next start.
 
 ## 🔗 Works With
 

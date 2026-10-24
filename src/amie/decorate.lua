@@ -1,4 +1,5 @@
--- DECORATE, played from the game's own layout (customize.bclyt, a/1/4/4 entry 0). The wallpaper fills the screen under a header with the wallpaper's
+-- DECORATE, laid out as the game's customize (PANES, src/amie/panes.lua; its clips' motion in
+-- code). The wallpaper fills the screen under a header with the wallpaper's
 -- name and gold < > (they slide to the next owned wallpaper: bg_move_left / right); along
 -- the bottom the "Interior Items" and "Poke Puffs" pills open the drawer (goodsFolder_up:
 -- a 5 x 3 page of what is owned, with counts; < > turn pages, item_scroll_left / right) and
@@ -30,10 +31,80 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   local RIGHT = { "2u", "2w", "2y", "30", "32", "34", "36", "38", "3a", "3c", "3e", "3g", "3i", "3k", "3m" }
   local RIGHTC = { "5f", "5l", "5r", "5x", "63", "5h", "5n", "5t", "5z", "65", "5j", "5p", "5v", "61", "67" }
   local SEAT_PANES = { "6t", "6v", "6x" }   -- Decor.SEATS in order
-  local ROOM_PANES = { "6t", "6v", "6x", "ad" }
-  local LOW_PANES = { "6s", "9z", "a5", "3q", "v", "b4", "1x" }
+  local LOW_PANES = { "ac", "a9", "9z", "a5", "3q", "v", "b4", "1x" }
 
-  local P, Pfail = nil, false
+  -- the screen's panes: name, parent, tx, ty (the middle, from the parent's, y up), w, h, and
+  -- its picture (lyt/amie_deco/<art>), words, or a window drawn here; panes with none of them
+  -- are hit boxes
+  local BLACK = { 0, 0, 0 }
+  local WORDS = { size = 19, color = BLACK }
+  local LIGHT = { size = 19, color = { 1, 1, 1 } }
+  local COUNT = { size = 16, color = { 1, 1, 1 }, outline = BLACK }
+  local PANES = {
+    -- where a held thing can go: the room dimmed and the puff's spot, or the seats
+    { "6z", nil, 0, 0, 30, 40, hidden = true },
+    { "9t", "6z", 0, 0, 320, 240, window = "dim" },
+    { "6t", "6z", 0, 26, 28, 18, art = "area_seat" },
+    { "6v", "6z", 35, 1, 28, 18, art = "area_seat" },
+    { "6x", "6z", -35, 1, 28, 18, art = "area_seat" },
+    { "ad", "6z", 0, 4, 28, 17, art = "area_okashi" },
+    -- the header: the lilac bar, the name on its paper tab, the wallpaper arrows
+    { "b1", nil, 0, 102, 320, 36, art = "bar_title", tile = 10 },
+    { "12", nil, 0, 0, 30, 40 },
+    { "af", "12", 0, 105, 280, 36, window = "tab" },
+    { "y", "12", 0, 106, 180, 20, text = WORDS },
+    { "6p", "12", -108, 104, 60, 40 },
+    { "6q", "12", 108, 104, 60, 40 },
+    { "f", nil, -108, 104, 30, 30, art = "bgbutton_L" },
+    { "h", nil, 108, 104, 30, 30, art = "bgbutton_R" },
+    -- the drawer, folded below the screen until it comes up
+    { "v", nil, 0, 0, 30, 40 },
+    { "j", "v", 0, -185, 320, 202, window = "drawer" },
+    { "az", "j", 0, 56, 320, 24, art = "goods_win_line_up" },
+    { "ax", "j", 0, -53, 320, 24, art = "goods_win_line_dw" },
+    { "t", "v", 0, -79, 136, 32, art = "tab_goods", hidden = true },
+    { "w", "t", -47, 0, 16, 22, art = "tab_arrow", rz = 90 },
+    { "10", "t", 10, 0, 90, 20, text = LIGHT },
+    { "2t", "v", 0, -159, 30, 40 },
+    { "9s", "2t", 0, 0, 10, 10 },
+    { "al", "v", -140, -177, 30, 30, art = "bgbutton_L" },
+    { "an", "v", 140, -177, 30, 30, art = "bgbutton_R" },
+    { "aq", "v", -143, -177, 35, 60 },
+    { "ap", "v", 143, -177, 35, 60 },
+    -- the foot: the two pills, the session's words, the corner button
+    { "9z", nil, -90, -106, 110, 32, art = "button_system" },
+    { "a1", "9z", 0, 0, 90, 20, text = WORDS },
+    { "a5", nil, 40, -106, 110, 32, art = "button_system" },
+    { "a3", "a5", 0, 0, 90, 20, text = WORDS },
+    { "ac", nil, -90, -106, 100, 25 },
+    { "a9", nil, 40, -106, 100, 25 },
+    { "b4", nil, -14, -107, 298, 36, window = "tab", hidden = true },
+    { "1x", nil, -14, -105, 270, 20, text = WORDS, hidden = true },
+    { "3q", nil, 145, -106, 30, 30 },
+    { "3o", "3q", 0, 0, 30, 30, art = "button_exit" },
+    { "6o", "3q", 0, 0, 30, 30 },
+  }
+  -- the drawer's cells, five across and three down on each page, the pages 280 apart on the
+  -- anchor 9s (a page turn slides it), each with its count at its corner
+  for set, x0 in pairs({ [MID] = -100, [LEFT] = -380, [RIGHT] = 180 }) do
+    local counts = set == MID and MIDC or (set == LEFT and LEFTC or RIGHTC)
+    for i, name in ipairs(set) do
+      local c, r = (i - 1) % 5, math.floor((i - 1) / 5)
+      PANES[#PANES + 1] = { name, "9s", x0 + 50 * c, 16 - 40 * r, 40, 40 }
+      PANES[#PANES + 1] = { counts[i], name, 10, -13.5, 20, 10, text = COUNT }
+    end
+  end
+
+  -- the clips' motion (the game's frames at FPS): the drawer folding up / down, the wallpaper
+  -- and the drawer's pages sliding, the buttons' press
+  local FOLDER_F, SLIDE_F, PRESS_F = 5, 8, 5
+  local FOLDER_UP = 157                       -- v rises this far to open the drawer
+  local PAGE_W = 280
+  local PRESS = { { 0, 0.8 }, { 1, 1 }, { 3, 0.95 }, { 5, 1 } }   -- L_select / button_select's scale
+  local folder = { up = false, f = FOLDER_F }
+  local presses = {}           -- pane -> frames since its press
+
+  local P = nil
   local mode = "browse"        -- browse | drawer | hold
   local tab = "interior"       -- interior | puffs
   local page = { interior = 1, puffs = 1 }
@@ -75,27 +146,56 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   local function applyShape()
     if not P or (P.shapeLH == LH and not app.shapeDirty) then return end
     P.shapeLH, app.shapeDirty = LH, false
-    if D <= 0 then
-      P.stretchY, P.stretchMode, P.adjust = nil, nil, nil
-      return
-    end
-    P.stretchY, P.stretchMode = LH / 240, "backdrop"
-    local adj = {}
-    for _, n in ipairs(ROOM_PANES) do adj[n] = { dy = -D / 2 } end
+    if D <= 0 then P.adjust = nil; return end
+    local adj = { ["6z"] = { dy = -D / 2 } }
     for _, n in ipairs(LOW_PANES) do adj[n] = { dy = -D } end
     P.adjust = adj
   end
 
+  -- the windows: the paper tab under the header's name and the foot's words (bg_tab, its
+  -- corner mirrored round), the drawer (the lilac bar along its top, torn edge up, and its foot,
+  -- white between), the dim over the room while a puff is held (black at 150)
+  local function tabWindow(G2, x0, y0, w, h, a)
+    local img = art("lyt/amie_deco/bg_tab")
+    if not img then return end
+    local iw, ih = img:getDimensions()
+    local kx, ky = w / 2 / iw, h / 2 / ih
+    G2.setColor(1, 1, 1, a)
+    G2.draw(img, x0, y0, 0, kx, ky)
+    G2.draw(img, x0 + w, y0, 0, -kx, ky)
+    G2.draw(img, x0, y0 + h, 0, kx, -ky)
+    G2.draw(img, x0 + w, y0 + h, 0, -kx, -ky)
+  end
+  local barQuad = nil
+  local function drawerWindow(G2, x0, y0, w, h, a)
+    local bar, white = art("lyt/amie_deco/bar_title"), art("lyt/amie_deco/goods_win_c")
+    if not (bar and white) then return end
+    local bw, bh = bar:getDimensions()
+    local ww, wh = white:getDimensions()
+    G2.setColor(1, 1, 1, a)
+    G2.draw(white, x0, y0 + bh, 0, w / ww, (h - 2 * bh) / wh)
+    bar:setWrap("repeat", "clamp")
+    if not barQuad then barQuad = G2.newQuad(0, 0, w, bh, bw, bh) else barQuad:setViewport(0, 0, w, bh, bw, bh) end
+    G2.draw(bar, barQuad, x0, y0 + bh, 0, 1, -1)
+    G2.draw(bar, barQuad, x0, y0 + h - bh)
+  end
+  local function dimWindow(G2, x0, y0, w, h, a)
+    G2.setColor(0, 0, 0, a * 150 / 255)
+    G2.rectangle("fill", x0 - 200, y0 - 400, w + 400, h + 800)
+  end
+
   local function screen()
-    if P or Pfail then return P end
-    local S = mod.lyt
-    P = S and S.open("amie_deco", "customize.bclyt", { "amie_deco" }) or nil
-    if not P then Pfail = S == nil; return nil end
-    P:set("74", "visible", false)   -- the wallpapers are drawn under the room's items, by us
+    if P then return P end
+    if not mod.panes then return nil end
+    P = mod.panes.new(PANES, { art = art, prefix = "lyt/amie_deco/",
+      windows = { tab = tabWindow, drawer = drawerWindow, dim = dimWindow } })
     app.shapeDirty = true
     return P
   end
   app.screen = screen
+
+  local function press(name) presses[name] = 0 end
+  local function fold(up) folder.up, folder.f = up, 0 end
 
   -- the drawer's pages for the open tab: { category, items = { { id, count, puff } } }.
   -- Interior Items go by the game's categories (a page per category, owned items only; a
@@ -126,10 +226,6 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   end
   app.pageList = pageList
 
-  -- the counts: white with a black outline, readable on the white drawer and on the art
-  local COUNT_TEXT = { align = "center", valign = "center", color = { 255, 255, 255, 255 }, outline = { 0, 0, 0, 255 } }
-  local CENTRED = { align = "center", valign = "center" }
-
   local function fillCells(panes, counts, pg)
     local list = pg and pg.items or {}
     for i, name in ipairs(panes) do
@@ -145,7 +241,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
         end
         P:set(name, "alpha", e.count > 0 and 255 or 110)
         P:set(counts[i], "visible", true)
-        P:setText(counts[i], tostring(e.count), COUNT_TEXT)
+        P:setText(counts[i], tostring(e.count))
       else
         P:set(name, "visible", false)
       end
@@ -167,13 +263,12 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     -- the drawer's tab names the page's category (the game's tab_goods, its arrow and text)
     local cat = list[page[tab]] and list[page[tab]].category
     for _, nme in ipairs({ "t", "w", "10" }) do P:set(nme, "visible", cat ~= nil) end
-    if cat then P:setText("10", cat, CENTRED) end
+    if cat then P:setText("10", cat) end
   end
 
   local function wallName(id) return Decor.name(id) end
 
-  -- header, pills and the corner button for the current mode (only when something changed:
-  -- a clip played again starts over, and the texture clips' answer is on their last frame)
+  -- header, pills and the corner button for the current mode (only when something changed)
   local dressedClips, dressedKey = nil, nil
   local function dress()
     if not P then return end
@@ -184,10 +279,13 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     local clipsKey = mode .. "/" .. tab
     if clipsKey ~= dressedClips then
       dressedClips = clipsKey
+      -- the open drawer's pill pale (goods_btn_anm), the corner the check, the return or the
+      -- tray (button_Tex_back / close / itemreturn)
       local lit = mode == "drawer"
-      P:play((lit and tab == "interior") and "goods_btn_anm" or "goods_btn_anm_def", { from = 1 })
-      P:play((lit and tab == "puffs") and "goods_btn_anm2" or "goods_btn_anm_def2", { from = 1 })
-      P:play(holding and "button_Tex_itemreturn" or (mode == "drawer" and "button_Tex_close" or "button_Tex_back"), { from = 1 })
+      P:setImage("9z", (lit and tab == "interior") and "lyt/amie_deco/button_system_02" or "lyt/amie_deco/button_system")
+      P:setImage("a5", (lit and tab == "puffs") and "lyt/amie_deco/button_system_02" or "lyt/amie_deco/button_system")
+      P:setImage("3o", holding and "lyt/amie_deco/button_itemreturn"
+        or (mode == "drawer" and "lyt/amie_deco/button_back" or "lyt/amie_deco/button_exit"))
       -- the category tab only over the open Interior Items drawer (refreshCells names it)
       if mode ~= "drawer" then for _, nme in ipairs({ "t", "w", "10" }) do P:set(nme, "visible", false) end end
     end
@@ -199,16 +297,13 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     dressedKey = key
     P:set("f", "visible", not holding)
     P:set("h", "visible", not holding)
-    P:setText("y", name, CENTRED)
-    P:setText("a1", tx("interior", "Interior Items"), CENTRED)
-    P:setText("a3", tx("puffsTab", "Poke Puffs"), CENTRED)
+    P:setText("y", name)
+    P:setText("a1", tx("interior", "Interior Items"))
+    P:setText("a3", tx("puffsTab", "Poke Puffs"))
     -- placement: a puff dims the room and shows its spot; an item shows the free seats
     P:set("6z", "visible", holding)
     P:set("9t", "visible", holding and held and held.puff or false)
     P:set("ad", "visible", holding and held and held.puff or false)
-    -- the layout's area_ng panes (9v / 9x) stay hidden: the game's code never shows them
-    P:set("9v", "visible", false)
-    P:set("9x", "visible", false)
     -- the three seats while a cushion is held (the game's 0x4f78: all three, taken or not; none
     -- for an object, which ignores them)
     local seats = holding and held and not held.puff and Decor.isCushion(held.id) or false
@@ -216,20 +311,20 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     -- the session's words in the game's bottom bar
     P:set("b4", "visible", words ~= nil)
     P:set("1x", "visible", words ~= nil)
-    if words then P:setText("1x", words, CENTRED) end
+    if words then P:setText("1x", words) end
   end
 
   local function openDrawer(t)
     tab = t
     mode = "drawer"
     refreshCells()
-    if P then P:play("goodsFolder_up") end
+    fold(true)
     G.se("drawer_open", "SE_SELECT")
   end
   local function closeDrawer()
     if mode ~= "drawer" then return end
     mode = "browse"
-    if P then P:play("goodsFolder_down") end
+    fold(false)
   end
 
   -- ------- actions
@@ -257,7 +352,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       held = { id = e.id, x = rx, y = ry - Decor.FOOT + (r and r.h or 40) / 2 }
     end
     held.pointer, held.ox, held.oy, held.fresh = pointer, held.x - rx, held.y - ry, true
-    if P then P:play("goodsFolder_down") end
+    fold(false)
     mode = "hold"
     G.se("hold_item", "SE_SELECT")
   end
@@ -317,31 +412,24 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     local at = 1
     for i, r in ipairs(walls) do if r.id == room.wallpaper then at = i end end
     local to = walls[(at - 1 + dir) % #walls + 1].id
-    -- > brings the next one in from the right (the room slides left)
-    local clip = dir > 0 and "bg_move_left" or "bg_move_right"
-    slide = { dir = dir, to = to, clip = clip }
-    if P then
-      P:play(dir > 0 and "R_select" or "L_select")
-      P:play(clip)
-    end
+    -- > brings the next one in from the right (the room slides left: bg_move_left)
+    slide = { dir = dir, to = to, f = 0 }
+    press(dir > 0 and "h" or "f")
     G.se("select2", "SE_SELECT")
   end
 
   local function turnPage(dir)
     if turning then return end
     if #pageList() < 2 then return end
-    local clip = dir > 0 and "item_scroll_left" or "item_scroll_right"
-    turning = { dir = dir, clip = clip }
-    if P then
-      P:play("itembutton_select")
-      P:play(clip)
-    end
+    -- > slides the pages left (item_scroll_left)
+    turning = { dir = dir, f = 0 }
+    press("al"); press("an")
     G.se("select", "SE_SELECT")
   end
 
   local function leave()
     if fade then return end
-    if P then P:play("button_select") end
+    press("3q")
     G.se("deco_done", "SE_SELECT")
     fade = { t = 0, dir = 1, after = function()
       Store.saveRoom()
@@ -364,9 +452,6 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     local bx, by, bw, bh = P:box(name)
     if not bx then return false end
     pad = pad or 0
-    -- a mirrored pane (the right arrow's 6q is -60 wide) reports a negative size
-    if bw < 0 then bx, bw = bx + bw, -bw end
-    if bh < 0 then by, bh = by + bh, -bh end
     return x >= bx - pad and x <= bx + bw + pad and y >= by - pad and y <= by + bh + pad
   end
 
@@ -442,7 +527,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     end
     if ev.phase ~= "released" or not Pointer.isTap(rec, 16, 1.0) then return end
     if boxHit("6o", lx, ly, 4) then
-      if P then P:play("button_select") end
+      press("3q")
       if mode == "hold" then putBack()
       elseif mode == "drawer" then closeDrawer(); G.se("back", "SE_SELECT")
       else leave() end
@@ -475,10 +560,9 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     mode, held, settle, turning, slide = "browse", nil, nil, nil, nil
     dressedClips, dressedKey = nil, nil
     fade = { t = 0, dir = -1 }
-    if P then
-      P:play("goodsFolder_down", { from = 5 })
-      for _, name in ipairs(MID) do P:clear(name, "tx") end
-    end
+    folder.up, folder.f = false, FOLDER_F
+    presses = {}
+    if P then P:set("9s", "tx", 0) end
   end
 
   function app:update(dt)
@@ -487,7 +571,14 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     screen()
     if away then onEnter() end
     dt = dt or 0
-    if P then P:advance(dt * FPS) end
+    local df = dt * FPS
+    folder.f = math.min(FOLDER_F, folder.f + df)
+    for name, f in pairs(presses) do
+      presses[name] = f + df
+      if f + df >= PRESS_F then presses[name] = nil end
+    end
+    if slide then slide.f = math.min(SLIDE_F, slide.f + df) end
+    if turning then turning.f = math.min(SLIDE_F, turning.f + df) end
     if fade then
       fade.t = fade.t + dt
       if fade.t >= FADE_S then
@@ -501,19 +592,18 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       if settle.t > 0.25 then settle = nil end
     end
     -- the wallpaper's slide ends: the new one is the room's
-    if slide and (not P or P:finished(slide.clip)) then
+    if slide and slide.f >= SLIDE_F then
       local decor, room = records()
       Decor.setWallpaper(room, decor, slide.to)
       Store.saveRoom()
-      if P then P:stop(slide.clip) end
       slide = nil
     end
     -- a page's slide ends: the middle row takes the new page
-    if turning and (not P or P:finished(turning.clip)) then
+    if turning and turning.f >= SLIDE_F then
       local n = #pageList()
       page[tab] = (page[tab] - 1 + turning.dir) % n + 1
-      if P then P:stop(turning.clip) end
       turning = nil
+      if P then P:set("9s", "tx", 0) end
       refreshCells()
     end
     app.live = true
@@ -551,6 +641,31 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   end
 
   -- the game's 320x240 picture, its Poke Ball's middle on the puff's spot (Decor.wallPlace)
+  -- the clips' motion onto the panes
+  local function pressScale(name)
+    local f = presses[name]
+    if not f then return 1 end
+    for i = 2, #PRESS do
+      local a, b = PRESS[i - 1], PRESS[i]
+      if f <= b[1] then
+        local t = (f - a[1]) / (b[1] - a[1])
+        return a[2] + (b[2] - a[2]) * t * t * (3 - 2 * t)
+      end
+    end
+    return 1
+  end
+  local function animate()
+    local t = folder.f / FOLDER_F
+    local open = folder.up and t or 1 - t
+    P:set("v", "ty", FOLDER_UP * open)
+    P:set("w", "rz", 90 - 180 * open)
+    for _, name in ipairs({ "f", "h", "al", "an", "3q" }) do
+      local k = pressScale(name)
+      P:set(name, "sx", k); P:set(name, "sy", k)
+    end
+    if turning then P:set("9s", "tx", -turning.dir * PAGE_W * turning.f / SLIDE_F) end
+  end
+
   local function coverDraw(G2, img, x)
     local iw, ih = img:getDimensions()
     local sc, ox, oy = Decor.wallPlace(LH, D / 2)
@@ -565,8 +680,12 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
       G2.rectangle("fill", 0, 0, 320, LH)
       return
     end
+    -- the slide (bg_move_left / right: 320 over SLIDE_F frames, easing out)
     local x0 = 0
-    if P then x0 = (P:box("72")) or 0 end
+    if slide then
+      local t = slide.f / SLIDE_F
+      x0 = -slide.dir * 320 * (t + t * t - t * t * t)
+    end
     coverDraw(G2, cur, x0)
     if slide then
       local nxt = art(slide.to)
@@ -605,22 +724,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
     G2.pop()
     if P then
       dress()
-      -- the page turn: all three pages ride the anchor 9s the clip moves
-      local off = 0
-      if turning then
-        local bx = P:box("9s")
-        off = bx and (bx + 5 - 160) or 0
-      end
-      for _, set in ipairs({ MID, LEFT, RIGHT }) do
-        for _, name in ipairs(set) do
-          if off ~= 0 then
-            local pane = P.L.byName[name]
-            P:set(name, "tx", pane.t[1] + off)
-          else
-            P:clear(name, "tx")
-          end
-        end
-      end
+      animate()
       applyShape()
       P:draw(G2)
     else
@@ -681,8 +785,7 @@ return function(mod, Pointer, G, Decor, Rules, Store, host)
   -- something is still moving (a fade, a slide, a page turn, the drawer, a settle)
   function app.busy()
     if fade or slide or turning or settle then return true end
-    if P and not (P:finished("goodsFolder_up") and P:finished("goodsFolder_down")) then return true end
-    return false
+    return folder.f < FOLDER_F
   end
   app.setTab = function(t) tab = t end
 

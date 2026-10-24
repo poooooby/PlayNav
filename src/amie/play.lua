@@ -1,7 +1,6 @@
--- PLAY: Pokemon-Amie's close-up, played from the game's own screen (a/0/4/1 entry 0
--- game_select_lower.bclyt, pack amie_play: the round puff / play / return buttons, the puff
--- strip, the minigame picker with its badges, arrows and difficulty ribbons) and the petting
--- hand's frames (a/0/4/2 kawaigari_icon, pack amie_hand):
+-- PLAY: Pokemon-Amie's close-up, laid out as the game's game_select_lower (PANES: the round
+-- puff / play / return buttons, the puff strip, the minigame picker with its badges, arrows
+-- and difficulty ribbons, in its 320x240 units) and the petting hand's frames:
 --   the scene: sky (assets/amie-play-bg.png, cropped clear of its rainbow), a big
 --   cumulus, the bush line along the horizon and the lawn (the game's scene/* textures from
 --   the import), soap bubbles; the Pokemon large (about 3.5x its sprite, filling the height);
@@ -58,6 +57,17 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   -- ------- the numbers (layout units)
 
+  local TUFT_KINDS = 4        -- the grass standing on the lawn (scene/tuft_1..4: tufts, reeds)
+  local TUFT_COLS, TUFT_ROWS = 8, 5   -- spread over a jittered grid, so none bunch up
+  local EDGE_STEP = 17       -- a row of tufts in front of the foot's bushes
+  -- the treeline (scene/bushes) in staggered layers, back to front: each lower, larger and
+  -- clearer than the one behind and set off sideways; the front one stands over the lawn's
+  -- edge (front = true: drawn after the lawn), its ragged foot breaking the straight line
+  local TREE_LAYERS = {
+    { dy = 4, width = 150, x0 = -70, step = 138, shade = { 0.8, 0.88, 0.92 } },
+    { dy = 14, width = 170, x0 = -30, step = 150, shade = { 0.9, 0.95, 0.96 } },
+    { dy = 25, width = 186, x0 = -100, step = 172, shade = { 1, 1, 1 }, front = true },
+  }
   local HORIZON = 0.55            -- the bushes' foot, as a share of LH from the top... of the 240 rows
   local FEET_UP = 20              -- the Pokemon's feet above the foot
   local MON_FILL = 0.68           -- its visible height as a share of the screen
@@ -70,7 +80,6 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local JUMP_HOP = 30             -- and how high it springs on the way (layout units)
   local EASE = 9                  -- view easing, per second
   local STRIP_W = 313             -- the puff strip open (the game's window 2y)
-  local STRIP_SLOTS = { "38", "3a", "3c", "3e", "3g", "3i", "3k" }
   local BADGE = { "a", "0", "c" }                   -- badge plates, game order
   local BADGE_NAME = { "1l", "1n", "1p" }
   local PLATE = { "k", "m", "o", "q" }              -- difficulty ribbons, DIFFS order
@@ -79,9 +88,47 @@ return function(mod, Pointer, G, Rules, Petting, host)
     { "w", "4e", "4g", "4i", "4k" }, { "10", "4m", "4o", "4q", "4s" } }
   local PLATE_TEX = { "easy", "normal", "hard", "infinite" }
 
+  -- the screen's panes (src/amie/panes.lua): name, parent, tx, ty (the middle, from the
+  -- parent's, y up), w, h, and its picture (lyt/amie_play/<art>), words or the drawer's paper
+  -- (growing rightward from its left edge)
+  local WORDS = { size = 19, color = { 1, 1, 1 } }
+  local PANES = {
+    { "2y", nil, -135, 93, 0, 43, window = "paper", left = true, hidden = true },
+    { "6", nil, -133, 93, 54, 54, art = "button_food" },
+    { "8", nil, 133, 93, 54, 54, art = "button_play" },
+    { "4", nil, 140, -100, 42, 42, art = "button_ball" },
+    { "e", nil, 140, -100, 30, 30, art = "button_back", hidden = true },
+    { "i", nil, 0, 145, 260, 50, art = "play_tab", hidden = true },
+    { "1r", "i", 0, 0, 210, 20, text = WORDS },
+    { "2", nil, -100, 0, 42, 42, art = "play_left", hidden = true },
+    { "g", nil, 100, 0, 42, 42, art = "play_right", hidden = true },
+    { "23", nil, 0, 0, 10, 10, hidden = true },
+    { "21", "23", 240, 0, 10, 10 },
+    { "22", "23", 0, -200, 10, 10 },
+  }
+  -- the session's words (a refusal: too few Pokemon for a game, no puffs left), in the
+  -- layout's message window across the middle, over everything
+  local LATE_PANES = {
+    { "5e", nil, 0, 0, 310, 50, window = "paper", hidden = true },
+    { "5o", "5e", 0, 0, 290, 20, text = { size = 19, color = { 0, 0, 0 } } },
+  }
+  local STAR_X = { -39, -20, 0, 20, 39 }
+  for i, name in ipairs(BADGE) do
+    PANES[#PANES + 1] = { name, "21", 200 * (i - 1), 0, 154, 156, art = ("play_game%02d"):format(i) }
+    PANES[#PANES + 1] = { BADGE_NAME[i], name, 0, -41, 120, 20, text = WORDS }
+  end
+  for d, name in ipairs(PLATE) do
+    PANES[#PANES + 1] = { name, "22", 200 * (d - 1), 0, 154, 156, art = "play_game01_" .. PLATE_TEX[d] }
+    PANES[#PANES + 1] = { PLATE_TEXT[d], name, 0, -29, 90, 20, text = WORDS }
+    for j, star in ipairs(PLATE_STARS[d]) do
+      PANES[#PANES + 1] = { star, name, STAR_X[j], -52, 18, 18, art = "star_" .. PLATE_TEX[d] }
+    end
+  end
+  for _, row in ipairs(LATE_PANES) do PANES[#PANES + 1] = row end
+
   -- ------- state
 
-  local P, Pfail = nil, false
+  local P = nil      -- the screen's panes (screen())
   local particles = {}
   local view = { z = 1, fx = 160, fy = 120, px = 160, py = 120 }   -- screen = p + (scene - f) * z
   local want = { z = 1, fx = 160, fy = 120, px = 160, py = 120 }
@@ -244,16 +291,39 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   -- ------- the screen
 
-  local function screen()
-    if P or Pfail then return P end
-    P = mod.lyt and mod.lyt.open("amie_play", "game_select_lower.bclyt", { "amie_play" }) or nil
-    if not P then Pfail = mod.lyt == nil; return nil end
-    -- what the game keeps hidden until a clip shows it, and what we draw ourselves
-    for _, n in ipairs({ "2y", "e", "2", "g", "24", "28", "2f", "2s", "2t", "2v", "3u", "44", "5e", "i" }) do
-      P:set(n, "visible", false)
+  -- the drawer's paper: the corners (kokashi_LT), the taped edge (kokashi_B) repeated along the
+  -- top and the foot, the middle (kokashi_C); EDGE units of frame
+  local EDGE = 16
+  local edgeQuad = nil
+  local function drawPaper(G2, x0, y0, w, h, a)
+    local ul, u, c = art("lyt/amie_play/kokashi_LT"), art("lyt/amie_play/kokashi_B"), art("lyt/amie_play/kokashi_C")
+    if not (ul and u and c) or w < 2 then return end
+    local e = math.min(EDGE, w / 2)
+    G2.setColor(1, 1, 1, a)
+    local cw, ch = c:getDimensions()
+    local uw, uh = u:getDimensions()
+    local s = e / uh
+    G2.draw(c, x0, y0 + e, 0, w / cw, (h - 2 * e) / ch)
+    if w > 2 * e then
+      -- the edge repeats tile by tile (the last one cut), at the frame's size
+      u:setWrap("repeat", "clamp")
+      local span = (w - 2 * e) / s
+      if not edgeQuad then edgeQuad = G2.newQuad(0, 0, span, uh, uw, uh)
+      else edgeQuad:setViewport(0, 0, span, uh, uw, uh) end
+      G2.draw(u, edgeQuad, x0 + e, y0, 0, s, s)
+      G2.draw(u, edgeQuad, x0 + e, y0 + h, 0, s, -s)
     end
-    for _, n in ipairs(STRIP_SLOTS) do P:set(n, "visible", false) end
-    P:set("23", "visible", false)
+    local ks = e / ul:getWidth()
+    G2.draw(ul, x0, y0, 0, ks, ks)
+    G2.draw(ul, x0 + w, y0, 0, -ks, ks)
+    G2.draw(ul, x0, y0 + h, 0, ks, -ks)
+    G2.draw(ul, x0 + w, y0 + h, 0, -ks, -ks)
+  end
+
+  local function screen()
+    if P then return P end
+    if not mod.panes then return nil end
+    P = mod.panes.new(PANES, { art = art, prefix = "lyt/amie_play/", windows = { paper = drawPaper } })
     app.shapeDirty = true
     return P
   end
@@ -1116,15 +1186,21 @@ return function(mod, Pointer, G, Rules, Petting, host)
       G2.setColor(1, 1, 1, 0.9)
       G2.draw(cu, -20, hz + 6, 0, k2, k2, 0, ch)
     end
-    -- the bush line along the horizon
+    -- the treeline along the horizon, its layers behind the lawn
     local bu = art("scene/bushes")
-    if bu then
+    local function treeLayer(ly)
       local bw, bh = bu:getDimensions()
-      local k = 170 / bw
-      G2.setColor(1, 1, 1, 1)
-      for i = 0, 2 do
-        G2.draw(bu, -30 + i * 150, hz + 14, 0, k * (i == 1 and -1 or 1), k, i == 1 and bw or 0, bh)
+      local k = ly.width / bw
+      G2.setColor(ly.shade[1], ly.shade[2], ly.shade[3], 1)
+      local i = 0
+      for x = ly.x0, 340, ly.step do
+        local flip = i % 2 == 1
+        G2.draw(bu, x, hz + ly.dy, 0, k * (flip and -1 or 1), k, flip and bw or 0, bh)
+        i = i + 1
       end
+    end
+    if bu then
+      for _, ly in ipairs(TREE_LAYERS) do if not ly.front then treeLayer(ly) end end
     end
     -- the lawn, a little lighter in soft ovals
     local gr = art("scene/grass")
@@ -1146,6 +1222,47 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local rx = 10 + 26 * row
       G2.setColor(0.75, 1, 0.55, 0.16)
       G2.ellipse("fill", 320 * hash(i, 2), y, rx, rx * 0.32)
+    end
+    -- the treeline's front layer over the lawn's edge, then a row of tufts before it, so the
+    -- edge is ragged and deep rather than one straight line
+    if bu then
+      for _, ly in ipairs(TREE_LAYERS) do if ly.front then treeLayer(ly) end end
+    end
+    local i = 0
+    for x = -6, 326, EDGE_STEP do
+      i = i + 1
+      local img = art("scene/tuft_" .. (1 + math.floor(hash(i, 21) * TUFT_KINDS)))
+      if img then
+        local iw, ih = img:getDimensions()
+        local k = (9 + 5 * hash(i, 22)) / ih
+        G2.setColor(1, 1, 1, 1)
+        G2.draw(img, x + 8 * hash(i, 23), hz + 27 + 3 * hash(i, 24), 0, k * (hash(i, 25) < 0.5 and -1 or 1), k, iw / 2, ih)
+      end
+    end
+    -- grass standing up out of the lawn: one in each cell of a grid jittered within it, smaller
+    -- toward the horizon, the nearer drawn last (spots from the hash, sorted once: fixed)
+    if not app.tufts then
+      local list = {}
+      for r = 0, TUFT_ROWS - 1 do
+        for c = 0, TUFT_COLS - 1 do
+          local n = r * TUFT_COLS + c + 1
+          list[#list + 1] = { depth = ((r + 0.15 + 0.7 * hash(n, 11)) / TUFT_ROWS) ^ 1.2,
+            x = 320 * (c + 0.1 + 0.8 * hash(n, 12)) / TUFT_COLS, kind = 1 + math.floor(hash(n, 13) * TUFT_KINDS),
+            flip = hash(n, 14) < 0.5 and -1 or 1 }
+        end
+      end
+      table.sort(list, function(a, b) return a.depth < b.depth end)
+      app.tufts = list
+    end
+    for _, tf in ipairs(app.tufts) do
+      local img = art("scene/tuft_" .. tf.kind)
+      if img then
+        local iw, ih = img:getDimensions()
+        local y = top + 10 + tf.depth * (LH - top - 10)
+        local k = (8 + 22 * tf.depth) / ih
+        G2.setColor(1, 1, 1, 1)
+        G2.draw(img, tf.x, y, 0, k * tf.flip, k, iw / 2, ih)
+      end
     end
     -- soap bubbles drifting up
     local bub = art("scene/bubbles")
@@ -1275,8 +1392,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
     P:set("e", "visible", picker ~= nil)
     if not GA then return end
     P:setText("1r", G.tx(picker and picker.stage == "diff" and "selectDiff" or "whichGame", nil,
-      picker and picker.stage == "diff" and "Select a difficulty level." or "Which game do you want to play?"),
-      { align = "center", valign = "center", color = { 255, 255, 255, 255 } })
+      picker and picker.stage == "diff" and "Select a difficulty level." or "Which game do you want to play?"))
     if not picker then
       P:set("2", "visible", false)
       P:set("g", "visible", false)
@@ -1289,12 +1405,12 @@ return function(mod, Pointer, G, Rules, Petting, host)
     P:set("21", "visible", pv.cont < 150)
     P:set("22", "visible", pv.cont > 50)
     for i, g in ipairs(GA.GAMES) do
-      P:setText(BADGE_NAME[i], GA.name(g), { align = "center", valign = "center", color = { 255, 255, 255, 255 } })
+      P:setText(BADGE_NAME[i], GA.name(g))
     end
     local game = GA.GAMES[picker.game]
     for d, diff in ipairs(GA.DIFFS) do
-      P:setImage(PLATE[d], P:image(("play_game%02d_%s.bclim"):format(picker.game, PLATE_TEX[d])))
-      P:setText(PLATE_TEXT[d], GA.diffLabel(diff), { align = "center", valign = "center", color = { 255, 255, 255, 255 } })
+      P:setImage(PLATE[d], ("lyt/amie_play/play_game%02d_%s"):format(picker.game, PLATE_TEX[d]))
+      P:setText(PLATE_TEXT[d], GA.diffLabel(diff))
       local open = GA.isUnlocked(game, diff)
       P:set(PLATE[d], "alpha", open and 255 or 120)
       local best = math.floor(GA.best(game, diff) or 0)
@@ -1312,8 +1428,6 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local w = STRIP_W * strip.open
     P:set("2y", "visible", w > 2)
     P:set("2y", "w", w)
-    -- the layout's slot panes stay hidden: the puffs are drawn by drawStrip
-    for _, n in ipairs(STRIP_SLOTS) do P:set(n, "visible", false) end
   end
 
   -- a count in the corner of a stacked puff: white, outlined black
@@ -1366,6 +1480,12 @@ return function(mod, Pointer, G, Rules, Petting, host)
     G2.pop()
   end
 
+  local function dressMessage(s)
+    local words = s.message and (not s.messageUntil or now() < s.messageUntil) and s.message or nil
+    P:set("5e", "visible", words ~= nil)
+    if words then P:setText("5o", words) end
+  end
+
   local function dressButtons(s)
     local up = buttonsUp(s)
     local stripUp = s.tool == "beans" and not feed and not drag
@@ -1412,13 +1532,14 @@ return function(mod, Pointer, G, Rules, Petting, host)
       end
     end
 
-    -- the game's layout over it
+    -- the screen's panes over it
     local Pl = screen()
     if Pl then
       applyShape()
       dressButtons(s)
       dressStrip(s)
       dressPicker(s)
+      dressMessage(s)
       Pl:draw(G2)
       drawStrip(G2, s)
     end

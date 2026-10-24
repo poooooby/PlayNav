@@ -14,6 +14,8 @@ T.eq(#run.errors, 0, "the mod loads clean on gen 3 (" .. tostring(run.errors[1])
 local X = run.loader.exports.play_nav
 -- fake hosts, not the player's cache: the import gate stands aside
 if X and X._test and X._test.setImportGate then X._test.setImportGate(false) end
+-- fake hosts and PlayNav's own assets (its words, effects): USE ROM ASSETS off for the run
+if X and X._test and X._test.forceRom then X._test.forceRom(false) end
 local TR = X.training
 T.check(type(TR) == "table" and type(TR.open) == "function", "training is exported")
 local S, Rules, Store, Items = TR.session, TR.rules, TR.store, TR.items
@@ -677,19 +679,27 @@ do
   T.check(not ok and why == "not_fully_trained", "secret courses need 510 EVs")
   -- a pending bag effect feeds the regimen and is spent by it
   S.session.rec.pending = "double_up"
+  -- Speed EVs gained while Super Training is open (a vitamin) reach the regimen's shots
+  party[1].evs.spe = 100
   T.check(S.startCourse("lv1_hp"), "Lv1 HP starts")
   T.eq(S.state().mode, "regimen", "mode regimen")
   T.eq(Apps:active().id, "training_aim", "the aim pad owns the surface")
   T.check(S.sim ~= nil and S.sim.phase == "countdown", "the simulation is counting down")
   T.check(S.sim.mods.evMult == 2, "...with the Double-Up effect")
+  local spe0 = Rules.modifiers({}, nil, { base = fake.baseStats() }).ballSpeedMult
+  T.check(S.session.evs.spe == 100 and S.sim.mods.ballSpeedMult > spe0 * 1.4,
+    ("...with the Speed EVs as they are now (shot speed x%.2f, x%.2f at 0)"):format(S.sim.mods.ballSpeedMult, spe0))
+  party[1].evs.spe = 0
   for _ = 1, 40 do S.tick(0.1) end
   T.eq(S.sim.phase, "play", "...and playing after the countdown")
   local st = S.state()
   T.check(st.regimen and st.regimen.target == 500, "state carries the regimen (target 500)")
   -- the layer forwards the pad
-  S.layer.handleInput({ wasPressed = function(_, k) return k == "l" end, isDown = function(_, k) return k == "right" end })
+  S.layer.handleInput({ wasPressed = function(_, k) return k == "l" end, isDown = function(_, k) return k == "right" or k == "l" end })
   T.check(S.sim.player.mx == 1, "right is held")
-  T.check(S.sim.player.shield > 0, "L raised the shield")
+  T.check(S.sim.player.shield > 0, "L held raises the guard")
+  S.layer.handleInput({ wasPressed = function() return false end, isDown = function(_, k) return k == "right" end })
+  T.check(S.sim.player.shield == 0 and S.sim.player.shieldCd > 0, "...let go, it drops and cools down")
   T.check(S.forceEnd({ clear = true, remaining = 160 }), "a forced clear")
   T.eq(S.state().mode, "result", "the result shows")
   local r = S.session.result
@@ -706,7 +716,7 @@ do
   T.check(type(r.target) == "number", "the result carries the target")
   T.eq(#r.unlocked, 0, "one Lv1 clear unlocks nothing yet")
   local nm = S.courseName("lv1_hp")
-  T.check(nm == "Raise Your HP with Wailmer!", "the course's official name (" .. nm .. ")")
+  T.check(nm == "Pump Up HP with Wailmer!", "the course's name, in PlayNav's own words (" .. nm .. ")")
   T.check(S.levelHeading(2):lower():find("lv. 2", 1, true) ~= nil, "a level heading (" .. S.levelHeading(2) .. ")")
   T.check(S.leaveResult(), "leave the result")
   T.eq(S.state().mode, "courses", "...to the picker")

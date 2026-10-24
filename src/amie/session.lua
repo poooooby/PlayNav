@@ -233,8 +233,7 @@ return function(mod, deps)
   function Layer.fillTop() return G.session ~= nil end
 
   -- DECORATE's top screen (assets/amie_cottage.png, 1920 square, drawn to cover whatever the
-  -- playfield is);
-  -- the game's bg_upper stands in without it
+  -- playfield is)
   local cottage = nil
   local function cottageImage()
     if cottage == nil then
@@ -370,7 +369,7 @@ return function(mod, deps)
       if ok and drew then G2.pop(); return end
     end
     if s.mode == "decorate" then
-      local img = cottageImage() or topIcon("lyt/amie_deco/bg_upper")
+      local img = cottageImage()
       if img then
         cover(G2, img, e)
         G2.pop()

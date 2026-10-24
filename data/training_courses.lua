@@ -115,6 +115,7 @@ local function secret(n, level, name, bots, items, goals, attackScript, extra)
   for k, v in pairs(extra or {}) do row[k] = v end
   -- one course icon per course, the first bot's; circuits share it
   for _, b in ipairs(bots) do b.art = b.art or ("training/stage_poke_%02d"):format(19 + n) end
+  for _, b in ipairs(row.alphaBots or {}) do b.art = b.art or ("training/stage_poke_%02d"):format(19 + n) end
   return row
 end
 
@@ -222,10 +223,99 @@ local courses = {
       { national = 306, species = "SPECIES_AGGRON", score = 3200 }, { national = 306, species = "SPECIES_AGGRON", score = 5600, mega = true } },
     { plain("ITEM_PP_MAX", 1), plain("ITEM_PP_UP", 2), stone("ITEM_LEAF_STONE"), stone("ITEM_WATER_STONE"),
       stone("ITEM_THUNDER_STONE"), stone("ITEM_FIRE_STONE"), wing("pretty-wing", 2), plain("ITEM_MOOMOO_MILK", 2) },
-    g("rock", 5, { { "top", "left", "right", "center", "bottom" } }, 0.5, "center"), "secret_finale"),
+    g("rock", 5, { { "top", "left", "right", "center", "bottom" } }, 0.5, "center"), "secret_finale",
+    -- the line is the version's (GARC a/1/1/7 row 31: Omega Ruby phases 43-45 / 32, the Aron
+    -- line; Alpha Sapphire 40-42 / 31, the Larvitar line, same targets and damage)
+    { alphaBots = { { national = 246, species = "SPECIES_LARVITAR", score = 1600 },
+      { national = 247, species = "SPECIES_PUPITAR", score = 2400 },
+      { national = 248, species = "SPECIES_TYRANITAR", score = 3200 },
+      { national = 248, species = "SPECIES_TYRANITAR", score = 5600, mega = true } } }),
 }
+
+-- the points a hit costs, per balloon, from the game's course data (GARC a/1/1/7 course rows ->
+-- a/1/1/8 phase records: u16 +0 species, +2 target, +0xc damage, +0x24 the second form's;
+-- DllSparring.cro loads them at 0x8300, a ball's hit takes the phase's number at 0xf44c). Each
+-- course's balloons in order; { damage, second form } for Aegislash / Roserade. The finale's
+-- Aron line is version-exclusive (this card's row has the Larvitar line, 800 / 1200 / 1600 / 2500
+-- as well; the Aron line's phases 43-45 and 32 hold the same).
+local GAME_DAMAGE = {
+  lv1_hp = { 40 }, lv1_atk = { 50 }, lv1_def = { 30 }, lv1_spa = { 40 }, lv1_spd = { 30 }, lv1_spe = { 30 },
+  lv2_hp = { 150 }, lv2_atk = { 200 }, lv2_def = { 120 }, lv2_spa = { 100 }, lv2_spd = { 120 }, lv2_spe = { 120 },
+  lv3_hp = { 450 }, lv3_atk = { 600 }, lv3_def = { 300 }, lv3_spa = { 250 }, lv3_spd = { 300 }, lv3_spe = { 300 },
+  secret_01 = { 1200, 2000 }, secret_02 = { 2000 }, secret_03 = { 2000 }, secret_04 = { 2000 },
+  secret_05 = { 1500 }, secret_06 = { { 1200, 2500 } }, secret_07 = { { 1200, 2500 } }, secret_08 = { 2000 },
+  secret_09 = { 800, 1500, 2500 }, secret_10 = { 2000 }, secret_11 = { 65535, 65535, 65535 },
+  secret_12 = { 800, 1200, 1600, 2500 },
+}
+for _, c in ipairs(courses) do
+  for _, list in ipairs({ c.bots, c.alphaBots or {} }) do
+    for i, b in ipairs(list) do
+      local d = GAME_DAMAGE[c.id] and GAME_DAMAGE[c.id][i]
+      if type(d) == "table" then b.damage, b.damage2 = d[1], d[2] else b.damage = d end
+    end
+  end
+end
+
+-- a course's balloons for the GBA game being played: the final course's line follows the 3DS
+-- pair (Ruby / FireRed / Emerald -> Omega Ruby's Aron line, Sapphire / LeafGreen -> Alpha
+-- Sapphire's Larvitar line)
+local ALPHA = { sapphire = true, leafgreen = true }
+local function alpha(version) return ALPHA[tostring(version or ""):lower()] == true end
+local function botsFor(course, version)
+  if course and course.alphaBots and alpha(version) then return course.alphaBots end
+  return course and course.bots
+end
 
 local byId = {}
 for _, c in ipairs(courses) do byId[c.id] = c end
 
-return { version = 1, anchors = anchors, attacks = attacks, courses = courses, byId = byId, STAT_ORDER = STAT_ORDER }
+-- the Lv1 balloons' own idle motion in the game's top-screen pixels (Wooble's captures
+-- 2026-10-23; N.BOT.SWAY's form: ax across, ay up and down, every period s): mostly a small
+-- vertical bob, Axew all but still, Tentacool drifting slowly, Noibat swaying side to side
+local SWAY = {
+  lv1_hp = { ax = 0, ay = 6, period = 4.0 },
+  lv1_atk = { ax = 1, ay = 0.5, period = 6.8 },
+  lv1_def = { ax = 0, ay = 5, period = 3.3 },
+  lv1_spa = { ax = 0.75, ay = 4.75, period = 2.35 },
+  lv1_spd = { ax = 2, ay = 11, period = 12 },
+  lv1_spe = { ax = 5, ay = 4, period = 6.6 },
+  -- Lv2 (the s2 captures): Relicanth a loose circle, Fraxure / Graveler a small bob, Magneton
+  -- a lopsided sway, Tentacruel sinking slowly, Aerodactyl soaring up and down
+  lv2_hp = { ax = 2.8, ay = 3.5, period = 5.5 },
+  lv2_atk = { ax = 0, ay = 2, period = 2.8 },
+  lv2_def = { ax = 1.5, ay = 1.3, period = 3.2 },
+  lv2_spa = { ax = 2.5, ay = 2, period = 3.95 },
+  lv2_spd = { ax = 0, ay = 3, period = 14 },
+  lv2_spe = { ax = 0, ay = 9.5, period = 5.4 },
+  -- Lv3 (the s3 captures): Wailord stretches up and down, Haxorus and Golem all but still,
+  -- Magnezone a wide figure of eight, Dragalge a slow sway across, Noivern flapping up and down
+  lv3_hp = { ax = 0, ay = 4, period = 4.4 },
+  lv3_atk = { ax = 1.5, ay = 1, period = 4.0 },
+  lv3_def = { ax = 0, ay = 1, period = 4.0 },
+  lv3_spa = { ax = 19, ay = 10, period = 5.3, fig8 = true },
+  lv3_spd = { ax = 18, ay = 2, period = 6.05 },
+  lv3_spe = { ax = 4, ay = 13, period = 2.03 },
+}
+for id, sway in pairs(SWAY) do if byId[id] then byId[id].sway = sway end end
+
+-- a balloon's own throw (N.BOT.WINDUP's form; a negative DIP climbs, a negative RISE ends below):
+-- Fraxure dips a little and stretches up; Graveler leaps up off the top of the screen and drops
+-- back to throw; Aerodactyl climbs, then dives as it throws and glides low a while
+local WINDUP = {
+  lv2_atk = { DIP_PX = 4, RISE_PX = 14, DIP_AT = 0.4, HOLD_S = 1.5 },
+  lv2_def = { DIP_PX = -80, RISE_PX = 0, DIP_AT = 0.85, HOLD_S = 0.3 },
+  lv2_spe = { DIP_PX = -20, RISE_PX = -45, DIP_AT = 0.75, HOLD_S = 4 },
+  -- Lv3: Golem leaps off the top and comes down rolled up; Haxorus crouches and rears up;
+  -- Magnezone rises and tilts back; Dragalge dips and lifts; Noivern climbs then drops to throw
+  lv3_def = { DIP_PX = -80, RISE_PX = 0, DIP_AT = 0.8, HOLD_S = 3 },
+  lv3_atk = { DIP_PX = 9, RISE_PX = 11, DIP_AT = 0.25, HOLD_S = 1.4 },
+  lv3_spa = { DIP_PX = 0, RISE_PX = 18, DIP_AT = 0.8, HOLD_S = 1.5 },
+  lv3_spd = { DIP_PX = 22, RISE_PX = 25, DIP_AT = 0.7, HOLD_S = 1.5 },
+  lv3_spe = { DIP_PX = -18, RISE_PX = -12, DIP_AT = 0.6, HOLD_S = 1.6 },
+}
+for id, w in pairs(WINDUP) do if byId[id] then byId[id].windup = w end end
+-- Aerodactyl's soaring is its sway now
+if byId.lv2_spe then byId.lv2_spe.motion = nil end
+
+return { version = 1, anchors = anchors, attacks = attacks, courses = courses, byId = byId, STAT_ORDER = STAT_ORDER,
+  botsFor = botsFor, alpha = alpha }

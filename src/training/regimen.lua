@@ -41,7 +41,22 @@ return function(mod, T, deps)
   end
 
   function T.courseList() return Courses and Courses.courses or {} end
-  function T.course(id) return Courses and Courses.byId and Courses.byId[id] or nil end
+  -- a course as this game has it: the final course's balloons are the version's
+  -- (data/training_courses.lua botsFor); the rows themselves stay as loaded
+  local variants = {}
+  function T.course(id)
+    local c = Courses and Courses.byId and Courses.byId[id] or nil
+    if not (c and c.alphaBots and Courses.alpha and host.gameVersion) then return c end
+    if not Courses.alpha(host.gameVersion()) then return c end
+    local v = variants[id]
+    if not v then
+      v = {}
+      for k, x in pairs(c) do v[k] = x end
+      v.bots = c.alphaBots
+      variants[id] = v
+    end
+    return v
+  end
 
   function T.canEnter(course)
     local s = T.session
@@ -98,7 +113,8 @@ return function(mod, T, deps)
     local s = T.session
     local course = s and T.course(id)
     if not course then return false, "unknown" end
-    local mods = Rules.modifiers(s.evs, s.rec.pending, { pokerus = host.hasPokerus(s.mon) })
+    if T.refreshMon then T.refreshMon(s) end
+    local mods = Rules.modifiers(s.evs, s.rec.pending, { pokerus = host.hasPokerus(s.mon), base = s.base })
     -- a second wind lasts one regimen: double the points, then it is spent
     if s.rec.secondWind then
       mods.pointMult = mods.pointMult * Rules.N.CORE.REFRESHED_HITS_DIV
@@ -116,6 +132,7 @@ return function(mod, T, deps)
     T.sim = Sim.new(course, {
       mods = mods, shotType = s.shot, level = course.level,
       anchors = Courses.anchors[course.goals.anchors], library = Courses.attacks, shapes = shapes,
+      gameAttacks = Courses.gameAttacks,
     }, T.rng)
     s.course = course
     s.result = nil
@@ -123,9 +140,9 @@ return function(mod, T, deps)
     s.padHeld = false
     s.anim.events = {}
     if T.REGIMEN_SHOW and T.hud then
-      -- the clock waits for the intro (when the game's screen is there to play it)
+      -- the clock waits for the intro (the game's screen or the engine's plays it)
       T.hud.begin(T.sim, s)
-      if T.hud.P then T.sim.countdown = T.hud.INTRO_S end
+      if T.hud.P or T.hud.engine then T.sim.countdown = T.hud.INTRO_S end
     end
     T.setMode("regimen")
     if not T.REGIMEN_SHOW then T.playSe("start_course", "SE_SELECT") end
@@ -136,14 +153,17 @@ return function(mod, T, deps)
 
   -- the Emerald stand-ins for what the capture did not show (data/training_sounds.lua has the
   -- game's own effects for the rest)
+  -- (a popped bitbot is the field's balloon pop; the shield shattering, ice breaking; a balloon
+  -- changing form, Reflect)
   local SE = { goal_hit = "SE_BALL_BOUNCE_1", player_hit = "SE_NOT_EFFECTIVE", bot_pop = "SE_SUCCESS",
-    blocked = "SE_SELECT", bit_pop = "SE_BALL_BOUNCE_2", chance_goal = "SE_EXP", overcharge = "SE_FAILURE",
-    barrier_up = "SE_SELECT", attack_telegraph = "SE_SELECT" }
+    blocked = "SE_SELECT", bit_pop = "SE_BALLOON_RED", chance_goal = "SE_EXP", overcharge = "SE_FAILURE",
+    barrier_up = "SE_SELECT", attack_telegraph = "SE_SELECT", block_down = "SE_ICE_BREAK",
+    form_change = "SE_M_REFLECT" }
 
   -- one event's haptic (src/haptics.lua): a goal hit pulses (harder charged), a hit taken
   -- knocks, the balloon popping and the clear burst; the stand-in sound's own is skipped
   local HAPTIC = { goal_hit = "medium", player_hit = "hurt", bot_pop = "big", bit_pop = "light",
-    blocked = "light", chance_goal = "strong", clear = "success", shot_fired = "tick",
+    blocked = "light", chance_goal = "strong", clear = "success", shot_fired = "tick", weak_shot = "tick",
     play = "strong", timeout = "bad" }
 
   -- felt as they change, frame by frame: each charge stage a held shot reaches (the full one
@@ -155,10 +175,10 @@ return function(mod, T, deps)
     local stage = sim.chargeStage and sim:chargeStage() or 0
     local last = s.hapticStage or 0
     if stage > last then
-      H.pulse(stage >= #N.CHARGE.STAGE_S and "strong" or "light")
+      H.pulse(stage >= #N.CHARGE.STAGE_F and "strong" or "light")
     end
     s.hapticStage = stage
-    local full = (sim.guts or 0) >= (N.GUTS.FULL_AT or 1)
+    local full = (sim.guts or 0) >= 1
     if full and not s.hapticGutsFull then H.pattern("happy") end
     s.hapticGutsFull = full
     if sim.phase == "play" and sim.remaining then
@@ -171,7 +191,7 @@ return function(mod, T, deps)
     local H = mod.haptics
     local what = H and HAPTIC[e.kind]
     if not what then return end
-    if e.kind == "goal_hit" and ((e.stage or 1) >= 2 or e.energy) then what = "strong" end
+    if e.kind == "goal_hit" and ((e.stage or 0) >= 1 or e.energy) then what = "strong" end
     if H.PATTERNS[what] then H.pattern(what) else H.pulse(what) end
     if SE[e.kind] then H.skipNextSound() end
   end
@@ -179,10 +199,10 @@ return function(mod, T, deps)
   -- one event's sound: the game's effect where the capture showed it, else the stand-in
   local function eventSound(e, cleared)
     eventHaptic(e)
-    local charged = (e.stage or 1) >= 2 or e.energy
+    local charged = (e.stage or 0) >= 1 or e.energy
     if e.kind == "play" then
       T.playSe("play")
-    elseif e.kind == "shot_fired" then
+    elseif e.kind == "shot_fired" or e.kind == "weak_shot" then
       T.playSe(charged and "charged_shot" or "shot")
     elseif e.kind == "goal_hit" then
       T.playSe(charged and "charged_hit" or "goal_hit", SE.goal_hit)
@@ -278,7 +298,7 @@ return function(mod, T, deps)
     end
     if T.hud and T.REGIMEN_SHOW then T.hud.update(dt, events) end
     if ended then
-      if T.REGIMEN_SHOW and T.hud and T.hud.P then
+      if T.REGIMEN_SHOW and T.hud and (T.hud.P or T.hud.engine) then
         s.outro = { t = 0, outcome = ended }
       else
         T.endRegimen(ended)
@@ -299,7 +319,11 @@ return function(mod, T, deps)
     local dx = (input:isDown("right") and 1 or 0) - (input:isDown("left") and 1 or 0)
     local dz = (input:isDown("up") and 1 or 0) - (input:isDown("down") and 1 or 0)
     sim:setMove(dx, dz)
-    if input:wasPressed("l") or input:wasPressed("r") then sim:block() end
+    -- the guard while L / R is held
+    local guard = input:isDown("l") or input:isDown("r")
+    if guard and not s.padGuard then sim:block() end
+    if not guard and s.padGuard then sim:unblock() end
+    s.padGuard = guard
     -- A fires at the reticle for pad-only play; held = charge
     if input:isDown("a") then
       if not s.padHeld then s.padHeld = true; sim:pressFire() end
@@ -421,7 +445,7 @@ return function(mod, T, deps)
     local s = T.session
     if not s or s.trans then return false end
     local Rs = T.results
-    if Rs and Rs.list and (Rs.top or Rs.bottom) then return Rs.next() end
+    if Rs and Rs.list and (Rs.top or Rs.bottom or Rs.engine) then return Rs.next() end
     return T.leaveResult()
   end
 

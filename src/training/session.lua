@@ -327,9 +327,24 @@ return function(mod, deps)
     end
   end
 
+  -- the Pokemon's EVs and base stats as they are now: a vitamin, a battle or another mod may
+  -- have changed them since the session read them (the regimen's shot speed, power, meter and
+  -- guard come from them)
+  local function refreshMon(s)
+    if not (s and s.mon) then return end
+    s.evs = host.evsOf(s.mon)
+    local species = host.speciesOf(s.mon)
+    if species ~= s.species then
+      s.species = species
+      s.base = host.baseStats and host.baseStats(species) or s.base
+    end
+  end
+  T.refreshMon = refreshMon
+
   local function setMode(mode)
     local s = T.session
     if not s then return end
+    refreshMon(s)
     syncLayer(s, mode)
     s.mode = mode
     local app = APP_FOR[mode]
@@ -820,6 +835,14 @@ return function(mod, deps)
   -- else ours. {BAG} / {MON} are filled in.
 
   local function gameText(file, line)
+    -- PlayNav's own words (data/training_words.lua, set by main): never the card image's
+    local Wd = T.words
+    if Wd then
+      local f = Wd[file]
+      local s = f and f[line]
+      if type(s) == "string" and s ~= "" then return s end
+      return nil
+    end
     local A = T.assets
     local lines = A and A.text and A.text(file)
     local s = lines and lines[line]
