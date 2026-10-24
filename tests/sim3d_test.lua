@@ -140,14 +140,16 @@ do
   local _, cy = bl:botCentre3()
   T.check(near(bl:botR3() * 2, math.sqrt(m[1] * m[2]) * unit, 1e-6),
     ("Magneton: its mean side the capture's sqrt(%d x %d) px in game units"):format(m[1], m[2]))
-  -- (its middle at screen y 90.5 of 240 through the play camera: ~45 game units up)
-  T.check(cy > 40 and cy < 52, ("...its middle where the capture has it (y %.1f)"):format(cy))
+  -- (its middle at screen y 90.5 of 240 through the play camera: ~56 game units up)
+  T.check(cy > 50 and cy < 60, ("...its middle where the capture has it (y %.1f)"):format(cy))
   local ax = make("lv1_atk")
   ax:setGame3d(true)
   ax:startScript()
   local _, acy = ax:botCentre3()
   local half = G3.SIZE_PX[610][2] * unit / 2
-  T.check(math.abs(acy - half - G3.GROUND) < 4, ("Axew stands on the grass (feet at %.1f)"):format(acy - half))
+  -- (the balloons hover: the game's balloon root is at y 3.6 like the trainee's, read live; Axew's
+  -- feet, at screen y 172, are ~6 over the grass line)
+  T.check(math.abs(acy - half) < 2 and acy - half > G3.GROUND, ("Axew hovers just over the grass (feet at %.1f)"):format(acy - half))
   local bs = make("secret_03")
   bs:setGame3d(true)
   bs:startScript()
@@ -169,6 +171,21 @@ do
   local lx = e:edgeDisc3(4)
   T.check(near(rx, q.x + G3.EDGE_OFF) and near(ry, q.y) and near(rz, q.z) and near(lx, q.x - G3.EDGE_OFF)
     and near(ruy, 1), "the side ripples: upright discs 2.5 to its right (toward +x at the middle) and left")
+end
+
+-- the bitbots where the game has them: the middle one nearer the camera, the sides apart, each
+-- on its loop
+do
+  local b = make("lv3_hp")
+  b:setGame3d(true)
+  local L = { id = 1, loopA = 0 }
+  local M = { id = 2, loopA = math.pi / 2 }
+  local _, _, lz = b:bitPos3(L)
+  local mx, my, mz = b:bitPos3(M)
+  local lx = b:bitPos3(L)
+  T.check(mz > lz and near(mx, G3.BIT_SPOTS[2][1]) and near(my, G3.BIT_SPOTS[2][2] + G3.BIT_LOOP_R),
+    "the middle bitbot nearer the camera, its loop about its spot")
+  T.check(near(lx, G3.BIT_SPOTS[1][1] + G3.BIT_LOOP_R), "...the left one on its loop left of the middle")
 end
 
 -- off: the 2D world as before

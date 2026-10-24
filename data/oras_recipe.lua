@@ -1576,13 +1576,9 @@ for _, t in ipairs({ { "spa_black", 32, 32 }, { "spa_cloud00", 256, 128 }, { "sp
   { "spa_roof00", 128, 64 }, { "spa_sky00", 128, 128 }, { "spa_stadium00", 128, 128 }, { "spa_whiteline", 64, 64 } }) do
   bchtex("a/1/1/4", 75, t[1], "st3d/" .. t[1], t[2], t[3], "")
 end
--- (recipe 38) the edge's border: the game's grid wall and its glow (a/1/1/4 e80; DllSparring
--- names them beside the effect's entries 80..87)
-bchtex("a/1/1/4", 80, "sp_wall_01", "st3d/sp_wall_01", 512, 512, "")
-bchtex("a/1/1/4", 80, "sp_glow_01", "st3d/sp_glow_01", 32, 256, "")
 
 return {
-  version = 38,
+  version = 39,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

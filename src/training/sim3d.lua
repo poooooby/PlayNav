@@ -209,12 +209,13 @@ return function(Sim, N, I)
     local half = (g.kind == "chance") and G3.GOAL_HALF_BIG or (g.kind == "marker" and 6 or G3.GOAL_HALF)
     return X, Y, Z, half
   end
-  -- a bitbot: on its loop, a third of the way from the balloon to the trainee
+  -- a bitbot: on its loop about its spot (BIT_SPOTS: the middle one nearer the camera)
   function Sim:bitPos3(bit)
-    local X, Y = self:toGame(bit.x, bit.y)
-    local p = self.player
-    local f = (1 - bit.z) / (1 - (N.PLAYER.Z or 0.1))
-    return X + (p.x - X) * f * 0.25, Y, p.z * f
+    -- (its spot by its place in the row: 1 left, 2 middle, 3 right; its loop's angle the flat
+    -- world's, clockwise on the screen)
+    local S = G3.BIT_SPOTS[bit.id] or G3.BIT_SPOTS[2]
+    local a = bit.loopA or 0
+    return S[1] + cos(a) * G3.BIT_LOOP_R, S[2] + sin(a) * G3.BIT_LOOP_R, S[3]
   end
 
   -- ------- the enemy balls

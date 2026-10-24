@@ -627,7 +627,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- dropping at G units a second squared, fluttering FLUTTER_X radii at FLUTTER_HZ
   D.BIT_POP = { ZIP_S = 0.35, ZIP_UP = 1.2, ZIP_X = 0.8, SPIN = 9, SHRINK = 0.5, CRUMPLE = 0.75,
     FALL_S = 2.2, G = 260, FLUTTER_X = 0.6, FLUTTER_HZ = 1.4 }
-  -- a purple party balloon about (x, y), radius r, its string waving on `ph`, turned rot,
+  -- a party balloon in the game's deep navy-purple (the captures) about (x, y), radius r, its string waving on `ph`, turned rot,
   -- scaled sx / sy; flat 0..1 takes the air out of it (duller, no shine)
   local function drawBitBalloon(G2, x, y, r, ph, rot, sx, sy, flat)
     G2.push()
@@ -648,18 +648,18 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setLineWidth(math.max(0.6, r * 0.035))
     G2.setColor(0.95, 0.92, 1, 0.95)
     G2.line(BIT_PTS)
-    G2.setColor(0.42, 0.16, 0.62, 1)
+    G2.setColor(0.18, 0.09, 0.32, 1)
     G2.polygon("fill", -k * 0.3, r * 1.05, k * 0.3, r * 1.05, k * 0.8, r * 1.1 + k, -k * 0.8, r * 1.1 + k)
     local d = 1 - 0.3 * flat
-    G2.setColor(0.62 * d, 0.3 * d, 0.86 * d, 0.97)
+    G2.setColor(0.25 * d, 0.15 * d, 0.45 * d, 0.97)
     G2.polygon("fill", balloonBody(0, 0, r))
-    G2.setColor(0.78 * d, 0.5 * d, 0.97 * d, 0.9 * (1 - 0.6 * flat))
+    G2.setColor(0.37 * d, 0.26 * d, 0.62 * d, 0.9 * (1 - 0.6 * flat))
     G2.polygon("fill", balloonBody(-r * 0.08, -r * 0.1, r * 0.72))
     if flat < 1 then
       G2.setColor(1, 1, 1, 0.75 * (1 - flat))
       G2.ellipse("fill", -r * 0.4, -r * 0.45, r * 0.13, r * 0.24)
     end
-    G2.setColor(0.3, 0.08, 0.45, 1)
+    G2.setColor(0.1, 0.05, 0.2, 1)
     G2.setLineWidth(math.max(1, r * 0.08))
     G2.polygon("line", balloonBody(0, 0, r))
     G2.setLineWidth(1)
@@ -811,30 +811,28 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.pop()
   end
 
-  -- (3D SUPER TRAINING, the game's space) the shield as the graveler-size-ref capture shows it: a
-  -- cylinder standing on the grass round the balloon, R its half width out, TOP its height up
-  -- (the balloon's), BARS round and CELLS tall, its far side not drawn (an open top: from above
-  -- the grass shows inside), a lime rim, green-cyan bars and rings, a magenta band FOOT of its height at
-  -- the foot, faint panels, still; going (u 0..1) its cells drift up and out, fading
-  D.CAGE3 = { R = 1.15, TOP = 1.3, BARS = 24, CELLS = 5, FOOT = 0.2, BAR_W = 0.5, RIM_W = 1.3,
-    DRIFT = 14, RISE = 22 }
+  -- (3D SUPER TRAINING, the game's space) the shield: part of a cylinder round the balloon's spot,
+  -- R out, from Y0 to Y1, over the arc ARC0..ARC1 degrees in front of it (+z, the trainee's side;
+  -- fixed, so from a corner its open edge shows), BARS segments across and CELLS tall; a lime rim,
+  -- green-cyan bars and rings, a magenta band FOOT of its height at the foot, faint panels,
+  -- still; going (u 0..1) its cells drift up and out, fading
+  -- (read live from Graveler's shield, 2026-10-24: seven ring lines of 12 points on radius 59.5
+  -- from 25 to 155 degrees round the balloon (toward the trainee), at y -5 .. 84.8 - the effect's
+  -- 350 / 0..528 at scale 0.17, lowered 5)
+  D.CAGE3 = { R = 59.5, Y0 = -5, Y1 = 84.8, ARC0 = 25, ARC1 = 155, BARS = 11, CELLS = 6, FOOT = 0.2,
+    BAR_W = 0.5, RIM_W = 1.3, DRIFT = 14, RISE = 22 }
   local cagePts = {}
   local function cageGeom(sim)
     local C = D.CAGE3
-    local sh = sim.shape
-    local R3 = sim:botR3()
+    -- (about the balloon's spot, its own size whatever the balloon's)
     local cx = sim:botCentre3()
-    local hw, hh = (sh and sh.halfW or 1) * R3, (sh and sh.halfH or 1) * R3
-    local y0 = N.GAME3D.GROUND
-    return cx, 0, C.R * hw, y0, y0 + C.TOP * 2 * hh
+    return cx, 0, C.R, C.Y0, C.Y1
   end
   function D.drawCage3(G2, sim, fade, u)
     local A3 = D.arena3d
     if not (A3 and A3.projectModel) then return end
     local C = D.CAGE3
     local cx, cz, R, y0, y1 = cageGeom(sim)
-    local p = sim.player
-    local ex, ez = p.ex or 0, p.ez or 240
     local _, _, k = A3.project(cx, (y0 + y1) / 2, cz + R)
     local px = (k or 0) * 118
     local flick = (0.92 + 0.08 * math.sin(sim.t * 31)) * (fade or 1)
@@ -845,12 +843,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setBlendMode("add")
     local n, m = C.BARS, C.CELLS
     local h = y1 - y0
+    local a0, a1 = math.rad(C.ARC0), math.rad(C.ARC1)
     for i = 0, n - 1 do
-      local t0, t1 = i / n * 2 * math.pi, (i + 1) / n * 2 * math.pi
-      local tm = (t0 + t1) / 2
-      local nx, nz = math.cos(tm), math.sin(tm)
-      -- (the side toward the eye only)
-      if nx * (ex - cx - nx * R) + nz * (ez - cz - nz * R) > 0 then
+      local t0, t1 = a0 + (a1 - a0) * i / n, a0 + (a1 - a0) * (i + 1) / n
+      -- (an arc in front of the balloon, toward the trainee's side)
+      do
         -- going: each cell out from the middle and up, by its own share
         local seed = ((i * 37) % 11) / 11
         for j = 0, m - 1 do
@@ -1057,10 +1054,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local r = br * 118 * kk
       local ph = sim.t * 2.2 + (bit.id or 0) * 1.7
       if not bit.dead then
-        -- a purple party balloon, bobbing and swaying on its own beat
+        -- a party balloon, bobbing and swaying on its own beat (no health bar: the game shows none)
         drawBitBalloon(G2, px, py + math.sin(ph) * r * 0.08, r, ph, math.sin(ph * 0.7) * 0.12, 1, 1, 0)
-        G2.setColor(0.2, 0.9, 0.3, 1)
-        G2.rectangle("fill", px - r, py - r - 4, 2 * r * (bit.hp / N.ATTACK.bit.hp), 2)
       elseif bit.poppedAt then
         local P = D.BIT_POP
         local e = sim.t - bit.poppedAt
@@ -1698,17 +1693,24 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   local function drawPlayer(G2, sim, s)
     local p = sim.player
     local px, py, k = proj(p.x, p.y or 0, p.z)
+    local board = boardImage()
+    local bk
     if game3d(sim) then
-      -- the game's model for its sprite: TRAINEE_H tall, its feet on the actor point (the top of
-      -- the game's stand)
+      -- the game's model for its sprite: every Pokemon the same size (its sprite's sqrt(w x h)
+      -- TRAINEE_SIZE game units, fitted to the captures' Latias), the board BOARD_W wide (the
+      -- game's stand)
+      local G3 = N.GAME3D
+      -- (its feet on the ball the game's model rides, RIDE_UP over the stand's top)
+      px, py, k = proj(p.x, (p.y or 0) + G3.RIDE_UP, p.z)
       local pic0 = playerPic(s)
-      local h = pic0 and pic0.h * (pic0.k or 1) or 48
-      k = N.GAME3D.TRAINEE_H * 118 * k / h
+      local side = pic0 and math.sqrt(pic0.w * pic0.h) * (pic0.k or 1) or 40
+      if board then bk = G3.BOARD_W * 118 * k / board:getWidth() end
+      k = G3.TRAINEE_SIZE * 118 * k / side
     else
       k = k * D.PLAYER_SCALE
     end
+    bk = bk or k * D.BOARD.scale
     local lift, hsx, hsy, lean, face = hopPose(sim)
-    local board = boardImage()
     if board then
       -- on the board it does not hop: board and rider bob together
       lift, hsx, hsy = -math.sin(sim.t * 2 * math.pi * D.BOARD.bobHz) * D.BOARD.bob, 1, 1
@@ -1718,7 +1720,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local high = 1 - 0.4 * math.min(1, (p.y or 0) / (N.PLAYER.Y_MAX or 0.7))
     local srx, sry
     if board then
-      local bk = k * D.BOARD.scale
       srx, sry = D.BOARD.cx * 0.9 * bk * high, 6 * bk * high
     else
       local shrink = (1 - 0.25 * (lift / math.max(1, D.HOP.HEIGHT))) * high
@@ -1752,7 +1753,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       y0 = feetY - pic.h * ak * hsy
     end
     if board then
-      local bk = k * D.BOARD.scale
       local bw, bh = board:getDimensions()
       x0 = math.min(x0, px - D.BOARD.cx * bk)
       x1 = math.max(x1, px + (bw - D.BOARD.cx) * bk)
@@ -1768,7 +1768,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local pitch = boardPitch(sim)
       hsy = hsy * (1 - D.BOARD.RIDER_PITCH * pitch)
       G2.setColor(1, 1, 1, see)
-      local bk = k * D.BOARD.scale
       drawPixel(board, px, feetY, lean, bk, bk * (1 + D.BOARD.PITCH * pitch), D.BOARD.cx, D.BOARD.feetY)
     end
     if pic then

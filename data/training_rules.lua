@@ -269,10 +269,11 @@ N.ATTACK = {
       lv3_spe = { pose = { [0] = 63, [2] = 57 }, key = 21 },
     },
     -- bitbots by course: spots across (world units at their depth) and each one's fire interval
-    -- in frames (the s2 / s3 captures: Tentacruel's three together every ~103; Wailord's and
-    -- Dragalge's middle one, nearer the camera, every ~94, the sides every ~105)
+    -- in frames (the s2 / s3 captures, re-read 2026-10-24: the same layout on all three courses,
+    -- left / middle / right at x 96 / 200 / 304 of 400; the first volley together, then the
+    -- middle one, nearer the camera, every ~94 and the sides every ~105 - Tentacruel's too)
     BITS = {
-      lv2_spd = { x = { -0.64, -0.28, 0.38 }, every = { 103, 103, 103 } },
+      lv2_spd = { x = { -0.53, 0, 0.53 }, every = { 105, 94, 105 } },
       lv3_hp = { x = { -0.53, 0, 0.53 }, every = { 105, 94, 105 } },
       lv3_spd = { x = { -0.52, 0.04, 0.52 }, every = { 105, 94, 105 } },
     },
@@ -360,7 +361,7 @@ N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.72, R = 0.12, H = 0.3
 --   the balloon: its phase's scale (attack data `scale`), growing to GROW x as it fills, swaying
 --   SWAY (x amplitude, degrees a frame, y amplitude, degrees a frame) when its phase says
 --   ours (the sprites standing in for the 3D models): BAL_SIZE the balloon sprite's mean side
---   at scale 1, its feet on the grass (GROUND) or, with a midY, its middle midY x scale above it; TRAINEE_H the trainee sprite's height; BIT_R a
+--   at scale 1, its feet on the grass (GROUND) or, with a midY, its middle midY x scale above it; TRAINEE_SIZE every trainee sprite's sqrt(w x h) and BOARD_W its board's width; BIT_R a
 --   bitbot's size; PLAY_FOVY / LOOK_Y the play camera's field and the height it looks at (fitted to
 --   a capture: e77's intro camera has the same 37.85)
 N.GAME3D = { EL = { 0, 45 }, AZ = { 60, 120 }, SPEED = 2, SPE_K = 0.001, ACTOR_IN = 11.5, ACTOR_SIDE = 2.5,
@@ -370,8 +371,11 @@ N.GAME3D = { EL = { 0, 45 }, AZ = { 60, 120 }, SPEED = 2, SPE_K = 0.001, ACTOR_I
   SHOT_CHARGED = { black = { 3.0, 1.0 }, yellow = { 3.0, 0.7 }, orange = { 3.0, 2.0 }, green = { 2.1, 1.5 },
     blue = { 5.2, 0.85 }, weak = { 3.0, 0.7 } },
   SHOT_SPE_K = 0.005, SHOT_HP_K = 0.00125, GROW = 1.5, SWAY = { 12, 2, 6, 1 },
-  BAL_SIZE = 105, GROUND = -6.7, TRAINEE_H = 1.6, BIT_R = 7, BIT_SPEED = 3.5, BIT_SHOT_R = 2.4, PLAY_FOVY = 37.85,
-  LOOK_Y = 31, EDGE_OFF = 2.5, EDGE_TURN = 9, EDGE_TILT = 15,
+  BAL_SIZE = 105, GROUND = -6.7, TRAINEE_SIZE = 1.8, BOARD_W = 3.6, RIDE_UP = 0.75, BIT_R = 8.3, BIT_SPEED = 3.5, BIT_SHOT_R = 2.8,
+  -- the bitbots where the game has them: left / middle / right spots (x, y, z), each circling a
+  -- loop BIT_LOOP_R round it facing the camera
+  BIT_SPOTS = { { -44.4, 28, 90 }, { 0, 28, 120 }, { 44.4, 28, 90 } }, BIT_LOOP_R = 16, PLAY_FOVY = 37.81,
+  LOOK_Y = 35, EDGE_OFF = 2.5, EDGE_TURN = 9, EDGE_TILT = 15,
   -- each balloon as the captures show it at the start (the middle distance, score 0), by National
   -- Dex number: { width, height, middle y } in the 3DS's 400x240 px
   SIZE_PX = {
@@ -515,9 +519,13 @@ N.EVIDENCE = {
   ["BLOCK"] = { class = "placeholder", source = "AS text 44:67: L throws up a barrier for a short period, not usable nonstop; longer with Def/SpD (gamepedia); lengths unknown", confidence = "low" },
   ["GAME3D"] = { class = "verified", source = "DllSparring.cro (research 2026-10-24): the sphere (0xadcc), limits el 0..45 / az 60..120 (0x21f0-0x2200), speed stat+0xc = 2 x (1 + SPEv x 0.001) a frame, x0.5 guarding (0x21e0); the trainee actor at sphere(el, az + 2.5 units of arc, r - 11.5) + (0, 3.5, 0) (0xcaf0); its hit sphere radius 3 at every distance (table 0x18228); the camera at sphere(el, az, r) + (0, 4.5, 0) looking at (0, 4.5, 0) (0x6ed4); the enemy ball's hit: the trainee sphere's nearest point inside the ball's ellipsoid of its record's semi-axes (0x15900-0x15ac0), base += normalize(target - start) x speed a frame (0x163f4 / 0x15624), gone at 300 from its start (0x15ad4), homing (trainee - base) x t / (t + k) (0x155ec); goals boxes of half 10 / 15 (0xdf68 / 0xdf6c); shots: tables 0x18234 / 0x1833c (speed, size), x (1 + SPEv x 0.005), x (1 + HPv x 0.00125), a lob 6 over its line (0x16488); the balloon's phase scale a/1/1/8 +4, growing to 1.5x (0x122e4), sway (12 sin 2t, 6 sin t) degrees a frame (0x11b58)", confidence = "high" },
   ["GAME3D.BAL_SIZE"] = { class = "measured", source = "ours (the balloon's 3D model stands in as its sprite): the sprite's mean side sqrt(w x h) at phase scale 1, fitted to the capture magneton-2 (Magneton, scale 0.7: the model 93 x 57 of the 240x160 frame at 240 out with the play camera, sqrt 73 frame = 73.5 game units); a floating balloon's middle is its phase's midY x scale above the grass (Magneton: 75 x 0.7 = 52.5, measured 53.1)", confidence = "low" },
-    ["GAME3D.TRAINEE_H"] = { class = "measured", source = "ours (the trainee's sprite for its model, its feet on the actor point - the top of the game's stand): Latias in the capture magneton-2 28 frame units tall 11.5 ahead (1.35 game units) plus a little for the ball it rides", confidence = "low" },
-  ["GAME3D.PLAY_FOVY"] = { class = "measured", source = "the play camera's projection is not in DllSparring.cro; with its eye (the trainee's sphere point + 4.5 up) the capture magneton-2's far Poke Ball (0, 401, -886) at frame y 26.7 and the pitch's far edge at 106.7 fit fovy ~38-40 looking up ~6 degrees: the intro camera e77's 37.85 and LOOK_Y 31 (the aim the code reads, (0, 4.5, 0), fits neither: it puts the edge at 83)", confidence = "medium" },
-  ["GAME3D.LOOK_Y"] = { class = "measured", source = "fitted with PLAY_FOVY to the capture magneton-2 (Poke Ball and pitch edge); near Magneton's middle (52.5 - 6.7 = 45.8 is its middle, so not the balloon's)", confidence = "low" },
+    ["GAME3D.TRAINEE_SIZE"] = { class = "measured", source = "ours (the trainee's sprite for its model, every Pokemon the same size, Wooble 2026-10-24): the captures' Latias at the middle, 68 x 46 of 400x240 px (sqrt 55.9 = 37.3 frame units at ~11.5 out: 1.8 game units); the game scales most trainee models 0.015 (a/1/3/0)", confidence = "medium" },
+  ["GAME3D.BOARD_W"] = { class = "measured", source = "the board under it as wide as the game's stand in the captures (horn tip to horn tip 111 of 400 px: 3.6 game units)", confidence = "medium" },
+  ["GAME3D.RIDE_UP"] = { class = "measured", source = "the trainee rides a ball on the stand: its feet over the actor point (the stand's top) by the ball - the captures' Latias bottom at y 169 of 240 against the actor point's ~193 (24 px = 0.75 game units at 11.5 out)", confidence = "medium" },
+  ["GAME3D.BIT_SPOTS"] = { class = "verified", source = "read live (Azahar GDB stub, 2026-10-24, Tentacruel): the three bitbots' world matrices at z 90 / 119.7 / 90, sampled twice - middle (2, 12.7) and (-10.9, 38.8): a loop round (0, 28.0) of 15.4; sides (-34.7, 42.3) / (-42.4, 14.5) and (45, 45) / (59.6, 21.2): round x ~-37 / ~44 at y 28, radii 14.5 / 17 (two points each, their roots off their middles); across from the captures, where the side loops are exactly symmetric (centres x 96 / 200 / 304 of 400, radii 37 / 47 / 37 px, clockwise every ~6 s, facing the camera): (+-44.4, 28, 90) and (0, 28, 120), a loop of 16; bodies 38x41 / 45x51 px (~16.5 across), their balls 17 / 12.5 px at launch (radius ~2.8)", confidence = "high" },
+  ["GAME3D.BIT_LOOP_R"] = { class = "measured", source = "see GAME3D.BIT_SPOTS", confidence = "medium" },
+  ["GAME3D.PLAY_FOVY"] = { class = "verified", source = "read live (Azahar GDB stub, 2026-10-24, Tentacruel's regimen at the middle): the top screen's projection uploaded with each draw holds 2.920762 / 1.752457 (5:3): cot(fovy / 2) = 2.920762, fovy 37.81 degrees (the intro camera e77's 37.85; the capture fit had 37.85)", confidence = "high" },
+  ["GAME3D.LOOK_Y"] = { class = "verified", source = "read live (Azahar GDB stub, 2026-10-24, Tentacruel's regimen): the stadium's modelview is the view itself; at the middle rows (1, 0, 0, 0), (0, 0.992021, 0.126070, -34.720844), (0, -0.126070, 0.992021, -237.517853): the eye (0, 4.5, 240) looking 7.24 degrees up at (0, 35.0, 0); at the top (elevation 45) the eye (0, 174.21, 169.71) looking 39.36 degrees down, again at (0, 35.0, 0): a fixed target (the capture fit had 31)", confidence = "high" },
   ["GAME3D.EDGE_OFF"] = { class = "verified", source = "DllSparring.cro 0x1450c-0x14988: at a limit effect #3 is spawned beside the trainee at (0, 2.5, 0) for the top, (+-2.5, 0, 0) for the sides; the 3d-ref captures (Axew / Aerodactyl / Graveler, 2026-10-24) show a ripple disc there: the left one edge-on ~100 px left of Latias, the right a crescent by the stand, the top a ~2:1 ellipse above-left of it", confidence = "high" },
   ["GAME3D.EDGE_TURN"] = { class = "measured", source = "the ripple discs' facing, fitted to the 3d-ref captures (2026-10-24): a side disc nearly edge-on (Axew / Graveler left edge: a streak 10-12 px wide, 90+ tall, leaning 10-15 degrees), the top one a ~0.8 ellipse (Axew top edge 150 x 125 px); EDGE_TURN off the line of sight, EDGE_TILT toward the camera", confidence = "low" },
   ["GAME3D.EDGE_TILT"] = { class = "measured", source = "see GAME3D.EDGE_TURN", confidence = "low" },

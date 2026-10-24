@@ -40,7 +40,10 @@ local function body(game, log)
   if s then s.x, s.y = 14, 12 end
   Player.cellX, Player.cellY, Player.px, Player.py = 14, 12, 14 * 16, 12 * 16
   Player.targetX, Player.targetY = 14, 12
-  if s and #(s.party or {}) == 0 then Party.giveMon(s, C:require("species", "SPECIES_TORCHIC"), 12) end
+  -- PROBE_SPECIES (e.g. LATIAS): the lead; Torchic by default
+  if s and #(s.party or {}) == 0 then
+    Party.giveMon(s, C:require("species", "SPECIES_" .. (os.getenv("PROBE_SPECIES") or "TORCHIC")), 12)
+  end
   U.wait(60)
   local X = game.mods and game.mods.exports and game.mods.exports.play_nav
   if not X then log("FAIL no exports"); return end
@@ -79,6 +82,21 @@ local function body(game, log)
     U.wait(2)
     shot("a02_play_middle")
     Draw.debugMarks = nil
+    -- PROBE_BITS=1 (3D, a bitbot course: lv3_hp Wailord): the bitbots, then their first volley
+    if os.getenv("PROBE_BITS") == "1" and S.game3d then
+      waitFor(function() return #(S.bits or {}) >= 3 end, 60 * 120)
+      log("bits", #(S.bits or {}))
+      U.wait(6)
+      shot("b_bits")
+      waitFor(function()
+        for _, b in ipairs(S.balls) do if b.kind == "bit" then return true end end
+        return false
+      end, 60 * 60)
+      local t0 = S.t
+      waitFor(function() return S.t - t0 > 0.5 end, 4000)
+      shot("b_volley")
+      return
+    end
     -- PROBE_SHIELD=1 (3D, Graveler's course lv2_def): the cage from the middle, the top middle and
     -- the top left, then broken
     if os.getenv("PROBE_SHIELD") == "1" and S.game3d then
