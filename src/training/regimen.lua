@@ -113,6 +113,7 @@ return function(mod, T, deps)
     local s = T.session
     local course = s and T.course(id)
     if not course then return false, "unknown" end
+    if T.refreshMon then T.refreshMon(s) end
     local mods = Rules.modifiers(s.evs, s.rec.pending, { pokerus = host.hasPokerus(s.mon), base = s.base })
     -- a second wind lasts one regimen: double the points, then it is spent
     if s.rec.secondWind then
@@ -152,14 +153,17 @@ return function(mod, T, deps)
 
   -- the Emerald stand-ins for what the capture did not show (data/training_sounds.lua has the
   -- game's own effects for the rest)
+  -- (a popped bitbot is the field's balloon pop; the shield shattering, ice breaking; a balloon
+  -- changing form, Reflect)
   local SE = { goal_hit = "SE_BALL_BOUNCE_1", player_hit = "SE_NOT_EFFECTIVE", bot_pop = "SE_SUCCESS",
-    blocked = "SE_SELECT", bit_pop = "SE_BALL_BOUNCE_2", chance_goal = "SE_EXP", overcharge = "SE_FAILURE",
-    barrier_up = "SE_SELECT", attack_telegraph = "SE_SELECT" }
+    blocked = "SE_SELECT", bit_pop = "SE_BALLOON_RED", chance_goal = "SE_EXP", overcharge = "SE_FAILURE",
+    barrier_up = "SE_SELECT", attack_telegraph = "SE_SELECT", block_down = "SE_ICE_BREAK",
+    form_change = "SE_M_REFLECT" }
 
   -- one event's haptic (src/haptics.lua): a goal hit pulses (harder charged), a hit taken
   -- knocks, the balloon popping and the clear burst; the stand-in sound's own is skipped
   local HAPTIC = { goal_hit = "medium", player_hit = "hurt", bot_pop = "big", bit_pop = "light",
-    blocked = "light", chance_goal = "strong", clear = "success", shot_fired = "tick",
+    blocked = "light", chance_goal = "strong", clear = "success", shot_fired = "tick", weak_shot = "tick",
     play = "strong", timeout = "bad" }
 
   -- felt as they change, frame by frame: each charge stage a held shot reaches (the full one
@@ -198,7 +202,7 @@ return function(mod, T, deps)
     local charged = (e.stage or 0) >= 1 or e.energy
     if e.kind == "play" then
       T.playSe("play")
-    elseif e.kind == "shot_fired" then
+    elseif e.kind == "shot_fired" or e.kind == "weak_shot" then
       T.playSe(charged and "charged_shot" or "shot")
     elseif e.kind == "goal_hit" then
       T.playSe(charged and "charged_hit" or "goal_hit", SE.goal_hit)

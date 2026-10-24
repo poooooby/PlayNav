@@ -860,6 +860,42 @@ do
   local launched
   run(w, 20, function(e) if e.kind == "attack_launch" and not launched then launched = e end end)
   T.check(launched ~= nil, "Wailmer fires")
+
+  -- the warning's prediction (Sim:ballEta): a game ball's arrival and whether it hits match the hit
+  do
+    local e = gameSim("lv1_hp")
+    run(e, 3.1)
+    e.script, e.balls, e.spawnQueue = nil, {}, {}
+    e.player.x = 0.3
+    local ball = Sim.gameBall(e, { p = 0, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
+    e.balls[1] = ball
+    local eta, hits = e:ballEta(ball)
+    T.check(eta and hits, "an aimed ball is predicted to hit a still trainee")
+    local t0, hitAt = e.t, nil
+    run(e, 10, function(ev) if ev.kind == "player_hit" and not hitAt then hitAt = ev.t end end)
+    T.check(hitAt and math.abs((hitAt - t0) - eta) < 0.05, ("...and arrives when predicted (%.2f vs %.2f s)"):format(eta or -1, (hitAt or 0) - t0))
+    local m = gameSim("lv1_hp")
+    run(m, 3.1)
+    m.script, m.balls = nil, {}
+    m.player.x = 0.3
+    local miss = Sim.gameBall(m, { p = 0, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
+    m.player.x = -0.6
+    local _, mh = m:ballEta(miss)
+    T.check(mh == false, "...one the trainee has stepped away from is not")
+
+    -- a ball that reaches an untouchable trainee (just hit) breaks there, harmless
+    local u = gameSim("lv1_hp")
+    run(u, 3.1)
+    u.script, u.balls, u.spawnQueue = nil, {}, {}
+    u.player.x = 0.3
+    local ub = Sim.gameBall(u, { p = 0, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
+    u.balls[1] = ub
+    u.player.safe = 1e9
+    local before, absorbed = u.score, false
+    run(u, 4, function(ev) if ev.kind == "ball_absorbed" then absorbed = true end end)
+    T.check(absorbed and #u.balls == 0 and u.score == before,
+      "a ball on an untouchable trainee breaks there and costs nothing (not on into the camera)")
+  end
   local hitAt
   local w2 = gameSim("lv1_hp")
   run(w2, 3.1)

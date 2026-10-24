@@ -99,7 +99,9 @@ do
   local st = R.shotStats({ hp = 100, atk = 0, def = 0, spe = 100, spa = 0, spd = 0 }, {}, nil)
   T.check(math.abs(st.speedMult - 1) < 1e-9 and math.abs(st.sizeMult - 1) < 1e-9, "at the reference stat our table's speed and size hold")
   local fast = R.shotStats({ hp = 100, atk = 0, def = 0, spe = 100, spa = 0, spd = 0 }, { spe = 252 }, nil)
-  T.check(math.abs(fast.speedMult - (1 + 604 * 0.005) / 1.5) < 1e-9, "252 Speed EVs: (1 + 604 x 0.005) / 1.5")
+  T.check(math.abs(fast.speedMult - ((1 + 604 * 0.005) / 1.5) ^ N.SHOT.SPE_EXP) < 1e-9,
+    "252 Speed EVs: the game's (1 + 604 x 0.005) / 1.5, raised to SPE_EXP")
+  T.check(fast.speedMult > 2.5, ("...well over the reference (x%.2f)"):format(fast.speedMult))
   T.check(math.abs(st.lossMult - 1 / (1 + 100 * 0.005)) < 1e-9, "a hit's loss x 1 / (1 + (HPv + EV total) x 0.005)")
   local tough = R.modifiers({}, "toughen_up", { base = { hp = 100, atk = 0, def = 0, spe = 100, spa = 0, spd = 0 } })
   T.check(math.abs(tough.lossMult - st.lossMult / 1.5) < 1e-9, "Toughen Up divides it by 1.5")

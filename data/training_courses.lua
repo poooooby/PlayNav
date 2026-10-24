@@ -269,5 +269,18 @@ end
 local byId = {}
 for _, c in ipairs(courses) do byId[c.id] = c end
 
+-- the Lv1 balloons' own idle motion in the game's top-screen pixels (Wooble's captures
+-- 2026-10-23; N.BOT.SWAY's form: ax across, ay up and down, every period s): mostly a small
+-- vertical bob, Axew all but still, Tentacool drifting slowly, Noibat swaying side to side
+local SWAY = {
+  lv1_hp = { ax = 0, ay = 6, period = 4.0 },
+  lv1_atk = { ax = 1, ay = 0.5, period = 6.8 },
+  lv1_def = { ax = 0, ay = 5, period = 3.3 },
+  lv1_spa = { ax = 0.75, ay = 4.75, period = 2.35 },
+  lv1_spd = { ax = 2, ay = 11, period = 12 },
+  lv1_spe = { ax = 5, ay = 4, period = 6.6 },
+}
+for id, sway in pairs(SWAY) do if byId[id] then byId[id].sway = sway end end
+
 return { version = 1, anchors = anchors, attacks = attacks, courses = courses, byId = byId, STAT_ORDER = STAT_ORDER,
   botsFor = botsFor, alpha = alpha }

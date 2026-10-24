@@ -327,9 +327,24 @@ return function(mod, deps)
     end
   end
 
+  -- the Pokemon's EVs and base stats as they are now: a vitamin, a battle or another mod may
+  -- have changed them since the session read them (the regimen's shot speed, power, meter and
+  -- guard come from them)
+  local function refreshMon(s)
+    if not (s and s.mon) then return end
+    s.evs = host.evsOf(s.mon)
+    local species = host.speciesOf(s.mon)
+    if species ~= s.species then
+      s.species = species
+      s.base = host.baseStats and host.baseStats(species) or s.base
+    end
+  end
+  T.refreshMon = refreshMon
+
   local function setMode(mode)
     local s = T.session
     if not s then return end
+    refreshMon(s)
     syncLayer(s, mode)
     s.mode = mode
     local app = APP_FOR[mode]

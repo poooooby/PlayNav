@@ -338,7 +338,7 @@ return function(N)
     if charged then points = points * (1 + N.CHARGE.MULT_RISE * (rise or 0)) end
     points = points * (self.mods.pointMult or 1)
     local r = def.r * (self.mods.shotSize or 1)
-    local speed = def.speed * (charged and def.chargedSpeed or 1) * (self.mods.ballSpeedMult or 1)
+    local speed = def.speed * (N.SHOT.SPEED_SCALE or 1) * (charged and def.chargedSpeed or 1) * (self.mods.ballSpeedMult or 1)
     local ax = p.aim.x + (spread or 0)
     local ay = p.aim.y
     local x0, y0, z0 = p.x, (p.y or 0) + 0.15, p.z
@@ -391,7 +391,7 @@ return function(N)
     local x, y = 0, 0
     local _, _, _, hw, hu = Sim.view()
     -- (`still`: a test's balloon that does not sway)
-    local sway = not self.still and N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]
+    local sway = not self.still and (self.course.sway or (N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]))
     if sway and self.phase ~= "countdown" then
       local w = 2 * math.pi * (self.t - (self.swayT0 or 0)) / sway.period
       x = x + math.sin(w) * sway.ax * 0.6 / hw
@@ -399,9 +399,28 @@ return function(N)
     end
     local bot = self.bot
     if bot and (bot.shake or 0) > 0 then
-      local k = bot.shake / N.BOT.SHAKE_S
+      local scale = N.BOT.SHAKE_SCALE and N.BOT.SHAKE_SCALE[self.isSecret and "secret" or self.level] or 1
+      local k = bot.shake / N.BOT.SHAKE_S * scale
       x = x + math.sin(self.t * 23) * N.BOT.SHAKE_PX * k * 0.6 / hw
       y = y + math.sin(self.t * 17 + 1) * N.BOT.SHAKE_PX * k * (160 / 240) / hu
+    end
+    -- the throw: it dips through the wind-up, snaps up as it lets go and holds there while the
+    -- ball flies, then settles (N.BOT.WINDUP, game px)
+    if bot then
+      local W = N.BOT.WINDUP
+      local dy = 0
+      if bot.windup then
+        local u = math.min(1, bot.windup.t / math.max(0.05, bot.windup.len))
+        if u < W.DIP_AT then dy = -W.DIP_PX * math.sin(math.pi / 2 * u / W.DIP_AT)
+        else
+          local v = (u - W.DIP_AT) / (1 - W.DIP_AT)
+          dy = -W.DIP_PX + (W.DIP_PX + W.RISE_PX) * v * v
+        end
+      elseif (bot.thrown or 0) > 0 then
+        local v = bot.thrown / W.HOLD_S
+        dy = W.RISE_PX * math.min(1, v * 3)
+      end
+      if dy ~= 0 then y = y + dy * (160 / 240) / hu end
     end
     local m = self.course.motion
     if m and m.bob then
@@ -639,7 +658,9 @@ return function(N)
           self.chanceDone = true
         end
         self.groupGap = self.groupGap + step
-        if self.groupGap >= N.GOALS.GROUP_GAP_S then
+        -- a group that ran out (none of it scored) is followed sooner than a cleared one
+        local gap = (self.groupScored or 0) == 0 and N.GOALS.EXPIRE_GAP_S or N.GOALS.GROUP_GAP_S
+        if self.groupGap >= gap then
           self.groupGap = 0
           self:spawnGroup()
         end
@@ -797,7 +818,7 @@ return function(N)
     local ty = shot.aimY == 1 and ((p.y or 0) + N.PLAYER.H / 2) or ly
     -- in the game's units: across, up, and the depth to the trainee; turned by the aim offsets
     local gx, gy, gz = (tx - lx) / U, (ty - ly) / U, GA.DEPTH
-    local yaw, pitch = math.rad(shot.yaw or 0), math.rad(shot.pitch or 0)
+    local yaw, pitch = math.rad((shot.yaw or 0) * (GA.ANGLE_DEG or 1)), math.rad((shot.pitch or 0) * (GA.ANGLE_DEG or 1))
     gx, gz = gx * math.cos(yaw) + gz * math.sin(yaw), -gx * math.sin(yaw) + gz * math.cos(yaw)
     gy, gz = gy * math.cos(pitch) + gz * math.sin(pitch), -gy * math.sin(pitch) + gz * math.cos(pitch)
     local len = math.sqrt(gx * gx + gy * gy + gz * gz)
@@ -886,12 +907,20 @@ return function(N)
         sc.stage = "pose"
       elseif sc.stage == "pose" then
         if st and st.cmd ~= 0 then
-          sc.stage, sc.left = "act", sc.left + ((st.fire and st.fire >= 0) and st.fire or GA.FIRE_KEY_U)
+          local key = (st.fire and st.fire >= 0) and st.fire
+            or (GA.FIRE_KEY_COURSE and GA.FIRE_KEY_COURSE[self.course.id]) or GA.FIRE_KEY_U
+          sc.stage, sc.left = "act", sc.left + key
+          -- the balloon winds up for the throw (drawn: a dip, then up as it lets go)
+          if st.cmd >= 84 then self.bot.windup = { t = 0, len = key / (((sc.form and ph.rateB) or ph.rate) * FPS) } end
         else
-          sc.stage, sc.left = "recover", sc.left + (st and st.recover or 45)
+          -- a wait: its recovery and the idle pose played out
+          local extra = GA.WAIT_POSE_U and GA.WAIT_POSE_U[st and st.pose or 0] or 0
+          sc.stage, sc.left = "recover", sc.left + (st and st.recover or 45) + extra
         end
       elseif sc.stage == "act" then
-        if st.cmd >= 84 then fireVolley(self, st.cmd - 84)
+        if st.cmd >= 84 then
+          fireVolley(self, st.cmd - 84)
+          self.bot.windup, self.bot.thrown = nil, N.BOT.WINDUP.HOLD_S
         elseif st.cmd == 3 then spawnBits(self, st.count)
         elseif st.cmd == 2 then
           -- the timed routine: the balloon waits it out (its frames, whatever the rate)
@@ -1012,13 +1041,16 @@ return function(N)
       -- bits first
       for _, bit in ipairs(self.bits) do
         if alive and bit.hp > 0 and not bit.dead and pz < bit.z and sh.z >= bit.z then
-          local dx, dy = sh.x - bit.x, sh.y - bit.y
+          -- where it crosses the bit's depth (a fast shot moves far in one step)
+          local f = (bit.z - pz) / math.max(1e-6, sh.z - pz)
+          local dx = sh.x - sh.vx * step * (1 - f) - bit.x
+          local dy = sh.y - sh.vy * step * (1 - f) - bit.y
           if dx * dx + dy * dy <= (bit.r + sh.r) ^ 2 then
             bit.hp = bit.hp - 1
             alive = false
             if bit.hp <= 0 then
               self.stats.bitsPopped = self.stats.bitsPopped + 1
-              bit.dead, bit.regenT = true, N.ATTACK.bit.regen_s
+              bit.dead, bit.regenT, bit.poppedAt = true, N.ATTACK.bit.regen_s, self.t
               emit(self, "bit_pop", { id = bit.id })
             else
               emit(self, "bit_hit", { id = bit.id, hp = bit.hp })
@@ -1115,6 +1147,39 @@ return function(N)
     emit(self, "player_hit", { loss = before - self.score, ball = ball.kind, score = self.score })
   end
 
+  -- a ball still on its way: the seconds until it reaches the trainee's depth, whether it
+  -- would hit the trainee if the trainee stayed where it is (the hit test below, at its place
+  -- then: a game ball's wave and homing laid over, a lob at its landing), and where it crosses
+  -- that depth (x, y); nil when it is past,
+  -- bounced, or never comes
+  function Sim:ballEta(b)
+    local p = self.player
+    if b.bounced or b.z <= p.z then return nil end
+    local t, x, y
+    if b.lob then
+      local L = b.lob
+      t = math.max(0, L.T - L.t)
+      x, y = L.tx, L.ty
+    else
+      local vz = b.vz or 0
+      if vz >= -1e-6 then return nil end
+      t = (b.z - p.z) / -vz
+      if b.game then
+        local ox, oy = gameOffset(self, b, (self.t + t - b.t0) * FPS)
+        x, y = b.bx + b.vx * t + ox, b.by + b.vy * t + oy
+      elseif b.ring then
+        x, y = b.x, b.y
+      else
+        x, y = b.x + (b.vx or 0) * t, b.y + (b.vy or 0) * t
+      end
+    end
+    local hw = (b.w or b.r * 2) / 2
+    local hh = (b.h or b.r * 2) / 2
+    local py = p.y or 0
+    local hits = math.abs(x - p.x) <= hw + N.PLAYER.R and (y - hh) <= py + N.PLAYER.H and (y + hh) >= py
+    return t, hits, x, y
+  end
+
   function Sim:updateBalls(step)
     local p = self.player
     local keep = {}
@@ -1163,7 +1228,12 @@ return function(N)
         local overlapX = math.abs(b.x - p.x) <= hw + N.PLAYER.R
         local py = p.y or 0
         local overlapY = (b.y - hh) <= py + N.PLAYER.H and (b.y + hh) >= py
-        if overlapX and overlapY and (p.safe or 0) <= 0 then
+        if overlapX and overlapY and (p.safe or 0) > 0 then
+          -- untouchable a moment (just hit, or a ball just stopped): it breaks on the trainee
+          -- all the same, harmless, rather than flying on into the camera
+          alive = false
+          emit(self, "ball_absorbed", { ball = b.kind })
+        elseif overlapX and overlapY then
           alive = false
           if p.shield > 0 then
             -- a stopped ball: it bounces off, the shield breaks a moment later, and the trainee
@@ -1196,7 +1266,7 @@ return function(N)
         -- "give 'em enough time, and they'll regenerate on you"
         bit.regenT = bit.regenT - step
         if bit.regenT <= 0 then
-          bit.dead, bit.hp, bit.fireT = false, A.hp, A.fire_every
+          bit.dead, bit.hp, bit.fireT, bit.poppedAt = false, A.hp, A.fire_every, nil
           emit(self, "bit_regen", { id = bit.id })
         end
         keptBits[#keptBits + 1] = bit
@@ -1311,6 +1381,8 @@ return function(N)
     if bot.flinch > 0 then bot.flinch = math.max(0, bot.flinch - step) end
     if (bot.shake or 0) > 0 then bot.shake = math.max(0, bot.shake - step) end
     if bot.aura > 0 then bot.aura = math.max(0, bot.aura - step) end
+    if bot.windup then bot.windup.t = bot.windup.t + step end
+    if (bot.thrown or 0) > 0 then bot.thrown = math.max(0, bot.thrown - step) end
     -- (the game's script sets the mood from its second form; this only without it)
     if not self.script then
       if self.course.rageAt and self.score >= self.course.rageAt then bot.mood = "rage" end

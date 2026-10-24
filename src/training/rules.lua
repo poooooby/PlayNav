@@ -192,7 +192,7 @@ return function(N, ShotTypes)
       moveMult = (1 + spev * N.PLAYER.SPE_K) / (1 + ref * N.PLAYER.SPE_K) * swift,
       blockS = math.floor(N.BLOCK.MAX_F * (1 + defv * N.BLOCK.DEF_K)) / N.CHARGE.FPS,
       -- shot speed and size against our table's (taken at STAT_REF); a hit's loss as the game's
-      speedMult = (1 + spev * N.SHOT.SPE_K) / (1 + ref * N.SHOT.SPE_K),
+      speedMult = ((1 + spev * N.SHOT.SPE_K) / (1 + ref * N.SHOT.SPE_K)) ^ (N.SHOT.SPE_EXP or 1),
       sizeMult = (1 + hpv * N.SHOT.HP_K) / (1 + ref * N.SHOT.HP_K),
       lossMult = 1 / (1 + (hpv + total) * N.DAMAGE.LOSS_K) }
   end

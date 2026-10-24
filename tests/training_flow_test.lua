@@ -679,11 +679,17 @@ do
   T.check(not ok and why == "not_fully_trained", "secret courses need 510 EVs")
   -- a pending bag effect feeds the regimen and is spent by it
   S.session.rec.pending = "double_up"
+  -- Speed EVs gained while Super Training is open (a vitamin) reach the regimen's shots
+  party[1].evs.spe = 100
   T.check(S.startCourse("lv1_hp"), "Lv1 HP starts")
   T.eq(S.state().mode, "regimen", "mode regimen")
   T.eq(Apps:active().id, "training_aim", "the aim pad owns the surface")
   T.check(S.sim ~= nil and S.sim.phase == "countdown", "the simulation is counting down")
   T.check(S.sim.mods.evMult == 2, "...with the Double-Up effect")
+  local spe0 = Rules.modifiers({}, nil, { base = fake.baseStats() }).ballSpeedMult
+  T.check(S.session.evs.spe == 100 and S.sim.mods.ballSpeedMult > spe0 * 1.4,
+    ("...with the Speed EVs as they are now (shot speed x%.2f, x%.2f at 0)"):format(S.sim.mods.ballSpeedMult, spe0))
+  party[1].evs.spe = 0
   for _ = 1, 40 do S.tick(0.1) end
   T.eq(S.sim.phase, "play", "...and playing after the countdown")
   local st = S.state()
