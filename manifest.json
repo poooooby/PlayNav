@@ -1,7 +1,7 @@
 {
   "id": "play_nav",
   "name": "PlayNav",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -42,7 +42,7 @@
         "0563f9dee1b95de32d579e40c20e2bfc"
       ],
       "max_size": 2147483648,
-      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Any decrypted dump works (card image, trimmed or not, or CIA); PlayNav checks each piece it uses against Alpha Sapphire (USA) Rev 2 and draws its own for any that differ. Optional: without it, simple drawn shapes and PlayNav's own wording are used. The copy can be removed from Imported files once the art has been extracted."
+      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Any decrypted dump works (card image, trimmed or not, or CIA); PlayNav checks each piece it uses against Alpha Sapphire (USA) Rev 2 and draws its own for any that differ. Optional: without it, PlayNav plays with its own art, sounds, words and music. The copy can be removed from Imported files once the art has been extracted."
     }
   ],
   "github": "poooooby/PlayNav"

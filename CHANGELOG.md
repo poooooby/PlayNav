@@ -5,15 +5,67 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-23 (beta)
+
+### Added
+
+- PlayNav no longer needs a 3DS game. The first time you open it, the PlayNav screen offers
+  **Begin extraction** (the 3DS look and sound from your own copy) or **Use fallback assets**:
+  every screen of Pokémon-Amie and Super Training drawn by PlayNav itself, with its own sound
+  effects and words, the Amie Décor, Poké Puffs and minigame art bundled, and the GBA games' own
+  songs for music. The new **USE ROM ASSETS** option switches between the two at any time. A
+  missing or wrong copy is named on the screen (**OR/AS ROM not found** / **Incorrect ROM
+  added**), and adding the right one later brings the offer back.
+- Display options that match Kanto Gear's, so every dual-screen mod reads alike: **DISPLAY
+  MODE** K-Gear (follow Kanto Gear's own settings, the default) / Fullscreen Swap / Combined
+  Screen / Separate Screens, with Start Screen, Layout (stacked, side by side or an overlay
+  panel), Primary View, Secondary Size, Bottom Safe Area, Overlay Corner and Button, Quick Swap
+  (Y) and PlayNav Output (Main Screen keeps PlayNav on your main screen and sends the game to the
+  second display).
+- Super Training's balloons attack as in the game, each with its own course's attacks: volleys,
+  streams, spreading rings and spirals, giant balls, homing balls (blue), wide and tall balls,
+  bitbots that circle and fire, Aegislash's and Roserade's second forms, and a shield Graveler
+  and Golem hide behind until you hit the target circling it. A magenta glow warns of a big
+  attack, and every throw winds up first.
+- An incoming-ball warning: where each ball will cross your line shows as a shadow on the grass
+  with a ring closing in, red and blinking when it's going to hit you where you stand.
+- Super Training's energy meter, Charged Shots and shield on the game's own rules: the meter
+  refills by Defense and Sp. Def, each shot spends your Energy Shot colour's cost (a weak shot
+  when short), a held shot is Charged then full for up to triple points and fizzles if held too
+  long, and the shield (held L or R) bounces a ball back and then shatters.
+- Courses with more than one balloon change over as the game's: the clock stops, the beaten
+  balloon collapses onto the grass, the next inflates where it lies and 30 seconds go on the clock.
+- The balloon inflates as your score climbs and wobbles at each hit; clearing a group freezes it,
+  puffing air from its sides, before the red goal.
+
 ### Changed
 
 - Any decrypted dump of Alpha Sapphire (USA) can supply the art: a card image, trimmed or not,
   or a decrypted CIA. PlayNav checks every piece it unpacks against Alpha Sapphire Rev 2 and
   draws its own art for any piece your copy holds differently; the import screen says how many.
-  This needs a Gen1Recomp build with mod-checked imports; earlier builds still take only the
-  exact Rev 2 `.cci`.
+  This needs Gen1Recomp 0.3.96 or later; earlier builds still take only the exact Rev 2 `.cci`.
+- Super Training's balloons move, throw and time their goals as recordings of the real game
+  show, course by course, and their damage per hit is the game's. The balls are white at Lv. 1,
+  black from Lv. 2, blue when they home; the lobbed balls are gone (the game has none).
+- A ball hits your Pokémon only if it visibly touches it: its hitbox is the ball you see. Homing
+  balls chase you slower than you move, so you can outrun or juke them; wide and tall balls home
+  the same way with a wider or taller hitbox. Your Pokémon moves 50% faster, and the balls' flight
+  with it. A ball that misses fades out just past you; one that hits is gone at once.
+- Your stats work as in the game: Attack and Sp. Atk power your shots, Speed makes them faster
+  (a fully trained shot crosses the field in about a quarter of a second) and moves you faster,
+  HP makes them bigger, and HP and your EV total soften the hits you take.
+- Regimens always run at normal speed, whatever GAME SPEED is set to.
+- The final secret regimen's balloons follow your game: the Aron line in Ruby, FireRed and
+  Emerald, the Larvitar line in Sapphire and LeafGreen.
+- Pokémon-Amie's minigames play their screens without the card image's layout files.
 
 ### Fixed
+
+- EVs your Pokémon gains while Super Training is open (a vitamin, a battle) now count in the
+  next regimen; Speed EVs never sped up its shots.
+- A shot held with the mouse charges instead of firing once first.
+- Pokémon-Amie's PLAY says why the minigames or the puff drawer won't open instead of doing
+  nothing.
 
 - On phones (and touchscreen PCs) in split screen, every tap reached PlayNav twice: once as the
   touch and once as the mouse the system reports alongside it. Super Training's bag drawer

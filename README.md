@@ -45,10 +45,11 @@ on a touch screen below the game or on a device's second display.
 - 🧸 **Pokémon-Amie:** Spend time with your Pokémon to raise its affection, and it fights better
   for you.
 - 🏋️ **Super Training:** Raise your Pokémon's EVs with training bags and shooting regimens.
-- 🖼️ **The real 3DS look and sound, from your own game:** PlayNav builds its art, music, sound
-  effects and English text from your own Alpha Sapphire card image. The import is required:
-  until it has run, opening Pokémon-Amie or Super Training shows the PlayNav screen with a
-  **Begin extraction** button — or a warning that the card image is missing.
+- 🖼️ **Your choice of look and sound:** the first time you open PlayNav its screen asks.
+  **Begin extraction** builds the art, music, sound effects and English text from your own Alpha
+  Sapphire or Omega Ruby copy, for the real 3DS look. **Use fallback assets** needs no copy:
+  every screen is drawn by PlayNav itself, with its own sounds and words and the GBA games' own
+  songs for music. Switch between the two any time with **USE ROM ASSETS**.
 - 🧭 **The PlayNav menu:** **PLAYNAV** on the START menu opens PlayNav on the touch screen,
   with a card for each app (**Pokémon-Amie** and **Super Training**) as the game's PlayNav lists
   them. Tap one to open it; closing an app brings you back to the menu, and the x (or PLAYNAV
@@ -85,12 +86,14 @@ on a touch screen below the game or on a device's second display.
 - ✋ **Little moments:** Hold a finger out beside a fond Pokémon and it leaps up to high-five
   your hand. Tap twice too fast and it feels hit. It dances as its affection grows and leaves
   you a present at each affection milestone.
-- 🔊 **Sound effects:** Amie plays the game's own sounds from your card image, at the game's
-  effects volume: petting, eating, waking and dozing, the high five, DECORATE, visitors coming
-  and going, and every minigame moment from START! to the HIGH SCORE stamp.
-- 🎵 **Minigame music:** each minigame plays the game's own theme, rendered from your card
-  image and following the game's music settings. Berry Picker's speeds up as time runs out, as
-  in the game. Play and the room keep your area's music, as the game does.
+- 🔊 **Sound effects:** Amie plays a sound for every moment, at the game's effects volume:
+  petting, eating, waking and dozing, the high five, DECORATE, visitors coming and going, and
+  every minigame moment from START! to the HIGH SCORE stamp. With your card image they're the
+  3DS game's own; without it, PlayNav's, shaped after them.
+- 🎵 **Minigame music:** each minigame has its own theme, following the game's music settings.
+  With your card image it's the 3DS game's (Berry Picker's speeds up as time runs out, and Head
+  It's rises a key in FEVER); without it, a song from your GBA game. Play and the room keep your
+  area's music, as the game does.
 - 🎮 **Controller:** wherever PlayNav has the screen you can also play with the pad: A wakes
   your Pokémon and opens the minigames, SELECT the Poké Puff drawer; the minigame and regimen
   pickers take the D-pad and A; Head It heads with left / up / right, Tile Puzzle moves a
@@ -155,26 +158,41 @@ on a touch screen below the game or on a device's second display.
   On split screen the picker, the stadium and the results fill the whole top of the screen, as
   the overworld does.
   - **Controls:** tap the touch screen to shoot where you touch (the brackets on both screens
-    line up), hold to charge a triple-points shot, and block with L or R. A mark on the top
-    screen shows where your last shot went.
+    line up). Hold to charge: a Charged Shot scores up to triple points, but held too long it
+    fizzles and leaves your Pokémon dazed for a moment. Hold L or R for a shield that bounces a
+    ball back and then shatters. A mark on the top screen shows where your last shot went.
+    Regimens always run at normal speed, whatever the game speed is set to.
   - **Moving:** your Pokémon rides a hover board. Steer it across and up and down with the
     d-pad, anywhere on the screen.
-  - **The goals** stay where they appear and move with the balloon. Lv. 1 shows one at a time
-    on a gently swaying balloon; higher levels bring groups of three on a balloon that swings
-    harder, and a red goal that takes several hits. A hit makes the balloon shake.
-  - **The balloon fights back** with soccer balls that grow as they come at you, bigger at
-    higher levels. From Lv. 2 it also lobs balls up off the screen: a red shadow on the grass
-    shows where each one will land.
-  - **Energy Shots:** a full energy meter fires your Pokémon's own Energy Shot.
-  - **Your EVs help:** they strengthen your shots, soften hits and make you faster.
+  - **The energy meter** fills as you play; each shot spends some, and with too little left you
+    fire a weak shot. Your Pokémon's Energy Shot colour sets the cost and the points.
+  - **The goals** move with the balloon, which sways and bobs in its own way, and appear in
+    groups that run out on a timer: white, then orange, then gone. The balloon inflates as your
+    score climbs and wobbles at each hit. Clear a group and it freezes, puffing air from its
+    sides, before a red goal that takes several hits.
+  - **The balloon fights back** with each course's own attacks from the game: volleys, streams,
+    spreading rings and spirals, giant balls, bitbots that circle and fire, and a shield it
+    hides behind until you hit the target circling it (Graveler, Golem). A magenta glow warns
+    of a big attack. Blue balls home in on you, but slower than you move: keep moving, or juke,
+    and they miss. Wide and tall balls home the same way; they're just harder to get round.
+  - **What you see is what hits:** a ball hits your Pokémon only if it visibly touches it.
+    Where each ball will cross your line shows as a shadow on the grass with a ring closing in,
+    red and blinking if it's going to hit you where you stand.
+  - **Circuits:** on courses with more than one balloon the clock stops when one is beaten; it
+    collapses onto the grass, the next inflates where it lies, and 30 seconds go on the clock.
+  - **Your EVs count, the game's way:** Attack and Sp. Atk power your shots, Speed makes them
+    and you faster (a fully trained shot crosses the field in a quarter of a second), HP
+    makes them bigger and softens the hits you take, and Defense and Sp. Def refill the meter
+    faster and hold the shield longer. Every EV you have softens hits a little more.
   - **The results** show which stat went up on the meter, your time, any new best and the bags
     you won, with the coach's words a tap at a time.
-  - **Music:** the regimen picker, every regimen and its results play Super Training's own
-    music from your game, in place of the overworld's, which picks up again when you go back.
-    It follows the game's sound settings: music volume, audio mode and music filter.
-  - **Sound effects:** the regimens play the game's own sounds from your card image, at the
-    game's effects volume: from the Regimens button and the balloon's pumps, through every shot,
-    hit and attack, to the balloon zipping off as a star and the results.
+  - **Music:** the regimen picker, every regimen and its results have their own music in place
+    of the overworld's, which picks up again when you go back: Super Training's own with your
+    card image, else songs from your GBA game (and Wooble's own track for the picker). It follows
+    the game's sound settings: music volume, audio mode and music filter.
+  - **Sound effects:** every moment has its sound, at the game's effects volume: from the
+    Regimens button and the balloon's pumps, through every shot, hit and attack, to the balloon
+    zipping off as a star and the results. With your card image they're the 3DS game's own.
 - 🏆 **30 regimens:** 18 regular courses over three levels, each with the game's own name,
   description, Balloon Bot and score. Tap one to see its card on the top screen. Clear one
   within the target time for an **Award**.
@@ -215,9 +233,10 @@ Open **OPTIONS → MODS → PlayNav**.
    page.
 2. Import it with the Gen1Recomp Mod Manager, or drop it in your mods folder.
 3. Enable **PlayNav**.
-4. **For the 3DS art and text (recommended):** open the mod in the launcher, choose
+4. **For the 3DS art and text (optional):** open the mod in the launcher, choose
    **Imported files**, then **Choose file**. Pick your own decrypted **Pokémon Alpha Sapphire
-   (USA)**: a card image (`.cci` / `.3ds`, trimmed or not) or a decrypted `.cia`. PlayNav
+   (USA)**: a card image (`.cci` / `.3ds`, trimmed or not) or a decrypted `.cia`. Without one,
+   PlayNav plays with its own art, sounds and words. PlayNav
    checks each piece it uses against Alpha Sapphire (USA) Rev 2 as it unpacks them, and draws
    its own art for any piece your copy holds differently. On Gen1Recomp builds from before
    mod-checked imports, the launcher accepts only this exact file:
@@ -252,11 +271,13 @@ Open **OPTIONS → MODS → PlayNav**.
 
 ## 📌 Good to Know
 
-- 🧪 **Beta:** Some Super Training numbers have no public source. Points per goal,
-  damage, timings and bag odds are best guesses and may change.
+- 🧪 **Beta:** Super Training's rules, damage and attacks are read from the game's own code and
+  data, and its timings from recordings of the game; a few things are tuned for a flat touch
+  screen instead of the 3DS's 3D view (bigger hitboxes you can see, homing you can outrun,
+  quicker movement). Balance may change between releases.
 - 🎮 **Generation 3 only.** Ruby, Sapphire, Emerald, FireRed and LeafGreen.
-- 💾 **Your game is never part of the mod.** The art and text come from the card image you
-  supply, unpacked on your own device. Encrypted dumps (a raw cartridge dump, an eShop `.cia`)
+- 💾 **Your copy of the game is never part of the mod.** The 3DS art and text come from the
+  card image you supply, unpacked on your own device. Encrypted dumps (a raw cartridge dump, an eShop `.cia`)
   and compressed images (such as Azahar's `.zcci`) can't be read; supply a decrypted one.
 - 🖱️ **On a PC with a second-display window,** strokes don't come through, only taps, so
   petting needs Split Screen there. A real second panel, like the AYN Thor's, works
@@ -280,9 +301,18 @@ Open **OPTIONS → MODS → PlayNav**.
 - **Wing and stone icons:** [PokéSprite](https://github.com/msikma/pokesprite) (the images are
   © Nintendo / Creatures Inc. / GAME FREAK Inc.; see `assets/credits.txt`). Their names
   and descriptions come from [PokeAPI](https://pokeapi.co).
-- **Super Training stadium and hover board:** original art by Wooble for PlayNav.
+- **Super Training stadium and hover board, the Amie cottage and play sky, and the regimen
+  picker's music:** original art and music by Wooble for PlayNav.
 - **Balloon Bot sprites:** the Gen 9 Pack's Pokémon battler sprites — Gen 1-5 Pokémon by
   veekun, Gen 6 Pokémon by all contributors to the Smogon X/Y Sprite Project.
+- **Pokémon-Amie's Décor, wallpapers, Poké Puffs, hand and minigame art** (used without a card
+  image): from Pokémon X and Y (© The Pokémon Company), provided via The Spriters Resource.
+- **Tile Puzzle's trees and PLAY's treeline:** TREE PIXEL PACK and PIXEL BUSHES PACK by
+  [AstroCom](https://astrocom.space). **PLAY's lawn:** the GRASS+ tile sheet by SciGho.
+- **The split-screen layout** is adapted from [Kanto Gear](https://github.com/AverageConsumer/kanto-gear)'s
+  by AverageConsumer, with permission (MIT).
+
+Details for every bundled file are in `assets/credits.txt`.
 
 ## 💡 Inspirations
 
@@ -298,6 +328,6 @@ maintainer approves every release. If you find a bug, please open an issue here 
 ---
 
 The mod's code is [MIT](LICENSE). Data drawn from Bulbapedia keeps its CC BY-NC-SA 2.5 licence,
-and the item icons belong to their owners. Pokémon is © Nintendo, Game Freak and The Pokémon Company;
+and the item icons and Pokémon-Amie art belong to their owners. Pokémon is © Nintendo, Game Freak and The Pokémon Company;
 this is an unofficial fan project. See the [CHANGELOG](CHANGELOG.md) for what each release
 brought. Working on the mod? See [DEVELOPMENT.md](DEVELOPMENT.md).
