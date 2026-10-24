@@ -957,14 +957,15 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- the game's projectiles drawn as its camera shows them (Wooble's Lv1 captures): ~17 px across
   -- of its 400 at launch for a size-4.8 ball (PX_PER_UNIT of radius here a unit of its size),
   -- GROW times that at the trainee, 1 / size falling evenly with the depth flown (perspective)
-  -- (a ball past the trainee grows no more and fades out over PAST_FADE_DZ of depth, ~0.1 s,
-  -- rather than swelling over the camera)
-  D.GAME_BALL = { PX_PER_UNIT = 1.06, GROW = 13, PAST = 1, PAST_FADE_DZ = 0.07 }
+  -- (a ball past the trainee grows no more and is gone PAST_FADE_S after it crossed, whatever
+  -- its speed, rather than swelling over the camera)
+  local GD = N.ATTACK.GAME and N.ATTACK.GAME.DRAWN or { PX_PER_UNIT = 1.06, GROW = 13 }
+  D.GAME_BALL = { PX_PER_UNIT = GD.PX_PER_UNIT, GROW = GD.GROW, PAST = 1, PAST_FADE_S = 0.1 }
   local function gameBallRadius(sim, b)
     local G = D.GAME_BALL
     local pz = sim.player.z or 0.1
     local u = math.min(G.PAST, math.max(0, (1 - b.z) / math.max(0.05, 1 - pz)))
-    local r0 = math.max(b.game.sx or 0, b.game.sy or 0) * G.PX_PER_UNIT
+    local r0 = math.max(b.gsx or b.game.sx or 0, b.gsy or b.game.sy or 0) * G.PX_PER_UNIT
     local r1 = r0 * G.GROW
     local inv = (1 - u) / r0 + u / r1
     return math.max(1.5, 1 / math.max(inv, 1 / (r1 * 3)))
@@ -1054,6 +1055,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return best
   end
 
+  -- each ball image's opaque extent (its art has margins), measured once
+  local ballExtent = setmetatable({}, { __mode = "k" })
+
   -- which = "behind" (still coming) or "front" (past the trainee), drawn either side of it
   local function drawBalls(G2, sim, which)
     local soccer = art("lyt/st_hud/target_ball00") or art("training/ball_00")
@@ -1063,7 +1067,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local past = b.z < pz
       -- past the trainee: gone in a moment
       local fade = 1
-      if past and not b.bounced then fade = math.max(0, 1 - (pz - b.z) / D.GAME_BALL.PAST_FADE_DZ) end
+      if past and not b.bounced then
+        -- (a lob flies its arc with no vz: its depth at ~0.7 a second)
+        local vz = (b.lob or not b.vz or b.vz == 0) and 0.7 or math.abs(b.vz)
+        local since = (pz - b.z) / vz
+        fade = math.max(0, 1 - since / D.GAME_BALL.PAST_FADE_S)
+      end
       if (which == nil or (which == "front") == past) and fade > 0 then
       local px, py, k = Sim.project(b.x, b.y, b.z)
       local rgb = BALL_RGB[b.kind] or BALL_RGB.small
@@ -1076,9 +1085,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         -- ball is blue and black (Wooble)
         local ax, ay = 1, 1
         local P = b.game
-        if P and P.sx and P.sy and P.sx ~= P.sy then
-          local m = math.max(P.sx, P.sy)
-          ax, ay = P.sx / m, P.sy / m
+        local gsx, gsy = b.gsx or (P and P.sx), b.gsy or (P and P.sy)
+        if gsx and gsy and gsx ~= gsy then
+          local m = math.max(gsx, gsy)
+          ax, ay = gsx / m, gsy / m
         end
         -- blue and black: the homing kinds the game colours (both ways, or a strong pull one
         -- way); Golem's pillars pull weakly up and down only and stay black
@@ -1106,7 +1116,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
             else G2.setColor(1, 1, 1, fade) end
             -- (a stretched one does not spin, so its shape reads)
             local spin = (ax == 1 and ay == 1) and (sim.t * 5 + (b.x or 0) * 3) or 0
-            G2.draw(soccer, px, py, spin, (r * 2) / iw * ax, (r * 2) / iw * ay, iw / 2, iw / 2)
+            -- the ball itself (not its image, which has margins) is 2r across: its hitbox
+            local ext = ballExtent[soccer]
+            if ext == nil then
+              local x0, y0, x1, y1
+              if D.opaqueBox then x0, y0, x1, y1 = D.opaqueBox(soccer) end
+              ext = x0 and { w = math.max(x1 - x0, y1 - y0), cx = (x0 + x1) / 2, cy = (y0 + y1) / 2 }
+                or { w = iw, cx = iw / 2, cy = iw / 2 }
+              ballExtent[soccer] = ext
+            end
+            G2.draw(soccer, px, py, spin, (r * 2) / ext.w * ax, (r * 2) / ext.w * ay, ext.cx, ext.cy)
           else
             if homing then G2.setColor(0.3, 0.45, 0.95, fade) else G2.setColor(0.95, 0.95, 0.95, fade) end
             G2.ellipse("fill", px, py, r * ax, r * ay, 16)

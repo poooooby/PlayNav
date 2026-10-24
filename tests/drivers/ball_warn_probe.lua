@@ -57,6 +57,45 @@ local function body(game, log)
     S.player.safe = 0
     S.player.x = 0.2
     local Sim = getmetatable(S).__index
+    if os.getenv("PROBE_DODGE") then
+      -- a homing ball (PROBE_DODGE_P, default 57 round; 36 wide, 37 tall) thrown at the trainee,
+      -- which walks right from the throw (PROBE_DODGE=still: it stands): the ball steers after it
+      -- too slowly to catch it and passes beside, its drawn size its hitbox
+      local still = os.getenv("PROBE_DODGE") == "still"
+      local pid = tonumber(os.getenv("PROBE_DODGE_P") or "57")
+      S.player.x = 0
+      local b = Sim.gameBall(S, { p = pid, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
+      S.balls[1] = b
+      -- (the regimen sets the move from the pad each frame, so the trainee is walked here at
+      -- the plain move speed in sim time)
+      local t0 = S.t
+      local function walk() if not still then S.player.x = math.min(0.8, 0.615 * (S.t - t0)) end end
+      for i, left in ipairs({ 1.0, 0.5, 0.25, 0.1, 0.02 }) do
+        waitFor(function() walk(); local e = S:ballEta(b); return not e or e <= left end, 4000)
+        local e, h = S:ballEta(b)
+        log(("p%d left %.2f hits %s ball x %.3f half %.3f x %.3f trainee x %.3f"):format(pid, e or -1, tostring(h),
+          b.x, b.w / 2, b.h / 2, S.player.x))
+        shot(("d%02d_p%d_%s_%.2f"):format(i, pid, still and "still" or "move", e or 0))
+      end
+      waitFor(function() walk(); return b.z < S.player.z end, 4000)
+      -- past the trainee: gone within D.GAME_BALL.PAST_FADE_S
+      local tCross = S.t
+      for k, after in ipairs({ 0.03, 0.06, 0.1 }) do
+        waitFor(function() walk(); return S.t - tCross >= after end, 4000)
+        local alive = false
+        for _, o in ipairs(S.balls) do if o == b then alive = true end end
+        log(("after crossing %.2f s: ball %s, depth past %.3f"):format(S.t - tCross, alive and "flying" or "gone",
+          S.player.z - b.z))
+        shot(("d07_%d_p%d_%s_after_%.2f"):format(k, pid, still and "still" or "move", S.t - tCross))
+      end
+      local D = TR.session.arenaDraw
+      local R = D and D.lastRider
+      log(("past: ball x %.3f trainee x %.3f playerHits %d; trainee drawn %s, hitbox +-%.1f x %.1f units"):format(b.x, S.player.x,
+        S.stats.playerHits or -1, R and R.x0 and ("%.1f..%.1f x %.1f..%.1f"):format(R.x0, R.x1, R.y0, R.y1) or "?",
+        0.12 * 118, 0.3 * 70))   -- (N.PLAYER.R / H at the trainee's 118 / 70 units a world unit)
+      shot(("d06_p%d_%s_past"):format(pid, still and "still" or "move"))
+      return
+    end
     local hit = Sim.gameBall(S, { p = 0, next = 0, dx = -40, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
     local wide = Sim.gameBall(S, { p = 0, next = 0, dx = 60, dy = 10, yaw = 0, pitch = 0, aimX = 0, aimY = 0 })
     S.balls[1], S.balls[2] = hit, wide

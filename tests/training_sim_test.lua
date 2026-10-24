@@ -943,7 +943,9 @@ do
     if e.kind == "attack_launch" and not t0 then t0 = e.t end
     if e.kind == "player_hit" and t0 and not hitAt then hitAt = e.t end
   end)
-  T.check(hitAt and t0 and hitAt - t0 > 1.5 and hitAt - t0 < 3.5, ("an aimed shot reaches a still trainee (%.2f s; 240 / its speed)"):format((hitAt or 0) - (t0 or 0)))
+  local tempo = N.ATTACK.TEMPO or 1
+  T.check(hitAt and t0 and hitAt - t0 > 1.5 / tempo and hitAt - t0 < 3.5 / tempo,
+    ("an aimed shot reaches a still trainee (%.2f s; 240 / its speed, at ATTACK.TEMPO)"):format((hitAt or 0) - (t0 or 0)))
 
   -- homing: a homing projectile bends toward where the trainee is now
   local P5 = GA.projectiles[5]
@@ -957,35 +959,46 @@ do
   for _ = 1, 20 do h:update(1 / 60) end
   T.check(ball.x > ball.bx + 0.05, "...it bends toward the trainee's new place")
 
-  -- homing (Wooble): a round homing ball (projectile 57) hits a trainee standing still, misses
-  -- one that moves in its last 0.25 s; a wide one (36, across strong) hits one moving across,
-  -- misses one moving up; a tall one (37) the other way round
+  -- homing (Wooble): skill based - a homing ball steers toward the trainee slower than it moves
+  -- and flies straight at the end: standing still is met, moving away from the throw outruns it,
+  -- moving only at the last moment does not; the wide (36) and tall (37) balls home the same with
+  -- a wider or taller hitbox; switching direction (a juke: run toward an edge, the ball follows,
+  -- cut back) escapes all three if not left too late; a ball's hitbox is its drawn size
   do
-    local function trial(pid, move)
+    local function trial(pid, move, from, x0, switchAt)
       local e = gameSim("lv1_hp")
       run(e, 3.1)
       e.script, e.balls, e.spawnQueue = nil, {}, {}
-      e.player.x, e.player.y, e.player.safe = 0.1, 0, 0
+      e.player.x, e.player.y, e.player.safe = x0 or 0.1, 0, 0
       local b = Sim.gameBall(e, { p = pid, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
       e.balls[1] = b
-      local hit = false
-      local moved = false
+      local hit, warned = false, nil
       for _ = 1, 60 * 4 do
-        if not moved and b.lockX then
-          moved = true
-          if move == "across" then e.player.x = e.player.x + 0.08 end
-          if move == "up" then e.player.y = (e.player.y or 0) + 0.08 end
+        local left = ((b.flightN or 60) - (e.t - b.t0) * 30) / 30   -- (the game's frames)
+        if move and left <= (from or 99) then
+          local m = (switchAt and left <= switchAt) and -1 or 1
+          e:setMove(move == "across" and m or 0, move == "up" and m or 0)
         end
+        if b.z > e.player.z and left < 0.6 then warned = select(2, e:ballEta(b)) end
         for _, ev in ipairs(e:update(1 / 60)) do if ev.kind == "player_hit" then hit = true end end
       end
-      return hit
+      return hit, warned, b
     end
-    T.check(trial(57, nil), "a round homing ball hits a trainee standing still")
-    T.check(not trial(57, "across"), "...and misses one moving in its last 0.25 s")
-    T.check(trial(36, "across"), "a wide ball follows across: moving sideways still hit")
-    T.check(not trial(36, "up"), "...moving up dodges it")
-    T.check(trial(37, "up"), "a tall ball follows up and down: moving up still hit")
-    T.check(not trial(37, "across"), "...moving sideways dodges it")
+    local hit, warned, b = trial(57, nil)
+    T.check(hit and warned == true, "a round homing ball meets a trainee standing still, warned")
+    local GD = N.ATTACK.GAME.DRAWN
+    T.check(math.abs(b.w / 2 * Sim.view() - b.game.sx * GD.PX_PER_UNIT * GD.GROW) < 0.5,
+      "...its hitbox is its size as drawn at the trainee")
+    hit, warned = trial(57, "across")
+    T.check(not hit and warned == false, "...a trainee moving away from the throw outruns it, the warning showing the miss")
+    T.check(trial(57, "across", 0.3), "...moving only in its last 0.3 s is too late")
+    T.check(trial(36, nil), "a wide ball meets a trainee standing still")
+    T.check(trial(36, "across", nil, 0.7), "...and one running into the edge")
+    T.check(not trial(36, "across", nil, 0.7, 1.0), "...a juke (to the edge, cut back 1 s out) escapes it")
+    T.check(trial(36, "across", nil, 0.7, 0.3), "...cut back 0.3 s out is too late")
+    T.check(trial(37, nil), "a tall ball meets a trainee standing still")
+    T.check(not trial(37, "across", nil, 0.4, 1.0), "...a juke escapes it")
+    T.check(not trial(57, "across", nil, 0.4, 1.0), "a round ball: a juke escapes it too")
   end
 
   -- a stream: its shots leave on their frames, not together

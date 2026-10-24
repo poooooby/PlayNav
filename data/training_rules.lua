@@ -233,7 +233,14 @@ N.ATTACK = {
   -- the trainee, so the flight is DEPTH units; a wait step lasts its recovery plus the idle pose's
   -- WAIT_POSE_U; a throw leaves FIRE_KEY_U after its wind-up starts (FIRE_KEY_COURSE: a pose that
   -- runs longer); yaw / pitch are ANGLE_DEG degrees a unit (the spread balls fly well clear))
-  GAME = { UNIT = 0.8 / 120, SIZE_UNIT = 0.06 / 4.8, DEPTH = 196, DEPTH_UNIT = 0.9 / 196, FIRE_KEY_U = 22,
+  GAME = { UNIT = 0.8 / 120, SIZE_UNIT = 0.06 / 4.8,
+    -- a game ball as drawn (the camera's perspective): PX_PER_UNIT screen units of radius per
+    -- unit of its size at launch, GROW times that at the trainee - where that size is also its
+    -- hitbox (SIZE_UNIT is the bitbots' shots only)
+    DRAWN = { PX_PER_UNIT = 1.06, GROW = 4.5 },
+    -- a wide or tall ball's long side this much longer than the game's (drawn and hit alike)
+    STRETCH = 1.5,
+    DEPTH = 196, DEPTH_UNIT = 0.9 / 196, FIRE_KEY_U = 22,
     FIRE_KEY_COURSE = { lv1_hp = 42 }, WAIT_POSE_U = { [0] = 50, [1] = 70, [2] = 55 }, ANGLE_DEG = 6,
     -- each balloon's own animation lengths (Wooble's Lv1 / Lv2 captures; the poses are its
     -- model's): `pose` the idle a wait plays out (units past its recovery), `key` the wind-up to
@@ -285,7 +292,10 @@ N.ATTACK = {
   -- LOCK_S; a wide one follows across to the end (dodge by moving up or down), a tall one up and
   -- down (dodge left or right). An axis pulling with k <= STRONG_K follows to the end; a locked
   -- axis hits only if the trainee is within DODGE of where it was when it locked
-  HOMING = { LOCK_S = 0.25, STRONG_K = 4, DODGE = 0.03 },
+  HOMING = { STRONG_K = 4, SPEED = 0.25, HOLD_S = 0.5 },
+  -- the balls' own motion (flight, wave, homing, bitbot shots) this much faster than the game's;
+  -- HOMING's SPEED / HOLD_S are at 1 and scale with it
+  TEMPO = 1.5,
   -- a balloon's shield (Wooble's Graveler capture): its target fades in over FADE_IN_S (not
   -- hittable until then) and circles the balloon ORBIT_R world units out about a point ORBIT_UP
   -- above its middle, from START_DEG on screen (0 right, 90 down) anticlockwise at DEG_S
@@ -321,7 +331,7 @@ N.BLOCK = { MAX_F = 20, DEF_K = 0.005, COOLDOWN_F = 30, SAFE_F = 25, MOVE_MULT =
 -- at SPEv 100, the game's speed then x(1 + SPEv x SPE_K) against that)
 -- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
 -- below the top: (140 - 51) / 70.5 at the stand's depth)
-N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.41, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SPE_K = 0.001, SWIFT_MULT = 1.5,
+N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.615, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SPE_K = 0.001, SWIFT_MULT = 1.5,
              HIT_STUN_S = 14 / 30, HIT_SAFE_F = 30 }
 
 -- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
@@ -455,7 +465,10 @@ N.EVIDENCE = {
   ["ATTACK.BALL"] = { class = "inferred", source = "Wooble (2026-10-12): the attacks are the game's soccer ball, bigger at higher levels (up to the sprite's size at Lv1 / Lv2, about twice at Lv3), growing as they come at the trainee; the multipliers are ours", confidence = "low" },
   ["ATTACK.lob"] = { class = "inferred", source = "Wooble (2026-10-12): balls lobbed up off screen come down on the trainee, a red shadow marking where; flight and height are ours", confidence = "low" },
   ["BOT.SWAY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: Lv1 a loop of +-12 x +-28 px every 4.6 s, Lv2 +-9 x +-14 px slowly, Lv3 swings of up to 120 px (the secret courses take Lv3's until measured). Lv1 from Wooble's six Lv1 captures 2026-10-23 (the old read was Noibat's goal riding its wing): a vertical bob, Wailmer +-6 / 4 s, Geodude +-5 / 3.3 s, Magnemite +-4.75 / 2.35 s, Axew +-1 (still), Tentacool +-11 eased / ~12 s, Noibat +-5 across / 6.6 s - the default +-0.5 x +-5 every 3.5 s, each course's own in data/training_courses.lua `sway`; Lv2 from the s2 captures (Relicanth +-2.8 x +-3.5 / 5.5 s, Fraxure +-2 / 2.8, Graveler +-1.5 / 3.2, Magneton +-2.5 x +-2 / 3.95, Tentacruel a slow sink, Aerodactyl +-9.5 / 5.4): the default +-1.5 x +-2.5 every 4 s", confidence = "low" },
-  ["ATTACK.HOMING"] = { class = "measured", source = "Wooble 2026-10-23, the game: regular homing dodged by moving as long as the trainee was not still for the 0.25 s before contact; horizontal (the wide ball, homeX 1) always hits unless moving up / down; vertical (the tall ball, homeY 1) unless moving left / right; the game's homing k 1 (strong) vs 12-40 (the round balls, the other axis)", confidence = "medium" },
+  ["ATTACK.TEMPO"] = { class = "inferred", source = "Wooble 2026-10-23: the trainee moves 50% faster (PLAYER.SPEED 0.41 -> 0.615) and the attacks' motion with it, so play is quicker on our flat field (juking, quick thinking) at the same difficulty; the attack schedule (waits, wind-ups) keeps the captures' timing", confidence = "medium" },
+  ["ATTACK.GAME.STRETCH"] = { class = "inferred", source = "Wooble 2026-10-23: the wide ball should be wider and the tall one taller; the game's are ~1.44 : 1 on screen, x1.5 on the long side ~2.2 : 1 (ours)", confidence = "medium" },
+  ["ATTACK.GAME.DRAWN"] = { class = "inferred", source = "Wooble 2026-10-23: the ball as drawn is its hitbox (a ball seen to touch the trainee hits it, one seen to pass does not). Wooble's Lv1 captures: ~17 px across of 400 at launch for a size-4.8 ball (PX_PER_UNIT); the game's grows ~13x by the trainee (a stream ball 26 px at launch, ~95 px just before the trainee, ~250 px at the camera, Wailord s3) - too big to dodge as a hitbox, so ours grows GROW 4.5x (~75 px of 400; Wooble 2026-10-23: 3x looked too small)", confidence = "medium" },
+  ["ATTACK.HOMING"] = { class = "inferred", source = "Wooble 2026-10-23: homing is to be skill based - not stuck to the trainee, so it can be outrun; a wide or tall ball homes the same with a wider or taller hitbox. A homing ball steers toward the trainee now at most SPEED world units a second on the axes it homes (the trainee moves 0.41) and flies straight over its last HOLD_S; STRONG_K: a pull this strong one way only still homes (the game's k 1 on the wide / tall balls), a weaker one-way pull (Golem's pillars, k 32) is a plain stretched ball", confidence = "medium" },
   ["ATTACK.SHIELD"] = { class = "measured", source = "Wooble's Graveler capture (s2) 2026-10-23: the target fades in ~1.2 s after the shield, circles (199,118) at r 42 px (fit residual 0.5 px over 34 frames) counter-clockwise on screen at 29.3 deg/s (12.3 s a turn), from 123 deg; one hit breaks it; the goals hidden under it, their timer held; unhit it breaks up the same way after ~21.0 s (graveler-2: up 3.15 -> 24.12, the step's 600 frames + TAIL_S); Golem's (s3) the same but r 44, 31.1 deg/s from -97 deg (the top)", confidence = "high" },
   ["BOT.WINDUP"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: every throw a dip (Wailmer ~14 px, Magnemite ~12, Geodude ~10, Noibat ~20), a snap up (Wailmer to -16, Magnemite +2.5 over its top) as the ball leaves, held 1.3-1.5 s while it flies (Magnemite), then back; some also turn (Axew, Magnemite 30-45 degrees), not drawn", confidence = "medium" },
   ["BOT.SHAKE_SCALE"] = { class = "placeholder", source = "ours (Wooble 2026-10-23, the movement ramping by level): the after-goal shake x0.35 Lv1, x0.7 Lv2, x1 Lv3 / secret", confidence = "low" },

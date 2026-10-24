@@ -870,15 +870,25 @@ return function(N)
     gy, gz = gy * math.cos(pitch) + gz * math.sin(pitch), -gy * math.sin(pitch) + gz * math.cos(pitch)
     local len = math.sqrt(gx * gx + gy * gy + gz * gz)
     if len < 1e-6 then return nil end
-    local v = P.speed * FPS * (self.mods.botSpeedMult or 1)
-    local hw, hh = P.sx * GA.SIZE_UNIT, P.sy * GA.SIZE_UNIT
+    -- (ATTACK.TEMPO: the balls' own motion - flight, wave, homing - runs this much faster than
+    -- the game's, with the trainee's movement: a flat field wants quicker play than its 3D one)
+    local tempo = N.ATTACK.TEMPO or 1
+    local v = P.speed * FPS * (self.mods.botSpeedMult or 1) * tempo
+    -- its hit size is its size as drawn when it reaches the trainee (GA.DRAWN), so what is seen
+    -- to touch the trainee hits it and what is seen to pass does not
+    -- (a wide or tall ball's long side STRETCHed further, so its shape reads; gsx / gsy are the
+    -- sizes it is drawn and hit by)
+    local K, pz = GA.DRAWN.PX_PER_UNIT * GA.DRAWN.GROW, p.z or N.PLAYER.Z
+    local gsx, gsy = P.sx, P.sy
+    if gsx > gsy * 1.01 then gsx = gsx * (GA.STRETCH or 1) elseif gsy > gsx * 1.01 then gsy = gsy * (GA.STRETCH or 1) end
+    local hw, hh = gsx * K / lerp(V.NEAR.hw, V.FAR.hw, pz), gsy * K / lerp(V.NEAR.hu, V.FAR.hu, pz)
     local ball = { x = lx, y = ly, z = 1, bx = lx, by = ly, t0 = self.t, game = P,
       vx = gx / len * v * U, vy = gy / len * v * U, vz = -gz / len * v * GA.DEPTH_UNIT,
       r = math.max(hw, hh), kind = Sim.homes(P) and "homing" or (math.max(hw, hh) > 0.1 and "big" or "small") }
-    if math.abs(hw - hh) > 1e-6 then ball.w, ball.h = hw * 2, hh * 2 end
-    -- frames to the trainee's depth, and when a homing axis locks
+    ball.w, ball.h, ball.gsx, ball.gsy = hw * 2, hh * 2, gsx, gsy
+    -- frames to the trainee's depth; its homing so far (steerHoming)
     ball.flightN = (1 - p.z) / math.max(1e-6, -ball.vz) * FPS
-    ball.lockN = math.max(1, ball.flightN - N.ATTACK.HOMING.LOCK_S * FPS)
+    ball.hox, ball.hoy, ball.tempo = 0, 0, tempo
     return ball
   end
   Sim.gameBall = gameBall
@@ -892,28 +902,54 @@ return function(N)
     return (hx > 0 and hy > 0) or (hx > 0 and hx <= SK) or (hy > 0 and hy <= SK)
   end
 
-  local function gameOffset(self, b, n)
-    local P, p = b.game, self.player
-    local U = GA.UNIT
+  -- whether a ball at (x, y) on the trainee's depth hits it: a game ball's ellipse (its size as
+  -- drawn) touching the trainee's box (R either side, H up from its feet); others by their box
+  local function ballHits(self, b, x, y)
+    local p = self.player
+    local hw = (b.w or b.r * 2) / 2
+    local hh = (b.h or b.r * 2) / 2
+    local py = p.y or 0
+    if b.game then
+      local dx = math.max(0, math.abs(x - p.x) - N.PLAYER.R)
+      local dy = math.max(0, py - y, y - (py + N.PLAYER.H))
+      return (dx / hw) ^ 2 + (dy / hh) ^ 2 <= 1
+    end
+    return math.abs(x - p.x) <= hw + N.PLAYER.R and (y - hh) <= py + N.PLAYER.H and (y + hh) >= py
+  end
+
+  -- a projectile's wave after n frames (the game's 0x155ec)
+  local function gameWave(b, n)
+    local P, U = b.game, GA.UNIT
+    n = n * (b.tempo or 1)   -- (its own clock: the game's frames at ATTACK.TEMPO)
     local ox = P.ampX * math.cos(P.phase + n * P.freqX) * (1 + n * P.growX) * U
     local oy = P.ampY * math.sin(P.phase + n * P.freqY) * (1 + n * P.growY) * U
-    -- homing (Wooble): an axis with a strong pull (k <= HOMING.STRONG_K: the wide ball's across,
-    -- the tall ball's up and down) follows the trainee to the end; any other homing axis closes
-    -- on the trainee by LOCK_S before contact and then flies on to where it was then (b.lockX /
-    -- lockY, set in updateBalls) - so moving in that last moment dodges it, standing still does not
-    local H = N.ATTACK.HOMING
-    local function pull(k, live, base, locked)
-      local strong = k <= H.STRONG_K
-      local endN = strong and (b.flightN or 60) or (b.lockN or 50)
-      local w = math.min(1, (n / (n + k)) / math.max(1e-6, endN / (endN + k)))
-      local target = (not strong and locked) or live
-      return (target - base) * w
-    end
-    if Sim.homes(P) then
-      if P.homeX > 0 then ox = ox + pull(P.homeX, p.x, b.bx, b.lockX) end
-      if P.homeY > 0 then oy = oy + pull(P.homeY, (p.y or 0) + N.PLAYER.H / 2, b.by, b.lockY) end
-    end
     return ox, oy
+  end
+  local function gameOffset(self, b, n)
+    local ox, oy = gameWave(b, n)
+    return ox + (b.hox or 0), oy + (b.hoy or 0)
+  end
+
+  -- homing (Wooble 2026-10-23, skill over the game's pull): a homing ball steers toward where
+  -- the trainee is now on each axis it homes, no faster than HOMING.SPEED (slower than the
+  -- trainee moves), and flies straight over its last HOLD_S - a trainee standing still is met,
+  -- one that moves away early enough outruns it; a wide or tall ball homes the same, its hitbox
+  -- wider or taller
+  local function homingWant(self, b, n, bx, by)
+    local p = self.player
+    local wx, wy = gameWave(b, n)
+    return p.x - (bx + wx), (p.y or 0) + N.PLAYER.H / 2 - (by + wy)
+  end
+  local function steerHoming(self, b, step)
+    local P, H = b.game, N.ATTACK.HOMING
+    if not Sim.homes(P) then return end
+    local n = (self.t - b.t0) * FPS
+    local k = b.tempo or 1
+    if ((b.flightN or 60) - n) / FPS <= H.HOLD_S / k then return end
+    local tx, ty = homingWant(self, b, n, b.bx, b.by)
+    local d = H.SPEED * k * step
+    if (P.homeX or 0) > 0 then b.hox = b.hox + math.max(-d, math.min(d, tx - b.hox)) end
+    if (P.homeY or 0) > 0 then b.hoy = b.hoy + math.max(-d, math.min(d, ty - b.hoy)) end
   end
 
   local function fireVolley(self, vid)
@@ -1279,18 +1315,32 @@ return function(N)
       if vz >= -1e-6 then return nil end
       t = (b.z - p.z) / -vz
       if b.game then
-        local ox, oy = gameOffset(self, b, (self.t + t - b.t0) * FPS)
-        x, y = b.bx + b.vx * t + ox, b.by + b.vy * t + oy
+        local n = (self.t + t - b.t0) * FPS
+        local bx, by = b.bx + b.vx * t, b.by + b.vy * t
+        local ox, oy = gameOffset(self, b, n)
+        local P, H = b.game, N.ATTACK.HOMING
+        if Sim.homes(P) then
+          local k = b.tempo or 1
+          local steer = math.max(0, math.min(t, ((b.flightN or 60) - (self.t - b.t0) * FPS) / FPS - H.HOLD_S / k))
+          local d = H.SPEED * k * steer
+          local tx, ty = homingWant(self, b, n, bx, by)
+          if (P.homeX or 0) > 0 then ox = ox + math.max(-d, math.min(d, tx - b.hox)) end
+          if (P.homeY or 0) > 0 then oy = oy + math.max(-d, math.min(d, ty - b.hoy)) end
+        end
+        x, y = bx + ox, by + oy
       elseif b.ring then
         x, y = b.x, b.y
       else
         x, y = b.x + (b.vx or 0) * t, b.y + (b.vy or 0) * t
       end
     end
-    local hw = (b.w or b.r * 2) / 2
-    local hh = (b.h or b.r * 2) / 2
-    local py = p.y or 0
-    local hits = math.abs(x - p.x) <= hw + N.PLAYER.R and (y - hh) <= py + N.PLAYER.H and (y + hh) >= py
+    local hits
+    if b.lob then
+      local hw, hh, py = (b.w or b.r * 2) / 2, (b.h or b.r * 2) / 2, p.y or 0
+      hits = math.abs(x - p.x) <= hw + N.PLAYER.R and (y - hh) <= py + N.PLAYER.H and (y + hh) >= py
+    else
+      hits = ballHits(self, b, x, y)
+    end
     return t, hits, x, y
   end
 
@@ -1322,9 +1372,7 @@ return function(N)
         -- straight along its line, its wave and homing laid over (the game's 0x155ec)
         b.bx = b.bx + b.vx * step
         b.by = b.by + b.vy * step
-        if not b.lockX and b.lockN and (self.t - b.t0) * FPS >= b.lockN then
-          b.lockX, b.lockY = p.x, (p.y or 0) + N.PLAYER.H / 2
-        end
+        steerHoming(self, b, step)
         local ox, oy = gameOffset(self, b, (self.t - b.t0) * FPS)
         b.x, b.y = b.bx + ox, b.by + oy
       else
@@ -1340,17 +1388,8 @@ return function(N)
       if not b.lob and not b.bounced then b.z = b.z + b.vz * step end
       local alive = true
       if not b.bounced and pz > p.z and b.z <= p.z then
-        local hw = (b.w or b.r * 2) / 2
-        local hh = (b.h or b.r * 2) / 2
-        local overlapX = math.abs(b.x - p.x) <= hw + N.PLAYER.R
-        local py = p.y or 0
-        local overlapY = (b.y - hh) <= py + N.PLAYER.H and (b.y + hh) >= py
-        -- a homing axis that locked: it hits only if the trainee has not moved since
-        local G, H = b.game, N.ATTACK.HOMING
-        if G and b.lockX and Sim.homes(G) then
-          if G.homeX > H.STRONG_K then overlapX = math.abs(p.x - b.lockX) <= H.DODGE end
-          if G.homeY > H.STRONG_K then overlapY = math.abs(py + N.PLAYER.H / 2 - b.lockY) <= H.DODGE end
-        end
+        local overlap = ballHits(self, b, b.x, b.y)
+        local overlapX, overlapY = overlap, overlap
         if overlapX and overlapY and (p.safe or 0) > 0 then
           -- untouchable a moment (just hit, or a ball just stopped): it breaks on the trainee
           -- all the same, harmless, rather than flying on into the camera
@@ -1405,7 +1444,7 @@ return function(N)
             -- the game's: every BIT_EVERY_F, straight at where the trainee is now
             bit.fireT = (bit.every or GA.BIT_EVERY_F) / FPS
             local G = GA
-            local speed = G.BIT_SPEED * FPS * G.DEPTH_UNIT
+            local speed = G.BIT_SPEED * FPS * G.DEPTH_UNIT * (N.ATTACK.TEMPO or 1)
             local t = math.max(1e-3, (bit.z - self.player.z) / speed)
             local vx = (self.player.x - bit.x) / t
             local vy = ((self.player.y or 0) + N.PLAYER.H / 2 - bit.y) / t
