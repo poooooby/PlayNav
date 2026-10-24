@@ -5,6 +5,20 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-24 (beta)
+
+### Fixed
+
+- Super Training's balloons no longer grow past the top of the screen as you score. On a wide
+  top screen, such as the AYN Thor's, a tall balloon like Fraxure's grew until its goals were off
+  the screen and the regimen could not be finished. A balloon now sinks toward the grass rather
+  than pass the top, and a tall one grows only as far as fits.
+
+### Changed
+
+- Your Pokémon moves a little faster in regimens, so the bigger homing balls of the later levels
+  can be outrun and juked.
+
 ## [0.7.0] - 2026-10-23 (beta)
 
 ### Added
