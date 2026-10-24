@@ -395,7 +395,8 @@ return function(N)
     if sway and self.phase ~= "countdown" then
       local w = 2 * math.pi * (self.t - (self.swayT0 or 0)) / sway.period
       x = x + math.sin(w) * sway.ax * 0.6 / hw
-      y = y + math.sin(w + math.pi / 2) * sway.ay * (160 / 240) / hu
+      -- (fig8: up and down twice a sway, a figure of eight - Magnezone)
+      y = y + math.sin(sway.fig8 and 2 * w or (w + math.pi / 2)) * sway.ay * (160 / 240) / hu
     end
     local bot = self.bot
     if bot and (bot.shake or 0) > 0 then
@@ -855,6 +856,9 @@ return function(N)
       vx = gx / len * v * U, vy = gy / len * v * U, vz = -gz / len * v * GA.DEPTH_UNIT,
       r = math.max(hw, hh), kind = (P.homeX > 0 or P.homeY > 0) and "homing" or (math.max(hw, hh) > 0.1 and "big" or "small") }
     if math.abs(hw - hh) > 1e-6 then ball.w, ball.h = hw * 2, hh * 2 end
+    -- frames to the trainee's depth, and when a homing axis locks
+    ball.flightN = (1 - p.z) / math.max(1e-6, -ball.vz) * FPS
+    ball.lockN = math.max(1, ball.flightN - N.ATTACK.HOMING.LOCK_S * FPS)
     return ball
   end
   Sim.gameBall = gameBall
@@ -865,8 +869,20 @@ return function(N)
     local U = GA.UNIT
     local ox = P.ampX * math.cos(P.phase + n * P.freqX) * (1 + n * P.growX) * U
     local oy = P.ampY * math.sin(P.phase + n * P.freqY) * (1 + n * P.growY) * U
-    if P.homeX > 0 then ox = ox + (p.x - b.bx) * n / (n + P.homeX) end
-    if P.homeY > 0 then oy = oy + ((p.y or 0) + N.PLAYER.H / 2 - b.by) * n / (n + P.homeY) end
+    -- homing (Wooble): an axis with a strong pull (k <= HOMING.STRONG_K: the wide ball's across,
+    -- the tall ball's up and down) follows the trainee to the end; any other homing axis closes
+    -- on the trainee by LOCK_S before contact and then flies on to where it was then (b.lockX /
+    -- lockY, set in updateBalls) - so moving in that last moment dodges it, standing still does not
+    local H = N.ATTACK.HOMING
+    local function pull(k, live, base, locked)
+      local strong = k <= H.STRONG_K
+      local endN = strong and (b.flightN or 60) or (b.lockN or 50)
+      local w = math.min(1, (n / (n + k)) / math.max(1e-6, endN / (endN + k)))
+      local target = (not strong and locked) or live
+      return (target - base) * w
+    end
+    if P.homeX > 0 then ox = ox + pull(P.homeX, p.x, b.bx, b.lockX) end
+    if P.homeY > 0 then oy = oy + pull(P.homeY, (p.y or 0) + N.PLAYER.H / 2, b.by, b.lockY) end
     return ox, oy
   end
 
@@ -886,6 +902,8 @@ return function(N)
   function raiseShield(self, secs)
     if self.barrier then return end
     local S = N.ATTACK.SHIELD
+    local own = S.COURSE and S.COURSE[self.course.id]
+    if own then S = setmetatable(own, { __index = N.ATTACK.SHIELD }) end
     self.barrier = { t = 0, marker = "center", maxS = secs or N.ATTACK.barrier.max_s, script = true }
     -- the target circles the balloon (screen angles: y down, so the world's is their negative)
     self.goals[#self.goals + 1] = { kind = "marker", age = 0, r = N.GOALS.MARKER_R, hits = 0,
@@ -898,12 +916,15 @@ return function(N)
     local alive = 0
     for _, bit in ipairs(self.bits) do if not bit.dead then alive = alive + 1 end end
     local rec = self.script.phase.bits and self.gameAttacks.bits and self.gameAttacks.bits[self.script.phase.bits]
+    local own = GA.BITS and GA.BITS[self.course.id] or {}
+    local xs = own.x or GA.BIT_X
     for _ = 1, math.min(n, GA.MAX_BITS - alive) do
       local slot = #self.bits + 1
-      local x = GA.BIT_X[(slot - 1) % #GA.BIT_X + 1]
+      local x = xs[(slot - 1) % #xs + 1]
       -- each circles its own loop (clockwise on screen), all firing together
       self.bits[#self.bits + 1] = { id = slot, x = x, y = A.y, z = A.z, hp = A.hp, r = A.r, cx = x, cy = A.y,
-        loopA = slot * 2.1, fireT = GA.BIT_FIRST_S, damage = rec and rec.damage, game = true }
+        loopA = slot * 2.1, fireT = GA.BIT_FIRST_S, damage = rec and rec.damage, game = true,
+        every = own.every and own.every[(slot - 1) % #own.every + 1] or GA.BIT_EVERY_F }
     end
     emit(self, "bits_spawned", { n = n })
   end
@@ -1271,6 +1292,9 @@ return function(N)
         -- straight along its line, its wave and homing laid over (the game's 0x155ec)
         b.bx = b.bx + b.vx * step
         b.by = b.by + b.vy * step
+        if not b.lockX and b.lockN and (self.t - b.t0) * FPS >= b.lockN then
+          b.lockX, b.lockY = p.x, (p.y or 0) + N.PLAYER.H / 2
+        end
         local ox, oy = gameOffset(self, b, (self.t - b.t0) * FPS)
         b.x, b.y = b.bx + ox, b.by + oy
       else
@@ -1291,6 +1315,12 @@ return function(N)
         local overlapX = math.abs(b.x - p.x) <= hw + N.PLAYER.R
         local py = p.y or 0
         local overlapY = (b.y - hh) <= py + N.PLAYER.H and (b.y + hh) >= py
+        -- a homing axis that locked: it hits only if the trainee has not moved since
+        local G, H = b.game, N.ATTACK.HOMING
+        if G and b.lockX then
+          if G.homeX > H.STRONG_K then overlapX = math.abs(p.x - b.lockX) <= H.DODGE end
+          if G.homeY > H.STRONG_K then overlapY = math.abs(py + N.PLAYER.H / 2 - b.lockY) <= H.DODGE end
+        end
         if overlapX and overlapY and (p.safe or 0) > 0 then
           -- untouchable a moment (just hit, or a ball just stopped): it breaks on the trainee
           -- all the same, harmless, rather than flying on into the camera
@@ -1343,7 +1373,7 @@ return function(N)
         if bit.fireT <= 0 then
           if bit.game then
             -- the game's: every BIT_EVERY_F, straight at where the trainee is now
-            bit.fireT = GA.BIT_EVERY_F / FPS
+            bit.fireT = (bit.every or GA.BIT_EVERY_F) / FPS
             local G = GA
             local speed = G.BIT_SPEED * FPS * G.DEPTH_UNIT
             local t = math.max(1e-3, (bit.z - self.player.z) / speed)

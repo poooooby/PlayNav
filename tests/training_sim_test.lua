@@ -949,6 +949,37 @@ do
   for _ = 1, 20 do h:update(1 / 60) end
   T.check(ball.x > ball.bx + 0.05, "...it bends toward the trainee's new place")
 
+  -- homing (Wooble): a round homing ball (projectile 57) hits a trainee standing still, misses
+  -- one that moves in its last 0.25 s; a wide one (36, across strong) hits one moving across,
+  -- misses one moving up; a tall one (37) the other way round
+  do
+    local function trial(pid, move)
+      local e = gameSim("lv1_hp")
+      run(e, 3.1)
+      e.script, e.balls, e.spawnQueue = nil, {}, {}
+      e.player.x, e.player.y, e.player.safe = 0.1, 0, 0
+      local b = Sim.gameBall(e, { p = pid, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
+      e.balls[1] = b
+      local hit = false
+      local moved = false
+      for _ = 1, 60 * 4 do
+        if not moved and b.lockX then
+          moved = true
+          if move == "across" then e.player.x = e.player.x + 0.08 end
+          if move == "up" then e.player.y = (e.player.y or 0) + 0.08 end
+        end
+        for _, ev in ipairs(e:update(1 / 60)) do if ev.kind == "player_hit" then hit = true end end
+      end
+      return hit
+    end
+    T.check(trial(57, nil), "a round homing ball hits a trainee standing still")
+    T.check(not trial(57, "across"), "...and misses one moving in its last 0.25 s")
+    T.check(trial(36, "across"), "a wide ball follows across: moving sideways still hit")
+    T.check(not trial(36, "up"), "...moving up dodges it")
+    T.check(trial(37, "up"), "a tall ball follows up and down: moving up still hit")
+    T.check(not trial(37, "across"), "...moving sideways dodges it")
+  end
+
   -- a stream: its shots leave on their frames, not together
   local stream
   for vid, shots in pairs(GA.volleys) do

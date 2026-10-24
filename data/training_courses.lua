@@ -287,6 +287,14 @@ local SWAY = {
   lv2_spa = { ax = 2.5, ay = 2, period = 3.95 },
   lv2_spd = { ax = 0, ay = 3, period = 14 },
   lv2_spe = { ax = 0, ay = 9.5, period = 5.4 },
+  -- Lv3 (the s3 captures): Wailord stretches up and down, Haxorus and Golem all but still,
+  -- Magnezone a wide figure of eight, Dragalge a slow sway across, Noivern flapping up and down
+  lv3_hp = { ax = 0, ay = 4, period = 4.4 },
+  lv3_atk = { ax = 1.5, ay = 1, period = 4.0 },
+  lv3_def = { ax = 0, ay = 1, period = 4.0 },
+  lv3_spa = { ax = 19, ay = 10, period = 5.3, fig8 = true },
+  lv3_spd = { ax = 18, ay = 2, period = 6.05 },
+  lv3_spe = { ax = 4, ay = 13, period = 2.03 },
 }
 for id, sway in pairs(SWAY) do if byId[id] then byId[id].sway = sway end end
 
@@ -297,6 +305,13 @@ local WINDUP = {
   lv2_atk = { DIP_PX = 4, RISE_PX = 14, DIP_AT = 0.4, HOLD_S = 1.5 },
   lv2_def = { DIP_PX = -80, RISE_PX = 0, DIP_AT = 0.85, HOLD_S = 0.3 },
   lv2_spe = { DIP_PX = -20, RISE_PX = -45, DIP_AT = 0.75, HOLD_S = 4 },
+  -- Lv3: Golem leaps off the top and comes down rolled up; Haxorus crouches and rears up;
+  -- Magnezone rises and tilts back; Dragalge dips and lifts; Noivern climbs then drops to throw
+  lv3_def = { DIP_PX = -80, RISE_PX = 0, DIP_AT = 0.8, HOLD_S = 3 },
+  lv3_atk = { DIP_PX = 9, RISE_PX = 11, DIP_AT = 0.25, HOLD_S = 1.4 },
+  lv3_spa = { DIP_PX = 0, RISE_PX = 18, DIP_AT = 0.8, HOLD_S = 1.5 },
+  lv3_spd = { DIP_PX = 22, RISE_PX = 25, DIP_AT = 0.7, HOLD_S = 1.5 },
+  lv3_spe = { DIP_PX = -18, RISE_PX = -12, DIP_AT = 0.6, HOLD_S = 1.6 },
 }
 for id, w in pairs(WINDUP) do if byId[id] then byId[id].windup = w end end
 -- Aerodactyl's soaring is its sway now

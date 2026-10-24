@@ -80,6 +80,24 @@ local function body(game, log)
       course("lv2_spe", { { name = "1_dive", when = function(S) return (S.bot.thrown or 0) > 0 end, after = 0.4 } })
       return
     end
+    -- PROBE_ONLY=lv3: Golem's shield and wall, Wailord's giant ball and bitbots, Magnezone
+    if os.getenv("PROBE_ONLY") == "lv3" then
+      course("lv3_def", {
+        { name = "1_shield", when = function(S) return S.barrier ~= nil and S.barrier.t > 2 end },
+        { name = "2_wall", when = function(S)
+          if S.barrier then for _, g in ipairs(S.goals) do if g.kind == "marker" and g.age > 1.3 then S:hitGoal(g, { points = 0 }) end end end
+          local n = 0
+          for _, b in ipairs(S.balls) do if b.game and S.t - b.t0 > 1.6 then n = n + 1 end end
+          return n >= 8
+        end },
+      })
+      course("lv3_hp", {
+        { name = "1_giant", when = function(S) for _, b in ipairs(S.balls) do if b.game and b.r > 0.2 and S.t - b.t0 > 1.0 then return true end end end },
+        { name = "2_weave", when = function(S) local n = 0 for _, b in ipairs(S.balls) do if b.game and b.game.ampX ~= 0 and S.t - b.t0 > 0.9 then n = n + 1 end end return n >= 4 end },
+      })
+      course("lv3_spa", { { name = "1_stream", when = function(S) local n = 0 for _, b in ipairs(S.balls) do if b.game then n = n + 1 end end return n >= 2 end } })
+      return
+    end
     -- PROBE_ONLY=shield: Graveler's shield and its target alone
     if os.getenv("PROBE_ONLY") == "shield" then
       course("lv2_def", {

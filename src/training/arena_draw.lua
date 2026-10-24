@@ -1039,7 +1039,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
           local m = math.max(P.sx, P.sy)
           ax, ay = P.sx / m, P.sy / m
         end
-        local homing = P and ((P.homeX or 0) > 0 or (P.homeY or 0) > 0)
+        -- blue and black: the homing kinds the game colours (both ways, or a strong pull one
+        -- way); Golem's pillars pull weakly up and down only and stay black
+        local SK = N.ATTACK.HOMING.STRONG_K
+        local hx, hy = P and (P.homeX or 0) or 0, P and (P.homeY or 0) or 0
+        local homing = P and ((hx > 0 and hy > 0) or (hx > 0 and hx <= SK) or (hy > 0 and hy <= SK))
         if b.lob and py + r < 0 then
           -- off the top: where it will land, in red on the grass
           local lx, ly = Sim.project(b.lob.tx, 0, b.lob.tz)
