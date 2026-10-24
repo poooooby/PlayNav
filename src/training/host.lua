@@ -239,11 +239,17 @@ return function(mod, base)
     return tostring(id)
   end
 
-  -- a numeric item id for "ITEM_FIRE_STONE" or a number
+  -- a numeric item id for "ITEM_FIRE_STONE" or a number (the constants of the version being
+  -- played: Constants.of takes "emerald" / "firered" / ..., not the game object)
   function H.itemId(name)
     if type(name) == "number" then return name end
     if H.Constants and H.Constants.of then
-      local ok, C = pcall(H.Constants.of, mod.game)
+      local v = H.gameVersion()
+      if not v and H.Constants.versionOf then
+        local okV, got = pcall(H.Constants.versionOf, nil)
+        v = okV and got or nil
+      end
+      local ok, C = pcall(H.Constants.of, v)
       if ok and C and C.id then
         local okI, id = pcall(C.id, C, "items", name)
         if okI and tonumber(id) then return tonumber(id) end

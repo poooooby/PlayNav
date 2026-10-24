@@ -134,3 +134,4 @@ tests/drivers/arena3d_probe.lua
 tests/arena3d_test.lua
 tests/bch_model_test.lua
 tests/sim3d_test.lua
+tests/training_items_test.lua
