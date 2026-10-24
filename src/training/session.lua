@@ -96,7 +96,9 @@ return function(mod, deps)
       if input:wasPressed("b") then T.enterCore() end
     elseif s.mode == "courses" then
       -- the D-pad, A and L / R: courses_app's T.pickerInput (A is a tap on the selected one)
-      if input:wasPressed("b") then T.goTo("core")
+      -- (B first closes the controls when they show)
+      if input:wasPressed("b") and s.showControls then s.showControls = nil
+      elseif input:wasPressed("b") then T.goTo("core")
       elseif T.pickerInput then T.pickerInput(input)
       elseif input:wasPressed("a") and s.picked then T.startCourse(s.picked) end
     elseif s.mode == "regimen" then

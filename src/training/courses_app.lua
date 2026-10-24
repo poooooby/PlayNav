@@ -67,6 +67,8 @@ return function(mod, Pointer, T, Rules)
   local SLOTS = { { 64, 105, "spa" }, { 160, 105, "hp" }, { 256, 105, "atk" },
     { 64, 178, "spd" }, { 160, 178, "spe" }, { 256, 178, "def" } }
   local RETURN = { 300, 225, 27, 27 }
+  -- VIEW CONTROLS: the button in the bar (shows the regimen's controls on the top screen)
+  local CONTROLS = { 160, 225, 128, 22 }
   local ARROW_L, ARROW_R = { 20, 225, 14, 26 }, { 90, 225, 14, 26 }
   -- stageselect_lower_cur_anime: the brackets breathe 1 -> 1.1 -> 1 over 24 frames
   local CUR = { { 0, 1, 0.005 }, { 20, 1.1, 0 }, { 24, 1, -0.025 } }
@@ -174,6 +176,7 @@ return function(mod, Pointer, T, Rules)
     local slots = {}
     for i, sl in ipairs(SLOTS) do slots[i] = midRect(sl[1], sl[2], 64, 64) end
     return { slots = slots, RETURN = lowRect(RETURN[1], RETURN[2], 34, 30), ARROW_L = lowRect(ARROW_L[1], ARROW_L[2], 30, 30),
+      CONTROLS = lowRect(CONTROLS[1], CONTROLS[2], CONTROLS[3], CONTROLS[4] + 6),
       ARROW_R = lowRect(ARROW_R[1], ARROW_R[2], 30, 30),
       slotOf = function(id)
         local p = current()
@@ -181,9 +184,21 @@ return function(mod, Pointer, T, Rules)
       end }
   end
 
+  -- the controls on the top screen, on / off
+  function app.toggleControls(on)
+    local s = T.session
+    if not s then return end
+    if on == nil then on = not s.showControls end
+    s.showControls = on or nil
+    if T.playSe then T.playSe("select_course", "SE_SELECT") end
+  end
+  app.showingControls = function() return T.session and T.session.showControls or false end
+
   local function pick(c)
     local s = T.session
     if not (s and c) then return end
+    -- (a regimen picked: the controls give the top screen back to its card)
+    s.showControls = nil
     if s.picked == c.id then
       T.startCourse(c.id)
       return
@@ -205,6 +220,7 @@ return function(mod, Pointer, T, Rules)
     local x, y = ev.x, ev.y
     local g = app.geometry()
     if inRect(x, y, g.RETURN) then T.goTo("core"); return end
+    if inRect(x, y, g.CONTROLS) then app.toggleControls(); return end
     local p, count = current()
     if count > 1 then
       if inRect(x, y, g.ARROW_L) then app.setPage(page - 1); return end
@@ -233,6 +249,8 @@ return function(mod, Pointer, T, Rules)
     local s = T.session
     if not s then return false end
     local function pressed(b) return input:wasPressed(b) end
+    -- SELECT shows / hides the controls
+    if pressed("select") then app.toggleControls(); return true end
     if pressed("l") then app.setPage(page - 1); return true end
     if pressed("r") then app.setPage(page + 1); return true end
     local p = current()
@@ -469,6 +487,49 @@ return function(mod, Pointer, T, Rules)
       if page < count then fit(G, arrow, ARROW_R[1], ARROW_R[2], ARROW_R[3], ARROW_R[4], 255, true) end
     end
     fit(G, art("training/ss_return"), RETURN[1], RETURN[2], RETURN[3], RETURN[4])
+    -- the CONTROLS button, in the picker's own look: a slanted teal tab (as the medal tab's ends)
+    -- shading darker downward, a white rim (gold while the controls show), a controller glyph
+    -- and the word in white over a dark shadow
+    do
+      local cx, cy, bw, bh = CONTROLS[1], CONTROLS[2], CONTROLS[3], CONTROLS[4]
+      local on = s.showControls
+      local sl = 7
+      local x0, x1, y0, y1 = cx - bw / 2, cx + bw / 2, cy - bh / 2, cy + bh / 2
+      local shape = { x0 + sl, y0, x1, y0, x1 - sl, y1, x0, y1 }
+      local top = on and { 0.38, 0.9, 0.86 } or { 0.24, 0.72, 0.7 }
+      local low = on and { 0.1, 0.55, 0.55 } or { 0.04, 0.38, 0.4 }
+      G.setColor(low[1], low[2], low[3], 1)
+      G.polygon("fill", shape)
+      local my = (y0 + y1) / 2
+      G.setColor(top[1], top[2], top[3], 1)
+      G.polygon("fill", x0 + sl, y0, x1, y0, x1 - sl / 2, my, x0 + sl / 2, my)
+      G.setColor(1, 1, 1, 0.25)
+      G.line(x0 + sl + 2, y0 + 2, x1 - 3, y0 + 2)
+      G.setLineWidth(1.5)
+      if on then G.setColor(1, 0.86, 0.25, 1) else G.setColor(0.96, 0.99, 0.98, 1) end
+      G.polygon("line", shape)
+      G.setLineWidth(1)
+      -- the controller glyph
+      local gx, gy = x0 + sl + 13, cy
+      G.setColor(1, 1, 1, 1)
+      G.rectangle("fill", gx - 8, gy - 4, 16, 8, 3, 3)
+      G.circle("fill", gx - 7, gy + 2, 3.2, 12)
+      G.circle("fill", gx + 7, gy + 2, 3.2, 12)
+      G.setColor(low[1], low[2], low[3], 1)
+      G.rectangle("fill", gx - 5.5, gy - 0.6, 4, 1.2)
+      G.rectangle("fill", gx - 4.1, gy - 2, 1.2, 4)
+      G.circle("fill", gx + 4.5, gy - 0.5, 1, 8)
+      G.circle("fill", gx + 6.5, gy + 1.2, 1, 8)
+      if L then
+        -- the word a little under the font's size, centred in the room right of the glyph
+        local k, tx0, tx1 = 0.85, x0 + sl + 24, x1 - sl - 4
+        G.push()
+        G.translate((tx0 + tx1) / 2, cy)
+        G.scale(k, k)
+        L.text(G, small, "CONTROLS", -(tx1 - tx0) / 2 / k, -10, (tx1 - tx0) / k, 20, { align = "center", color = { 1, 1, 1, 1 } })
+        G.pop()
+      end
+    end
     G.pop()
     -- the words: what was said, else the picked course's blurb
     local words = s.message
@@ -562,6 +623,126 @@ return function(mod, Pointer, T, Rules)
     return F
   end
 
+  -- ------- VIEW CONTROLS: the regimen's controls on a drawn handheld (top screen, while the
+  -- picker's CONTROLS button is on). The device from the front (its lid and screen, the hinge,
+  -- the base with the sticks, D-pad, A / B / X / Y and the touch screen) and from its top edge
+  -- (the shoulder buttons), all drawn; the controls a regimen uses lit, each led to its words.
+  -- In a 400 x 240 box (the card's units), fitted to the area; "in / out" only in 3D.
+  local CTL = {
+    LIT = { 1, 0.86, 0.25, 1 }, LINE = { 1, 0.86, 0.25, 0.9 }, BODY = { 0.16, 0.18, 0.22, 1 },
+    EDGE = { 0.82, 0.92, 1, 0.9 }, KEY = { 0.32, 0.35, 0.4, 1 }, SCREEN = { 0.12, 0.3, 0.42, 1 },
+    WORDS = { 1, 1, 1, 1 }, MAX = 1.5,
+  }
+  local function ctlRect(G2, mode, x, y, w, h, r, col)
+    G2.setColor(col[1], col[2], col[3], col[4] or 1)
+    G2.rectangle(mode, x, y, w, h, r, r)
+  end
+  local function drawControls(G2, e)
+    local in3d = T.arenaDraw and T.arenaDraw.mode3d and not T.arenaDraw.failed3d
+    -- the 400 x 240 box at the area's middle, as large as fits (up to MAX)
+    local k = math.max(1, math.min(CTL.MAX, e.w / 240, e.h / 160)) * 0.6
+    G2.push()
+    G2.translate(e.x + e.w / 2, e.y + e.h / 2)
+    G2.scale(k, k)
+    G2.translate(-200, -120)
+    local font = cardFont(G2)
+    local lw = G2.getLineWidth()
+    local function words(text, x, y, w, kk, align, col)
+      if not L then return end
+      G2.push()
+      G2.translate(x, y)
+      G2.scale(kk, kk)
+      L.text(G2, font, text, 0, 0, w / kk, 20, { align = align, color = col or CTL.WORDS, shadow = false })
+      G2.pop()
+    end
+    local SUB = { 0.8, 0.85, 0.9, 1 }
+    -- the title
+    local black = { 0, 0, 0, 255 }
+    if L then L.quad(G2, nil, 200, 13, 400, 24, { colors = { black, black, black, black }, alpha = 150 }) end
+    words("Regimen controls", 0, 4, 400, 0.85, "center")
+    -- the device from the front, drawn in its own units and placed at FRONT (scale DK about its
+    -- top middle): the lid and screen, the hinge, the base with the sticks, D-pad, A / B / X / Y
+    -- and the touch screen
+    local DK, OX, OY = 0.78, 195, 30
+    local function at(x, y) return OX + (x - 195) * DK, OY + (y - 32) * DK end
+    G2.push()
+    G2.translate(OX, OY)
+    G2.scale(DK, DK)
+    G2.translate(-195, -32)
+    G2.setLineWidth(2)
+    ctlRect(G2, "fill", 112, 32, 166, 84, 8, CTL.BODY)
+    ctlRect(G2, "line", 112, 32, 166, 84, 8, CTL.EDGE)
+    ctlRect(G2, "fill", 122, 39, 146, 70, 3, CTL.SCREEN)
+    ctlRect(G2, "fill", 112, 116, 30, 7, 2, CTL.KEY)
+    ctlRect(G2, "fill", 248, 116, 30, 7, 2, CTL.KEY)
+    ctlRect(G2, "fill", 106, 123, 178, 92, 10, CTL.BODY)
+    ctlRect(G2, "line", 106, 123, 178, 92, 10, CTL.EDGE)
+    -- the touch screen (lit: aim and fire)
+    ctlRect(G2, "fill", 160, 130, 70, 56, 3, CTL.SCREEN)
+    ctlRect(G2, "line", 160, 130, 70, 56, 3, CTL.LIT)
+    -- the left stick and the D-pad (lit: move)
+    G2.setColor(CTL.KEY); G2.circle("fill", 133, 147, 13, 24)
+    G2.setColor(CTL.LIT); G2.circle("line", 133, 147, 13, 24); G2.circle("fill", 133, 147, 6, 16)
+    G2.rectangle("fill", 129, 174, 8, 24, 2, 2)
+    G2.rectangle("fill", 121, 182, 24, 8, 2, 2)
+    -- A / B / X / Y (A lit: fire) and the right stick (lit in 3D: in / out)
+    local bx, by = 257, 145
+    local function key(x, y, name, lit)
+      G2.setColor(lit and CTL.LIT or CTL.KEY); G2.circle("fill", x, y, 7, 16)
+      words(name, x - 7, y - 6.5, 14, 0.65, "center", lit and { 0.1, 0.1, 0.1, 1 } or { 0.9, 0.9, 0.9, 1 })
+    end
+    key(bx, by - 13, "X"); key(bx - 13, by, "Y"); key(bx + 13, by, "A", true); key(bx, by + 13, "B")
+    G2.setColor(CTL.KEY); G2.circle("fill", 257, 186, 13, 24)
+    G2.setColor(in3d and CTL.LIT or CTL.EDGE); G2.circle("line", 257, 186, 13, 24)
+    if in3d then G2.circle("fill", 257, 186, 6, 16) end
+    G2.pop()
+    -- the shoulders, seen from the top edge, under the device (L1 / R1 lit: shield), their names
+    -- under them
+    local sx, sy = 150, 194
+    G2.setLineWidth(2)
+    ctlRect(G2, "fill", sx + 8, sy + 8, 84, 14, 6, CTL.BODY)
+    ctlRect(G2, "line", sx + 8, sy + 8, 84, 14, 6, CTL.EDGE)
+    ctlRect(G2, "fill", sx + 4, sy, 22, 7, 3, CTL.KEY)                 -- L2
+    ctlRect(G2, "fill", sx + 74, sy, 22, 7, 3, CTL.KEY)                -- R2
+    ctlRect(G2, "fill", sx + 2, sy + 7, 24, 7, 3, CTL.LIT)             -- L1
+    ctlRect(G2, "fill", sx + 74, sy + 7, 24, 7, 3, CTL.LIT)            -- R1
+    words("L1", sx + 2, sy + 24, 24, 0.6, "center", CTL.LIT)
+    words("R1", sx + 74, sy + 24, 24, 0.6, "center", CTL.LIT)
+    -- the words, each led from its control
+    G2.setLineWidth(1.5)
+    G2.setColor(CTL.LINE)
+    local function lead(x0, y0, x1, y1) G2.line(x0, y0, x1, y1) end
+    local lx, ly = at(120, 147)
+    local dx, dy = at(121, 186)
+    lead(lx, ly, 104, ly); lead(104, ly, 104, dy); lead(dx, dy, 104, dy)
+    lead(104, (ly + dy) / 2, 96, (ly + dy) / 2)
+    words("Move", 2, (ly + dy) / 2 - 12, 92, 0.75, "right")
+    words("D-Pad / stick", 2, (ly + dy) / 2 + 2, 92, 0.6, "right", SUB)
+    local ax, ay = at(277, 145)
+    lead(ax, ay, 286, ay)
+    words("Fire: A", 290, ay - 12, 110, 0.75)
+    words("hold to charge", 290, ay + 2, 110, 0.6, nil, SUB)
+    if in3d then
+      local rx, ry = at(270, 186)
+      lead(rx, ry, 286, ry)
+      words("Step in / out", 290, ry - 12, 110, 0.75)
+      words("right stick", 290, ry + 2, 110, 0.6, nil, SUB)
+    end
+    -- the touch screen's words to the left, under Move: led out of its bottom edge
+    local tx, ty = at(195, 186)
+    lead(tx, ty, tx, 184); lead(tx, 184, 96, 184)
+    words("Aim: touch screen", 2, 172, 92, 0.75, "right")
+    words("tap to fire, hold to charge", 2, 186, 92, 0.55, "right", SUB)
+    -- the shield's words beside the shoulders
+    lead(sx + 98, sy + 12, 286, sy + 12)
+    words("Shield", 290, sy, 110, 0.75)
+    words("hold L1 or R1", 290, sy + 14, 110, 0.6, nil, SUB)
+    G2.setLineWidth(lw)
+    G2.pop()
+    G2.setColor(1, 1, 1, 1)
+  end
+  app.drawControls = drawControls
+
   function app.drawCard(G2, s)
     local font = fonts()
     -- the area: the frame, or the whole playfield when the top screen fills it (T.topExtent)
@@ -573,6 +754,7 @@ return function(mod, Pointer, T, Rules)
     local bw, bh = e.w * 400 / 240, e.h * 240 / 160
     drawBackground(G2, bw, bh, UP, 100, { 10 * bw / 400, 6 * bh / 240 })
     G2.pop()
+    if s.showControls and L then drawControls(G2, e); return end
     local c = s.picked and T.course(s.picked)
     if not c or not L then return end
     -- the card's 400 units fit the frame's width; its title sits at the area's top edge, the
