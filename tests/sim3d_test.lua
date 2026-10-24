@@ -142,14 +142,15 @@ do
     ("Magneton: its mean side the capture's sqrt(%d x %d) px in game units"):format(m[1], m[2]))
   -- (its middle at screen y 90.5 of 240 through the play camera: ~56 game units up)
   T.check(cy > 50 and cy < 60, ("...its middle where the capture has it (y %.1f)"):format(cy))
+  -- standing balloons are placed by their feet, on the grass
   local ax = make("lv1_atk")
   ax:setGame3d(true)
   ax:startScript()
   local _, acy = ax:botCentre3()
-  local half = G3.SIZE_PX[610][2] * unit / 2
-  -- (the balloons hover: the game's balloon root is at y 3.6 like the trainee's, read live; Axew's
-  -- feet, at screen y 172, are ~6 over the grass line)
-  T.check(math.abs(acy - half) < 2 and acy - half > G3.GROUND, ("Axew hovers just over the grass (feet at %.1f)"):format(acy - half))
+  local feet = acy - (ax.shape and ax.shape.halfH or 1) * ax:botR3()
+  T.check(Sim.measured3(ax).stands and near(feet, G3.GROUND, 1e-6), ("Axew stands with its feet on the grass (%.1f)"):format(feet))
+  local tall = 2 * (ax.shape and ax.shape.halfH or 1) * ax:botR3()
+  T.check(near(tall, G3.SIZE_PX[610][2] * unit, 1e-6), ("...as tall as the game's Axew (%.1f)"):format(tall))
   local bs = make("secret_03")
   bs:setGame3d(true)
   bs:startScript()

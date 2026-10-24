@@ -144,21 +144,27 @@ return function(Sim, N, I)
       local F = 80 / math.tan(rad(G3.PLAY_FOVY) / 2)
       local unit = (160 / 240) * 240 / F
       local pitch = math.atan((G3.LOOK_Y - G3.EYE_UP) / 240)
-      local a = math.atan((80 - m[3] * 160 / 240) / F) + pitch
-      c = { size = sqrt(m[1] * m[2]) * unit, cy = G3.EYE_UP + 240 * math.tan(a) }
+      -- (a screen y in 400x240 px -> the game's height on the balloon's plane)
+      local function height(py) return G3.EYE_UP + 240 * math.tan(math.atan((80 - py * 160 / 240) / F) + pitch) end
+      c = { size = sqrt(m[1] * m[2]) * unit, tall = m[2] * unit, cy = height(m[3]), stands = m[4] or nil }
       sizeCache[sp] = c
     end
     return c
   end
   Sim.measured3 = measured
-  -- game units a bot radius (the sprite's mean side, sqrt(w x h), the measured balloon's - else
-  -- BAL_SIZE x its phase's scale - x its growth: a front sprite's proportions are not the model's)
+  -- game units a bot radius, x its growth: a measured standing balloon as tall as the game's; a
+  -- measured floating one its sprite's mean side, sqrt(w x h), the game's (a front sprite's
+  -- proportions are not the model's); else BAL_SIZE x its phase's scale
   function Sim:botR3()
     local sh = self.shape
     local side = sh and sqrt((sh.halfW or 1) * (sh.halfH or 1)) or 1
     local grow = 1 + (G3.GROW - 1) * min(1, self.score / max(1, self.bot and self.bot.target or 1))
     self.bot.grow3 = (self.bot.grow3 or grow) + (grow - (self.bot.grow3 or grow)) * 0.2
     local m = measured(self)
+    if m and m.stands then
+      -- standing: as tall as the game's, its feet on the grass (its width the sprite's own shape)
+      return m.tall * self.bot.grow3 / 2 / (sh and sh.halfH or 1)
+    end
     local size = m and m.size or G3.BAL_SIZE * (phase(self).scale or 0.7)
     return size * self.bot.grow3 / 2 / side
   end
@@ -173,8 +179,12 @@ return function(Sim, N, I)
     local ph = phase(self)
     local x, y = 0, G3.GROUND + halfH * R3
     local m = measured(self)
-    if m then
-      -- its measured middle, rising with its growth from the grass
+    if m and m.stands then
+      -- standing: its feet on the grass (placed by its middle a sprite shaped unlike the model
+      -- would float or sink), growing up from them
+      y = G3.GROUND + halfH * R3
+    elseif m then
+      -- floating: its measured middle, rising with its growth from the grass
       y = G3.GROUND + (m.cy - G3.GROUND) * (self.bot.grow3 or 1)
     elseif (ph.midY or 0) > 0 then
       y = G3.GROUND + ph.midY * (ph.scale or 0.7) * (self.bot.grow3 or 1)

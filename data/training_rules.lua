@@ -377,29 +377,31 @@ N.GAME3D = { EL = { 0, 45 }, AZ = { 60, 120 }, SPEED = 2, SPE_K = 0.001, ACTOR_I
   BIT_SPOTS = { { -44.4, 28, 90 }, { 0, 28, 120 }, { 44.4, 28, 90 } }, BIT_LOOP_R = 16, PLAY_FOVY = 37.81,
   LOOK_Y = 35, EDGE_OFF = 2.5, EDGE_TURN = 9, EDGE_TILT = 15,
   -- each balloon as the captures show it at the start (the middle distance, score 0), by National
-  -- Dex number: { width, height, middle y } in the 3DS's 400x240 px
+  -- Dex number: { width, height, middle y, stands } in the 3DS's 400x240 px (stands: its feet on
+  -- the grass; the rest float, placed by their middle; unmeasured ones stand unless their
+  -- phase has a midY)
   SIZE_PX = {
-    [610] = { 71, 105, 119.5 },    -- Axew (lv1_atk)
+    [610] = { 71, 105, 119.5, true },    -- Axew (lv1_atk)
     [74] = { 111, 53, 122.5 },     -- Geodude (lv1_def)
     [81] = { 106, 63, 90.5 },      -- Magnemite (lv1_spa)
     [714] = { 63.5, 94.5, 94 },    -- Noibat (lv1_spe)
     [72] = { 52.5, 93, 110.5 },    -- Tentacool (lv1_spd)
     [320] = { 137, 79, 117.5 },    -- Wailmer (lv1_hp)
     [142] = { 113, 88, 101 },      -- Aerodactyl (lv2_spe)
-    [611] = { 134, 100, 121 },     -- Fraxure (lv2_atk)
-    [75] = { 146.5, 80, 131 },     -- Graveler (lv2_def)
+    [611] = { 134, 100, 121, true },     -- Fraxure (lv2_atk)
+    [75] = { 146.5, 80, 131, true },     -- Graveler (lv2_def)
     [82] = { 128, 67, 90.5 },      -- Magneton (lv2_spa)
     [369] = { 44, 95, 108 },       -- Relicanth (lv2_hp)
     [73] = { 88, 106, 106 },       -- Tentacruel (lv2_spd)
     [691] = { 74, 83, 90.5 },      -- Dragalge (lv3_spd)
-    [76] = { 136, 106, 119 },      -- Golem (lv3_def)
-    [612] = { 83, 109, 117.5 },    -- Haxorus (lv3_atk)
+    [76] = { 136, 106, 119, true },      -- Golem (lv3_def)
+    [612] = { 83, 109, 117.5, true },    -- Haxorus (lv3_atk)
     [462] = { 134, 94, 116 },      -- Magnezone (lv3_spa)
     [715] = { 145, 103, 111.5 },   -- Noivern (lv3_spe)
     [321] = { 84, 82, 122 },       -- Wailord (lv3_hp)
-    [699] = { 54, 132, 106 },      -- Aurorus (secret_01)
-    [697] = { 72, 118, 110.5 },    -- Tyrantrum (secret_01, its second balloon)
-    [3] = { 148, 103, 120 },       -- Venusaur (secret_02)
+    [699] = { 54, 132, 106, true },      -- Aurorus (secret_01)
+    [697] = { 72, 118, 110.5, true },    -- Tyrantrum (secret_01, its second balloon)
+    [3] = { 148, 103, 120, true },       -- Venusaur (secret_02)
   } }
 
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
