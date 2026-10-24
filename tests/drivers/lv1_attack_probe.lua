@@ -80,6 +80,25 @@ local function body(game, log)
       course("lv2_spe", { { name = "1_dive", when = function(S) return (S.bot.thrown or 0) > 0 end, after = 0.4 } })
       return
     end
+    -- PROBE_ONLY=grow: Graveler grown near its target; Magneton's cleared group (puffs, red goal)
+    if os.getenv("PROBE_ONLY") == "grow" then
+      course("lv2_atk", {
+        { name = "1_start", when = function(S) return S.phase == "play" end, after = 0.5 },
+        { name = "2_grown", when = function(S) S.score = 1400; return S.bot.scale > 1.5 end, after = 0.3 },
+      })
+      course("lv2_spa", {
+        { name = "1_cleared", when = function(S)
+          S.groupsCleared = 1
+          for _, g in ipairs(S.goals) do if g.kind == "white" then S.groupScored = S.groupSize; g.kind = "dead_" end end
+          local keep = {}
+          for _, g in ipairs(S.goals) do if g.kind ~= "dead_" then keep[#keep + 1] = g end end
+          S.goals = keep
+          return S.clearPuffAt ~= nil
+        end, after = 0.2 },
+        { name = "2_red", when = function(S) return S:chanceUp() end, after = 0.4 },
+      })
+      return
+    end
     -- PROBE_ONLY=lv3: Golem's shield and wall, Wailord's giant ball and bitbots, Magnezone
     if os.getenv("PROBE_ONLY") == "lv3" then
       course("lv3_def", {

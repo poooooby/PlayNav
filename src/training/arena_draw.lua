@@ -559,7 +559,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return BODY_PTS
   end
 
-  local drawAura, drawShieldCage, drawCageShatter
+  local drawAura, drawShieldCage, drawCageShatter, drawClearPuffs
   -- a bitbot's string: `len` and end `sway` in its radii
   local BIT_STRING = { len = 1.6, sway = 0.25, segs = 10 }
   local BIT_PTS = {}
@@ -752,6 +752,42 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.pop()
   end
 
+  -- a cleared group's puffs (Wooble's magneton-2 capture): a white-green flash on both sides,
+  -- streaks shooting out and down, then grey-white clouds lingering and fading, ~1.4 s
+  D.CLEAR_PUFF = { S = 1.4, CLOUDS = 5, STREAKS = 5 }
+  function drawClearPuffs(G2, e, x, y, rw, rh)
+    local P = D.CLEAR_PUFF
+    local u = e / P.S
+    G2.push("all")
+    for side = -1, 1, 2 do
+      local bx = x + side * rw * 1.05
+      if e < 0.25 then
+        G2.setBlendMode("add")
+        G2.setColor(0.85, 1, 0.85, 0.6 * (1 - e / 0.25))
+        G2.ellipse("fill", bx + side * rw * 0.5, y, rw * 0.9, rh * 0.9, 24)
+        G2.setBlendMode("alpha")
+      end
+      if e < 0.45 then
+        local a = 1 - e / 0.45
+        G2.setLineWidth(math.max(1, rw * 0.04))
+        G2.setColor(0.9, 1, 0.6, 0.8 * a)
+        for i = 1, P.STREAKS do
+          local ang = math.rad(-10 + i * 12)
+          local r0, r1 = rw * (0.2 + e * 2), rw * (0.6 + e * 3.5)
+          G2.line(bx + side * math.cos(ang) * r0, y + math.sin(ang) * r0, bx + side * math.cos(ang) * r1, y + math.sin(ang) * r1)
+        end
+      end
+      for i = 1, P.CLOUDS do
+        local k = i / P.CLOUDS
+        local cx = bx + side * rw * (0.2 + 0.9 * k) * (0.6 + 0.6 * u)
+        local cy = y - rh * (0.2 - 0.5 * k) - rh * 0.3 * u
+        G2.setColor(0.92, 0.94, 0.95, 0.55 * (1 - u) * (1 - u))
+        G2.circle("fill", cx, cy, rw * (0.25 + 0.15 * k) * (0.7 + 0.8 * u), 16)
+      end
+    end
+    G2.pop()
+  end
+
   -- opts.noShadow: the caller draws the shadow on the grass; opts.noGoals: the goals are gone
   local function drawBot(G2, sim, opts)
     opts = opts or {}
@@ -810,6 +846,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.setColor(0.25, 0.35, 0.7, 1)
       G2.polygon("line", balloonBody(sx + fx, sy, R))
     end
+    -- a cleared group: puffs of air from both its sides (CLEAR_PUFF)
+    if sim.clearPuffAt and sim.t - sim.clearPuffAt < D.CLEAR_PUFF.S then
+      drawClearPuffs(G2, sim.t - sim.clearPuffAt, sx + fx, sy, R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1))
+    end
     local cw, ch = R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1)
     if sim.barrier then
       drawShieldCage(G2, sim, sx + fx, sy, cw, ch)
@@ -823,7 +863,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       if g.hidden then goto nextgoal end
       local gx, gy = sim:goalPos(g)
       local px, py = Sim.project(gx, gy, 1)
-      local gr = g.r * hwFar * bot.scale
+      -- (goals keep their size as the balloon grows: they are the HUD's panes)
+      local gr = g.r * hwFar
       local rgb = GOAL_RGB[g.kind] or GOAL_RGB.white
       local pulse = (g.kind == "chance") and (1 + 0.06 * math.sin(sim.t * 8)) or 1
       -- the game's goal panes (upper.bclyt, 32x32): target01 (white) or big_target (red), its
@@ -1041,9 +1082,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         end
         -- blue and black: the homing kinds the game colours (both ways, or a strong pull one
         -- way); Golem's pillars pull weakly up and down only and stay black
-        local SK = N.ATTACK.HOMING.STRONG_K
-        local hx, hy = P and (P.homeX or 0) or 0, P and (P.homeY or 0) or 0
-        local homing = P and ((hx > 0 and hy > 0) or (hx > 0 and hx <= SK) or (hy > 0 and hy <= SK))
+        local homing = P and Sim.homes(P)
         if b.lob and py + r < 0 then
           -- off the top: where it will land, in red on the grass
           local lx, ly = Sim.project(b.lob.tx, 0, b.lob.tz)

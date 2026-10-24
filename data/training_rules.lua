@@ -88,7 +88,8 @@ N.GOALS = {
   CHANCE_S = 15,      -- a red Chance Goal stays this long without a score
   CHANCE_ODDS = 0.5,  -- chance it appears once a group is cleared (when CHANCE_EVERY is off)
   CHANCE_EVERY = 2,   -- the red goal comes after every second cleared group
-  GROUP_GAP_S = 1.5,
+  GROUP_GAP_S = 0.9,
+  CHANCE_DELAY_S = 0.5,  -- a cleared group's red goal comes this long after (the balloon frozen)
   EXPIRE_GAP_S = 0.95,  -- after a group that ran out unscored
   MIN_GAP_S = 0.4,
   -- a group's timer by course (Wooble's Lv1 / Lv2 captures): white for `white` s, then orange,
@@ -279,7 +280,7 @@ N.ATTACK = {
   -- a balloon's shield (Wooble's Graveler capture): its target fades in over FADE_IN_S (not
   -- hittable until then) and circles the balloon ORBIT_R world units out about a point ORBIT_UP
   -- above its middle, from START_DEG on screen (0 right, 90 down) anticlockwise at DEG_S
-  SHIELD = { FADE_IN_S = 1.2, ORBIT_R = 0.21, ORBIT_UP = 0.04, START_DEG = 123, DEG_S = 29.3,
+  SHIELD = { FADE_IN_S = 1.2, TAIL_S = 1.0, ORBIT_R = 0.21, ORBIT_UP = 0.04, START_DEG = 123, DEG_S = 29.3,
     -- a course's own orbit (Golem: r 44 px, 31.1 deg/s from the top)
     COURSE = { lv3_def = { ORBIT_R = 0.22, START_DEG = -97, DEG_S = 31.1 } } },
   -- a ball lobbed up off the top of the screen that comes down where the trainee stood when it
@@ -320,7 +321,7 @@ N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.41, R = 0.12, H = 0.3
 -- grass); the trainee's stand floats in front of it.
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
 
-N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
+N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, GROW_K = 0.56, GROW_EASE = 10, SHAKE_HZ = 2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
           -- a sprite balloon is taller than the round one: it hovers higher, sized so that even
           -- fully grown it stays inside the sky the aim pad reaches (AIM_X across, 0..AIM_Y up)
           SHAPE_CY = 1.04, AIM_X = 1.6, AIM_Y = 2.05,
@@ -331,8 +332,8 @@ N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
           -- measured live; Lv1 / Lv2 ramp up to it (see EVIDENCE)
           SWAY = { [1] = { ax = 0.5, ay = 5, period = 3.5 }, [2] = { ax = 1.5, ay = 2.5, period = 4 },
                    [3] = { ax = 25, ay = 45, period = 9 }, secret = { ax = 25, ay = 45, period = 9 } },
-          SHAKE_S = 3, SHAKE_PX = 12,
-          SHAKE_SCALE = { [1] = 0.35, [2] = 0.7, [3] = 1, secret = 1 },
+          SHAKE_S = 0.7, SHAKE_PX = 9,
+          SHAKE_SCALE = { [1] = 1, [2] = 1, [3] = 1, secret = 1 },
           -- a throw (Wooble's Lv1 captures): a dip of DIP_PX through the first DIP_AT of the
           -- wind-up, up to RISE_PX above its place as the ball leaves, held HOLD_S, then back
           WINDUP = { DIP_PX = 10, RISE_PX = 8, DIP_AT = 0.65, HOLD_S = 1.4 },
@@ -377,7 +378,8 @@ N.EVIDENCE = {
   ["GOALS.CHANCE_S"] = { class = "measured", source = "AS text 44:62: red goals disappear after a set amount of time; ORAS Wiki: over 10 seconds; live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: one stood 10.4 s before its first hit and stayed after hits", confidence = "medium" },
   ["GOALS.CHANCE_ODDS"] = { class = "placeholder", source = "AS text 45:84: a red bonus goal needs every white goal blasted first (necessary, not always sufficient); gamepedia.jp", confidence = "low" },
   ["GOALS.CHANCE_EVERY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: a single goal that takes several hits came after the second group of three each time", confidence = "medium" },
-  ["GOALS.GROUP_GAP_S"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: the next group 1.5 s after the last goal of one bursts (2 s once at Lv3)", confidence = "medium" },
+  ["GOALS.CHANCE_DELAY_S"] = { class = "measured", source = "Wooble's magneton-2 capture: the red goal fades in 0.5 s after the clearing hit (settled at 0.7), the balloon holding its pose and puffing air from both sides ~1.4 s; it took two hits of +177 each (a plain goal's)", confidence = "medium" },
+  ["GOALS.GROUP_GAP_S"] = { class = "measured", source = "Wooble's magneton-2 capture: the next group 0.9 s after a cleared one's last hit; earlier live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: the next group 1.5 s after the last goal of one bursts (2 s once at Lv3)", confidence = "medium" },
   ["GOALS.R"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: goals 25.5-27 px across on the 400x240 top screen in all six (upper.bclyt's panes are 32x32 with their glow); scaled to this view", confidence = "high" },
   ["GOALS.CHANCE_R"] = { class = "measured", source = "upper.bclyt: the big goal uses the same 32x32 panes", confidence = "medium" },
   ["GOALS.MARKER_R"] = { class = "placeholder", source = "", confidence = "low" },
@@ -429,7 +431,10 @@ N.EVIDENCE = {
   ["ATTACK.bit.regen_s"] = { class = "placeholder", source = "AS text 44:70: bits regenerate given enough time; the time is not stated", confidence = "low" },
   ["BLOCK"] = { class = "placeholder", source = "AS text 44:67: L throws up a barrier for a short period, not usable nonstop; longer with Def/SpD (gamepedia); lengths unknown", confidence = "low" },
   ["PLAYER"] = { class = "placeholder", source = "bounded box and faster with Spe verified; sizes are not", confidence = "low" },
-  ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal", confidence = "low" },
+  ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal (no longer used: GROW_K)", confidence = "low" },
+  ["BOT.GROW_EASE"] = { class = "measured", source = "Wooble's graveler-2 capture: most of a growth step in the first frame, all of it within 0.2-0.3 s", confidence = "medium" },
+  ["BOT.GROW_K"] = { class = "measured", source = "Wooble's graveler-2 capture 2026-10-23: each +177 hit inflates the balloon a step (height 79.5 -> 121.5 px at 94% of 1500), feet fixed; scale ~ 1 + 0.56 x score / target, most of a step in one frame then a small wobble", confidence = "medium" },
+  ["BOT.SHAKE_HZ"] = { class = "measured", source = "Wooble's magneton-2 capture: a goal hit twists the balloon side to side ~+-10 px, ~0.5 s a swing, settled in ~0.7 s; Graveler's (graveler-2) a +-1-1.5 px wobble in the same time", confidence = "low" },
   ["BOT.SCALE_MAX"] = { class = "placeholder", source = "Wooble (2026-10-12): 1.2, so the large balloon of this view stays on the top screen; the game's own cap is not measured", confidence = "low" },
   ["BOT.R"] = { class = "placeholder", source = "", confidence = "low" },
   ["BOT.SHAPE_CY"] = { class = "placeholder", source = "ours: the sprite balloon's centre, so it fits the visible sky (y 0..2.09 at the bot's depth)", confidence = "low" },
@@ -441,7 +446,7 @@ N.EVIDENCE = {
   ["ATTACK.lob"] = { class = "inferred", source = "Wooble (2026-10-12): balls lobbed up off screen come down on the trainee, a red shadow marking where; flight and height are ours", confidence = "low" },
   ["BOT.SWAY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: Lv1 a loop of +-12 x +-28 px every 4.6 s, Lv2 +-9 x +-14 px slowly, Lv3 swings of up to 120 px (the secret courses take Lv3's until measured). Lv1 from Wooble's six Lv1 captures 2026-10-23 (the old read was Noibat's goal riding its wing): a vertical bob, Wailmer +-6 / 4 s, Geodude +-5 / 3.3 s, Magnemite +-4.75 / 2.35 s, Axew +-1 (still), Tentacool +-11 eased / ~12 s, Noibat +-5 across / 6.6 s - the default +-0.5 x +-5 every 3.5 s, each course's own in data/training_courses.lua `sway`; Lv2 from the s2 captures (Relicanth +-2.8 x +-3.5 / 5.5 s, Fraxure +-2 / 2.8, Graveler +-1.5 / 3.2, Magneton +-2.5 x +-2 / 3.95, Tentacruel a slow sink, Aerodactyl +-9.5 / 5.4): the default +-1.5 x +-2.5 every 4 s", confidence = "low" },
   ["ATTACK.HOMING"] = { class = "measured", source = "Wooble 2026-10-23, the game: regular homing dodged by moving as long as the trainee was not still for the 0.25 s before contact; horizontal (the wide ball, homeX 1) always hits unless moving up / down; vertical (the tall ball, homeY 1) unless moving left / right; the game's homing k 1 (strong) vs 12-40 (the round balls, the other axis)", confidence = "medium" },
-  ["ATTACK.SHIELD"] = { class = "measured", source = "Wooble's Graveler capture (s2) 2026-10-23: the target fades in ~1.2 s after the shield, circles (199,118) at r 42 px (fit residual 0.5 px over 34 frames) counter-clockwise on screen at 29.3 deg/s (12.3 s a turn), from 123 deg; one hit breaks it; the goals hidden under it, their timer held; Golem's (s3) the same but r 44, 31.1 deg/s from -97 deg (the top)", confidence = "high" },
+  ["ATTACK.SHIELD"] = { class = "measured", source = "Wooble's Graveler capture (s2) 2026-10-23: the target fades in ~1.2 s after the shield, circles (199,118) at r 42 px (fit residual 0.5 px over 34 frames) counter-clockwise on screen at 29.3 deg/s (12.3 s a turn), from 123 deg; one hit breaks it; the goals hidden under it, their timer held; unhit it breaks up the same way after ~21.0 s (graveler-2: up 3.15 -> 24.12, the step's 600 frames + TAIL_S); Golem's (s3) the same but r 44, 31.1 deg/s from -97 deg (the top)", confidence = "high" },
   ["BOT.WINDUP"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: every throw a dip (Wailmer ~14 px, Magnemite ~12, Geodude ~10, Noibat ~20), a snap up (Wailmer to -16, Magnemite +2.5 over its top) as the ball leaves, held 1.3-1.5 s while it flies (Magnemite), then back; some also turn (Axew, Magnemite 30-45 degrees), not drawn", confidence = "medium" },
   ["BOT.SHAKE_SCALE"] = { class = "placeholder", source = "ours (Wooble 2026-10-23, the movement ramping by level): the after-goal shake x0.35 Lv1, x0.7 Lv2, x1 Lv3 / secret", confidence = "low" },
   ["BOT.SHAKE_S"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: after a goal the others jitter +-10-20 px for 3-5 s", confidence = "medium" },

@@ -475,6 +475,8 @@ do
   run(circ, 3.1)
   local r0 = circ.remaining
   circ.score = 1799
+  circ.player.safe = 1e9
+  run(circ, 0.6)   -- (it grows with the score: let it settle before aiming)
   g = circ:state().goals[1]
   circ:aim(g.x, g.y); circ:pressFire(); circ:update(1 / 60); circ:releaseFire()
   local pop

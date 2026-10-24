@@ -198,8 +198,10 @@ return function(N)
   function Sim:setMove(dx, dz) self.player.mx = math.max(-1, math.min(1, dx or 0)); self.player.mz = math.max(-1, math.min(1, dz or 0)) end
   -- how far the aim reaches: the whole sprite balloon, or the round balloon's plane
   function Sim:aimExtent()
-    if self.shape then return N.BOT.AIM_X, N.BOT.AIM_Y end
-    return 1, 1
+    -- (the reach rises as the balloon grows about its feet)
+    local rise = self:botCY() - (self.shape and N.BOT.SHAPE_CY or N.BOT.CY)
+    if self.shape then return N.BOT.AIM_X, N.BOT.AIM_Y + 2 * rise end
+    return 1, 1 + 2 * rise
   end
   function Sim:aim(tx, ty)
     local ex, ey = self:aimExtent()
@@ -207,7 +209,19 @@ return function(N)
     self.player.aim.y = math.max(0, math.min(ey, ty))
   end
   -- the balloon's centre height (a sprite balloon hovers higher)
-  function Sim:botCY() return self.shape and N.BOT.SHAPE_CY or N.BOT.CY end
+  function Sim:botCY()
+    local cy = self.shape and N.BOT.SHAPE_CY or N.BOT.CY
+    -- grown, it rises about its feet
+    local bot, sh = self.bot, self.shape
+    if bot and (bot.scale or 1) > 1 then
+      cy = cy + (bot.scale - 1) * N.BOT.R * (sh and sh.halfH or 1) * Sim.ASPECT
+    end
+    return cy
+  end
+  function Sim:chanceUp()
+    for _, g in ipairs(self.goals) do if g.kind == "chance" then return true end end
+    return false
+  end
   function Sim:pause(on) self.paused = on and true or false end
 
   -- the guard (DllSparring.cro 0x23d0-0x2594): raised while L / R (or the block button) is
@@ -393,7 +407,8 @@ return function(N)
     -- (`still`: a test's balloon that does not sway)
     local sway = not self.still and (self.course.sway or (N.BOT.SWAY and N.BOT.SWAY[self.isSecret and "secret" or self.level]))
     if sway and self.phase ~= "countdown" then
-      local w = 2 * math.pi * (self.t - (self.swayT0 or 0)) / sway.period
+      -- (its own clock, held while it stands frozen after a cleared group)
+      local w = 2 * math.pi * (self.swayT or 0) / sway.period
       x = x + math.sin(w) * sway.ax * 0.6 / hw
       -- (fig8: up and down twice a sway, a figure of eight - Magnezone)
       y = y + math.sin(sway.fig8 and 2 * w or (w + math.pi / 2)) * sway.ay * (160 / 240) / hu
@@ -402,8 +417,9 @@ return function(N)
     if bot and (bot.shake or 0) > 0 then
       local scale = N.BOT.SHAKE_SCALE and N.BOT.SHAKE_SCALE[self.isSecret and "secret" or self.level] or 1
       local k = bot.shake / N.BOT.SHAKE_S * scale
-      x = x + math.sin(self.t * 23) * N.BOT.SHAKE_PX * k * 0.6 / hw
-      y = y + math.sin(self.t * 17 + 1) * N.BOT.SHAKE_PX * k * (160 / 240) / hu
+      local u = N.BOT.SHAKE_S - bot.shake
+      x = x + math.sin(u * N.BOT.SHAKE_HZ * 2 * math.pi) * N.BOT.SHAKE_PX * k * 0.6 / hw
+      y = y + math.sin(u * N.BOT.SHAKE_HZ * 4 * math.pi + 1) * N.BOT.SHAKE_PX * 0.2 * k * (160 / 240) / hu
     end
     -- the throw: it dips through the wind-up, snaps up as it lets go and holds there while the
     -- ball flies, then settles (N.BOT.WINDUP, game px)
@@ -673,7 +689,11 @@ return function(N)
           local due
           if every and every > 0 then due = self.groupsCleared % every == 0 else due = self.rng() < odds end
           if due then
-            self:spawnChance()
+            -- it freezes, puffs air from its sides, and the red goal comes a moment later
+            self.chancePending = N.GOALS.CHANCE_DELAY_S
+            self.clearPuffAt = self.t
+            self.chanceDone = true
+            emit(self, "group_cleared", { chance = true })
             return
           end
           self.chanceDone = true
@@ -854,7 +874,7 @@ return function(N)
     local hw, hh = P.sx * GA.SIZE_UNIT, P.sy * GA.SIZE_UNIT
     local ball = { x = lx, y = ly, z = 1, bx = lx, by = ly, t0 = self.t, game = P,
       vx = gx / len * v * U, vy = gy / len * v * U, vz = -gz / len * v * GA.DEPTH_UNIT,
-      r = math.max(hw, hh), kind = (P.homeX > 0 or P.homeY > 0) and "homing" or (math.max(hw, hh) > 0.1 and "big" or "small") }
+      r = math.max(hw, hh), kind = Sim.homes(P) and "homing" or (math.max(hw, hh) > 0.1 and "big" or "small") }
     if math.abs(hw - hh) > 1e-6 then ball.w, ball.h = hw * 2, hh * 2 end
     -- frames to the trainee's depth, and when a homing axis locks
     ball.flightN = (1 - p.z) / math.max(1e-6, -ball.vz) * FPS
@@ -864,6 +884,14 @@ return function(N)
   Sim.gameBall = gameBall
 
   -- a projectile's lateral offset after n frames: its wave, and its homing on the trainee now
+  -- the homing kinds (the blue and black balls): both ways, or a strong pull one way; a weak
+  -- pull one way only (Golem's pillars) is a regular ball stretched, flying straight (Wooble)
+  function Sim.homes(P)
+    local SK = N.ATTACK.HOMING.STRONG_K
+    local hx, hy = P and (P.homeX or 0) or 0, P and (P.homeY or 0) or 0
+    return (hx > 0 and hy > 0) or (hx > 0 and hx <= SK) or (hy > 0 and hy <= SK)
+  end
+
   local function gameOffset(self, b, n)
     local P, p = b.game, self.player
     local U = GA.UNIT
@@ -881,8 +909,10 @@ return function(N)
       local target = (not strong and locked) or live
       return (target - base) * w
     end
-    if P.homeX > 0 then ox = ox + pull(P.homeX, p.x, b.bx, b.lockX) end
-    if P.homeY > 0 then oy = oy + pull(P.homeY, (p.y or 0) + N.PLAYER.H / 2, b.by, b.lockY) end
+    if Sim.homes(P) then
+      if P.homeX > 0 then ox = ox + pull(P.homeX, p.x, b.bx, b.lockX) end
+      if P.homeY > 0 then oy = oy + pull(P.homeY, (p.y or 0) + N.PLAYER.H / 2, b.by, b.lockY) end
+    end
     return ox, oy
   end
 
@@ -904,7 +934,7 @@ return function(N)
     local S = N.ATTACK.SHIELD
     local own = S.COURSE and S.COURSE[self.course.id]
     if own then S = setmetatable(own, { __index = N.ATTACK.SHIELD }) end
-    self.barrier = { t = 0, marker = "center", maxS = secs or N.ATTACK.barrier.max_s, script = true }
+    self.barrier = { t = 0, marker = "center", maxS = (secs or N.ATTACK.barrier.max_s) + (S.TAIL_S or 0), script = true }
     -- the target circles the balloon (screen angles: y down, so the world's is their negative)
     self.goals[#self.goals + 1] = { kind = "marker", age = 0, r = N.GOALS.MARKER_R, hits = 0,
       orbit = { a = math.rad(-S.START_DEG), w = math.rad(S.DEG_S), r = S.ORBIT_R, up = S.ORBIT_UP } }
@@ -1016,9 +1046,9 @@ return function(N)
     if self.barrier then
       self.barrier.t = self.barrier.t + step
       if self.barrier.t >= self.barrier.maxS then
-        -- run out: it fades away (drawn from shieldFadedAt)
+        -- run out: it breaks up as when its target is hit, the target gone
         self.barrier = nil
-        self.shieldFadedAt = self.t
+        self.shieldBrokeAt = self.t
         emit(self, "barrier_down", { timed = true })
       end
     end
@@ -1159,7 +1189,7 @@ return function(N)
           local shown = not g.hidden and not (g.kind == "marker" and g.orbit and g.age < N.ATTACK.SHIELD.FADE_IN_S)
           if not g.dead and shown then
             local gx, gy = self:goalPos(g)
-            local rr = g.r * self.bot.scale + sh.r
+            local rr = g.r + sh.r
             if (hx - gx) ^ 2 + (hy - gy) ^ 2 <= rr * rr then
               if self.barrier and g.kind ~= "marker" then
                 hit = "absorbed"
@@ -1317,7 +1347,7 @@ return function(N)
         local overlapY = (b.y - hh) <= py + N.PLAYER.H and (b.y + hh) >= py
         -- a homing axis that locked: it hits only if the trainee has not moved since
         local G, H = b.game, N.ATTACK.HOMING
-        if G and b.lockX then
+        if G and b.lockX and Sim.homes(G) then
           if G.homeX > H.STRONG_K then overlapX = math.abs(p.x - b.lockX) <= H.DODGE end
           if G.homeY > H.STRONG_K then overlapY = math.abs(py + N.PLAYER.H / 2 - b.lockY) <= H.DODGE end
         end
@@ -1468,6 +1498,13 @@ return function(N)
       return
     end
     if self.phase ~= "play" then return end
+    -- the sway's clock: held while the balloon stands frozen for its red goal
+    local frozen = self.chancePending or self:chanceUp()
+    if not frozen then self.swayT = (self.swayT or 0) + step end
+    if self.chancePending then
+      self.chancePending = self.chancePending - step
+      if self.chancePending <= 0 then self.chancePending = nil; self:spawnChance() end
+    end
     self.remaining = self.remaining - step
     self:updatePlayer(step)
     self:updateAttacks(step)
@@ -1475,7 +1512,10 @@ return function(N)
     self:updateBalls(step)
     self:updateGoals(step)
     local bot = self.bot
-    bot.scale = math.min(N.BOT.SCALE_MAX, 1 + N.BOT.GROWTH * bot.goalsScored)
+    -- it inflates with the score, its feet on the ground (Wooble's Graveler capture: about
+    -- 1.56x its height at the target), easing to each new size
+    local want = 1 + N.BOT.GROW_K * math.min(1, self.score / math.max(1, bot.target or 1))
+    bot.scale = bot.scale + (want - bot.scale) * math.min(1, step * N.BOT.GROW_EASE)
     if bot.flinch > 0 then bot.flinch = math.max(0, bot.flinch - step) end
     if (bot.shake or 0) > 0 then bot.shake = math.max(0, bot.shake - step) end
     if bot.aura > 0 then bot.aura = math.max(0, bot.aura - step) end
