@@ -97,21 +97,74 @@ return function(Sim, N, I)
     self:place3()
   end
 
+  -- the edge's ripple (the game's effect #3, DllSparring.cro 0x1450c: spawned beside the trainee
+  -- toward the edge pushed): its middle, EDGE_OFF from the trainee's body toward that side - up
+  -- for the top (1), the trainee's right / left along the orbit for 2 / 4 - and two axes of its
+  -- plane. Its facing is fitted to the captures: a side disc stands across the line of sight,
+  -- turned EDGE_TURN degrees off it (the left one a thin slanted streak, the right a crescent); the
+  -- top one lies level, tilted EDGE_TILT degrees toward the camera (a ~0.8 ellipse from the top).
+  -- -> cx, cy, cz, ux, uy, uz, vx, vy, vz
+  function Sim:edgeDisc3(edge)
+    local p = self.player
+    local a = rad(p.az or 90)
+    -- (the trainee's right: lower azimuth; the horizontal way to the balloon)
+    local rx, rz = sin(a), -cos(a)
+    local ix, iz = -cos(a), -sin(a)
+    local o = G3.EDGE_OFF
+    if edge == 1 then
+      local t = rad(G3.EDGE_TILT)
+      return p.x, p.y + o, p.z, rx, 0, rz, ix * cos(t), sin(t), iz * cos(t)
+    end
+    local s = edge == 2 and 1 or -1
+    local cx, cy, cz = p.x + rx * o * s, p.y, p.z + rz * o * s
+    -- the horizontal way from it to the eye, turned
+    local dx, dz = (p.ex or cx) - cx, (p.ez or cz) - cz
+    local l = sqrt(dx * dx + dz * dz)
+    if l < 1e-6 then dx, dz, l = -ix, -iz, 1 end
+    dx, dz = dx / l, dz / l
+    local tt = rad(G3.EDGE_TURN) * s
+    dx, dz = dx * cos(tt) - dz * sin(tt), dx * sin(tt) + dz * cos(tt)
+    return cx, cy, cz, 0, 1, 0, dx, 0, dz
+  end
+
   -- ------- the balloon in the game's space (its sprite for its model)
 
   -- its phase's scale and sway (the attack data), its fill's growth
   local function phase(self) return self.script and self.script.phase or {} end
-  -- game units a bot radius (the sprite's mean side, sqrt(w x h), BAL_SIZE x its phase's scale x
-  -- its growth: a front sprite is taller for its width than the model the camera sees)
+  -- a balloon measured in the captures (N.GAME3D.SIZE_PX by species, 400x240 px at the middle
+  -- distance): its mean side sqrt(w x h) and its middle's height in game units, through the play
+  -- camera (the eye 240 out at EYE_UP, looking at LOOK_Y, PLAY_FOVY)
+  local sizeCache = {}
+  local function measured(self)
+    local sp = phase(self).species or (self.bot and self.bot.national)
+    local m = sp and G3.SIZE_PX and G3.SIZE_PX[sp]
+    if not m then return nil end
+    local c = sizeCache[sp]
+    if not c then
+      local F = 80 / math.tan(rad(G3.PLAY_FOVY) / 2)
+      local unit = (160 / 240) * 240 / F
+      local pitch = math.atan((G3.LOOK_Y - G3.EYE_UP) / 240)
+      local a = math.atan((80 - m[3] * 160 / 240) / F) + pitch
+      c = { size = sqrt(m[1] * m[2]) * unit, cy = G3.EYE_UP + 240 * math.tan(a) }
+      sizeCache[sp] = c
+    end
+    return c
+  end
+  Sim.measured3 = measured
+  -- game units a bot radius (the sprite's mean side, sqrt(w x h), the measured balloon's - else
+  -- BAL_SIZE x its phase's scale - x its growth: a front sprite's proportions are not the model's)
   function Sim:botR3()
     local sh = self.shape
     local side = sh and sqrt((sh.halfW or 1) * (sh.halfH or 1)) or 1
     local grow = 1 + (G3.GROW - 1) * min(1, self.score / max(1, self.bot and self.bot.target or 1))
     self.bot.grow3 = (self.bot.grow3 or grow) + (grow - (self.bot.grow3 or grow)) * 0.2
-    return G3.BAL_SIZE * (phase(self).scale or 0.7) * self.bot.grow3 / 2 / side
+    local m = measured(self)
+    local size = m and m.size or G3.BAL_SIZE * (phase(self).scale or 0.7)
+    return size * self.bot.grow3 / 2 / side
   end
-  -- the balloon's middle in the game's space: a floating one (its phase's midY) its middle midY x
-  -- scale above the grass, else its feet on the grass; the game's sway (x 12 sin 2t,
+  -- the balloon's middle in the game's space: a measured one where the captures have it, a
+  -- floating one (its phase's midY) its middle midY x scale above the grass, else its feet on the
+  -- grass; the game's sway (x 12 sin 2t,
   -- y 6 sin t, degrees a frame) when its phase sways, our throw's dip and hit wobble over it
   function Sim:botCentre3()
     local R3 = self:botR3()
@@ -119,7 +172,11 @@ return function(Sim, N, I)
     local halfH = sh and sh.halfH or 1
     local ph = phase(self)
     local x, y = 0, G3.GROUND + halfH * R3
-    if (ph.midY or 0) > 0 then
+    local m = measured(self)
+    if m then
+      -- its measured middle, rising with its growth from the grass
+      y = G3.GROUND + (m.cy - G3.GROUND) * (self.bot.grow3 or 1)
+    elseif (ph.midY or 0) > 0 then
       y = G3.GROUND + ph.midY * (ph.scale or 0.7) * (self.bot.grow3 or 1)
     end
     if phase(self).sway == 1 then

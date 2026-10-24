@@ -86,42 +86,6 @@ end
 local _, _, erx, ery = A3.groundEllipse(0, 1, 0.2)
 T.check(ery < erx, ("a ground ellipse lies flat (%.1f x %.1f)"):format(erx, ery))
 
--- the edges' borders: 3D walls of the orbit's shape just past the game's limits
-do
-  local function angles(v)
-    local x, y, z = v[1], v[2], v[3]
-    local h = math.sqrt(x * x + z * z)
-    return math.deg(math.atan2(z, x)), math.deg(math.atan2(y, h))
-  end
-  local right, left, top = A3.borderVerts(2, 240), A3.borderVerts(4, 240), A3.borderVerts(1, 240)
-  T.check(#right > 100 and #left == #right and #top == #right, "the three borders are walls of triangles")
-  local okR, okL, okT = true, true, true
-  for _, v in ipairs(right) do
-    local az = angles(v)
-    if math.abs(az - (60 - A3.BORDER.DEG)) > 1e-6 or v[1] <= 0 then okR = false end
-  end
-  for _, v in ipairs(left) do
-    local az = angles(v)
-    if math.abs(az - (120 + A3.BORDER.DEG)) > 1e-6 or v[1] >= 0 then okL = false end
-  end
-  for _, v in ipairs(top) do
-    local _, el = angles(v)
-    if math.abs(el - (45 + A3.BORDER.DEG)) > 1e-6 then okT = false end
-  end
-  T.check(okR, "...the right wall stands on the meridian just past azimuth 60 (the +x side)")
-  T.check(okL, "...the left just past 120")
-  T.check(okT, "...the top is the cone just past elevation 45")
-  -- at the right limit the camera sees its wall to the right, not edge-on
-  A3.update(sim(N.PLAYER.X_MAX, 0.3, 240))
-  local seen = 0
-  for _, v in ipairs(right) do
-    local sx = A3.projectModel(v[1], v[2], v[3])
-    if sx > 120 then seen = seen + 1 end
-  end
-  T.check(seen > #right / 2, ("...at the right limit its wall shows on the right of the screen (%d of %d points)"):format(seen, #right))
-  A3.update(sim(0, 0, 240))
-end
-
 -- the matrices handed to g3d put a model point where the projector does
 do
   local V, Pm = A3.viewMatrix({}), A3.projectionMatrix({}, 0, 0, 240, 160)

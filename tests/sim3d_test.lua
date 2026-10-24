@@ -128,26 +128,47 @@ do
   end
 end
 
--- the balloon: its phase's scale, its feet on the grass
+-- the balloon: its size and middle as the captures show it (SIZE_PX); unmeasured ones by their
+-- phase's scale, floating at midY x scale or standing on the grass
 do
+  local F = 80 / math.tan(math.rad(G3.PLAY_FOVY) / 2)
+  local unit = (160 / 240) * 240 / F
   local bl = make("lv2_spa")
   bl:setGame3d(true)
   bl:startScript()
-  local ph = bl.script.phase
+  local m = G3.SIZE_PX[82]
   local _, cy = bl:botCentre3()
-  local R3 = bl:botR3()
-  T.check(near(cy, G3.GROUND + ph.midY * ph.scale, 1e-6),
-    ("Magneton floats: its middle midY %d x scale above the grass"):format(ph.midY))
-  T.check(R3 > 0 and near(R3 * 2, G3.BAL_SIZE * (ph.scale or 0.7), 1e-6),
-    ("...its size the phase's scale %.2f x %d"):format(ph.scale or 0, G3.BAL_SIZE))
-  local gr = make("lv1_atk")
-  gr:setGame3d(true)
-  gr:startScript()
-  local gph = gr.script.phase
-  local _, gcy = gr:botCentre3()
-  local halfH = gr.shape and gr.shape.halfH or 1
-  T.check((gph.midY or 0) == 0 and near(gcy - halfH * gr:botR3(), G3.GROUND, 1e-6),
-    "Axew (midY 0) stands on the grass")
+  T.check(near(bl:botR3() * 2, math.sqrt(m[1] * m[2]) * unit, 1e-6),
+    ("Magneton: its mean side the capture's sqrt(%d x %d) px in game units"):format(m[1], m[2]))
+  -- (its middle at screen y 90.5 of 240 through the play camera: ~45 game units up)
+  T.check(cy > 40 and cy < 52, ("...its middle where the capture has it (y %.1f)"):format(cy))
+  local ax = make("lv1_atk")
+  ax:setGame3d(true)
+  ax:startScript()
+  local _, acy = ax:botCentre3()
+  local half = G3.SIZE_PX[610][2] * unit / 2
+  T.check(math.abs(acy - half - G3.GROUND) < 4, ("Axew stands on the grass (feet at %.1f)"):format(acy - half))
+  local bs = make("secret_03")
+  bs:setGame3d(true)
+  bs:startScript()
+  local ph = bs.script.phase
+  T.check(G3.SIZE_PX[ph.species] == nil and near(bs:botR3() * 2, G3.BAL_SIZE * ph.scale, 1e-6),
+    "an unmeasured balloon (Blastoise) by its phase's scale")
+end
+
+-- the edge ripples: a disc 2.5 above the trainee for the top, 2.5 to its right / left for the
+-- sides, each facing the side pushed
+do
+  local e = make("lv1_hp")
+  e:setGame3d(true)
+  local q = e.player
+  local cx, cy, cz, ux, uy, uz, vx, vy, vz = e:edgeDisc3(1)
+  T.check(near(cx, q.x) and near(cy, q.y + G3.EDGE_OFF) and near(cz, q.z) and near(uy, 0) and near(vy, math.sin(math.rad(G3.EDGE_TILT))),
+    "the top ripple: a disc 2.5 over the trainee, tilted EDGE_TILT toward the camera")
+  local rx, ry, rz, rux, ruy = e:edgeDisc3(2)
+  local lx = e:edgeDisc3(4)
+  T.check(near(rx, q.x + G3.EDGE_OFF) and near(ry, q.y) and near(rz, q.z) and near(lx, q.x - G3.EDGE_OFF)
+    and near(ruy, 1), "the side ripples: upright discs 2.5 to its right (toward +x at the middle) and left")
 end
 
 -- off: the 2D world as before

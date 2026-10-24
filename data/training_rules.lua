@@ -371,7 +371,31 @@ N.GAME3D = { EL = { 0, 45 }, AZ = { 60, 120 }, SPEED = 2, SPE_K = 0.001, ACTOR_I
     blue = { 5.2, 0.85 }, weak = { 3.0, 0.7 } },
   SHOT_SPE_K = 0.005, SHOT_HP_K = 0.00125, GROW = 1.5, SWAY = { 12, 2, 6, 1 },
   BAL_SIZE = 105, GROUND = -6.7, TRAINEE_H = 1.6, BIT_R = 7, BIT_SPEED = 3.5, BIT_SHOT_R = 2.4, PLAY_FOVY = 37.85,
-  LOOK_Y = 31 }
+  LOOK_Y = 31, EDGE_OFF = 2.5, EDGE_TURN = 9, EDGE_TILT = 15,
+  -- each balloon as the captures show it at the start (the middle distance, score 0), by National
+  -- Dex number: { width, height, middle y } in the 3DS's 400x240 px
+  SIZE_PX = {
+    [610] = { 71, 105, 119.5 },    -- Axew (lv1_atk)
+    [74] = { 111, 53, 122.5 },     -- Geodude (lv1_def)
+    [81] = { 106, 63, 90.5 },      -- Magnemite (lv1_spa)
+    [714] = { 63.5, 94.5, 94 },    -- Noibat (lv1_spe)
+    [72] = { 52.5, 93, 110.5 },    -- Tentacool (lv1_spd)
+    [320] = { 137, 79, 117.5 },    -- Wailmer (lv1_hp)
+    [142] = { 113, 88, 101 },      -- Aerodactyl (lv2_spe)
+    [611] = { 134, 100, 121 },     -- Fraxure (lv2_atk)
+    [75] = { 146.5, 80, 131 },     -- Graveler (lv2_def)
+    [82] = { 128, 67, 90.5 },      -- Magneton (lv2_spa)
+    [369] = { 44, 95, 108 },       -- Relicanth (lv2_hp)
+    [73] = { 88, 106, 106 },       -- Tentacruel (lv2_spd)
+    [691] = { 74, 83, 90.5 },      -- Dragalge (lv3_spd)
+    [76] = { 136, 106, 119 },      -- Golem (lv3_def)
+    [612] = { 83, 109, 117.5 },    -- Haxorus (lv3_atk)
+    [462] = { 134, 94, 116 },      -- Magnezone (lv3_spa)
+    [715] = { 145, 103, 111.5 },   -- Noivern (lv3_spe)
+    [321] = { 84, 82, 122 },       -- Wailord (lv3_hp)
+    [699] = { 54, 132, 106 },      -- Aurorus (secret_01)
+    [3] = { 148, 103, 120 },       -- Venusaur (secret_02)
+  } }
 
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
 
@@ -494,6 +518,10 @@ N.EVIDENCE = {
     ["GAME3D.TRAINEE_H"] = { class = "measured", source = "ours (the trainee's sprite for its model, its feet on the actor point - the top of the game's stand): Latias in the capture magneton-2 28 frame units tall 11.5 ahead (1.35 game units) plus a little for the ball it rides", confidence = "low" },
   ["GAME3D.PLAY_FOVY"] = { class = "measured", source = "the play camera's projection is not in DllSparring.cro; with its eye (the trainee's sphere point + 4.5 up) the capture magneton-2's far Poke Ball (0, 401, -886) at frame y 26.7 and the pitch's far edge at 106.7 fit fovy ~38-40 looking up ~6 degrees: the intro camera e77's 37.85 and LOOK_Y 31 (the aim the code reads, (0, 4.5, 0), fits neither: it puts the edge at 83)", confidence = "medium" },
   ["GAME3D.LOOK_Y"] = { class = "measured", source = "fitted with PLAY_FOVY to the capture magneton-2 (Poke Ball and pitch edge); near Magneton's middle (52.5 - 6.7 = 45.8 is its middle, so not the balloon's)", confidence = "low" },
+  ["GAME3D.EDGE_OFF"] = { class = "verified", source = "DllSparring.cro 0x1450c-0x14988: at a limit effect #3 is spawned beside the trainee at (0, 2.5, 0) for the top, (+-2.5, 0, 0) for the sides; the 3d-ref captures (Axew / Aerodactyl / Graveler, 2026-10-24) show a ripple disc there: the left one edge-on ~100 px left of Latias, the right a crescent by the stand, the top a ~2:1 ellipse above-left of it", confidence = "high" },
+  ["GAME3D.EDGE_TURN"] = { class = "measured", source = "the ripple discs' facing, fitted to the 3d-ref captures (2026-10-24): a side disc nearly edge-on (Axew / Graveler left edge: a streak 10-12 px wide, 90+ tall, leaning 10-15 degrees), the top one a ~0.8 ellipse (Axew top edge 150 x 125 px); EDGE_TURN off the line of sight, EDGE_TILT toward the camera", confidence = "low" },
+  ["GAME3D.EDGE_TILT"] = { class = "measured", source = "see GAME3D.EDGE_TURN", confidence = "low" },
+  ["GAME3D.SIZE_PX"] = { class = "measured", source = "every regular balloon, Aurorus and Venusaur measured at the start (middle distance, score 0, no aura) in Wooble's captures (st regimens/*.mp4, s2, s3, s4; 2026-10-24, one research agent, medians of 10-20 frames, goal boxes cut out): body box width / height and middle y in 400x240 px; Axew / Aerodactyl cross-checked on the 3d-ref takes; Venusaur (aura on, 0.6 s), Dragalge / Noibat / Noivern / Aerodactyl (thin or flapping) +-5..10 px; Tyrantrum unmeasured (turned view)", confidence = "medium" },
   ["GAME3D.BIT_R"] = { class = "placeholder", source = "ours: a bitbot's hit size against shots (its model e73 is ~47 long)", confidence = "low" },
   ["GAME3D.GROUND"] = { class = "verified", source = "the stadium model's pitch lines (a/1/1/4 e75)", confidence = "high" },
   ["PLAYER.DIST"] = { class = "verified", source = "DllSparring.cro: the trainee's radius targets {180, 240, 300} (table 0x1821c), the step index starting at 1 (0x6fc0), stepped one nearer / farther by button masks 4 / 8 (0x4338 / 0x43f4; blocked while stunned or knocked back), the radius closing at 2.0 units a frame (1.0 guarding; literals 0x45a4 / 0x45a0) - 30 frames a step - with SE 0x100102 (0x42c0-0x4590)", confidence = "high" },

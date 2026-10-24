@@ -79,6 +79,59 @@ local function body(game, log)
     U.wait(2)
     shot("a02_play_middle")
     Draw.debugMarks = nil
+    -- PROBE_SHIELD=1 (3D, Graveler's course lv2_def): the cage from the middle, the top middle and
+    -- the top left, then broken
+    if os.getenv("PROBE_SHIELD") == "1" and S.game3d then
+      waitFor(function() return S.barrier ~= nil end, 60 * 120)
+      log("shield up", S.barrier ~= nil)
+      S.balls, S.spawnQueue = {}, {}
+      for _, q in ipairs({ { "middle", 0, 90 }, { "top_middle", 45, 90 }, { "top_left", 45, 120 } }) do
+        S.player.el, S.player.az = q[2], q[3]
+        S:place3()
+        U.wait(8)
+        shot("s_" .. q[1])
+      end
+      S.player.el, S.player.az = 0, 90
+      S:place3()
+      S.barrier, S.shieldBrokeAt = nil, S.t
+      local t0 = S.t
+      waitFor(function() return S.t - t0 > 0.35 end, 4000)
+      shot("s_break")
+      return
+    end
+    -- PROBE_POSES=1 (3D, the game's space): the middle and the four corners of the orbit, then
+    -- the three distances, each held still and shot (p_*), to set beside the captures
+    if os.getenv("PROBE_POSES") == "1" and S.game3d then
+      S.script, S.balls, S.spawnQueue = nil, {}, {}
+      local poses = { { "middle", 0, 90 }, { "top_left", 45, 120 }, { "top_right", 45, 60 },
+        { "bottom_left", 0, 120 }, { "bottom_right", 0, 60 } }
+      for _, q in ipairs(poses) do
+        S.player.el, S.player.az = q[2], q[3]
+        S:place3()
+        U.wait(12)
+        log(("pose %s: el %.0f az %.0f"):format(q[1], S.player.el, S.player.az))
+        shot("p_" .. q[1])
+      end
+      S.player.el, S.player.az = 0, 90
+      local DIST = { 180, 240, 300 }
+      for _, step in ipairs({ 1, 3 }) do
+        S.player.distStep, S.player.dist = step, DIST[step]
+        S:place3()
+        U.wait(12)
+        shot(("p_dist_%d"):format(DIST[step]))
+      end
+      S.player.distStep, S.player.dist = 2, 240
+      S:place3()
+      -- the zoom lines, half way through a step nearer and one farther
+      for _, d in ipairs({ -1, 1 }) do
+        S:stepDistance(d)
+        local t0 = S.t
+        waitFor(function() return S.t - t0 > 0.45 end, 4000)
+        shot(d < 0 and "p_zoom_nearer" or "p_zoom_farther")
+        waitFor(function() return S.t - t0 > 1.3 end, 4000)
+      end
+      return
+    end
     -- the orbit: the trainee pressed against each edge (the pad held, as a player would: the
     -- regimen sets the move from it each frame), the border lit on that side
     local function holdUntil(btn, secs)

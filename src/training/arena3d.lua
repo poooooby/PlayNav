@@ -269,90 +269,6 @@ return function(mod, deps)
     return cx, cy, math.abs(rx - lx) / 2, math.max(0.5, math.abs(fy - ny) / 2)
   end
 
-  -- the edges' borders (the game's barrier, effect #3 spawned beside the trainee at a limit), as
-  -- 3D walls of the orbit's own shape, drawn in the stadium's pass: the right (edge 2) and left
-  -- (4) walls stand on the meridians just past azimuth 60 / 120 (on the limit itself the camera,
-  -- riding it, would see them edge-on), from behind the camera in toward the balloon, from the
-  -- grass up past the top; the top (1) is the cone just past elevation 45 over the whole width.
-  -- Built at the middle distance and scaled with the trainee's (the walls keep to its sphere).
-  --   DEG        how far past the limit they stand (degrees)
-  --   IN, OUT    from / to which share of the radius they reach (toward the balloon .. behind)
-  --   UP         how far over the top elevation the side walls rise (model units)
-  --   CELL       the grid's cell (model units: the texture repeated every CELL)
-  --   SEGS       the surface's divisions along / across
-  A3.BORDER = { DEG = 4, IN = 0.3, OUT = 1.2, UP = 40, CELL = 30, SEGS = 10 }
-  local function borderVert(t, x, y, z, u, v, fade)
-    t[#t + 1] = { x, y, z, u, v, 0, 1, 0, 1, 1, 1, fade }
-  end
-  -- (pure) one border's triangles in model units at radius r0: { x, y, z, u, v, nx, ny, nz, r, g, b, a }
-  function A3.borderVerts(edge, r0)
-    local B, C = A3.BORDER, A3.CAM
-    r0 = r0 or 240
-    local n = B.SEGS
-    local out = {}
-    local function quad(p00, p10, p11, p01)
-      for _, q in ipairs({ p00, p10, p11, p00, p11, p01 }) do borderVert(out, q[1], q[2], q[3], q[4], q[5], q[6]) end
-    end
-    if edge == 2 or edge == 4 then
-      local az = rad(edge == 2 and (C.AZ[1] - B.DEG) or (C.AZ[2] + B.DEG))
-      local ca, sa = cos(az), sin(az)
-      local top = r0 * sin(rad(C.EL[2])) + B.UP
-      local function pt(i, k)
-        local rho = r0 * (B.IN + (B.OUT - B.IN) * i / n)
-        local h = C.GROUND + (top - C.GROUND) * k / n
-        -- brightest about the trainee's reach, fading toward the balloon and the ends
-        local fade = math.min(1, (i / n) * 2.5) * (1 - math.abs(k / n - 0.4))
-        return { rho * ca, h, rho * sa, rho / B.CELL, h / B.CELL, math.max(0.15, fade) }
-      end
-      for i = 0, n - 1 do
-        for k = 0, n - 1 do quad(pt(i, k), pt(i + 1, k), pt(i + 1, k + 1), pt(i, k + 1)) end
-      end
-    else
-      local el = rad(C.EL[2] + B.DEG)
-      local a0, a1 = rad(C.AZ[1] - B.DEG), rad(C.AZ[2] + B.DEG)
-      local function pt(i, k)
-        local rho = r0 * (B.IN + (B.OUT - B.IN) * i / n)
-        local az = a0 + (a1 - a0) * k / n
-        local ce = cos(el)
-        local fade = math.min(1, (i / n) * 2.5) * (1 - math.abs(k / n - 0.5))
-        return { rho * ce * cos(az), rho * sin(el), rho * ce * sin(az), rho / B.CELL, rho * (az - a0) / B.CELL, math.max(0.15, fade) }
-      end
-      for i = 0, n - 1 do
-        for k = 0, n - 1 do quad(pt(i, k), pt(i + 1, k), pt(i + 1, k + 1), pt(i, k + 1)) end
-      end
-    end
-    return out
-  end
-
-  -- the borders lit this frame (borders = { [1] = alpha, [2] = .., [4] = .., image, rgb }),
-  -- drawn last in the stadium's pass: added light, depth-tested against the stadium, writing none
-  local borderModels = {}
-  local function drawBorders(lib, borders)
-    if not (borders and borders.image) then return end
-    local G = love.graphics
-    local rgb = borders.rgb or { 0.35, 0.95, 1 }
-    for _, edge in ipairs({ 1, 2, 4 }) do
-      local a = borders[edge] or 0
-      if a > 0 then
-        local m = borderModels[edge]
-        if not m then
-          m = lib.newModel(A3.borderVerts(edge, 240), borders.image)
-          borderModels[edge] = m
-        end
-        m.mesh:setTexture(borders.image)
-        local k = rNow / 240
-        m:setScale(k, k, k)
-        G.setBlendMode("add")
-        G.setDepthMode("lequal", false)
-        shader:send("alphaCut", 0)
-        G.setColor(rgb[1], rgb[2], rgb[3], a)
-        for _ = 1, (borders.passes or 1) do m:draw(shader) end
-      end
-    end
-    G.setBlendMode("alpha")
-    G.setColor(1, 1, 1, 1)
-  end
-
   -- the view matrix (g3d layout) and an off-centre frustum for the screen rect ex, ey, ew, eh
   -- (240x160 units) drawn by a canvas: the same camera as A3.project
   function A3.viewMatrix(out)
@@ -482,7 +398,7 @@ return function(mod, deps)
 
   -- the stadium under the sprites, over the screen rect ex, ey, ew, eh (240x160 units, in the
   -- current transform); true when drawn
-  function A3.drawStadium(G2, ex, ey, ew, eh, borders)
+  function A3.drawStadium(G2, ex, ey, ew, eh)
     local G = love.graphics
     if not A3.available() then return false end
     local sc = A3.scene()
@@ -525,7 +441,6 @@ return function(mod, deps)
         if piece.pass == pass then piece.model:draw(shader) end
       end
     end
-    drawBorders(lib, borders)
     G.setDepthMode()
     G.pop()
     G2.setColor(1, 1, 1, 1)

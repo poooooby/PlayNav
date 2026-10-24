@@ -811,6 +811,82 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.pop()
   end
 
+  -- (3D SUPER TRAINING, the game's space) the shield as the graveler-size-ref capture shows it: a
+  -- cylinder standing on the grass round the balloon, R its half width out, TOP its height up
+  -- (the balloon's), BARS round and CELLS tall, its far side not drawn (an open top: from above
+  -- the grass shows inside), a lime rim, green-cyan bars and rings, a magenta band FOOT of its height at
+  -- the foot, faint panels, still; going (u 0..1) its cells drift up and out, fading
+  D.CAGE3 = { R = 1.15, TOP = 1.3, BARS = 24, CELLS = 5, FOOT = 0.2, BAR_W = 0.5, RIM_W = 1.3,
+    DRIFT = 14, RISE = 22 }
+  local cagePts = {}
+  local function cageGeom(sim)
+    local C = D.CAGE3
+    local sh = sim.shape
+    local R3 = sim:botR3()
+    local cx = sim:botCentre3()
+    local hw, hh = (sh and sh.halfW or 1) * R3, (sh and sh.halfH or 1) * R3
+    local y0 = N.GAME3D.GROUND
+    return cx, 0, C.R * hw, y0, y0 + C.TOP * 2 * hh
+  end
+  function D.drawCage3(G2, sim, fade, u)
+    local A3 = D.arena3d
+    if not (A3 and A3.projectModel) then return end
+    local C = D.CAGE3
+    local cx, cz, R, y0, y1 = cageGeom(sim)
+    local p = sim.player
+    local ex, ez = p.ex or 0, p.ez or 240
+    local _, _, k = A3.project(cx, (y0 + y1) / 2, cz + R)
+    local px = (k or 0) * 118
+    local flick = (0.92 + 0.08 * math.sin(sim.t * 31)) * (fade or 1)
+    u = u or 0
+    local a = flick * (1 - u) * (1 - u)
+    if a <= 0.01 then return end
+    G2.push("all")
+    G2.setBlendMode("add")
+    local n, m = C.BARS, C.CELLS
+    local h = y1 - y0
+    for i = 0, n - 1 do
+      local t0, t1 = i / n * 2 * math.pi, (i + 1) / n * 2 * math.pi
+      local tm = (t0 + t1) / 2
+      local nx, nz = math.cos(tm), math.sin(tm)
+      -- (the side toward the eye only)
+      if nx * (ex - cx - nx * R) + nz * (ez - cz - nz * R) > 0 then
+        -- going: each cell out from the middle and up, by its own share
+        local seed = ((i * 37) % 11) / 11
+        for j = 0, m - 1 do
+          local out = R + C.DRIFT * u * (0.6 + 0.8 * seed)
+          local rise = C.RISE * u * (0.5 + ((i + j * 5) % 7) / 7)
+          local ya, yb = y0 + h * j / m + rise, y0 + h * (j + 1) / m + rise
+          local ok = true
+          local pts = cagePts
+          local function put(idx, th, y)
+            local sx, sy, d = A3.projectModel(cx + math.cos(th) * out, y, cz + math.sin(th) * out)
+            if not d or d < 0.5 then ok = false; return end
+            pts[idx], pts[idx + 1] = sx, sy
+          end
+          put(1, t0, ya); put(3, t1, ya); put(5, t1, yb); put(7, t0, yb)
+          if ok then
+            local foot = (j + 0.5) / m < C.FOOT * 1.6
+            -- the panel, then its edges
+            if foot then G2.setColor(0.95, 0.25, 0.95, 0.22 * a) else G2.setColor(0.25, 0.9, 0.55, 0.08 * a) end
+            G2.polygon("fill", pts)
+            G2.setLineWidth(math.max(1, C.BAR_W * px))
+            if foot then G2.setColor(1, 0.45, 1, 0.55 * a) else G2.setColor(0.45, 1, 0.75, 0.5 * a) end
+            G2.line(pts[1], pts[2], pts[7], pts[8])
+            G2.line(pts[1], pts[2], pts[3], pts[4])
+            if j == m - 1 then
+              -- the lime rim
+              G2.setLineWidth(math.max(1, C.RIM_W * px))
+              G2.setColor(0.7, 1, 0.35, 0.8 * a)
+              G2.line(pts[7], pts[8], pts[5], pts[6])
+            end
+          end
+        end
+      end
+    end
+    G2.pop()
+  end
+
   -- a cleared group's puffs (Wooble's magneton-2 capture): a white-green flash on both sides,
   -- streaks shooting out and down, then grey-white clouds lingering and fading, ~1.4 s
   D.CLEAR_PUFF = { S = 1.4, CLOUDS = 5, STREAKS = 5 }
@@ -910,7 +986,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       drawClearPuffs(G2, sim.t - sim.clearPuffAt, sx + fx, sy, R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1))
     end
     local cw, ch = R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1)
-    if sim.barrier then
+    if game3d(sim) then
+      -- (the game's space: a cylinder on the grass round it)
+      if sim.barrier then
+        D.drawCage3(G2, sim, 1, 0)
+      elseif sim.shieldBrokeAt and sim.t - sim.shieldBrokeAt < D.CAGE_BREAK.S then
+        D.drawCage3(G2, sim, 1, (sim.t - sim.shieldBrokeAt) / D.CAGE_BREAK.S)
+      elseif sim.shieldFadedAt and sim.t - sim.shieldFadedAt < D.CAGE_BREAK.FADE_S then
+        D.drawCage3(G2, sim, 1, (sim.t - sim.shieldFadedAt) / D.CAGE_BREAK.FADE_S)
+      end
+    elseif sim.barrier then
       drawShieldCage(G2, sim, sx + fx, sy, cw, ch)
     elseif sim.shieldBrokeAt and sim.t - sim.shieldBrokeAt < D.CAGE_BREAK.S then
       drawCageShatter(G2, sim, sx + fx, sy, cw, ch, (sim.t - sim.shieldBrokeAt) / D.CAGE_BREAK.S)
@@ -1991,57 +2076,168 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setLineWidth(1)
   end
 
-  -- 3D SUPER TRAINING's edges (the game's barrier, effect #3 at a limit, DllSparring.cro
-  -- 0x1450c): pressed against the top, the right or the left (the sim's p.edge bits 1 / 2 / 4) that
-  -- side's wall of light grid lights - 3D walls of the orbit's shape (arena3d A3.borderVerts),
-  -- drawn in the stadium's pass - held while pressed, fading over BORDER.FADE_S after. The card's
-  -- grid texture (st3d/sp_wall_01, a/1/1/4 e80), else a drawn grid; added light, cyan
-  D.BORDER = { FADE_S = 0.4, PASSES = 2, RGB = { 0.35, 0.95, 1 } }
-  local borderT = setmetatable({}, { __mode = "k" })   -- sim -> { t, [edge] = alpha }
-  local borders = { rgb = D.BORDER.RGB, passes = D.BORDER.PASSES }
-  local function drawnGrid()
-    if D.gridImage ~= nil then return D.gridImage or nil end
-    D.gridImage = false
-    local G = love and love.graphics
-    if not (G and G.newCanvas) then return nil end
-    local ok, img = pcall(function()
-      local c = G.newCanvas(64, 64, { dpiscale = 1 })
-      G.push("all")
-      G.setCanvas(c)
-      G.origin()
-      G.clear(0, 0, 0, 0)
-      G.setColor(1, 1, 1, 0.25)
-      G.rectangle("fill", 0, 0, 64, 64)
-      G.setColor(1, 1, 1, 1)
-      G.setLineWidth(3)
-      G.rectangle("line", 1.5, 1.5, 61, 61)
-      G.pop()
-      c:setWrap("repeat", "repeat")
-      return c
-    end)
-    if ok then D.gridImage = img end
-    return D.gridImage or nil
-  end
-  -- this frame's borders: each edge's alpha (1 while pressed, fading after) and the grid image
-  local function edgeBorders(sim)
-    local st = borderT[sim]
-    if not st then st = { t = sim.t or 0 }; borderT[sim] = st end
-    local dt = math.max(0, math.min(0.1, (sim.t or 0) - st.t))
-    st.t = sim.t or 0
-    local edge = sim.player and sim.player.edge or 0
-    local pulse = 0.85 + 0.15 * math.sin((sim.t or 0) * 14)
+  -- 3D SUPER TRAINING's edges (the game's effect #3 at a limit, DllSparring.cro 0x1450c; the
+  -- 3d-ref captures): pressed against the top, the right or the left (the sim's p.edge bits 1 / 2 /
+  -- 4) a ripple spreads on a flat disc beside the trainee toward that side (sim3d edgeDisc3: 2.5
+  -- up / aside, facing that way) - a yellow-green glow, a white core, dark olive rings, white
+  -- sparkles drifting up - one ring every EVERY_S while held, each LIFE_S, its radius R0 -> R1
+  -- (game units); drawn in front of the trainee
+  D.RIPPLE = { EVERY_S = 0.3, LIFE_S = 0.45, R0 = 0.5, R1 = 3.2, SEG = 28, SPARKS = 7,
+    GLOW = { 0.82, 1, 0.62 }, CORE = { 1, 1, 0.94 }, RING = { 0.43, 0.35, 0.16 } }
+  local rippleT = setmetatable({}, { __mode = "k" })   -- sim -> { held = {}, last = {}, rings = {} }
+  local ringPts = {}
+  local function edgeRipples(sim)
+    local st = rippleT[sim]
+    if not st then st = { held = {}, last = {}, rings = {} }; rippleT[sim] = st end
+    local t = sim.t or 0
+    local edge = sim.phase == "play" and sim.player and sim.player.edge or 0
     for _, bit in ipairs({ 1, 2, 4 }) do
-      local a = st[bit] or 0
-      if edge % (bit * 2) >= bit then a = 1 else a = math.max(0, a - dt / D.BORDER.FADE_S) end
-      st[bit] = a
-      borders[bit] = a * pulse
+      local on = edge % (bit * 2) >= bit
+      if on and (not st.held[bit] or t - (st.last[bit] or -1e9) >= D.RIPPLE.EVERY_S) then
+        st.rings[#st.rings + 1] = { edge = bit, t0 = t }
+        st.last[bit] = t
+      end
+      st.held[bit] = on
     end
-    local img = art("st3d/sp_wall_01") or drawnGrid()
-    if img then img:setWrap("repeat", "repeat") end
-    borders.image = img
-    return borders
+    local keep = {}
+    for _, r in ipairs(st.rings) do
+      if t - r.t0 < D.RIPPLE.LIFE_S and t >= r.t0 then keep[#keep + 1] = r end
+    end
+    st.rings = keep
+    return keep
   end
-  D.edgeBorders = edgeBorders
+  D.edgeRipples = edgeRipples
+  -- a disc's ring at radius r on the screen, into ringPts (false when a point is behind the eye)
+  local function discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r, n)
+    for i = 0, n - 1 do
+      local a = i / n * 2 * math.pi
+      local ca, sa = math.cos(a) * r, math.sin(a) * r
+      local sx, sy, d = A3.projectModel(cx + ux * ca + vx * sa, cy + uy * ca + vy * sa, cz + uz * ca + vz * sa)
+      if not d or d < 0.5 then return false end
+      ringPts[2 * i + 1], ringPts[2 * i + 2] = sx, sy
+    end
+    for i = 2 * n + 1, #ringPts do ringPts[i] = nil end
+    return true
+  end
+  local function drawRipples(G2, sim)
+    local A3 = D.arena3d
+    if not (A3 and A3.projectModel and sim.edgeDisc3) then return end
+    local R = D.RIPPLE
+    local t = sim.t or 0
+    for _, ring in ipairs(edgeRipples(sim)) do
+      local u = (t - ring.t0) / R.LIFE_S
+      local r = R.R0 + (R.R1 - R.R0) * (1 - (1 - u) * (1 - u))
+      local a = 1 - u * u
+      local cx, cy, cz, ux, uy, uz, vx, vy, vz = sim:edgeDisc3(ring.edge)
+      local _, _, k = A3.project(cx, cy, cz)
+      local px = (k or 0) * 118   -- screen units a game unit there
+      local G, C = R.GLOW, R.CORE
+      G2.setBlendMode("add")
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r, R.SEG) then
+        G2.setColor(G[1], G[2], G[3], 0.22 * a)
+        G2.polygon("fill", ringPts)
+      end
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r * 0.7, R.SEG) then
+        G2.setColor(G[1], G[2], G[3], 0.3 * a)
+        G2.polygon("fill", ringPts)
+      end
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r * 0.35, R.SEG) then
+        G2.setColor(C[1], C[2], C[3], 0.45 * a)
+        G2.polygon("fill", ringPts)
+      end
+      -- white sparkles on the disc, drifting up
+      local seed = math.floor(ring.t0 * 997) % 1000
+      for i = 1, R.SPARKS do
+        local ang = ((seed * 31 + i * 197) % 1000) / 1000 * 2 * math.pi
+        local rr = r * (0.25 + 0.7 * (((seed + i * 413) % 1000) / 1000))
+        local ca, sa = math.cos(ang) * rr, math.sin(ang) * rr
+        local sx, sy, d = A3.projectModel(cx + ux * ca + vx * sa, cy + uy * ca + vy * sa + u * 1.2, cz + uz * ca + vz * sa)
+        if d and d > 0.5 then
+          G2.setColor(1, 1, 1, 0.9 * a)
+          G2.circle("fill", sx, sy, math.max(0.8, 0.12 * px), 6)
+        end
+      end
+      G2.setBlendMode("alpha")
+      -- the dark rings at its edge and inside
+      local Rg = R.RING
+      G2.setColor(Rg[1], Rg[2], Rg[3], 0.75 * a)
+      G2.setLineWidth(math.max(1, 0.16 * px))
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r, R.SEG) then G2.polygon("line", ringPts) end
+      G2.setLineWidth(math.max(0.7, 0.09 * px))
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r * 0.72, R.SEG) then G2.polygon("line", ringPts) end
+      G2.setLineWidth(1)
+    end
+    G2.setColor(1, 1, 1, 1)
+  end
+
+  -- 3D SUPER TRAINING's zoom lines (the zoom-lines capture): while the trainee steps nearer or
+  -- farther, short-lived white streaks radial from the frame's middle, nearly all within SPREAD
+  -- degrees of level on either side (STRAY anywhere), over the trainee and under the HUD. Nearer:
+  -- wedges tapering to a point inward, W wide at their outer end, their tips at r IN; farther:
+  -- thin lines W wide fading inward, their inner ends at IN creeping in at CREEP a second. A streak
+  -- lives LIFE_S; RATE new ones a second. In the 3DS's 400x240 px (PX: frame units a px).
+  D.ZOOM = { LIFE_S = 0.1, SPREAD = 37, STRAY = 0.06, PX = 160 / 240,
+    NEAR = { RATE = 45, IN = { 118, 165 }, LEN = { 40, 100 }, W = 4.5 },
+    FAR = { RATE = 28, IN = { 160, 172 }, LEN = { 23, 34 }, W = 1.8, CREEP = 250 } }
+  local zoomT = setmetatable({}, { __mode = "k" })   -- sim -> { t, acc, streaks = {} }
+  local function rnd(a, b)
+    local r = (love and love.math and love.math.random) and love.math.random() or math.random()
+    return a + (b - a) * r
+  end
+  local function drawZoomLines(G2, sim)
+    local p = sim.player
+    local Z = D.ZOOM
+    local st = zoomT[sim]
+    if not st then st = { t = sim.t or 0, acc = 0, streaks = {} }; zoomT[sim] = st end
+    local t = sim.t or 0
+    local dt = math.max(0, math.min(0.1, t - st.t))
+    st.t = t
+    local want = p.distStep and N.PLAYER.DIST[p.distStep]
+    if want and p.dist and math.abs(p.dist - want) > 1e-3 then
+      local kind = p.dist > want and "NEAR" or "FAR"
+      local K = Z[kind]
+      st.acc = st.acc + dt * K.RATE
+      while st.acc >= 1 do
+        st.acc = st.acc - 1
+        local ang
+        if rnd(0, 1) < Z.STRAY then ang = rnd(0, 360)
+        else ang = (rnd(0, 1) < 0.5 and 0 or 180) + rnd(-Z.SPREAD, Z.SPREAD) end
+        st.streaks[#st.streaks + 1] = { kind = kind, a = math.rad(ang), t0 = t,
+          r0 = rnd(K.IN[1], K.IN[2]), len = rnd(K.LEN[1], K.LEN[2]) }
+      end
+    else
+      st.acc = 0
+    end
+    local keep = {}
+    for _, z in ipairs(st.streaks) do
+      if t - z.t0 < Z.LIFE_S and t >= z.t0 then keep[#keep + 1] = z end
+    end
+    st.streaks = keep
+    local k, mx, my = Z.PX, 120, 80
+    for _, z in ipairs(keep) do
+      local ca, sa = math.cos(z.a), math.sin(z.a)
+      local K = Z[z.kind]
+      local r0 = z.r0
+      if z.kind == "FAR" then r0 = r0 - K.CREEP * (t - z.t0) end
+      local r1 = r0 + z.len
+      if z.kind == "NEAR" then
+        local w = K.W / 2 * k
+        G2.setColor(1, 0.99, 0.98, 1)
+        G2.polygon("fill", mx + ca * r0 * k, my + sa * r0 * k,
+          mx + ca * r1 * k - sa * w, my + sa * r1 * k + ca * w,
+          mx + ca * r1 * k + sa * w, my + sa * r1 * k - ca * w)
+      else
+        local rm = r0 + z.len * 0.4
+        G2.setLineWidth(K.W * k)
+        G2.setColor(1, 0.99, 0.98, 0.35)
+        G2.line(mx + ca * r0 * k, my + sa * r0 * k, mx + ca * rm * k, my + sa * rm * k)
+        G2.setColor(1, 0.99, 0.98, 1)
+        G2.line(mx + ca * rm * k, my + sa * rm * k, mx + ca * r1 * k, my + sa * r1 * k)
+        G2.setLineWidth(1)
+      end
+    end
+    G2.setColor(1, 1, 1, 1)
+  end
 
   function D.draw(G2, sim, s, T)
     if not sim then
@@ -2093,7 +2289,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       -- the shield's cage stands on the grass under the balloon
       local bx = sim:botOffset()
       D.cageFoot = floorY(bx, 1) + 4
-      local ok, err = pcall(A3.drawStadium, G2, ex, ey, ew, eh, edgeBorders(sim))
+      local ok, err = pcall(A3.drawStadium, G2, ex, ey, ew, eh)
       if not ok then
         -- give up on 3D for the rest of the run: the 2D view from now on
         D.failed3d = true
@@ -2200,7 +2396,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     else
       drawPlayer(G2, sim, s)
     end
+    -- (in the game's space) the edge ripples in front of the trainee, the zoom lines over all
+    if game3d(sim) then drawRipples(G2, sim) end
     drawBalls(G2, sim, "front")
+    if game3d(sim) then drawZoomLines(G2, sim) end
     -- (drivers: model points marked where the 3D camera puts them)
     if D.debugMarks and proj ~= Sim.project then
       G2.setColor(1, 0, 1, 1)
