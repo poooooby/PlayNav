@@ -1,10 +1,12 @@
 -- The drawn stand-in stadium for 3D SUPER TRAINING when the card's model is not extracted
 -- (fallback assets), built to the card's stadium's measure (a/1/1/4 e75, model units, the
--- pitch's middle the origin): the grass, the lined pitch (x +-274, z +-511), a round stand -
--- its front wall from r 840, the seats full of a dotted crowd rising back to r 1150 - under the
--- roof's ring (r 880..1166), the sky's dome, and the eight Poke Ball emblems on their ring
--- (r 886, y 401) - the one over the far end shows above the balloon. Its textures are drawn by
--- the engine into canvases once.
+-- pitch's middle the origin; its parts' heights by radius): the grass, the lined pitch (x +-274,
+-- z +-511), a round stand - a low lip at r 731, the dotted crowd rising to y 197 at r 975
+-- (spa_kyaku), a level floor out to r 1166 and the back wall up to 289 (spa_ground00 /
+-- spa_stadium00) - the roof sloping from its front edge (r 880, y 364, lip 343) down to the
+-- back (289; spa_roof00), its posts up to 449 (spa_stadium00 at r 850..950), the sky's dome,
+-- and the eight Poke Ball emblems on their ring (r 886, y 401) - the one over the far end shows
+-- above the balloon. Its textures are drawn by the engine into canvases once.
 --
 -- Stand(A3, g3d) -> { clear = { r, g, b }, pieces = { { model, pass = 1 sky | 2 solid | 3 see-through } } }
 
@@ -13,8 +15,9 @@ local G = love.graphics
 local S = {
   GROUND = { y = -14, r = 1700 },
   PITCH = { x = 274, z = 511, y = -6.7 },
-  STAND = { r0 = 840, wall = 70, r1 = 1150, top = 300 },
-  ROOF = { r0 = 880, r1 = 1166, y0 = 276, y1 = 364 },
+  STAND = { r0 = 731, lip = 7, r1 = 975, top = 197, back = 1166, wall = 289 },
+  ROOF = { r0 = 880, r1 = 1166, front = 364, lip = 343, back = 289, under = 197 },
+  POSTS = { n = 16, r = 900, top = 449, w = 9 },
   BALL = { r = 886, y = 401, w = 47, h = 31 },
   SKY = { r = 1686 },
   SEGS = 64,
@@ -171,32 +174,45 @@ return function(A3, g3d)
     add(p, T.pitch, 2)
   end
 
-  -- the stand: its front wall, the seats rising back, the roof's ring, and the Poke Balls
+  -- the stand: its lip, the crowd rising back, the floor behind it, the back wall, the sloping
+  -- roof with its lip and underside, the posts, and the Poke Balls
   do
-    local St, Ro = S.STAND, S.ROOF
+    local St, Ro, Po = S.STAND, S.ROOF, S.POSTS
     local seats, wall, roof, balls = {}, {}, {}, {}
-    for i = 0, n - 1 do
+    -- a band between (ra, ya) and (rb, yb) round the ring, segment i
+    local function band(t, i, ra, ya, rb, yb, shade, urep)
       local a0, a1 = 2 * math.pi * i / n, 2 * math.pi * (i + 1) / n
-      local u0, u1 = i / n * 24, (i + 1) / n * 24
-      local w0x, w0y, w0z = ring(a0, St.r0, S.GROUND.y)
-      local w1x, w1y, w1z = ring(a1, St.r0, S.GROUND.y)
-      local t0x, t0y, t0z = ring(a0, St.r0, St.wall)
-      local t1x, t1y, t1z = ring(a1, St.r0, St.wall)
-      quad(wall, { w0x, w0y, w0z, u0, 1 }, { w1x, w1y, w1z, u1, 1 }, { t1x, t1y, t1z, u1, 0 }, { t0x, t0y, t0z, u0, 0 }, 0.85)
-      local b0x, b0y, b0z = ring(a0, St.r1, St.top)
-      local b1x, b1y, b1z = ring(a1, St.r1, St.top)
-      quad(seats, { t0x, t0y, t0z, u0, 1 }, { t1x, t1y, t1z, u1, 1 }, { b1x, b1y, b1z, u1, 0 }, { b0x, b0y, b0z, u0, 0 })
-      -- the roof: a ring from above the back row out over the seats, and its face
-      local r0x, r0y, r0z = ring(a0, Ro.r1, Ro.y1)
-      local r1x, r1y, r1z = ring(a1, Ro.r1, Ro.y1)
-      local f0x, f0y, f0z = ring(a0, Ro.r0, Ro.y1)
-      local f1x, f1y, f1z = ring(a1, Ro.r0, Ro.y1)
-      local g0x, g0y, g0z = ring(a0, Ro.r0, Ro.y0)
-      local g1x, g1y, g1z = ring(a1, Ro.r0, Ro.y0)
-      quad(roof, { r0x, r0y, r0z, u0, 0 }, { r1x, r1y, r1z, u1, 0 }, { f1x, f1y, f1z, u1, 1 }, { f0x, f0y, f0z, u0, 1 }, 0.95)
-      quad(roof, { f0x, f0y, f0z, u0, 0 }, { f1x, f1y, f1z, u1, 0 }, { g1x, g1y, g1z, u1, 1 }, { g0x, g0y, g0z, u0, 1 }, 0.8)
-      -- the back wall up to the roof
-      quad(roof, { b0x, b0y, b0z, u0, 1 }, { b1x, b1y, b1z, u1, 1 }, { r1x, r1y, r1z, u1, 0 }, { r0x, r0y, r0z, u0, 0 }, 0.7)
+      local k = urep or 24
+      local u0, u1 = i / n * k, (i + 1) / n * k
+      local x0, y0, z0 = ring(a0, ra, ya)
+      local x1, y1, z1 = ring(a1, ra, ya)
+      local x2, y2, z2 = ring(a1, rb, yb)
+      local x3, y3, z3 = ring(a0, rb, yb)
+      quad(t, { x0, y0, z0, u0, 1 }, { x1, y1, z1, u1, 1 }, { x2, y2, z2, u1, 0 }, { x3, y3, z3, u0, 0 }, shade)
+    end
+    for i = 0, n - 1 do
+      band(wall, i, St.r0, S.GROUND.y, St.r0, St.lip, 0.85)
+      band(seats, i, St.r0, St.lip, St.r1, St.top)
+      -- the floor behind the crowd, the back wall
+      band(roof, i, St.r1, St.top, St.back, St.top, 0.75)
+      band(roof, i, St.back, St.top, St.back, St.wall, 0.7)
+      -- the roof: its top from the front edge down to the back wall, the front lip, the underside
+      band(roof, i, Ro.r1, Ro.back, Ro.r0, Ro.front, 0.95)
+      band(roof, i, Ro.r0, Ro.front, Ro.r0, Ro.lip, 0.8)
+      band(roof, i, Ro.r0, Ro.lip, Ro.r1, Ro.under, 0.6)
+    end
+    -- the posts: square, from the crowd up past the roof's edge
+    local postBase = St.lip + (Po.r - St.r0) / (St.r1 - St.r0) * (St.top - St.lip)
+    for k = 0, Po.n - 1 do
+      local a = (k + 0.5) * 2 * math.pi / Po.n
+      local cx, _, cz = ring(a, Po.r, 0)
+      local ox, oz = math.cos(a) * Po.w, -math.sin(a) * Po.w
+      local rx, rz = math.sin(a) * Po.w, math.cos(a) * Po.w
+      local c = { { cx - ox - rx, cz - oz - rz }, { cx + ox - rx, cz + oz - rz }, { cx + ox + rx, cz + oz + rz }, { cx - ox + rx, cz - oz + rz } }
+      for f = 1, 4 do
+        local p, q = c[f], c[f % 4 + 1]
+        quad(roof, { p[1], postBase, p[2], 0, 1 }, { q[1], postBase, q[2], 1, 1 }, { q[1], Po.top, q[2], 1, 0 }, { p[1], Po.top, p[2], 0, 0 }, 0.8)
+      end
     end
     for k = 0, 7 do
       local a = math.pi + k * math.pi / 4
