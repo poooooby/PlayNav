@@ -219,6 +219,30 @@ return function(mod, Pointer, G, Games, Rules, host)
     return y
   end
 
+  -- frames until a ball at y falling at v (+ g a frame) reaches the middle of the just window
+  local JUST_MID = (HR.WINDOW.just[1] + HR.WINDOW.just[2]) / 2
+  local function arriveIn(y, v, g)
+    for n = 0, 900 do
+      if 120 - y + HR.BALL_H * HR.TEST_DROP >= JUST_MID then return n end
+      v = v + g
+      y = y - v
+    end
+    return math.huge
+  end
+  -- whether a ball of this flight thrown now on this column reaches its Pokemon at least
+  -- MIN_GAP_F frames from every ball already falling there (a later, faster ball - a purple, or
+  -- a plain one after a slow crush - could catch the one ahead, and a heading takes HEAD_FRAMES)
+  local function clearOn(slot, grp)
+    local due = arriveIn(HR.SPAWN_Y, grp[1], grp[2])
+    for _, b in ipairs(st.balls) do
+      if b.slot == slot and b.state == "fall" and not b.missed and not b.gone and not b.giant and not b.demo then
+        if math.abs(arriveIn(b.y, b.v, b.g) - due) < HR.MIN_GAP_F then return false end
+      end
+    end
+    return true
+  end
+
+  -- false when no column is clear for it this frame (it is thrown on a later one)
   local function launch()
     local pat = pattern()
     local n = monsNow()
@@ -238,6 +262,20 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     if kind == 2 then grp = pat.groups[7] end
     if kind == 0 then grp = pat.groups[st.stage + 1] end
+    -- the rolled column if it is clear, else another Pokemon's, else a plain ball, else wait
+    local order = n >= 3 and { slot, 2, 1, 3 } or (n == 2 and { slot, 2, 1 } or { 1 })
+    local function pick()
+      for _, s in ipairs(order) do
+        if s <= n and clearOn(s, grp) then return s end
+      end
+    end
+    local at = pick()
+    if not at and kind ~= 0 then
+      kind, grp = 0, pat.groups[st.stage + 1]
+      at = pick()
+    end
+    if not at then return false end
+    slot = at
     st.lastCrush = kind == 1
     local look = kind == 2 and PURPLE or COLOR_OF_STAGE[st.stage + 1]
     st.balls[#st.balls + 1] = { slot = slot, x = slotX(slot), y = HR.SPAWN_Y, v = grp[1], g = grp[2], grp = grp,
@@ -646,8 +684,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if not (st.entering and st.entering > 0) then
       st.counter = st.counter + 1
       if st.counter == 0 or st.counter >= st.interval then
-        launch()
-        st.counter = 0
+        if launch() ~= false then st.counter = 0 end
       end
     end
   end
