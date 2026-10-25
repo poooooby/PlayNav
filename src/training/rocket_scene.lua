@@ -671,7 +671,8 @@ return function(mod, deps)
   local vigMesh = nil
   local function vignette(G2, ex, ey, ew, eh)
     if not vigMesh then
-      local v, rings = {}, { { 0.0, 0 }, { 0.55, 0 }, { 0.85, 0.45 }, { 1.25, 0.9 } }
+      -- (the last band, at the rim's darkness, reaches past the corners: they lie at sqrt(2))
+      local v, rings = {}, { { 0.0, 0 }, { 0.55, 0 }, { 0.85, 0.45 }, { 1.25, 0.9 }, { 2.2, 0.9 } }
       local n = 24
       for r = 1, #rings - 1 do
         local a, b = rings[r], rings[r + 1]
