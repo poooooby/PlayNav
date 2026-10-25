@@ -81,13 +81,29 @@ local function body(game, log)
     St.on = true
     log("3D AMIE on; available:", St.available())
   end
+  -- canvases switched to by the 3D code (render3d / the stand-in's pictures) while love.draw
+  -- runs: each one broke the frame on Android (the Thor); there must be none
+  local drawSwitches, inDraw = 0, false
+  if St and St.on then
+    local origDraw, origSet = love.draw, love.graphics.setCanvas
+    love.draw = function(...) inDraw = true; local r = { pcall(origDraw, ...) }; inDraw = false
+      if not r[1] then error(r[2], 0) end end
+    love.graphics.setCanvas = function(...)
+      if inDraw and select("#", ...) > 0 and (...) ~= nil then
+        local tb = debug.traceback("", 2)
+        if tb:find("render3d", 1, true) or tb:find("stage3d", 1, true) then drawSwitches = drawSwitches + 1 end
+      end
+      return origSet(...)
+    end
+  end
   local function stageLog(when)
     if not (St and St.on) then return end
+    log(("3D AMIE %s: canvases switched to by the 3D code inside love.draw: %d"):format(when, drawSwitches))
     local lo, hi = St.stats()
     local sc = St.scene()
-    log(("3D AMIE %s: %s stage, camera eye %.0f,%.0f,%.0f at %.0f,%.0f,%.0f; renders low %d/%d/%d top %d/%d/%d (prepared / placed / mid-draw)"):format(
+    log(("3D AMIE %s: %s stage, camera eye %.0f,%.0f,%.0f at %.0f,%.0f,%.0f; renders low %d/%d/%d top %d/%d/%d (prepared / placed / waiting)"):format(
       when, sc and (sc.card and "card" or "drawn") or "no", St.cam.ex, St.cam.ey, St.cam.ez, St.cam.ix, St.cam.iy, St.cam.iz,
-      lo.prepared, lo.placed, lo.inline, hi.prepared, hi.placed, hi.inline))
+      lo.prepared, lo.placed, lo.waiting, hi.prepared, hi.placed, hi.waiting))
   end
 
   local ok, err = pcall(function()
@@ -200,7 +216,8 @@ local function body(game, log)
       R.state().meters.affection = 255
       local e0 = R.state().meters.enjoyment
       local t0 = love.timer.getTime()
-      press("five", 248, 112)
+      local ox, oy = app.tapPoint("off")
+      press("five", ox, oy)
       U.wait(3)
       log("five held:", tostring(st().fiveHeld), "left", ("%.2f"):format(st().fiveLeft or -1), "wake", st().wake, "hand", st().hand)
       -- (the countdown was rolled at the visit's start, at that affection: up to ~7 s)
@@ -219,7 +236,7 @@ local function body(game, log)
       waitSecs(0.12); shot("p07b_five_rising")
       waitSecs(0.16); shot("p07b_five_peak")
       waitSecs(0.3); shot("p07b_five_landing")
-      release("five", 248, 112)
+      release("five", ox, oy)
       waitFor(function() return not st().jumping end, 600)
       settle()
     end

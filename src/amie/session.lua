@@ -148,7 +148,11 @@ return function(mod, deps)
     end
   end
 
-  function Layer.update(dt) G.tick(dt) end
+  function Layer.update(dt)
+    G.tick(dt)
+    -- 3D AMIE: PLAY's stage rendered here, outside the engine's draw (src/amie/play.lua)
+    if G.prepareStage then G.prepareStage(dt) end
+  end
 
   local HEART = { 0.95, 0.35, 0.5 }
 

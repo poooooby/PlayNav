@@ -17,7 +17,8 @@
 -- The field of view of both and the upper camera's tilt are fitted to Wooble's capture
 -- (Play-Wake-Pet-Feed-MiniGameMenu.mp4), not read from the game.
 --
--- Drawn by src/render3d.lua, rendered in the update step (St.prepare*) and placed in the draw.
+-- Drawn by src/render3d.lua: rendered by St.prepare from the Amie layer's update (outside the
+-- engine's draw; play.lua G.prepareStage) and only placed in the draw.
 --   St = stage3d(mod, { Render3d, cameras, Assets })
 
 return function(mod, deps)
@@ -141,7 +142,12 @@ return function(mod, deps)
     low.CX, low.CY = footX - ox, footY - oy
   end
 
-  -- the top screen: the same eye, tilted up by TOP.PITCH; its 240x160 frame is the 3DS's 400x240
+  -- the top screen: the same eye, tilted up by TOP.PITCH, the game's 400x240 view (5:3) fitted
+  -- to the area it fills (topRect, its last draw's: 240x160 units, can reach past the frame) -
+  -- its width on a wider area, so the rainbow keeps the view's bottom right corner on a wide
+  -- screen, its height on a taller one - about the area's middle
+  local topRect = { 0, 0, 240, 160 }
+  St.ASPECT = 400 / 240
   local function placeTop()
     local fx, fy, fz = cam.ix - cam.ex, cam.iy - cam.ey, cam.iz - cam.ez
     local l = sqrt(fx * fx + fy * fy + fz * fz)
@@ -152,8 +158,10 @@ return function(mod, deps)
     local tz = cam.ez + fz / hl * cos(pitch) * 100
     local ty = cam.ey + sin(pitch) * 100
     lookAt(top, cam.ex, cam.ey, cam.ez, tx, ty, tz)
-    top.F = 80 / tan(rad(St.TOP.FOVY) / 2)
-    top.CX, top.CY = 120, 80
+    local tv = tan(rad(St.TOP.FOVY) / 2)
+    local ex, ey, ew, eh = topRect[1], topRect[2], topRect[3], topRect[4]
+    if ew / eh > St.ASPECT then top.F = (ew / 2) / (tv * St.ASPECT) else top.F = (eh / 2) / tv end
+    top.CX, top.CY = ex + ew / 2, ey + eh / 2
   end
 
   -- both cameras where the next draw puts them (the tests ask too)
@@ -278,14 +286,13 @@ return function(mod, deps)
   -- when it cannot be drawn (the caller draws its 2D scene)
   function St.drawLower(G2, ex, ey, ew, eh)
     if not (scene and St.available()) then return false end
-    placeLow()
     local R = renderers()
     return R.draw(G2, scene, ex, ey, ew, eh)
   end
   -- the top screen's sky over its extent (240x160 units)
   function St.drawTop(G2, ex, ey, ew, eh)
     if not (scene and St.available()) then return false end
-    placeTop()
+    topRect[1], topRect[2], topRect[3], topRect[4] = ex, ey, ew, eh
     local _, T = renderers()
     return T.draw(G2, scene, ex, ey, ew, eh)
   end

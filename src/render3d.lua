@@ -6,23 +6,27 @@
 --   R.available()               probes the device once (g3d, the shader, a depth canvas)
 --   R.g3d()                     the g3d library (models: lib.newModel(verts, image))
 --   R.draw(G2, scene, ex, ey, ew, eh, view)   the scene over that rect (units of the current
---                               transform); placed when R.prepare rendered it this update,
---                               else rendered now; view { x, y, w, h } is noted on the target
+--                               transform): the picture R.prepare last rendered for this size,
+--                               placed over the rect it was rendered for; never rendered yet,
+--                               the rect is filled with the scene's sky colour this once (the
+--                               next update renders it); view { x, y, w, h } is noted on it
 --   R.prepare(scene, setup)     renders each size drawn in the last second now, in the update
 --                               step, outside any canvas; setup(target) puts the camera where
 --                               the draw will (target.vx..vh: the view noted)
---   R.stats                     { prepared, placed, inline }
+--   R.stats                     { prepared, placed, inline (rendered in the draw: 0), waiting
+--                               (the sky colour while a size awaits its first render) }
 --
 -- A scene is { clear = { r, g, b } | nil, pieces = { { model, pass = 1 | 2 | 3, uv = { u, v } |
 -- nil, ... } } }: pass 1 far away with no depth (a sky), 2 solid (depth written, alpha below 0.5
 -- discarded), 3 see-through (depth tested, not written), each pass in list order.
 --
 -- Switching to a canvas in the middle of drawing into another left the rest of the frame drawn
--- small in a corner on Android (the AYN Thor), so owners prepare in an update step and the draw
--- only places the picture.
+-- small in a corner on Android (the AYN Thor), so owners prepare in an update step the ENGINE
+-- calls outside its draw (a layer's update - not PlayNav's tick, which runs from render.hud,
+-- inside the draw) and the draw only places the picture.
 
 return function(mod, opts)
-  local R = { failed = false, why = nil, stats = { prepared = 0, placed = 0, inline = 0 } }
+  local R = { failed = false, why = nil, stats = { prepared = 0, placed = 0, inline = 0, waiting = 0 } }
   local name = opts.name or "3D"
   local camera = opts.camera
   local state = opts.state
@@ -171,24 +175,31 @@ return function(mod, opts)
     tg.ex, tg.ey, tg.ew, tg.eh = ex, ey, ew, eh
     if view then tg.vx, tg.vy, tg.vw, tg.vh = view.x, view.y, view.w, view.h end
     current = tg
-    if tg.prepared ~= prepId or prepId == 0 then
-      renderInto(tg, scene)
-      R.stats.inline = R.stats.inline + 1
-    else
-      R.stats.placed = R.stats.placed + 1
+    -- never rendered here: a canvas switched to in the middle of drawing (inside the engine's
+    -- frame canvas, or PlayNav's touch screen's) left the rest of the frame drawn small in a
+    -- corner on Android
+    if not tg.rw then
+      local sky = scene.clear or SKY
+      G2.setColor(sky[1], sky[2], sky[3], 1)
+      G2.rectangle("fill", ex, ey, ew, eh)
+      R.stats.waiting = R.stats.waiting + 1
+      return true
     end
+    R.stats.placed = R.stats.placed + 1
     G2.setColor(1, 1, 1, 1)
-    G2.draw(tg.color, ex, ey, 0, ew / w, eh / h)
+    G2.draw(tg.color, tg.rx, tg.ry, 0, tg.rw / w, tg.rh / h)
     return true
   end
 
-  -- the scene into a target's canvases through the owner's camera as it is now
+  -- the scene into a target's canvases through the owner's camera as it is now, for the rect it
+  -- notes (tg.ex..); the rect rendered is kept (tg.rx..) for the draw to place it over
   function renderInto(tg, scene)
     local G = love.graphics
     local lib = R.g3d()
     local cam = lib.camera
     camera.view(cam.viewMatrix)
     camera.projection(cam.projectionMatrix, tg.ex, tg.ey, tg.ew, tg.eh)
+    tg.rx, tg.ry, tg.rw, tg.rh = tg.ex, tg.ey, tg.ew, tg.eh
     local cull, skip = nil, nil
     if state then cull, skip = state(scene) end
     G.push("all")

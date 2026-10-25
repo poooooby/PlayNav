@@ -856,20 +856,24 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   local function ease(cur, target, k) return cur + (target - cur) * k end
 
-  -- 3D AMIE: the stage's pictures for this frame, rendered in the update step (never in the
-  -- middle of drawing) for the view just eased; a new visit or another Pokemon starts the
-  -- camera's entry ease again
-  -- (on app: update is at LuaJIT's 60 upvalues)
-  function app.prepareStage(s, dt)
-    local St = G.stage3d
-    if not (St and St.on) then return end
+  -- 3D AMIE: the stage's pictures, rendered by the session's layer update (G.prepareStage),
+  -- which the engine calls outside its draw - never app:update, which runs from PlayNav's tick
+  -- inside render.hud (a canvas switched to in the middle of drawing broke the frame on
+  -- Android); for the view as it is, a STAGE_PAD margin round it so the view easing on before
+  -- the draw stays inside the picture; a new visit or another Pokemon starts the camera's entry
+  -- ease again
+  local STAGE_PAD = 0.08
+  function G.prepareStage(dt)
+    local St, s = G.stage3d, G.session
+    if not (St and St.on and s and s.mode == "play" and wake and wake.session == s) then return end
     if St.cam.national ~= s.national or app.stageVisit ~= wake then
       app.stageVisit = wake
       St.enter(s.national)
     end
     St.update(dt)
     St.setFoot(160, LH - FEET_UP, LH)
-    St.prepare(visibleRect())
+    local ex, ey, ew, eh = visibleRect()
+    St.prepare(ex - ew * STAGE_PAD, ey - eh * STAGE_PAD, ew * (1 + 2 * STAGE_PAD), eh * (1 + 2 * STAGE_PAD))
   end
 
   function app:update(dt)
@@ -1119,7 +1123,6 @@ return function(mod, Pointer, G, Rules, Petting, host)
     view.fx, view.fy = ease(view.fx, want.fx, k), ease(view.fy, want.fy, k)
     view.px, view.py = ease(view.px, want.px, k), ease(view.py, want.py, k)
 
-    app.prepareStage(s, dt)
 
     -- the strip and the picker's panes
     strip.open = ease(strip.open, (s.tool == "beans" and not feed) and 1 or 0, 1 - math.exp(-10 * dt))
@@ -1791,6 +1794,16 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local sx, sy = pl.cx + zx * pl.rx * 0.9, pl.cy + zy * pl.ry * 0.9
       local lx, ly = view.px + (sx - view.fx) * view.z, view.py + (sy - view.fy) * view.z
       return fromLyt(lx, ly)
+    end
+    if what == "off" then
+      -- a point clear of the Pokemon (a held hand there asks for a high five): beside it at its
+      -- head's height, on whichever side has room, else above it
+      local pl = placement(s)
+      local y = math.max(70, pl.headY)
+      for _, x in ipairs({ 300, 20, 280, 40, 260, 60 }) do
+        if not onBody(pl, x, y, 1.15) then return fromLyt(view.px + (x - view.fx) * view.z, view.py + (y - view.fy) * view.z) end
+      end
+      return fromLyt(160, 60)
     end
     return nil
   end
