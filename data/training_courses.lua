@@ -105,6 +105,8 @@ local function regular(level, stat, name, bot, score, goals, attackScript, extra
   return row
 end
 
+local ARON_ART = "training/stage_poke_38"
+
 local function secret(n, level, name, bots, items, goals, attackScript, extra)
   local row = {
     id = ("secret_%02d"):format(n), secret = n, level = level, name = name, bots = bots,
@@ -219,8 +221,12 @@ local courses = {
       plain("ITEM_LEMONADE", 2) },
     g("biped", 3, { { "head", "left", "right" }, { "body", "legs", "back" } }, 0.5), "secret_mixed", { medal = 120, suddenDeath = true }),
   secret(12, 8, "The Battle for the Best!",
-    { { national = 304, species = "SPECIES_ARON", score = 1600 }, { national = 305, species = "SPECIES_LAIRON", score = 2400 },
-      { national = 306, species = "SPECIES_AGGRON", score = 3200 }, { national = 306, species = "SPECIES_AGGRON", score = 5600, mega = true } },
+    -- each line has its own picture on both cards (a/0/2/8 e1: 31 the Larvitar line, 38 the Aron
+    -- line; 32-37 are the Mega event balloons, phases 33-38)
+    { { national = 304, species = "SPECIES_ARON", score = 1600, art = ARON_ART },
+      { national = 305, species = "SPECIES_LAIRON", score = 2400, art = ARON_ART },
+      { national = 306, species = "SPECIES_AGGRON", score = 3200, art = ARON_ART },
+      { national = 306, species = "SPECIES_AGGRON", score = 5600, mega = true, art = ARON_ART } },
     { plain("ITEM_PP_MAX", 1), plain("ITEM_PP_UP", 2), stone("ITEM_LEAF_STONE"), stone("ITEM_WATER_STONE"),
       stone("ITEM_THUNDER_STONE"), stone("ITEM_FIRE_STONE"), wing("pretty-wing", 2), plain("ITEM_MOOMOO_MILK", 2) },
     g("rock", 5, { { "top", "left", "right", "center", "bottom" } }, 0.5, "center"), "secret_finale",

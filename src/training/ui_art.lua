@@ -1518,9 +1518,12 @@ return function(mod, deps)
       local C = deps.courses
       local version = deps.gameVersion and deps.gameVersion() or nil
       for _, c in ipairs((C and C.courses) or {}) do
-        local bots = (C.botsFor and C.botsFor(c, version)) or c.bots
-        local b = bots and bots[1]
-        if b and b.art and not courseBot[b.art] then courseBot[b.art] = { bot = b, stat = c.stat } end
+        -- the version's line first; the final course's other line has a picture of its own
+        local mine = (C.botsFor and C.botsFor(c, version)) or c.bots
+        for _, bots in ipairs({ mine, c.bots, c.alphaBots or {} }) do
+          local b = bots and bots[1]
+          if b and b.art and not courseBot[b.art] then courseBot[b.art] = { bot = b, stat = c.stat } end
+        end
       end
     end
     local e = courseBot[id]

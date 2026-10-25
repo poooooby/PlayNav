@@ -79,7 +79,17 @@ do
   for _, c in ipairs(C.courses) do
     T.check(type(c.order) == "number" and c.order >= 2 and c.order <= 31 and not seen[c.order], c.id .. " has a unique game order " .. tostring(c.order))
     seen[c.order] = true
-    T.eq(c.bots[1].art, ("training/stage_poke_%02d"):format(c.order), c.id .. " icon follows the order")
+    -- the final course's Aron line (Omega Ruby's) has the card's last picture, 38; its Larvitar
+    -- line keeps the order's
+    local first = c.alphaBots and c.alphaBots[1] or c.bots[1]
+    T.eq(first.art, ("training/stage_poke_%02d"):format(c.order), c.id .. " icon follows the order")
+  end
+  T.eq(C.byId.secret_12.bots[1].art, "training/stage_poke_38", "the Aron line's picture is the card's 38")
+  for _, v in ipairs({ "emerald", "ruby", "firered" }) do
+    T.eq(C.botsFor(C.byId.secret_12, v)[1].art, "training/stage_poke_38", v .. ": the final course shows Aron")
+  end
+  for _, v in ipairs({ "sapphire", "leafgreen" }) do
+    T.eq(C.botsFor(C.byId.secret_12, v)[1].art, "training/stage_poke_31", v .. ": the final course shows Larvitar")
   end
   T.eq(C.byId.lv1_hp.order, 3, "Wailmer is the fourth entry (after the two tutorials and Magnemite)")
   T.eq(C.byId.lv1_hp.name, "Raise Your HP with Wailmer!", "the official name")

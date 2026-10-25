@@ -54,6 +54,7 @@ tests/drivers/stillpic_probe.lua
 tests/drivers/amie_switch_probe.lua
 tests/drivers/thor_probe.lua
 tests/drivers/extract_probe.lua
+tests/drivers/final_icon_probe.lua
 tools/README.md
 tools/bclim.py
 tools/bcstm.py

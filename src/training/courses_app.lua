@@ -410,6 +410,7 @@ return function(mod, Pointer, T, Rules)
   end
 
   local function drawSlot(G, c, sl, sel)
+    c = T.course and T.course(c.id) or c -- the final course's balloons are the version's
     local x, y = sl[1], sl[2]
     local open = T.canEnter(c)
     local rec = T.courseRecord(c.id)
