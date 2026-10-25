@@ -843,6 +843,15 @@ return function(mod, deps)
   -- ------- the bag screen's words: the game's own from the player's card when extracted,
   -- else ours. {BAG} / {MON} are filled in.
 
+  -- the card's lines that speak of something PlayNav does not have, in our words: Scatterbug
+  -- Lugs Back!'s blurb (75 + order 28) sends the balloon "back from the tutorial", and PlayNav
+  -- has no tutorial regimens
+  T.CARD_TEXT = {
+    training_courses = {
+      [103] = "Revenge is best served cold, you know!\nThis Balloon Bot is back for another round\nand ready to take back all those points!",
+    },
+  }
+
   local function gameText(file, line)
     -- PlayNav's own words (data/training_words.lua, set by main): never the card image's
     local Wd = T.words
@@ -852,6 +861,8 @@ return function(mod, deps)
       if type(s) == "string" and s ~= "" then return s end
       return nil
     end
+    local fix = T.CARD_TEXT[file]
+    if fix and fix[line] then return fix[line] end
     local A = T.assets
     local lines = A and A.text and A.text(file)
     local s = lines and lines[line]

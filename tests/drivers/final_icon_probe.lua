@@ -1,6 +1,7 @@
 -- Driver: the regimen picker's last secret page with every course open, so the final course's
 -- picture shows: the Aron line's (the card's stage_poke_38) on Emerald / Ruby / FireRed, the
--- Larvitar line's (31) on Sapphire / LeafGreen. PROBE_FALLBACK=1 for PlayNav's drawn pictures.
+-- Larvitar line's (31) on Sapphire / LeafGreen. PROBE_FALLBACK=1 for PlayNav's drawn pictures;
+-- PROBE_COURSE picks another course (its blurb logged).
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/final_icon_probe.lua love .
 
@@ -40,8 +41,11 @@ local function body(game, log)
   for _, c in ipairs(T.courseList()) do TR.store.cleared()[c.id] = true end
   local Apps = X.apps
   local cs = Apps and Apps:get("training_courses")
-  cs.select("secret_12")
+  -- PROBE_COURSE: another course to pick (secret_09's blurb, the card's line 103, is ours)
+  local pick = os.getenv("PROBE_COURSE") or "secret_12"
+  cs.select(pick)
   U.wait(10)
+  log("blurb:", T.courseBlurb(pick))
   local c = T.course("secret_12")
   log("version:", T.host and T.host.gameVersion and T.host.gameVersion(), "final course:", c.bots[1].species, c.bots[1].art)
   U.wait(10)
