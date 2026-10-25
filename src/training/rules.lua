@@ -75,6 +75,14 @@ return function(N, ShotTypes)
       end
     end
   end
+  -- the dealer's bags are sold, never found, won or given: every roll below passes its pick
+  -- through `regular`, which turns one of his into nothing
+  function R.isRocketBag(id) local b = R.BAGS[id]; return b ~= nil and b.rocket == true end
+  local function regular(id)
+    if id ~= nil and R.isRocketBag(id) then return nil end
+    return id
+  end
+  R.regularBag = regular
   -- a bag's picture id: the game's icons by their place, the dealer's by stat
   function R.bagArt(id)
     local b = R.BAGS[id]
@@ -351,7 +359,7 @@ return function(N, ShotTypes)
     if not course or course.secret or not course.stat then return R.rollSupportBag(rng, opts) end
     local du = N.BAG_ODDS.clear.double_up * (opts.pokerus and N.BAG_ODDS.DOUBLE_UP_POKERUS_MULT or 1)
     if rng() < math.min(1, du) then return "double_up" end
-    return course.stat .. "_" .. R.clearBagSize(course, remaining)
+    return regular(course.stat .. "_" .. R.clearBagSize(course, remaining)) or R.rollSupportBag(rng, opts)
   end
 
   function R.clearBagSize(course, remaining)
@@ -366,7 +374,7 @@ return function(N, ShotTypes)
     local w = {}
     for k, v in pairs(N.BAG_ODDS.support) do w[k] = v end
     if opts.pokerus then w.double_up = (w.double_up or 0) * N.BAG_ODDS.DOUBLE_UP_POKERUS_MULT end
-    return pick(w, rng) or "big_shot"
+    return regular(pick(w, rng)) or "big_shot"
   end
 
   -- a bag dropping from the empty black bag, or nil
@@ -412,7 +420,7 @@ return function(N, ShotTypes)
     rng = rng or math.random
     local id = R.GAME_ORDER[1 + math.floor(rng() * #R.GAME_ORDER)]
     if id == "team_flare" then return nil end
-    return id
+    return regular(id)
   end
 
   -- a rare find (anything but a plain S stat bag) gives the Pokemon a second wind

@@ -37,6 +37,62 @@ for i = 0, 2599 do
   if id then seen[id] = true end
 end
 for _, id in ipairs(Rules.ROCKET_LIST) do T.check(not seen[id], id .. " is never found in the blank bag") end
+
+-- ------- never in the regular pool: only the dealer sells them
+
+do
+  local rocket = {}
+  for _, id in ipairs(Rules.ROCKET_LIST) do rocket[id] = true; T.check(Rules.isRocketBag(id), id .. " is the dealer's") end
+  T.check(not Rules.isRocketBag("spe_l"), "the game's bags are not")
+  -- the lists every roll draws from
+  for _, id in ipairs(Rules.GAME_ORDER) do T.check(not rocket[id], "the blank bag's list: " .. id) end
+  for _, id in ipairs(Rules.BAG_LIST) do T.check(not rocket[id], "the bag list: " .. id) end
+  for id in pairs(N.BAG_ODDS.support) do T.check(not rocket[id], "the support bags' odds: " .. id) end
+  -- every roll, across its whole range, on every course and every time left
+  local Courses = loadFile("data/training_courses.lua")
+  local list = Courses.courses
+  T.check(type(list) == "table" and #list >= 30, "every course swept (" .. tostring(list and #list) .. ")")
+  local leaks, rolls = {}, 0
+  local function note(source, id)
+    rolls = rolls + 1
+    if id and rocket[id] then leaks[#leaks + 1] = source .. ":" .. id end
+  end
+  for k = 0, 199 do
+    local u = (k + 0.5) / 200
+    local rng = function() return u end
+    note("blank", Rules.rollBlankBag(rng))
+    note("blank (fully)", Rules.rollBlankBag(rng, { fully = true }))
+    note("pick", Rules.pickBlackBag(rng))
+    note("support", Rules.rollSupportBag(rng))
+    note("support (pokerus)", Rules.rollSupportBag(rng, { pokerus = true }))
+    for _, c in ipairs(type(list) == "table" and list or {}) do
+      if type(c) == "table" and c.id then
+        local secs = Rules.courseTime and Rules.courseTime(c) or 60
+        for _, f in ipairs({ 0, 0.2, 0.4, 0.6, 0.8, 1 }) do
+          note("clear " .. c.id, Rules.rollClearBag(c, secs * f, rng))
+          note("clear " .. c.id, Rules.rollClearBag(c, secs * f, rng, { pokerus = true }))
+          local prize = Rules.rollSecretPrize(c, secs * f, rng, { newBest = true })
+          note("secret prize " .. c.id, prize and Rules.prizeKey(prize))
+        end
+      end
+    end
+  end
+  T.check(rolls > 1000, ("the rolls swept (%d)"):format(rolls))
+  T.eq(#leaks, 0, "no roll ever gives one of the dealer's bags (" .. table.concat(leaks, " ", 1, math.min(#leaks, 5)) .. ")")
+  -- and should one ever be put in a pool, the rolls still refuse it
+  local order, odds, size = Rules.GAME_ORDER, N.BAG_ODDS.support, Rules.clearBagSize
+  Rules.GAME_ORDER = { "spe_rp" }
+  T.eq(Rules.pickBlackBag(function() return 0.5 end), nil, "a dealer's bag in the blank bag's list: nothing found")
+  Rules.GAME_ORDER = order
+  N.BAG_ODDS.support = { atk_r = 1 }
+  T.eq(Rules.rollSupportBag(function() return 0.5 end), "big_shot", "one in the support odds: a plain support bag instead")
+  N.BAG_ODDS.support = odds
+  Rules.clearBagSize = function() return "rp" end
+  local c = { id = "x", stat = "spe", level = 1 }
+  local got = Rules.rollClearBag(c, 30, function() return 0.99 end)
+  Rules.clearBagSize = size
+  T.check(got ~= nil and not Rules.isRocketBag(got), "a course's size that names one: a support bag instead (" .. tostring(got) .. ")")
+end
 -- the caps still hold: an R+ on 230 Speed adds 22
 do
   local evs = { hp = 0, atk = 0, def = 0, spa = 0, spd = 0, spe = 230 }
