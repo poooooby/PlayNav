@@ -7,7 +7,7 @@
 -- arg = {
 --   importId = "oras_cci", archive = "a/0/4/2",
 --   items = { { entry, sub, clim, id, w, h, fmt, fp }, ... },
---   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src>, crc32, gen6text, darc, bcstm },
+--   modules = { lz = <src>, garc = <src>, ctr = <src>, bclim = <src>, crc32, gen6text, darc, bcstm, zstd },
 --   outPrefix = "oras/raw/",
 --   verify = true, differs = <reason>, missingFp = <reason>,
 -- }
@@ -34,6 +34,7 @@ local Bcsar = arg.modules and arg.modules.bcsar and compile("bcsar") or nil
 local Seq = arg.modules and arg.modules.seqsynth and compile("seqsynth") or nil
 local Bch = arg.modules and arg.modules.bch and compile("bch") or nil
 local Crc = arg.modules and arg.modules.crc32 and compile("crc32") or nil
+local Zstd = arg.modules and arg.modules.zstd and compile("zstd") or nil
 
 -- arg.verify: every item carries `fp` = { size, crc } of the bytes it reads (or none recorded)
 local VERIFY = arg.verify == true and Crc ~= nil
@@ -52,6 +53,12 @@ local function read(offset, length)
   local data, err = job.imports:read(importId, offset, length)
   if not data then error(("import read failed at 0x%x+%d: %s"):format(offset, length, tostring(err)), 0) end
   return data
+end
+-- Azahar's compressed image (.zcci / .zcxi / .zcia): read the image inside it
+if Zstd and Zstd.isZ3ds(read) then
+  local zread, zerr = Zstd.wrap(read)
+  if not zread then error("compressed image: " .. tostring(zerr), 0) end
+  read = zread
 end
 
 local fs, ferr = Ctr.open(read)

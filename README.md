@@ -291,7 +291,7 @@ Open **OPTIONS → MODS → PlayNav**.
 - 🎮 **Generation 3 only.** Ruby, Sapphire, Emerald, FireRed and LeafGreen.
 - 💾 **Your copy of the game is never part of the mod.** The 3DS art and text come from the
   card image you supply, unpacked on your own device. Encrypted dumps (a raw cartridge dump, an eShop `.cia`)
-  and compressed images (such as Azahar's `.zcci`) can't be read; supply a decrypted one.
+  can't be read; supply a decrypted one. Azahar's compressed `.zcci` works as it is.
 - 🖱️ **On a PC with a second-display window,** strokes don't come through, only taps, so
   petting needs Split Screen there. A real second panel, like the AYN Thor's, works
   fully.

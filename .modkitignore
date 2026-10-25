@@ -7,6 +7,7 @@ DEVELOPMENT.md
 .luarc.json
 .gitignore
 tests/amie_rules_test.lua
+tests/zstd_test.lua
 tests/amie_text_test.lua
 tests/decor_test.lua
 tests/drivers/balloon_probe.lua

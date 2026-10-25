@@ -21,7 +21,7 @@ return function(mod, deps)
   }
 
   local IMPORT = Recipe.source.import or "oras_cci"
-  local MODULES = { "lz", "garc", "ctr", "bclim", "crc32", "gen6text", "darc", "bcstm", "bcsar", "seqsynth", "bch" }
+  local MODULES = { "lz", "garc", "ctr", "bclim", "crc32", "gen6text", "darc", "bcstm", "bcsar", "seqsynth", "bch", "zstd" }
 
   local function log(fmt, ...) mod.log:info("import: " .. fmt, ...) end
 
