@@ -111,6 +111,9 @@ return function(mod)
     { key = "clear_rom_art", label = "CLEAR EXTRACTED ART", type = "choice", default = false,
       choices = { { "PRESS TO CLEAR", false }, { "CLEARS AT NEXT START", true } } },
     { key = "hd_render", label = "HD RENDERING", type = "toggle", default = true },
+    -- Super-Training Regimens in a real 3D stadium (the card's, else a drawn one), the camera
+    -- behind the trainee; the 2D view when off or when the device cannot draw it
+    { key = "training_3d", label = "3D SUPER TRAINING", type = "toggle", default = false },
     { key = "haptics", label = "HAPTICS", type = "choice", default = "medium",
       choices = { { "HIGH", "high" }, { "MEDIUM", "medium" }, { "LOW", "low" }, { "OFF", "off" } } },
   })
@@ -340,8 +343,25 @@ return function(mod)
       -- the regimens: the simulation, the top-screen renderer, the aim pad and the picker
       if Courses and makeSim and makeRegimen then
         local TSim = makeSim(TrainingNumbers)
+        -- 3D SUPER TRAINING's play in the game's own space
+        local makeSim3d = loadSibling(mod, "src/training/sim3d.lua")
+        if makeSim3d and TSim._in then
+          local okS, err = pcall(makeSim3d, TSim, TrainingNumbers, TSim._in)
+          if not okS then mod.log:warn("3D SUPER TRAINING's game space failed to build (%s)", tostring(err)) end
+        end
         local Draw = makeArenaDraw and makeArenaDraw(mod, { host = trainHost, Rules = TRules, Sim = TSim }) or nil
         Training.arenaDraw = Draw
+        -- 3D SUPER TRAINING: the camera and stadium the arena is drawn through when on
+        if Draw then
+          local makeA3 = loadSibling(mod, "src/training/arena3d.lua")
+          local okA, A3 = pcall(function() return makeA3 and makeA3(mod, { Sim = TSim, Rules = TRules }) end)
+          if okA and type(A3) == "table" then
+            Draw.arena3d = A3
+            Draw.mode3d = mod.options:get("training_3d") == true
+          else
+            mod.log:warn("3D SUPER TRAINING failed to build (%s); regimens stay 2D", tostring(A3))
+          end
+        end
         if makeHud then
           local okH, hud = pcall(makeHud, mod, Training, TRules, TSim)
           if okH and type(hud) == "table" then Training.hud = hud else mod.log:warn("training HUD failed to build: %s", tostring(hud)) end
@@ -473,7 +493,10 @@ return function(mod)
         local a = Apps:get(id)
         if a then a.assets = Assets end
       end
-      if Training and Training.arenaDraw then Training.arenaDraw.assets = Assets end
+      if Training and Training.arenaDraw then
+        Training.arenaDraw.assets = Assets
+        if Training.arenaDraw.arena3d then Training.arenaDraw.arena3d.assets = Assets end
+      end
       if Training then Training.assets = Assets end
       if Amie then Amie.assets = Assets end
       -- the game's own sound effects (rendered by the import), shared as mod.sfx
@@ -1058,6 +1081,9 @@ return function(mod)
     if Training then
       Training.words = off and TrainingWords or nil
       if Training.music then Training.music.cardOnly = not off end
+      -- the 3D stadium is built again: the card's model or the drawn stand-in
+      local A3 = Training.arenaDraw and Training.arenaDraw.arena3d
+      if A3 then A3.resetScene() end
     end
     if Amie and Amie.text then Amie.text.ownText = off end
     if amieMusic then amieMusic.cardOnly = not off end
@@ -1297,6 +1323,9 @@ return function(mod)
     if ev.key == "clear_rom_art" and ev.value == true then
       clearExtractedArt()
       resetClearOption()
+    elseif ev.key == "training_3d" then
+      local Draw = Training and Training.arenaDraw
+      if Draw then Draw.mode3d = ev.value == true end
     elseif ev.key == "use_rom_assets" and Extract then
       if ev.value == false then
         -- PlayNav's own from now on; nothing more is asked
@@ -1724,6 +1753,17 @@ return function(mod)
     local ok, err = pcall(tick, game, viewport)
     if not ok then mod.log:warn("frame tick failed: %s", tostring(err)) end
     return next(game, viewport)
+  end)
+
+  -- 3D SUPER TRAINING: the mouse wheel steps the trainee nearer (up) or farther (down) while a
+  -- regimen draws in 3D (the game's forward / back); otherwise the engine's as before
+  mod.hooks:wrap("input.wheel", function(next, game, dy)
+    local T = Training
+    if T and T.is3d and T.is3d() and T.sim and type(dy) == "number" and dy ~= 0 then
+      T.wheelSteps = (T.wheelSteps or 0) + dy
+      return true
+    end
+    return next(game, dy)
   end)
 
   mod.hooks:wrap("input.pointer", function(next, game, ev)

@@ -869,6 +869,65 @@ do
   T.check(#a > 20, "...and there were events (" .. #a .. " chars)")
 end
 
+-- ------- 3D SUPER TRAINING: the game's forward / back in distance steps, and the edge flags
+do
+  local sim = make("lv1_hp")
+  run(sim, 3.2)
+  T.eq(sim:stepDistance(-1), false, "without depth steps (the 2D view) forward / back does nothing")
+  sim:setDepthSteps(true)
+  local p = sim.player
+  T.eq(p.dist, 240, "on, the trainee starts at the middle distance (240)")
+  T.check(sim:stepDistance(-1), "...a step nearer")
+  T.eq(sim:stepDistance(-1), false, "...no nearer than the nearest")
+  local t0 = sim.t
+  while p.dist > 180 and sim.t - t0 < 3 do sim:update(1 / 60) end
+  T.check(math.abs((sim.t - t0) - 1) < 0.05, ("...60 units at 2 a frame: about a second (%.2f s)"):format(sim.t - t0))
+  T.check(math.abs(p.z - (1 - 0.9 * 180 / 240)) < 1e-6, ("...the trainee's depth follows (z %.3f)"):format(p.z))
+  -- nearer, a ball arrives sooner (one of the game's, on a sim with its attack data)
+  local GAx = loadFile("mods/play_nav/data/training_attacks.lua")
+  local function eta(dist)
+    local g = Sim.new(C.byId.lv1_hp, { anchors = C.anchors[C.byId.lv1_hp.goals.anchors], library = C.attacks,
+      shotType = "black", level = 1, still = true, gameAttacks = GAx }, lcg(3))
+    for _ = 1, 3.2 * 60 do g:update(1 / 60) end
+    g:setDepthSteps(true)
+    g.player.dist = dist
+    g:update(1 / 60)
+    local b = Sim.gameBall(g, { p = 0, next = 0, dx = 0, dy = 0, yaw = 0, pitch = 0, aimX = 1, aimY = 1 })
+    return b and b.flightN
+  end
+  local nearN = eta(180)
+  sim:stepDistance(1); sim:stepDistance(1)
+  t0 = sim.t
+  while p.dist < 300 and sim.t - t0 < 4 do sim:update(1 / 60) end
+  T.eq(p.dist, 300, "...then two steps farther: the farthest (300)")
+  local farN = eta(300)
+  T.check(nearN and farN and farN > nearN * 1.4, ("a ball takes longer to reach the trainee far than near (%.0f vs %.0f frames)"):format(farN or 0, nearN or 0))
+  sim:setDepthSteps(false)
+  T.eq(p.z, N.PLAYER.Z, "off again, the fixed depth")
+  -- a far-player course keeps its own stand
+  local far
+  for _, c in ipairs(C.courses) do if c.farPlayer then far = c.id; break end end
+  if far then
+    local fs = make(far)
+    fs:setDepthSteps(true)
+    T.eq(fs.depthSteps, nil, "a far-player course takes no depth steps")
+  end
+  -- the edges: pressed into the top, the right, the left; the bottom only stops
+  local e = make("lv1_hp")
+  run(e, 3.2)
+  local function pressed(mx, mz, x, y)
+    e.player.x, e.player.y = x, y
+    e:setMove(mx, mz)
+    e:update(1 / 60)
+    return e.player.edge
+  end
+  T.eq(pressed(0, 1, 0, N.PLAYER.Y_MAX), 1, "pressed into the top: edge 1")
+  T.eq(pressed(1, 0, N.PLAYER.X_MAX, 0.3), 2, "...the right: edge 2")
+  T.eq(pressed(-1, 0, -N.PLAYER.X_MAX, 0.3), 4, "...the left: edge 4")
+  T.eq(pressed(0, -1, 0, 0), 0, "...the bottom: none (it only stops, as in the game)")
+  T.eq(pressed(0, 0, 0.2, 0.3), 0, "...away from them: none")
+end
+
 -- ------- rapid taps: at most one shot every SHOT.REFIRE_S (no machine-gunning, weak shots too)
 do
   local function taps(every, secs)
@@ -905,6 +964,29 @@ do
       shotType = "black", level = course.level, still = true, gameAttacks = GA }, opts.rng or lcg(11))
   end
   T.check(GA and GA.courses and GA.phases and GA.volleys and GA.projectiles, "the game's attack data loads")
+  -- a secret balloon's goal groups are the card's: Blastoise 5 a group living 360 frames, its red
+  -- goal 300; Stunfisk one at a time, in turn, 75 frames
+  do
+    local bl = gameSim("secret_04")
+    bl:spawnGroup()
+    local n = 0
+    for _, g in ipairs(bl.goals) do if g.kind == "white" then n = n + 1 end end
+    local tm = Sim.goalTimer(bl)
+    T.check(n == 5 and math.abs(tm.gone - (360 / 30 + 0.2)) < 1e-9, ("Blastoise: %d goals a group, gone at %.2f s"):format(n, tm.gone))
+    bl:spawnChance()
+    T.check(math.abs(bl.goals[#bl.goals].life - 10) < 1e-9, "...its red goal 10 s")
+    local sf = gameSim("secret_05")
+    local seen = {}
+    for _ = 1, 3 do
+      sf.goals = {}
+      sf:spawnGroup()
+      seen[#seen + 1] = sf.goals[1] and sf.goals[1].anchor
+    end
+    T.check(#sf.goals == 1 and seen[1] ~= seen[2] and seen[2] ~= seen[3], "Stunfisk: one goal at a time, its anchors in turn (" .. table.concat(seen, " ") .. ")")
+    T.check(math.abs(Sim.goalTimer(sf).white - (0.625 * 75 / 30 + 0.2)) < 1e-9, "...white for 0.625 of its 75 frames")
+    -- a measured course keeps its captured timer
+    T.check(Sim.goalTimer(gameSim("lv2_hp")).cycle == 16.0, "Relicanth keeps its measured cycle")
+  end
   -- every course runs a minute of its script without trouble, and attacks
   local quiet = {}
   for _, c in ipairs(C.courses) do

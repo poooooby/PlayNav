@@ -32,6 +32,7 @@ local recipe = {
     { id = "bgm/sp_menu", kind = "stream" },
     { id = "se/sp_001", kind = "sfx" },
     { id = "lyt/st_aim", kind = "files" },
+    { id = "st3d/stadium", kind = "model" },                 -- a 3D model (BCH)
   },
 }
 local refreshed = 0
@@ -52,12 +53,13 @@ files["oras/se/sp_001.wav"] = "wav"
 files["oras/lyt/st_aim/lower.bclyt"] = "lyt"
 files["oras/lyt/st_aim/lower_active.bclan"] = "clan"
 files["oras/lyt/st_aim/index.lua"] = 'return { "lower.bclyt", "lower_active.bclan" }'
+files["oras/model/st3d_stadium.lua"] = "return { meshes = {} }"
 files["unrelated/keep.txt"] = "mine"
 
 T.eq(E.cacheComplete(), true, "a finished cache counts as complete")
 local removed = E.clear()
 T.eq(deletes[1], "oras/manifest.lua", "the manifest goes first")
-T.eq(removed, 11, "every file the import wrote is removed")
+T.eq(removed, 12, "every file the import wrote is removed")
 local left = {}
 for rel in pairs(files) do left[#left + 1] = rel end
 T.eq(#left, 1, "only files the import did not write remain")

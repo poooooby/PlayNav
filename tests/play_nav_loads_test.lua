@@ -93,6 +93,18 @@ for _, generation in ipairs({ 3 }) do
     T.eq(written, 1, "...and the engine writes them")
     Ex.clear = clear0
     loader.modOptions.play_nav.clear_rom_art = before
+
+    -- 3D SUPER TRAINING: built, off by default, switched live from the options screen
+    local TRx = exports.training
+    local Draw = TRx and TRx.session and TRx.session.arenaDraw
+    T.check(Draw ~= nil and Draw.arena3d ~= nil, "the 3D arena is built")
+    if Draw then
+      T.eq(Draw.mode3d, false, "3D SUPER TRAINING is off by default")
+      loader.events:emit("mod.options_changed", { mod = "play_nav", key = "training_3d", value = true })
+      T.eq(Draw.mode3d, true, "...switched on, regimens draw in 3D")
+      loader.events:emit("mod.options_changed", { mod = "play_nav", key = "training_3d", value = false })
+      T.eq(Draw.mode3d, false, "...and off again")
+    end
   end
   run.release()
 end

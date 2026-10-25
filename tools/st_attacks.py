@@ -6,13 +6,14 @@ projectiles they fire, and the bitbots. Only numbers go in (no art, no text).
 
 GARCs (DllSparring.cro's loader at 0x8300, ArcIDs 0x75..0x7e in order):
   a/1/1/7 courses (32 B): u16 +0 level, +2 seconds, +0xc + 4k phase id k (ffff none)
-  a/1/1/8 phases (236 B): +0 species, +2 target, +8 f32 script rate (units a frame), +0xc damage,
+  a/1/1/8 phases (236 B): +0 species, +2 target, +4 f32 balloon scale, +8 f32 script rate (units a
+          frame), +0xc damage, +0x18 sway, +0xb0 f32 middle height, +0xe4 f32 yaw,
           +0x10 list A, +0x19 / +0x1a / +0x1b / +0x1c second-form test (0 score left %, 1 time %,
           2 never) and thresholds, +0x20 f32 rate B, +0x24 damage B, +0x28 list B, +0xd6 bit record
   a/1/1/9 bit records (216 B): +2 hp, +0xc shot damage, +0x10 list (1 = fires)
   a/1/2/0 steps (36 B): +0 cmd (0 wait, 2 timed routine, 3 bits, 84.. volley cmd - 84), +2 telegraph,
           +4 pose, +6 s16 pose -> fire (-1 = the pose's fire key), +8 s16 recovery, +0xc count
-          (cmd 2 frames, cmd 3 bits), +0x18 extra repeats, +0x1a units between, +0x20 warning mark
+          (cmd 2 frames, cmd 3 bits), +0x1c f32 cmd 2's target turn a frame, +0x18 extra repeats, +0x1a units between, +0x20 warning mark
   a/1/2/2 step lists (10 x 12 B): u16 +8 step id, ffff ends; loops
   a/1/2/5 volleys (244 B): u16 +0 shots (<= 10), +4 + 24j: u16 projectile, u16 frames to the next,
           f32 launch dx, dy, f32 aim yaw, pitch (degrees), u16 aim at the trainee's x, y
@@ -43,6 +44,7 @@ ROWS = {
     25: "secret_06", 26: "secret_07", 27: "secret_08", 28: "secret_09", 29: "secret_10",
     30: "secret_11", 31: "secret_12",
 }
+FINALE_AS = [40, 41, 42, 31]
 FINALE_OR = [43, 44, 45, 32]
 
 
@@ -129,6 +131,9 @@ def main(argv):
         st = {"cmd": u16(b, 0), "warn": u16(b, 2), "pose": u16(b, 4), "fire": s16(b, 6),
               "recover": s16(b, 8), "count": u16(b, 0xc), "repeats": u16(b, 0x18),
               "repeatGap": u16(b, 0x1a), "mark": u16(b, 0x20)}
+        if st["cmd"] == 2:
+            # the shield: +0x1c its target's turn in degrees a frame (0xbacc -> 0xe670)
+            st["spin"] = f32(b, 0x1c)
         steps[i] = st
         if st["cmd"] >= 84:
             take_volley(st["cmd"] - 84)
@@ -162,7 +167,11 @@ def main(argv):
         b = phases_b[i]
         ph = {"species": u16(b, 0), "target": u16(b, 2), "rate": f32(b, 8), "damage": u16(b, 0xc),
               "list": u16(b, 0x10), "formIn": b[0x19], "formInPct": b[0x1a], "formOut": b[0x1b],
-              "formOutPct": b[0x1c], "rateB": f32(b, 0x20), "damageB": u16(b, 0x24), "listB": u16(b, 0x28)}
+              "formOutPct": b[0x1c], "rateB": f32(b, 0x20), "damageB": u16(b, 0x24), "listB": u16(b, 0x28),
+              # the balloon in the game's 3D space (DllSparring.cro): +4 f32 uniform scale (0x1774;
+              # it grows to 1.5x as it fills, 0x122e4), +0x18 sway on (12 sin 2t, 6 sin t, 0x11b58),
+              # +0xb0 its middle's height in model units (x the scale; 0x127b0), +0xe4 yaw degrees
+              "scale": f32(b, 4), "sway": b[0x18], "midY": f32(b, 0xb0), "yaw": f32(b, 0xe4)}
         bit = u16(b, 0xd6)
         if bit != 0xFFFF:
             bb = bits_b[bit]
@@ -180,8 +189,10 @@ def main(argv):
         courses[cid] = ids
         for x in ids:
             take_phase(x)
+    # both finales whichever card it is: secret_12 Alpha Sapphire's, secret_12_omega Omega Ruby's
+    courses["secret_12"] = FINALE_AS
     courses["secret_12_omega"] = FINALE_OR
-    for x in FINALE_OR:
+    for x in FINALE_AS + FINALE_OR:
         take_phase(x)
 
     def block(name, table):

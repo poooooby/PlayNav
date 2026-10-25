@@ -191,6 +191,8 @@ return function(mod, deps)
         if del("oras/bgm/" .. name .. ".lua") then removed = removed + 1 end
       elseif kind == "sfx" then
         if del("oras/se/" .. id:gsub("^se/", "") .. ".wav") then removed = removed + 1 end
+      elseif kind == "model" then
+        if del("oras/model/" .. id:gsub("/", "_") .. ".lua") then removed = removed + 1 end
       elseif kind == "files" then
         local pack = id:gsub("^lyt/", "")
         local okI, src = pcall(mod.cache.read, mod.cache, "oras/lyt/" .. pack .. "/index.lua")
@@ -331,7 +333,7 @@ return function(mod, deps)
         pcall(mod.job.release, mod.job, handle)
         if st.status == "ok" and type(st.result) == "table" then
           for _, r in ipairs(st.result.results or {}) do
-            if r.ok and (r.kind == "text" or r.kind == "files" or r.kind == "stream" or r.kind == "sfx" or r.kind == "song") then
+            if r.ok and (r.kind == "text" or r.kind == "files" or r.kind == "stream" or r.kind == "sfx" or r.kind == "song" or r.kind == "model") then
               E.results[r.id] = { ok = true, w = 0, h = 0, bytes = r.count or 0, text = true }
               E.done = E.done + 1
             elseif r.ok then

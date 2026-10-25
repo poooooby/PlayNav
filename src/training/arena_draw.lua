@@ -16,6 +16,53 @@ return function(mod, deps)
   local host, Rules, Sim = deps.host, deps.Rules, deps.Sim
   local N = Rules.N
   local D = { assets = nil }
+  -- what the arena is drawn through: Sim.project (the 2D view), or, with 3D SUPER TRAINING on
+  -- (D.mode3d) and the device able (arena3d's available()), its camera's projector; set at the
+  -- top of each D.draw. Same shape: x, y (240x160 units) and k (px per world unit across / 118)
+  local proj = Sim.project
+  D.arena3d, D.mode3d = nil, false
+  local function in3d() return proj ~= Sim.project end
+  D.in3d = in3d
+  -- the floor's screen height under (x, z): the 2D view's fixed line, or the camera's
+  local function floorY(x, z)
+    if proj == Sim.project then return D.BOT_SHADOW_Y end
+    if D.arena3d and D.arena3d.floorY then return D.arena3d.floorY(x, z) end
+    local _, y = proj(x, 0, z)
+    return y
+  end
+  -- (3D SUPER TRAINING in the game's space: src/training/sim3d.lua) a sim played there this frame
+  local function game3d(sim) return sim and sim.game3d and proj ~= Sim.project end
+  -- a point of the balloon's side of the flat world (z 1: its middle, goals, the aim, the last
+  -- shot) on the screen
+  local function projB(x, y)
+    if proj ~= Sim.project and D.arena3d and D.arena3d.projectBalloon then return D.arena3d.projectBalloon(x, y) end
+    return proj(x, y, 1)
+  end
+  -- the balloon's radius: the flat world's, or the game's (its sprite for its model)
+  local function botR(sim)
+    if game3d(sim) then return sim:botR3() end
+    return N.BOT.R * sim.bot.scale
+  end
+  -- a bitbot on the screen, and its size
+  local function bitProj(sim, bit)
+    if game3d(sim) then
+      local X, Y, Z = sim:bitPos3(bit)
+      local sx, sy, k = proj(X, Y, Z)
+      return sx, sy, k, N.GAME3D.BIT_R
+    end
+    local sx, sy, k = proj(bit.x, bit.y, bit.z)
+    return sx, sy, k, bit.r
+  end
+  -- a goal's size: the flat world's, or the game's box
+  local function goalR(sim, g)
+    if game3d(sim) then
+      local _, _, _, half = sim:goalBox3(g)
+      return half
+    end
+    return g.r
+  end
+  -- the grass's height under a point of the world (the game's in its space)
+  local function groundOf(sim) return game3d(sim) and N.GAME3D.GROUND or 0 end
   local PITCH_ROWS = { 0.2, 0.5, 0.8 }
 
   local function art(id)
@@ -429,6 +476,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   -- a scene point to the screen, and back (the HUD's reticle, popups and aiming)
   function D.toScreen(T, x, y)
+    if proj ~= Sim.project then
+      local wx, wy = Sim.unproject(x, y)
+      local sx, sy, k = projB(wx, wy)
+      local _, _, k2 = Sim.project(wx, wy, 1)
+      return sx, sy, k / k2
+    end
     local z, px, py = view(T)
     return px + (x - px) * z, py + (y - py) * z, z
   end
@@ -495,8 +548,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- (D.BG.exit), wherever that is on this screen, on it or not
   function D.exitOffset(sim, T)
     local bx, by = sim:botOffset()
-    local cx, cy = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
-    local tx, ty = D.bgPoint(T, D.BG.exit.x, D.BG.exit.y)
+    local cx, cy = projB(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by)
+    local tx, ty
+    if proj ~= Sim.project and D.arena3d then
+      local E = D.arena3d.EXIT
+      tx, ty = D.arena3d.projectModel(E.x, E.y, E.z)
+    else
+      tx, ty = D.bgPoint(T, D.BG.exit.x, D.BG.exit.y)
+    end
     return tx - cx, ty - cy
   end
 
@@ -529,14 +588,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     -- pitch lines (PITCH_ROWS hoisted: this runs every frame)
     G2.setColor(1, 1, 1, 0.25)
     for i = -2, 2 do
-      local x0 = Sim.project(i * 0.5, 0, 0)
-      local x1 = Sim.project(i * 0.5, 0, 1)
+      local x0 = proj(i * 0.5, 0, 0)
+      local x1 = proj(i * 0.5, 0, 1)
       G2.line(x0, 150, x1, 92)
     end
     for _, z in ipairs(PITCH_ROWS) do
-      local _, y = Sim.project(0, 0, z)
-      local xl = Sim.project(-1, 0, z)
-      local xr = Sim.project(1, 0, z)
+      local _, y = proj(0, 0, z)
+      local xl = proj(-1, 0, z)
+      local xr = proj(1, 0, z)
       G2.line(xl, y, xr, y)
     end
 
@@ -568,7 +627,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- dropping at G units a second squared, fluttering FLUTTER_X radii at FLUTTER_HZ
   D.BIT_POP = { ZIP_S = 0.35, ZIP_UP = 1.2, ZIP_X = 0.8, SPIN = 9, SHRINK = 0.5, CRUMPLE = 0.75,
     FALL_S = 2.2, G = 260, FLUTTER_X = 0.6, FLUTTER_HZ = 1.4 }
-  -- a purple party balloon about (x, y), radius r, its string waving on `ph`, turned rot,
+  -- a party balloon in the game's deep navy-purple (the captures) about (x, y), radius r, its string waving on `ph`, turned rot,
   -- scaled sx / sy; flat 0..1 takes the air out of it (duller, no shine)
   local function drawBitBalloon(G2, x, y, r, ph, rot, sx, sy, flat)
     G2.push()
@@ -589,18 +648,18 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setLineWidth(math.max(0.6, r * 0.035))
     G2.setColor(0.95, 0.92, 1, 0.95)
     G2.line(BIT_PTS)
-    G2.setColor(0.42, 0.16, 0.62, 1)
+    G2.setColor(0.18, 0.09, 0.32, 1)
     G2.polygon("fill", -k * 0.3, r * 1.05, k * 0.3, r * 1.05, k * 0.8, r * 1.1 + k, -k * 0.8, r * 1.1 + k)
     local d = 1 - 0.3 * flat
-    G2.setColor(0.62 * d, 0.3 * d, 0.86 * d, 0.97)
+    G2.setColor(0.25 * d, 0.15 * d, 0.45 * d, 0.97)
     G2.polygon("fill", balloonBody(0, 0, r))
-    G2.setColor(0.78 * d, 0.5 * d, 0.97 * d, 0.9 * (1 - 0.6 * flat))
+    G2.setColor(0.37 * d, 0.26 * d, 0.62 * d, 0.9 * (1 - 0.6 * flat))
     G2.polygon("fill", balloonBody(-r * 0.08, -r * 0.1, r * 0.72))
     if flat < 1 then
       G2.setColor(1, 1, 1, 0.75 * (1 - flat))
       G2.ellipse("fill", -r * 0.4, -r * 0.45, r * 0.13, r * 0.24)
     end
-    G2.setColor(0.3, 0.08, 0.45, 1)
+    G2.setColor(0.1, 0.05, 0.2, 1)
     G2.setLineWidth(math.max(1, r * 0.08))
     G2.polygon("line", balloonBody(0, 0, r))
     G2.setLineWidth(1)
@@ -651,7 +710,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   function drawShieldCage(G2, sim, cx, cy, rw, rh, fade)
     local C = D.CAGE
     local hw = rw * C.W
-    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local top, bottom = cy - rh * C.TOP, D.cageFoot or (D.BOT_SHADOW_Y + 4)
     local h = bottom - top
     local ry = hw * C.RIM_RY
     local flick = (0.9 + 0.1 * math.sin(sim.t * 13)) * (fade or 1)
@@ -719,7 +778,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   function drawCageShatter(G2, sim, cx, cy, rw, rh, u)
     local C, B = D.CAGE, D.CAGE_BREAK
     local hw = rw * C.W
-    local top, bottom = cy - rh * C.TOP, D.BOT_SHADOW_Y + 4
+    local top, bottom = cy - rh * C.TOP, D.cageFoot or (D.BOT_SHADOW_Y + 4)
     local h = bottom - top
     G2.push("all")
     G2.setBlendMode("add")
@@ -747,6 +806,79 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         local dx, dy = math.sin(rot) * len / 2, math.cos(rot) * len / 2
         if f0 < 0.6 then G2.setColor(0.6, 0.95, 1, 0.8 * a) else G2.setColor(1, 0.45, 1, 0.8 * a) end
         G2.line(x - dx, y - dy, x + dx, y + dy)
+      end
+    end
+    G2.pop()
+  end
+
+  -- (3D SUPER TRAINING, the game's space) the shield: part of a cylinder round the balloon's spot,
+  -- R out, from Y0 to Y1, over the arc ARC0..ARC1 degrees in front of it (+z, the trainee's side;
+  -- fixed, so from a corner its open edge shows), BARS segments across and CELLS tall; a lime rim,
+  -- green-cyan bars and rings, a magenta band FOOT of its height at the foot, faint panels,
+  -- still; going (u 0..1) its cells drift up and out, fading
+  -- (read live from Graveler's shield, 2026-10-24: seven ring lines of 12 points on radius 59.5
+  -- from 25 to 155 degrees round the balloon (toward the trainee), at y -5 .. 84.8 - the effect's
+  -- 350 / 0..528 at scale 0.17, lowered 5)
+  D.CAGE3 = { R = 59.5, Y0 = -5, Y1 = 84.8, ARC0 = 25, ARC1 = 155, BARS = 11, CELLS = 6, FOOT = 0.2,
+    BAR_W = 0.5, RIM_W = 1.3, DRIFT = 14, RISE = 22 }
+  local cagePts = {}
+  local function cageGeom(sim)
+    local C = D.CAGE3
+    -- (about the balloon's spot, its own size whatever the balloon's)
+    local cx = sim:botCentre3()
+    return cx, 0, C.R, C.Y0, C.Y1
+  end
+  function D.drawCage3(G2, sim, fade, u)
+    local A3 = D.arena3d
+    if not (A3 and A3.projectModel) then return end
+    local C = D.CAGE3
+    local cx, cz, R, y0, y1 = cageGeom(sim)
+    local _, _, k = A3.project(cx, (y0 + y1) / 2, cz + R)
+    local px = (k or 0) * 118
+    local flick = (0.92 + 0.08 * math.sin(sim.t * 31)) * (fade or 1)
+    u = u or 0
+    local a = flick * (1 - u) * (1 - u)
+    if a <= 0.01 then return end
+    G2.push("all")
+    G2.setBlendMode("add")
+    local n, m = C.BARS, C.CELLS
+    local h = y1 - y0
+    local a0, a1 = math.rad(C.ARC0), math.rad(C.ARC1)
+    for i = 0, n - 1 do
+      local t0, t1 = a0 + (a1 - a0) * i / n, a0 + (a1 - a0) * (i + 1) / n
+      -- (an arc in front of the balloon, toward the trainee's side)
+      do
+        -- going: each cell out from the middle and up, by its own share
+        local seed = ((i * 37) % 11) / 11
+        for j = 0, m - 1 do
+          local out = R + C.DRIFT * u * (0.6 + 0.8 * seed)
+          local rise = C.RISE * u * (0.5 + ((i + j * 5) % 7) / 7)
+          local ya, yb = y0 + h * j / m + rise, y0 + h * (j + 1) / m + rise
+          local ok = true
+          local pts = cagePts
+          local function put(idx, th, y)
+            local sx, sy, d = A3.projectModel(cx + math.cos(th) * out, y, cz + math.sin(th) * out)
+            if not d or d < 0.5 then ok = false; return end
+            pts[idx], pts[idx + 1] = sx, sy
+          end
+          put(1, t0, ya); put(3, t1, ya); put(5, t1, yb); put(7, t0, yb)
+          if ok then
+            local foot = (j + 0.5) / m < C.FOOT * 1.6
+            -- the panel, then its edges
+            if foot then G2.setColor(0.95, 0.25, 0.95, 0.22 * a) else G2.setColor(0.25, 0.9, 0.55, 0.08 * a) end
+            G2.polygon("fill", pts)
+            G2.setLineWidth(math.max(1, C.BAR_W * px))
+            if foot then G2.setColor(1, 0.45, 1, 0.55 * a) else G2.setColor(0.45, 1, 0.75, 0.5 * a) end
+            G2.line(pts[1], pts[2], pts[7], pts[8])
+            G2.line(pts[1], pts[2], pts[3], pts[4])
+            if j == m - 1 then
+              -- the lime rim
+              G2.setLineWidth(math.max(1, C.RIM_W * px))
+              G2.setColor(0.7, 1, 0.35, 0.8 * a)
+              G2.line(pts[7], pts[8], pts[5], pts[6])
+            end
+          end
+        end
       end
     end
     G2.pop()
@@ -795,12 +927,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if not bot then return end
     local bx, by = sim:botOffset()
     local cyW = sim.botCY and sim:botCY() or N.BOT.CY
-    local sx, sy, k = Sim.project(bx, cyW + by, 1)
-    local _, _, _, hwFar = Sim.view()
-    local R = N.BOT.R * hwFar * bot.scale
+    local sx, sy, k = projB(bx, cyW + by)
+    local hwFar = 118 * k
+    local R = botR(sim) * hwFar
     local fx = bot.flinch > 0 and math.sin(sim.t * 50) * 3 or 0
     -- shadow and aura
-    local floorY = D.BOT_SHADOW_Y
+    local floorY = floorY(bx, 1)
     if not opts.noShadow then
       G2.setColor(0, 0, 0, 0.25)
       G2.ellipse("fill", sx, floorY, R * 0.9, 5)
@@ -815,12 +947,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     if shape then
       -- the Pokemon's own sprite as the balloon, at the same scale the goals use
-      local x1 = Sim.project(1, cyW, 1)
-      local x0 = Sim.project(0, cyW, 1)
+      local x1 = projB(1, cyW)
+      local x0 = projB(0, cyW)
       local unitPx = math.abs(x1 - x0)
-      local rPx = N.BOT.R * bot.scale * unitPx
+      local rPx = botR(sim) * (game3d(sim) and hwFar or unitPx)
       local ppx = rPx / shape.ppr
-      drawBalloon(G2, shape, sx + fx, sy, ppx, bot.flinch > 0 and 0.8 or 1, 0.95, 0.3, 1, warn)
+      drawBalloon(G2, shape, sx + fx, sy, ppx, (opts.alpha or 1) * (bot.flinch > 0 and 0.8 or 1), 0.95, 0.3, 1, warn)
     else
       -- no sprite: a plain party balloon, the badge or the front pic on it
       local body = balloonBody(sx + fx, sy, R)
@@ -851,7 +983,16 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       drawClearPuffs(G2, sim.t - sim.clearPuffAt, sx + fx, sy, R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1))
     end
     local cw, ch = R * (shape and shape.halfW or 1), R * (shape and shape.halfH or 1)
-    if sim.barrier then
+    if game3d(sim) then
+      -- (the game's space: a cylinder on the grass round it)
+      if sim.barrier then
+        D.drawCage3(G2, sim, 1, 0)
+      elseif sim.shieldBrokeAt and sim.t - sim.shieldBrokeAt < D.CAGE_BREAK.S then
+        D.drawCage3(G2, sim, 1, (sim.t - sim.shieldBrokeAt) / D.CAGE_BREAK.S)
+      elseif sim.shieldFadedAt and sim.t - sim.shieldFadedAt < D.CAGE_BREAK.FADE_S then
+        D.drawCage3(G2, sim, 1, (sim.t - sim.shieldFadedAt) / D.CAGE_BREAK.FADE_S)
+      end
+    elseif sim.barrier then
       drawShieldCage(G2, sim, sx + fx, sy, cw, ch)
     elseif sim.shieldBrokeAt and sim.t - sim.shieldBrokeAt < D.CAGE_BREAK.S then
       drawCageShatter(G2, sim, sx + fx, sy, cw, ch, (sim.t - sim.shieldBrokeAt) / D.CAGE_BREAK.S)
@@ -862,9 +1003,11 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     for _, g in ipairs(opts.noGoals and {} or sim.goals) do
       if g.hidden then goto nextgoal end
       local gx, gy = sim:goalPos(g)
-      local px, py = Sim.project(gx, gy, 1)
+      local px, py = projB(gx, gy)
+      -- (the game's space: the shield's target rides its own circle on the cage)
+      if g.kind == "marker" and g.orbit and game3d(sim) and sim.markerPos3 then px, py = proj(sim:markerPos3(g)) end
       -- (goals keep their size as the balloon grows: they are the HUD's panes)
-      local gr = g.r * hwFar
+      local gr = goalR(sim, g) * hwFar
       local rgb = GOAL_RGB[g.kind] or GOAL_RGB.white
       local pulse = (g.kind == "chance") and (1 + 0.06 * math.sin(sim.t * 8)) or 1
       -- the game's goal panes (upper.bclyt, 32x32): target01 (white) or big_target (red), its
@@ -909,14 +1052,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     -- bits (the dead ones wait to regenerate); a popped one deflates and falls off the screen
     for _, bit in ipairs(sim.bits) do
-      local px, py, kk = Sim.project(bit.x, bit.y, bit.z)
-      local r = bit.r * 118 * kk
+      local px, py, kk, br = bitProj(sim, bit)
+      local r = br * 118 * kk
       local ph = sim.t * 2.2 + (bit.id or 0) * 1.7
       if not bit.dead then
-        -- a purple party balloon, bobbing and swaying on its own beat
+        -- a party balloon, bobbing and swaying on its own beat (no health bar: the game shows none)
         drawBitBalloon(G2, px, py + math.sin(ph) * r * 0.08, r, ph, math.sin(ph * 0.7) * 0.12, 1, 1, 0)
-        G2.setColor(0.2, 0.9, 0.3, 1)
-        G2.rectangle("fill", px - r, py - r - 4, 2 * r * (bit.hp / N.ATTACK.bit.hp), 2)
       elseif bit.poppedAt then
         local P = D.BIT_POP
         local e = sim.t - bit.poppedAt
@@ -971,6 +1112,13 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     return math.max(1.5, 1 / math.max(inv, 1 / (r1 * 3)))
   end
   local function ballRadius(sim, b)
+    -- (in the game's space: drawn as the game draws it - its shot model, a sphere of BALL_LOOK, at
+    -- its size, so a little larger than its hitbox; a bitbot's shot at its measured look)
+    if game3d(sim) then
+      local _, _, k = proj(b.x, b.y, b.z)
+      local look = b.kind == "bit" and 1 or N.GAME3D.BALL_LOOK
+      return math.max(1.5, (b.r or 1) * look * 118 * k)
+    end
     if b.game and D.GAME_BALL then return gameBallRadius(sim, b) end
     local B = N.ATTACK.BALL
     local hwNear = Sim.view()
@@ -1006,14 +1154,17 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- and the rings of balls that miss (under the trainee), true the rings of balls that would
   -- hit (over it, else its board hides them)
   local function drawLandings(G2, sim, over)
+    -- (none in 3D: the game shows no warning there)
+    if in3d() then return end
     local W = D.WARN
     local pz = sim.player.z or 0.1
     for _, b in ipairs(sim.balls) do
-      if b.z >= pz and not b.bounced and not b.lob then
-        local eta, hits, x = ballWarn(sim, b)
+      if (game3d(sim) and not b.past or not game3d(sim) and b.z >= pz) and not b.bounced and not b.lob then
+        local eta, hits, x, _, z3 = ballWarn(sim, b)
         if eta and eta <= W.SHADOW_S then
           local u = 1 - eta / W.SHADOW_S
-          local lx, ly, k = Sim.project(x, 0, pz)
+          local lx, ly, k
+          if game3d(sim) then lx, ly, k = proj(x, groundOf(sim), z3) else lx, ly, k = proj(x, 0, pz) end
           local rx = math.max(W.MIN_SHADOW, (b.w or b.r * 2) / 2 * 118 * k)
           local ry = rx * 0.3
           local R = hits and W.RED or nil
@@ -1035,7 +1186,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   -- the red outline round a ball about to hit
   local function ballBlink(G2, sim, x, y, rx, ry, eta, hits)
-    if not (hits and eta and eta <= D.WARN.BLINK_S and blinkOn(sim)) then return end
+    if in3d() or not (hits and eta and eta <= D.WARN.BLINK_S and blinkOn(sim)) then return end
     local W = D.WARN
     local R = W.RED
     G2.setLineWidth(math.max(W.RING_W, rx * 0.22))
@@ -1064,23 +1215,34 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     local pz = sim.player.z or 0.1
     if which ~= nil and sim.phase == "play" then drawLandings(G2, sim, which == "front") end
     for _, b in ipairs(sim.balls) do
-      local past = b.z < pz
+      local g3 = game3d(sim)
+      local past
+      if g3 then past = b.past and true or false else past = b.z < pz end
       -- past the trainee: gone in a moment
       local fade = 1
       if past and not b.bounced then
-        -- (a lob flies its arc with no vz: its depth at ~0.7 a second)
-        local vz = (b.lob or not b.vz or b.vz == 0) and 0.7 or math.abs(b.vz)
-        local since = (pz - b.z) / vz
+        local since
+        if g3 then
+          since = (sim.t or 0) - (b.pastT or sim.t or 0)
+        else
+          -- (a lob flies its arc with no vz: its depth at ~0.7 a second)
+          local vz = (b.lob or not b.vz or b.vz == 0) and 0.7 or math.abs(b.vz)
+          since = (pz - b.z) / vz
+        end
         fade = math.max(0, 1 - since / D.GAME_BALL.PAST_FADE_S)
       end
       if (which == nil or (which == "front") == past) and fade > 0 then
-      local px, py, k = Sim.project(b.x, b.y, b.z)
+      local px, py, k = proj(b.x, b.y, b.z)
       local rgb = BALL_RGB[b.kind] or BALL_RGB.small
-      local _, fy = Sim.project(b.x, 0, b.z)
+      local _, fy = proj(b.x, groundOf(sim), b.z)
       local eta, hits = nil, false
       if not past then eta, hits = ballWarn(sim, b) end
       if not (b.w or b.h) or b.game then
         local r = ballRadius(sim, b)
+        if proj ~= Sim.project and not game3d(sim) then
+          local _, _, k2 = Sim.project(b.x, b.y, b.z)
+          r = r * k / k2
+        end
         -- the game's tall / wide balls: the soccer ball stretched to their shape; a homing
         -- ball is blue and black (Wooble)
         local ax, ay = 1, 1
@@ -1095,7 +1257,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         local homing = P and Sim.homes(P)
         if b.lob and py + r < 0 then
           -- off the top: where it will land, in red on the grass
-          local lx, ly = Sim.project(b.lob.tx, 0, b.lob.tz)
+          local lx, ly = proj(b.lob.tx, 0, b.lob.tz)
           local pulse = 0.28 + 0.12 * math.sin(sim.t * 12)
           G2.setColor(1, 0.1, 0.1, pulse)
           G2.ellipse("fill", lx, ly, b.r * 118 * 1.2, 5)
@@ -1156,7 +1318,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 
   local function drawShots(G2, sim)
     for _, sh in ipairs(sim.shots) do
-      local px, py, k = Sim.project(sh.x, sh.y, sh.z)
+      local px, py, k = proj(sh.x, sh.y, sh.z)
       local r = math.max(2, sh.r * 118 * k)
       local img = art(("training/ball_%02d"):format(BALL_ART[sh.type] or 0))
       if img then
@@ -1384,26 +1546,25 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     local bot = sim.bot
     if bot and sim.goals then
-      local _, _, _, hwFar = Sim.view()
       for _, g in ipairs(sim.goals) do
         if not g.dead then
           local gx, gy = sim:goalPos(g)
-          local cx, cy = Sim.project(gx, gy, 1)
-          if touches(cx, cy, g.r * hwFar * bot.scale + D.RIDER_PAD) then return true end
+          local cx, cy, gk = projB(gx, gy)
+          if touches(cx, cy, goalR(sim, g) * 118 * gk * (game3d(sim) and 1 or bot.scale) + D.RIDER_PAD) then return true end
         end
       end
     end
     for _, bit in ipairs(sim.bits or {}) do
       if not bit.dead then
-        local cx, cy, kk = Sim.project(bit.x, bit.y, bit.z)
-        if touches(cx, cy, bit.r * 118 * kk + D.RIDER_PAD) then return true end
+        local cx, cy, kk, br = bitProj(sim, bit)
+        if touches(cx, cy, br * 118 * kk + D.RIDER_PAD) then return true end
       end
     end
     -- an attack still on its way (not yet past the trainee), to be seen and blocked
     local pz = sim.player and sim.player.z or 0.1
     for _, b in ipairs(sim.balls or {}) do
       if (b.z or 1) > pz then
-        local cx, cy = Sim.project(b.x, b.y, b.z)
+        local cx, cy = proj(b.x, b.y, b.z)
         if touches(cx, cy, ballRadius(sim, b) + D.RIDER_PAD) then return true end
       end
     end
@@ -1412,7 +1573,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 
   -- the rider's opacity this frame, eased toward RIDER_SEE while it covers a target, else 1
   function D.riderAlpha(sim, x0, y0, x1, y1)
-    if not sim or sim.phase == "countdown" then return 1 end
+    -- (solid in 3D, as the game draws it)
+    if not sim or sim.phase == "countdown" or in3d() then return 1 end
     local st = riderA[sim]
     if not st then st = { a = 1, t = sim.t or 0 }; riderA[sim] = st end
     local dt = math.max(0, math.min(0.1, (sim.t or 0) - st.t))
@@ -1537,27 +1699,41 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 
   local function drawPlayer(G2, sim, s)
     local p = sim.player
-    local px, py, k = Sim.project(p.x, p.y or 0, p.z)
-    k = k * D.PLAYER_SCALE
-    local lift, hsx, hsy, lean, face = hopPose(sim)
+    local px, py, k = proj(p.x, p.y or 0, p.z)
     local board = boardImage()
+    local bk
+    if game3d(sim) then
+      -- the game's model for its sprite: every Pokemon the same size (its sprite's sqrt(w x h)
+      -- TRAINEE_SIZE game units, fitted to the captures' Latias), the board BOARD_W wide (the
+      -- game's stand)
+      local G3 = N.GAME3D
+      -- (its feet on the ball the game's model rides, RIDE_UP over the stand's top)
+      px, py, k = proj(p.x, (p.y or 0) + G3.RIDE_UP, p.z)
+      local pic0 = playerPic(s)
+      local side = pic0 and math.sqrt(pic0.w * pic0.h) * (pic0.k or 1) or 40
+      if board then bk = G3.BOARD_W * 118 * k / board:getWidth() end
+      k = G3.TRAINEE_SIZE * 118 * k / side
+    else
+      k = k * D.PLAYER_SCALE
+    end
+    bk = bk or k * D.BOARD.scale
+    local lift, hsx, hsy, lean, face = hopPose(sim)
     if board then
       -- on the board it does not hop: board and rider bob together
       lift, hsx, hsy = -math.sin(sim.t * 2 * math.pi * D.BOARD.bobHz) * D.BOARD.bob, 1, 1
     end
     -- its shadow on the grass below the stand
-    local _, gy = Sim.project(p.x, 0, p.z)
+    local _, gy = proj(p.x, groundOf(sim), p.z)
     local high = 1 - 0.4 * math.min(1, (p.y or 0) / (N.PLAYER.Y_MAX or 0.7))
     local srx, sry
     if board then
-      local bk = k * D.BOARD.scale
       srx, sry = D.BOARD.cx * 0.9 * bk * high, 6 * bk * high
     else
       local shrink = (1 - 0.25 * (lift / math.max(1, D.HOP.HEIGHT))) * high
       srx, sry = 18 * k * shrink, 5 * k * shrink
     end
     -- a ball about to hit: the shadow blinks red with it
-    local soon = sim.phase == "play" and D.soonestHit(sim)
+    local soon = not in3d() and sim.phase == "play" and D.soonestHit(sim)
     local warn = soon and soon <= D.WARN.BLINK_S and blinkOn(sim)
     if warn then
       local R = D.WARN.RED
@@ -1584,7 +1760,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       y0 = feetY - pic.h * ak * hsy
     end
     if board then
-      local bk = k * D.BOARD.scale
       local bw, bh = board:getDimensions()
       x0 = math.min(x0, px - D.BOARD.cx * bk)
       x1 = math.max(x1, px + (bw - D.BOARD.cx) * bk)
@@ -1600,7 +1775,6 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local pitch = boardPitch(sim)
       hsy = hsy * (1 - D.BOARD.RIDER_PITCH * pitch)
       G2.setColor(1, 1, 1, see)
-      local bk = k * D.BOARD.scale
       drawPixel(board, px, feetY, lean, bk, bk * (1 + D.BOARD.PITCH * pitch), D.BOARD.cx, D.BOARD.feetY)
     end
     if pic then
@@ -1627,7 +1801,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if (p.shatter or 0) > 0 then drawShatter(G2, sim, px, feetY, x1 - x0, feetY - y0, k, p.shatter) end
     -- the reticle (the game's HUD draws its own)
     if s and s.hudReticle then return end
-    local rx, ry = Sim.project(p.aim.x, p.aim.y, 1)
+    local rx, ry = projB(p.aim.x, p.aim.y)
     G2.setColor(1, 1, 1, 0.9)
     G2.circle("line", rx, ry, 5, 12)
     G2.line(rx - 8, ry, rx - 3, ry)
@@ -1908,16 +2082,434 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setLineWidth(1)
   end
 
+  -- 3D SUPER TRAINING's edges (the game's effect #3 at a limit, DllSparring.cro 0x1450c; the
+  -- 3d-ref captures): pressed against the top, the right or the left (the sim's p.edge bits 1 / 2 /
+  -- 4) a ripple spreads on a flat disc beside the trainee toward that side (sim3d edgeDisc3: 2.5
+  -- up / aside, facing that way) - a yellow-green glow, a white core, dark olive rings, white
+  -- sparkles drifting up - one ring every EVERY_S while held, each LIFE_S, its radius R0 -> R1
+  -- (game units); drawn in front of the trainee
+  D.RIPPLE = { EVERY_S = 0.3, LIFE_S = 0.45, R0 = 0.5, R1 = 3.2, SEG = 28, SPARKS = 7,
+    GLOW = { 0.82, 1, 0.62 }, CORE = { 1, 1, 0.94 }, RING = { 0.43, 0.35, 0.16 } }
+  local rippleT = setmetatable({}, { __mode = "k" })   -- sim -> { held = {}, last = {}, rings = {} }
+  local ringPts = {}
+  -- drop the entries of `list` (with t0) past `life` at time t, in place
+  local function prune(list, t, life)
+    local n = 0
+    for i = 1, #list do
+      local e = list[i]
+      if t - e.t0 < life and t >= e.t0 then n = n + 1; list[n] = e end
+    end
+    for i = #list, n + 1, -1 do list[i] = nil end
+    return list
+  end
+  local EDGE_BITS = { 1, 2, 4 }
+  local function edgeRipples(sim)
+    local st = rippleT[sim]
+    if not st then st = { held = {}, last = {}, rings = {} }; rippleT[sim] = st end
+    local t = sim.t or 0
+    local edge = sim.phase == "play" and sim.player and sim.player.edge or 0
+    for _, bit in ipairs(EDGE_BITS) do
+      local on = edge % (bit * 2) >= bit
+      if on and (not st.held[bit] or t - (st.last[bit] or -1e9) >= D.RIPPLE.EVERY_S) then
+        st.rings[#st.rings + 1] = { edge = bit, t0 = t }
+        st.last[bit] = t
+      end
+      st.held[bit] = on
+    end
+    return prune(st.rings, t, D.RIPPLE.LIFE_S)
+  end
+  D.edgeRipples = edgeRipples
+  -- a disc's ring at radius r on the screen, into ringPts (false when a point is behind the eye)
+  local function discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r, n)
+    for i = 0, n - 1 do
+      local a = i / n * 2 * math.pi
+      local ca, sa = math.cos(a) * r, math.sin(a) * r
+      local sx, sy, d = A3.projectModel(cx + ux * ca + vx * sa, cy + uy * ca + vy * sa, cz + uz * ca + vz * sa)
+      if not d or d < 0.5 then return false end
+      ringPts[2 * i + 1], ringPts[2 * i + 2] = sx, sy
+    end
+    for i = 2 * n + 1, #ringPts do ringPts[i] = nil end
+    return true
+  end
+  local function drawRipples(G2, sim)
+    local A3 = D.arena3d
+    if not (A3 and A3.projectModel and sim.edgeDisc3) then return end
+    local R = D.RIPPLE
+    local t = sim.t or 0
+    for _, ring in ipairs(edgeRipples(sim)) do
+      local u = (t - ring.t0) / R.LIFE_S
+      local r = R.R0 + (R.R1 - R.R0) * (1 - (1 - u) * (1 - u))
+      local a = 1 - u * u
+      local cx, cy, cz, ux, uy, uz, vx, vy, vz = sim:edgeDisc3(ring.edge)
+      local _, _, k = A3.project(cx, cy, cz)
+      local px = (k or 0) * 118   -- screen units a game unit there
+      local G, C = R.GLOW, R.CORE
+      G2.setBlendMode("add")
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r, R.SEG) then
+        G2.setColor(G[1], G[2], G[3], 0.22 * a)
+        G2.polygon("fill", ringPts)
+      end
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r * 0.7, R.SEG) then
+        G2.setColor(G[1], G[2], G[3], 0.3 * a)
+        G2.polygon("fill", ringPts)
+      end
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r * 0.35, R.SEG) then
+        G2.setColor(C[1], C[2], C[3], 0.45 * a)
+        G2.polygon("fill", ringPts)
+      end
+      -- white sparkles on the disc, drifting up
+      local seed = math.floor(ring.t0 * 997) % 1000
+      for i = 1, R.SPARKS do
+        local ang = ((seed * 31 + i * 197) % 1000) / 1000 * 2 * math.pi
+        local rr = r * (0.25 + 0.7 * (((seed + i * 413) % 1000) / 1000))
+        local ca, sa = math.cos(ang) * rr, math.sin(ang) * rr
+        local sx, sy, d = A3.projectModel(cx + ux * ca + vx * sa, cy + uy * ca + vy * sa + u * 1.2, cz + uz * ca + vz * sa)
+        if d and d > 0.5 then
+          G2.setColor(1, 1, 1, 0.9 * a)
+          G2.circle("fill", sx, sy, math.max(0.8, 0.12 * px), 6)
+        end
+      end
+      G2.setBlendMode("alpha")
+      -- the dark rings at its edge and inside
+      local Rg = R.RING
+      G2.setColor(Rg[1], Rg[2], Rg[3], 0.75 * a)
+      G2.setLineWidth(math.max(1, 0.16 * px))
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r, R.SEG) then G2.polygon("line", ringPts) end
+      G2.setLineWidth(math.max(0.7, 0.09 * px))
+      if discRing(A3, cx, cy, cz, ux, uy, uz, vx, vy, vz, r * 0.72, R.SEG) then G2.polygon("line", ringPts) end
+      G2.setLineWidth(1)
+    end
+    G2.setColor(1, 1, 1, 1)
+  end
+
+  -- 3D SUPER TRAINING's zoom lines (the zoom-lines capture): while the trainee steps nearer or
+  -- farther, short-lived white streaks radial from the frame's middle, nearly all within SPREAD
+  -- degrees of level on either side (STRAY anywhere), over the trainee and under the HUD. Nearer:
+  -- wedges tapering to a point inward, W wide at their outer end, their tips at r IN; farther:
+  -- thin lines W wide fading inward, their inner ends at IN creeping in at CREEP a second. A streak
+  -- lives LIFE_S; RATE new ones a second. In the 3DS's 400x240 px (PX: frame units a px).
+  D.ZOOM = { LIFE_S = 0.1, SPREAD = 37, STRAY = 0.06, PX = 160 / 240,
+    NEAR = { RATE = 45, IN = { 118, 165 }, LEN = { 40, 100 }, W = 4.5 },
+    FAR = { RATE = 28, IN = { 160, 172 }, LEN = { 23, 34 }, W = 1.8, CREEP = 250 } }
+  local zoomT = setmetatable({}, { __mode = "k" })   -- sim -> { t, acc, streaks = {} }
+  local function rnd(a, b)
+    local r = (love and love.math and love.math.random) and love.math.random() or math.random()
+    return a + (b - a) * r
+  end
+  local function drawZoomLines(G2, sim)
+    local p = sim.player
+    local Z = D.ZOOM
+    local st = zoomT[sim]
+    if not st then st = { t = sim.t or 0, acc = 0, streaks = {} }; zoomT[sim] = st end
+    local t = sim.t or 0
+    local dt = math.max(0, math.min(0.1, t - st.t))
+    st.t = t
+    local want = p.distStep and N.PLAYER.DIST[p.distStep]
+    if want and p.dist and math.abs(p.dist - want) > 1e-3 then
+      local kind = p.dist > want and "NEAR" or "FAR"
+      local K = Z[kind]
+      st.acc = st.acc + dt * K.RATE
+      while st.acc >= 1 do
+        st.acc = st.acc - 1
+        local ang
+        if rnd(0, 1) < Z.STRAY then ang = rnd(0, 360)
+        else ang = (rnd(0, 1) < 0.5 and 0 or 180) + rnd(-Z.SPREAD, Z.SPREAD) end
+        st.streaks[#st.streaks + 1] = { kind = kind, a = math.rad(ang), t0 = t,
+          r0 = rnd(K.IN[1], K.IN[2]), len = rnd(K.LEN[1], K.LEN[2]) }
+      end
+    else
+      st.acc = 0
+    end
+    local keep = prune(st.streaks, t, Z.LIFE_S)
+    -- about the view's middle, at the game's px as the view scales them
+    local k, mx, my = Z.PX, 120, 80
+    local A3 = D.arena3d
+    if A3 and A3.viewCentre then
+      mx, my = A3.viewCentre()
+      k = A3.unitsPerGamePx()
+    end
+    for _, z in ipairs(keep) do
+      local ca, sa = math.cos(z.a), math.sin(z.a)
+      local K = Z[z.kind]
+      local r0 = z.r0
+      if z.kind == "FAR" then r0 = r0 - K.CREEP * (t - z.t0) end
+      local r1 = r0 + z.len
+      if z.kind == "NEAR" then
+        local w = K.W / 2 * k
+        G2.setColor(1, 0.99, 0.98, 1)
+        G2.polygon("fill", mx + ca * r0 * k, my + sa * r0 * k,
+          mx + ca * r1 * k - sa * w, my + sa * r1 * k + ca * w,
+          mx + ca * r1 * k + sa * w, my + sa * r1 * k - ca * w)
+      else
+        local rm = r0 + z.len * 0.4
+        G2.setLineWidth(K.W * k)
+        G2.setColor(1, 0.99, 0.98, 0.35)
+        G2.line(mx + ca * r0 * k, my + sa * r0 * k, mx + ca * rm * k, my + sa * rm * k)
+        G2.setColor(1, 0.99, 0.98, 1)
+        G2.line(mx + ca * rm * k, my + sa * rm * k, mx + ca * r1 * k, my + sa * r1 * k)
+        G2.setLineWidth(1)
+      end
+    end
+    G2.setColor(1, 1, 1, 1)
+  end
+
+  -- 3D SUPER TRAINING's ending, a cleared regimen's last balloon (Wooble's end-reg-ref capture;
+  -- times from the last hit, the outro's t): a white flash, then from CUT the fixed camera low in
+  -- front of it (arena3d A3.ENDING); it squeezes in at the sides and stretches up, feet where
+  -- they were, little spurts of air drifting off (SQUEEZE); at BURST a cloud bursts at its foot
+  -- and it shoots off, tips over to the right, drops behind the roof, comes back up from the left
+  -- and spirals away shrinking, trailing puffs (PATH); a star twinkles where it went (TWINKLE).
+  -- PATH rows { t, u, v, h, rot }: its middle as fractions of the game's 400x240 view (u across,
+  -- v down), its length as a fraction of the view's height, its turn in degrees (clockwise) -
+  -- read from the capture's frames; the ending's camera is fixed, so the view is the capture's.
+  -- Until JOIN the path starts from wherever this balloon stood (its own size and place).
+  D.ENDING = {
+    -- the flash: up to full white at the cut (hiding the camera's jump), then away
+    CUT = 0.25, FLASH = { 0.0, 0.25, 0.55 },
+    SQUEEZE = { 0.25, 3.6, SX = 0.32, SY = 1.32 },
+    SPURT = { EVERY = 0.3, LIFE = 1.1, SIZE = 0.05, RISE = 0.14, DRIFT = 0.05 },
+    -- the burst's clouds { dx, dy -> dx2, dy2 (from its foot, view heights), size }: one stays at
+    -- its foot, one rises off up and to the left, a small one beside
+    BURST = 3.75, BURST_LIFE = 1.1,
+    BURST_CLOUDS = { { 0, -0.04, 0.01, -0.06, 0.17 }, { -0.02, -0.08, -0.13, -0.45, 0.21 }, { 0.07, -0.03, 0.1, -0.06, 0.1 } },
+    -- the trail's puffs: SIZE of its length, kept between MIN and MAX view heights (as it shrinks
+    -- away its puffs stay about its own size, as the capture's spiral)
+    TRAIL = { EVERY = 0.09, LIFE = 0.6, SIZE = 0.6, MIN = 0.04, MAX = 0.12 },
+    JOIN = 4.3, HIDE = { 4.25, 4.35, 4.62, 4.72 },
+    PATH = {
+      { 3.75, 0.49, 0.55, 0.94, 0 }, { 3.85, 0.53, 0.52, 0.9, 22 }, { 3.95, 0.62, 0.49, 0.78, 45 },
+      { 4.05, 0.71, 0.48, 0.62, 62 }, { 4.15, 0.78, 0.56, 0.52, 78 }, { 4.25, 0.83, 0.7, 0.46, 90 },
+      { 4.35, 0.8, 0.85, 0.4, 96 }, { 4.5, 0.68, 0.92, 0.34, 102 }, { 4.62, 0.52, 0.93, 0.29, 100 },
+      { 4.75, 0.4, 0.81, 0.25, 60 }, { 4.85, 0.42, 0.7, 0.22, 25 }, { 4.95, 0.43, 0.55, 0.18, 5 },
+      { 5.05, 0.46, 0.39, 0.14, 0 }, { 5.15, 0.535, 0.27, 0.1, 20 }, { 5.25, 0.62, 0.25, 0.085, 50 },
+      { 5.35, 0.69, 0.28, 0.075, 80 }, { 5.45, 0.7, 0.35, 0.065, 120 }, { 5.55, 0.65, 0.4, 0.05, 170 },
+      { 5.65, 0.61, 0.4, 0.04, 200 }, { 5.75, 0.57, 0.34, 0.03, 250 }, { 5.85, 0.57, 0.26, 0.022, 300 },
+      { 5.95, 0.6, 0.22, 0.014, 340 },
+    },
+    GONE = 6.0, TWINKLE = { 6.0, 6.7, U = 0.6, V = 0.21, SCALE = 1.3 },
+    CONFETTI = { N = 7, SIZE = 4, FALL = 0.035,
+      COLS = { { 0.3, 0.95, 0.85 }, { 0.6, 0.95, 0.3 }, { 0.95, 0.5, 0.7 }, { 0.98, 0.85, 0.35 } } },
+  }
+
+  -- the ending's time (the outro's t) for a cleared regimen in 3D, else nil
+  function D.endingT(sim, s)
+    local o = s and s.outro
+    if not (o and o.outcome and o.outcome.clear) then return nil end
+    return o.t or 0
+  end
+
+  local function smooth01(a, b, t)
+    local u = math.max(0, math.min(1, (t - a) / (b - a)))
+    return u * u * (3 - 2 * u)
+  end
+  -- the path at time t: u, v, h, rot (between its rows; before the first, the first)
+  local function endingPath(t)
+    local P = D.ENDING.PATH
+    if t <= P[1][1] then return P[1][2], P[1][3], P[1][4], P[1][5] end
+    for i = 2, #P do
+      local b = P[i]
+      if t <= b[1] then
+        local a = P[i - 1]
+        local k = (t - a[1]) / (b[1] - a[1])
+        return a[2] + (b[2] - a[2]) * k, a[3] + (b[3] - a[3]) * k, a[4] + (b[4] - a[4]) * k, a[5] + (b[5] - a[5]) * k
+      end
+    end
+    local z = P[#P]
+    return z[2], z[3], z[4], z[5]
+  end
+
+  -- the ending's puff: round white lobes over a soft grey underside (the capture's clouds are
+  -- bright white, shaded only at their foot), `size` across, its lobes turned by `seed`
+  local function endPuff(G2, x, y, size, a, seed)
+    if a <= 0.01 or size <= 0 then return end
+    local r = size * 0.5
+    G2.setColor(0.78, 0.8, 0.84, 0.8 * a)
+    G2.circle("fill", x + r * 0.08, y + r * 0.16, r * 0.92, 18)
+    G2.setColor(1, 1, 1, a)
+    G2.circle("fill", x, y, r * 0.8, 18)
+    for i = 0, 3 do
+      local ang = (seed or 0) * 1.7 + i * math.pi / 2
+      G2.circle("fill", x + math.cos(ang) * r * 0.45, y + math.sin(ang) * r * 0.4, r * 0.52, 14)
+    end
+  end
+
+  local function drawEnding(G2, sim, s, t)
+    local A3 = D.arena3d
+    local E = D.ENDING
+    -- the game's view on our screen: its middle, and our units per game px
+    local mx, my = A3.viewCentre()
+    local gp = A3.unitsPerGamePx()
+    local function at(u, v) return mx + (u * 400 - 200) * gp, my + (v * 240 - 120) * gp end
+    local viewH = 240 * gp
+    -- where the balloon stood when the ending began: its middle and height on this screen (in the
+    -- game's space from the sim; else the flat world's mapping)
+    local bx, by = sim:botOffset()
+    local cyW = sim.botCY and sim:botCY() or N.BOT.CY
+    local ncx, ncy, kb = projB(bx, cyW + by)
+    local halfH = (sim.shape and sim.shape.halfH) or 1
+    local nH = 2 * halfH * botR(sim) * 118 * (kb or 1)
+    local sx0, top0, foot0 = ncx, ncy - nH / 2, ncy + nH / 2
+    if game3d(sim) and sim.botCentre3 and sim.botR3 then
+      local gx, gy = sim:botCentre3()
+      local hh = halfH * sim:botR3()
+      local fx, fy = A3.projectModel(gx, gy - hh, 0)
+      local _, ty = A3.projectModel(gx, gy + hh, 0)
+      sx0, top0, foot0 = fx, ty, fy
+    end
+    local h0 = math.max(1, foot0 - top0)
+    -- its flight from the burst: the capture's path, joined from where this balloon stood by JOIN
+    local u0, v0, hp0 = endingPath(E.BURST)
+    local px0, py0 = at(u0, v0)
+    local sqH = h0 * E.SQUEEZE.SY
+    local function flight(tt)
+      local u, v, h, r = endingPath(tt)
+      local x, y = at(u, v)
+      local j = 1 - smooth01(E.BURST, E.JOIN, tt)
+      return x + (sx0 - px0) * j, y + ((foot0 - sqH / 2) - py0) * j,
+        h * viewH * (1 + (sqH / (hp0 * viewH) - 1) * j), r
+    end
+    -- this frame's place, height and turn
+    local cx, cy, H, rot, wk, alpha
+    if t < E.BURST then
+      local q = smooth01(E.SQUEEZE[1], E.SQUEEZE[2], t)
+      local hy = 1 + (E.SQUEEZE.SY - 1) * q
+      H = h0 * hy
+      cx, cy = sx0, foot0 - H / 2
+      wk = 1 + (E.SQUEEZE.SX - 1) * q
+      rot, alpha = 0, 1
+    else
+      local r
+      cx, cy, H, r = flight(t)
+      rot, wk = math.rad(r), E.SQUEEZE.SX
+      -- behind the roof a moment (drawn over the stadium: faded out there)
+      local Hd = E.HIDE
+      alpha = 1 - smooth01(Hd[1], Hd[2], t) + smooth01(Hd[3], Hd[4], t)
+      if t >= E.GONE then alpha = 0 end
+    end
+    -- the spurts while it squeezes: little puffs off its upper half, drifting up and aside
+    local Sp = E.SPURT
+    if t >= E.SQUEEZE[1] then
+      local first = math.max(0, math.floor((t - Sp.LIFE - E.SQUEEZE[1]) / Sp.EVERY))
+      local last = math.floor((math.min(t, E.BURST) - E.SQUEEZE[1]) / Sp.EVERY)
+      for i = first, last do
+        local t0 = E.SQUEEZE[1] + i * Sp.EVERY
+        local k = (t - t0) / Sp.LIFE
+        if k >= 0 and k < 1 then
+          local q = smooth01(E.SQUEEZE[1], E.SQUEEZE[2], t0)
+          local hh = h0 * (1 + (E.SQUEEZE.SY - 1) * q)
+          local side = ((i * 7) % 3) - 1
+          local ox = sx0 + side * nH * 0.18 * (1 + (E.SQUEEZE.SX - 1) * q)
+          local oy = foot0 - hh * (0.45 + 0.4 * (((i * 13) % 10) / 10))
+          endPuff(G2, ox + (Sp.DRIFT + side * 0.04) * viewH * k, oy - Sp.RISE * viewH * k,
+            Sp.SIZE * viewH * (0.6 + 0.6 * k), 0.85 * (1 - k), i)
+        end
+      end
+    end
+    -- the burst at its foot, and the trail it leaves (the path's earlier places)
+    if t >= E.BURST then
+      local k = (t - E.BURST) / E.BURST_LIFE
+      if k < 1 then
+        local e = 1 - (1 - k) * (1 - k)
+        for i, c in ipairs(E.BURST_CLOUDS) do
+          endPuff(G2, sx0 + (c[1] + (c[3] - c[1]) * e) * viewH, foot0 + (c[2] + (c[4] - c[2]) * e) * viewH,
+            c[5] * viewH * (0.6 + 0.5 * e), k < 0.6 and 1 or (1 - k) / 0.4, i)
+        end
+      end
+      local Tr = E.TRAIL
+      local first = math.max(0, math.floor((t - Tr.LIFE - E.BURST) / Tr.EVERY))
+      local last = math.floor((math.min(t, E.GONE) - E.BURST) / Tr.EVERY)
+      for i = first, last do
+        local t0 = E.BURST + i * Tr.EVERY
+        local k = (t - t0) / Tr.LIFE
+        if k >= 0 and k < 1 then
+          local px, py, hh = flight(t0)
+          local sz = math.max(Tr.MIN * viewH, math.min(Tr.MAX * viewH, hh * Tr.SIZE)) * (0.7 + 0.6 * k)
+          endPuff(G2, px, py, sz, 0.9 * (1 - k), i)
+        end
+      end
+    end
+    -- (for drivers: where it put the balloon and the game's view, one table reused)
+    local L = D.lastEnding or {}
+    D.lastEnding = L
+    L.top0, L.foot0, L.h0, L.nH, L.ncy, L.cx, L.cy, L.H = top0, foot0, h0, nH, ncy, cx, cy, H
+    L.viewTop, L.viewBottom = my - 120 * gp, my + 120 * gp
+    -- the balloon
+    if alpha > 0.01 then
+      local s1 = H / nH
+      G2.push()
+      G2.translate(cx, cy)
+      G2.rotate(rot)
+      G2.scale(s1 * wk, s1)
+      G2.translate(-ncx, -ncy)
+      drawBot(G2, sim, { noShadow = true, noGoals = true, alpha = alpha })
+      G2.pop()
+    end
+    -- the star where it went
+    local Tw = E.TWINKLE
+    if t >= Tw[1] and t < Tw[2] then
+      local x, y = at(Tw.U, Tw.V)
+      local sc = gp / (160 / 240) * Tw.SCALE
+      local k = (t - Tw[1]) / (Tw[2] - Tw[1])
+      -- a soft glow under the star (the capture's is a burst of light, not only lines)
+      local g = math.sin(k * math.pi)
+      G2.setBlendMode("add")
+      for i = 1, 3 do
+        G2.setColor(1, 1, 0.95, 0.16 * g)
+        G2.circle("fill", x, y, (2 + 4 * i) * gp * g, 20)
+      end
+      G2.setBlendMode("alpha")
+      G2.push()
+      G2.translate(x, y)
+      G2.scale(sc, sc)
+      drawTwinkle(G2, 0, 0, k)
+      G2.pop()
+    end
+    -- confetti tumbling down the view
+    local C = E.CONFETTI
+    for i = 1, C.N do
+      local u = ((i * 0.37) % 1) * 0.9 + 0.05 + math.sin(t * 1.3 + i) * 0.02
+      local v = ((i * 0.53 + t * C.FALL) % 1.05)
+      local x, y = at(u, v)
+      local col = C.COLS[(i - 1) % #C.COLS + 1]
+      local tumble = math.cos(t * 4 + i * 1.7)
+      G2.setColor(col[1], col[2], col[3], 0.9)
+      G2.push()
+      G2.translate(x, y)
+      G2.rotate(t * 1.5 + i)
+      G2.rectangle("fill", -C.SIZE * gp / 2, -C.SIZE * gp * 0.35 * math.abs(tumble), C.SIZE * gp, C.SIZE * gp * 0.7 * math.abs(tumble))
+      G2.pop()
+    end
+    G2.setColor(1, 1, 1, 1)
+  end
+
   function D.draw(G2, sim, s, T)
     if not sim then
       G2.setColor(0.1, 0.1, 0.15, 1)
       G2.rectangle("fill", 0, 0, 240, 160)
       return
     end
+    -- 3D SUPER TRAINING: its camera follows the trainee and the arena is drawn through it
+    local A3 = D.mode3d and not D.failed3d and D.arena3d or nil
+    -- a cleared regimen's ending (D.ENDING): its own camera from the cut, its own scene
+    local endT = A3 and D.endingT(sim, s) or nil
+    local inEnd = endT ~= nil and endT >= D.ENDING.CUT and A3 ~= nil and A3.available() and A3.setEnding ~= nil
+    if D.arena3d and D.arena3d.setEnding then D.arena3d.setEnding(inEnd) end
+    if A3 and A3.available() then
+      if A3.setView then A3.setView(extent(T)) end
+      A3.update(sim)
+      proj = A3.project
+    else
+      proj = Sim.project
+    end
+    -- (the sim's "a bitbot under the reticle" goes by what is seen)
+    sim.screenProject = proj ~= Sim.project and proj or nil
     local Hud = T and T.hud
     local pose = Hud and Hud.pose and Hud.pose(sim, s) or nil
+    -- the intro: the game's own camera (a/1/1/4 e77) easing into the play camera
+    if proj ~= Sim.project and pose and pose.cam then A3.update(sim, pose) end
     -- the view: the arena under it, in scene units (D.view); the HUD and the fades outside
     local vz, vpx, vpy = view(T)
+    if proj ~= Sim.project then vz = 1 end
     if vz < 1 then
       G2.push()
       G2.translate(vpx, vpy)
@@ -1929,9 +2521,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     -- grass, which shows at the area's middle; as it settles (k -> 1) the focus moves to the
     -- middle itself, so zoom 1 is the plain view. The HUD and the fades stay outside it.
     local cam = pose and pose.cam
+    if proj ~= Sim.project then cam = nil end
     if cam then
       local bx, by = sim:botOffset()
-      local fx = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
+      local fx = projB(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by)
       local mx, my = ex + ew / 2, ey + eh / 2
       local k = cam.k or 0
       local Fx, Fy = fx + (mx - fx) * k, (D.BOT_SHADOW_Y - 6) + (my - D.BOT_SHADOW_Y + 6) * k
@@ -1940,7 +2533,25 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       G2.scale(cam.zoom, cam.zoom)
       G2.translate(-Fx, -Fy)
     end
-    drawBackground(G2, sim, T)
+    if proj ~= Sim.project then
+      -- the shield's cage stands on the grass under the balloon
+      local bx = sim:botOffset()
+      D.cageFoot = floorY(bx, 1) + 4
+      local ok, err = pcall(A3.drawStadium, G2, ex, ey, ew, eh)
+      if not ok then
+        -- give up on 3D for the rest of the run: the 2D view from now on
+        D.failed3d = true
+        proj, D.cageFoot = Sim.project, nil
+        if mod.log then mod.log:warn("3D SUPER TRAINING stopped (%s); drawing the 2D view", tostring(err)) end
+        drawBackground(G2, sim, T)
+      end
+    else
+      D.cageFoot = nil
+      drawBackground(G2, sim, T)
+    end
+    if inEnd then
+      drawEnding(G2, sim, s, endT)
+    else
     -- the stadium comes up out of the dark under the intro's title
     if pose and pose.veil and pose.veil > 0 then
       G2.setColor(0.0, 0.12, 0.14, 0.85 * pose.veil)
@@ -1956,21 +2567,21 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       if (b.alpha or 1) > 0 then
         local bx, by = sim:botOffset()
         local cyW = sim.botCY and sim:botCY() or N.BOT.CY
-        local cx, cy = Sim.project(bx, cyW + by, 1)
+        local cx, cy = projB(bx, cyW + by)
         local sx, sy = b.sx or b.scale or 1, b.sy or b.scale or 1
         local dy = b.dy or 0
         if b.ground then
           -- lying on the grass: its foot on the floor at its depth, floating up as it rises
-          local _, _, _, hwFar = Sim.view()
-          local halfH = ((sim.shape and sim.shape.halfH) or 1) * N.BOT.R * sim.bot.scale * hwFar
-          local onGround = D.BOT_SHADOW_Y - halfH * sy
+          local _, _, kb = projB(bx, cyW + by)
+          local halfH = ((sim.shape and sim.shape.halfH) or 1) * botR(sim) * 118 * kb
+          local onGround = floorY(bx, 1) - halfH * sy
           dy = (onGround - cy) * (1 - (b.rise or 0))
         end
         dy = dy + (b.bob or 0)
         -- its shadow stays on the grass under it: as wide as it is, fading as it leaves
-        local _, _, _, hwFar = Sim.view()
-        local R = N.BOT.R * hwFar * sim.bot.scale
-        local floorY = D.BOT_SHADOW_Y
+        local _, _, kb = projB(bx, cyW + by)
+        local R = botR(sim) * 118 * kb
+        local floorY = floorY(bx, 1)
         local shadowA = 0.25 * (b.shadow or 1) * (b.alpha or 1)
         if shadowA > 0.01 then
           G2.setColor(0, 0, 0, shadowA)
@@ -2002,12 +2613,12 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     if pose and pose.twinkle then
       local bx, by = sim:botOffset()
-      local cx, cy = Sim.project(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by, 1)
+      local cx, cy = projB(bx, (sim.botCY and sim:botCY() or N.BOT.CY) + by)
       drawTwinkle(G2, cx + (pose.twinkle.dx or 85), cy + (pose.twinkle.dy or -110), pose.twinkle.k)
     end
     local last = sim.player.lastShot
     if last and sim.phase == "play" then
-      local lx, ly = Sim.project(last.x, last.y, 1)
+      local lx, ly = projB(last.x, last.y)
       local mark = art("lyt/st_hud/target02_c")
       if mark then
         local iw = mark:getWidth()
@@ -2027,7 +2638,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     if enter and enter < 1 then
       if enter > 0 then
         local p = sim.player
-        local px = Sim.project(p.x, p.y or 0, p.z)
+        local px = proj(p.x, p.y or 0, p.z)
         G2.push()
         G2.translate((ex + ew + 40 - px) * (1 - enter), 0)
         drawPlayer(G2, sim, s)
@@ -2036,7 +2647,27 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     else
       drawPlayer(G2, sim, s)
     end
+    -- (in the game's space) the edge ripples in front of the trainee, the zoom lines over all
+    if game3d(sim) then drawRipples(G2, sim) end
     drawBalls(G2, sim, "front")
+    if game3d(sim) then drawZoomLines(G2, sim) end
+    -- (drivers: model points marked where the 3D camera puts them)
+    if D.debugMarks and proj ~= Sim.project then
+      G2.setColor(1, 0, 1, 1)
+      for _, m in ipairs(D.debugMarks) do
+        local mx, my = D.arena3d.projectModel(m[1], m[2], m[3])
+        G2.circle("line", mx, my, 4, 12)
+      end
+    end
+    end
+    -- the ending's white flash at the last hit, full at the cut
+    if endT and A3 and endT < D.ENDING.FLASH[3] then
+      local F = D.ENDING.FLASH
+      local a = endT < F[2] and smooth01(F[1], F[2], endT) or 1 - smooth01(F[2], F[3], endT)
+      G2.setColor(1, 1, 1, a)
+      G2.rectangle("fill", ex, ey, ew, eh)
+      G2.setColor(1, 1, 1, 1)
+    end
     if cam then G2.pop() end
     if vz < 1 then G2.pop() end
     ex, ey, ew, eh = extent(T)

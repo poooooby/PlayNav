@@ -164,6 +164,11 @@ on a touch screen below the game or on a device's second display.
     Regimens always run at normal speed, whatever the game speed is set to.
   - **Moving:** your Pokémon rides a hover board. Steer it across and up and down with the
     d-pad, anywhere on the screen.
+  - **3D stadium (option):** turn on **3D SUPER TRAINING** to play in a real 3D stadium - the
+    game's own, from your card image, or a drawn one without it - as the game plays it: your
+    Pokémon circles the balloon as you move, the camera riding with it, and a wall of light
+    shows when you reach an edge. Step nearer or farther with the right stick or the mouse
+    wheel (the game's three distances): nearer, your shots land sooner, but so do the balls.
   - **The energy meter** fills as you play; each shot spends some, and with too little left you
     fire a weak shot. Your Pokémon's Energy Shot colour sets the cost and the points.
   - **The goals** move with the balloon, which sways and bobs in its own way, and appear in
@@ -224,6 +229,7 @@ Open **OPTIONS → MODS → PlayNav**.
 | **USE ROM ASSETS** | On / Off | On | On: the 3DS game's own art, layouts, music, sounds and text, from your Omega Ruby or Alpha Sapphire copy (nothing of PlayNav's stands in). Off: PlayNav's own, no copy needed. **Use fallback assets** on the PlayNav screen turns it off; turning it back on checks for your copy again. |
 | **EXTRACT OR/AS ASSETS ON BOOT** | On / Off | On | Once you have chosen to extract, resume or start the unpacking automatically at the next start. |
 | **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
+| **3D SUPER TRAINING** | On / Off | Off | Play Super-Training Regimens in a real 3D stadium as the game does: you circle the balloon, the camera riding with you; the right stick or the mouse wheel steps nearer or farther. With your card image it's the game's own stadium; without it, a drawn one. Off, or on a device that can't draw it: the flat view. |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
 | **HAPTICS** | High / Medium / Low / Off | Medium | How strongly your phone or handheld vibrates for touches and play: menu presses, petting, bites, high fives, minigame hits, punching bags and Balloon Bot hits. No effect on a PC. |
 

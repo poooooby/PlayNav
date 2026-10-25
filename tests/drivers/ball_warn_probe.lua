@@ -39,6 +39,8 @@ local function body(game, log)
   local X = game.mods and game.mods.exports and game.mods.exports.play_nav
   if not X then log("FAIL no exports"); return end
   local TR = X.training
+  -- PROBE_3D=0 / 1: 2D or 3D SUPER TRAINING for this run only, whatever the saved option
+  if os.getenv("PROBE_3D") and TR.session.arenaDraw then TR.session.arenaDraw.mode3d = os.getenv("PROBE_3D") == "1" end
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
 
   local ok, err = pcall(function()

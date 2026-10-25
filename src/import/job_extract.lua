@@ -228,6 +228,33 @@ for _, key in ipairs(order) do
         end
         goto continue
       end
+      if item.kind == "model" then
+        -- a 3D model (BCH) read into Lua tables (3D SUPER TRAINING's stadium), opened from its
+        -- LZ wrapper and packages as a texture row is
+        local unlz = function(s)
+          local f = s:byte(1)
+          if f == 0x10 or f == 0x11 then
+            local d = Lz.decode(s)
+            if d then return d end
+          end
+          return s
+        end
+        local src, why = blob, "no BCH reader"
+        if Bch then src, why = Bch.descend(blob, item.path or "", unlz) end
+        local m
+        if Bch and src then m, why = Bch.model(src, item.index or 0) end
+        if not m then
+          fail(item, "model: " .. tostring(why))
+        else
+          local okW, werr = job.cache:write("oras/model/" .. item.id:gsub("/", "_") .. ".lua", Bch.serializeModel(m))
+          if okW == false or (okW == nil and werr) then
+            fail(item, "cache write: " .. tostring(werr))
+          else
+            results[#results + 1] = { id = item.id, ok = true, kind = "model", count = #m.meshes }
+          end
+        end
+        goto continue
+      end
       if item.kind == "bch" then
         -- a texture inside a 3D model / effect file (BCH), found by its name; its pixels go the
         -- same way as a CLIM's (raw RGBA, then a PNG on the main thread)

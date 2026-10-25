@@ -103,6 +103,23 @@ N.GOALS = {
   MIN_GAP_S = 0.4,
   -- a group's timer by course (Wooble's Lv1 / Lv2 captures): white for `white` s, then orange,
   -- gone at `gone`, and a group that ran out is followed on `cycle` from when it came
+  -- the Super Secret Training balloons' goal groups, read from the card by phase id (a/1/1/8
+  -- +0xd8 -> a/1/2/0 cmd 1: +0xc count, +0x10 life in frames, +0x20 in order; +0xde the red
+  -- goal's life): `n` goals a group, `life` / `chance` frames
+  PHASE = {
+    [39] = { n = 3, life = 360, chance = 300 }, [20] = { n = 3, life = 360, chance = 300 },
+    [21] = { n = 3, life = 360, chance = 300 }, [22] = { n = 3, life = 210, chance = 300 },
+    [23] = { n = 5, life = 360, chance = 300 }, [24] = { n = 1, life = 75, chance = 600, ordered = true },
+    [25] = { n = 3, life = 210, chance = 300 }, [26] = { n = 3, life = 210, chance = 300 },
+    [27] = { n = 5, life = 240, chance = 210 }, [46] = { n = 3, life = 210, chance = 300 },
+    [47] = { n = 3, life = 210, chance = 300 }, [28] = { n = 1, life = 60, chance = 300 },
+    [29] = { n = 1, life = 60, chance = 900, ordered = true }, [48] = { n = 1, life = 90, chance = 300, ordered = true },
+    [49] = { n = 1, life = 90, chance = 300, ordered = true }, [30] = { n = 1, life = 90, chance = 600, ordered = true },
+    [43] = { n = 3, life = 210, chance = 300 }, [44] = { n = 3, life = 210, chance = 300 },
+    [45] = { n = 5, life = 360, chance = 600 }, [32] = { n = 5, life = 360, chance = 600 },
+    [40] = { n = 5, life = 360, chance = 300 }, [41] = { n = 3, life = 210, chance = 300 },
+    [42] = { n = 5, life = 360, chance = 600 }, [31] = { n = 5, life = 360, chance = 600 },
+  },
   TIMER = {
     default = { white = 7.7, gone = 12.2, cycle = 13.2 },
     lv2_hp = { white = 9.55, gone = 13.4, cycle = 16.0 },
@@ -268,11 +285,42 @@ N.ATTACK = {
       lv3_spd = { pose = { [2] = 64 }, key = 25 },
       lv3_spe = { pose = { [0] = 63, [2] = 57 }, key = 21 },
     },
+    -- the balloons with no capture (Super Secret Training), by phase id, read from each one's
+    -- model (a/0/0/8, the form's battle motions e + 5): a wait plays its pose's motion (`pose`,
+    -- frames = units), a throw's key is the attack motion's event frame (`keys` by pose, else
+    -- `key`; the measured balloons' keys run 1-3 over it)
+    PHASE = {
+      [39] = { key = 19, keys = { [6] = 39 } },                                -- Aurorus
+      [20] = { key = 19, keys = { [7] = 22 } },                                -- Tyrantrum
+      [21] = { key = 19, keys = { [8] = 28 } },                                -- Venusaur
+      [22] = { key = 19, pose = { [2] = 66 } },                                -- Charizard
+      [23] = { key = 19 },                                                     -- Blastoise
+      [24] = { key = 19, pose = { [0] = 40, [2] = 40 } },                      -- Stunfisk
+      [25] = { key = 19, pose = { [0] = 65, [2] = 65 } },                      -- Aegislash
+      [26] = { key = 26, pose = { [2] = 70 } },                                -- Roserade
+      [27] = { key = 19 },                                                     -- Gallade
+      [46] = { key = 19, pose = { [2] = 20 } },                                -- Scatterbug
+      [47] = { key = 19 },                                                     -- Spewpa
+      [28] = { key = 21, pose = { [0] = 65 } },                                -- Vivillon
+      [29] = { key = 19, pose = { [2] = 70 } },                                -- Probopass
+      [48] = { key = 19, keys = { [6] = 14 }, pose = { [2] = 55 } },           -- Deino
+      [49] = { key = 19, pose = { [2] = 90 } },                                -- Zweilous
+      [30] = { key = 19, keys = { [6] = 29, [7] = 29 }, pose = { [2] = 86 } }, -- Hydreigon
+      [40] = { key = 19 },                                                     -- Larvitar
+      [41] = { key = 19 },                                                     -- Pupitar
+      [42] = { key = 19, keys = { [6] = 35, [7] = 35 } },                      -- Tyranitar
+      [31] = { key = 19, keys = { [6] = 39, [7] = 39 }, pose = { [2] = 75 } }, -- Mega Tyranitar
+      [43] = { key = 19 },                                                     -- Aron
+      [44] = { key = 19 },                                                     -- Lairon
+      [45] = { key = 19, keys = { [6] = 38, [7] = 38 } },                      -- Aggron
+      [32] = { key = 19, keys = { [6] = 34, [7] = 34 }, pose = { [2] = 70 } }, -- Mega Aggron
+    },
     -- bitbots by course: spots across (world units at their depth) and each one's fire interval
-    -- in frames (the s2 / s3 captures: Tentacruel's three together every ~103; Wailord's and
-    -- Dragalge's middle one, nearer the camera, every ~94, the sides every ~105)
+    -- in frames (the s2 / s3 captures, re-read 2026-10-24: the same layout on all three courses,
+    -- left / middle / right at x 96 / 200 / 304 of 400; the first volley together, then the
+    -- middle one, nearer the camera, every ~94 and the sides every ~105 - Tentacruel's too)
     BITS = {
-      lv2_spd = { x = { -0.64, -0.28, 0.38 }, every = { 103, 103, 103 } },
+      lv2_spd = { x = { -0.53, 0, 0.53 }, every = { 105, 94, 105 } },
       lv3_hp = { x = { -0.53, 0, 0.53 }, every = { 105, 94, 105 } },
       lv3_spd = { x = { -0.52, 0.04, 0.52 }, every = { 105, 94, 105 } },
     },
@@ -334,12 +382,106 @@ N.BLOCK = { MAX_F = 20, DEF_K = 0.005, COOLDOWN_F = 30, SAFE_F = 25, MOVE_MULT =
 -- Y_MAX: as high as the sprite stays on screen (its feet 51 px, the drawn 64 px frame at 0.8,
 -- below the top: (140 - 51) / 70.5 at the stand's depth)
 N.PLAYER = { X_MAX = 0.8, Z = 0.1, Y_MAX = 1.25, SPEED = 0.72, R = 0.12, H = 0.3, SPE_BONUS = 0.4, SPE_K = 0.001, SWIFT_MULT = 1.5,
-             HIT_STUN_S = 14 / 30, HIT_SAFE_F = 30 }
+             HIT_STUN_S = 14 / 30, HIT_SAFE_F = 30,
+             -- 3D SUPER TRAINING's forward / back (the game's): the trainee's distance from the
+             -- balloon in steps (game units; it starts on STEP0), closing at DIST_SPEED units a
+             -- frame (30 fps; half while guarding); the 2D view's depth (1 - Z) is DIST[STEP0]
+             DIST = { 180, 240, 300 }, DIST_STEP0 = 2, DIST_SPEED = 2 }
 
 -- the top screen's view of the arena (240x160 px): at the trainee's depth (NEAR, z = 0) and the
 -- balloon's (FAR, z = 1) a world unit is hw px across and hu px up, and the floor is at y = fy.
 -- The balloon is drawn large (a sprite about 140 px wide hovering over the stadium's
 -- grass); the trainee's stand floats in front of it.
+-- 3D SUPER TRAINING plays in the game's own space, 1:1 (DllSparring.cro; units the game's, the
+-- balloon at the origin, y up, 30 frames a second), only with the option on (the 2D view keeps
+-- its tuning above):
+--   the trainee on a sphere about the balloon: elevation EL, azimuth AZ (90 in front), the
+--   radius a distance step (PLAYER.DIST), moving SPEED x (1 + Speed x SPE_K) units of arc a frame
+--   (x1.5 Swiftness, x0.5 guarding); its body ACTOR_IN inside that point, ACTOR_SIDE units of arc
+--   to the side and ACTOR_UP above the sphere's level; its hit shape a sphere of HIT_R; the
+--   camera EYE_UP over the sphere point (the code aims it at (0, EYE_UP, 0); the capture fits LOOK_Y)
+--   an enemy ball: its record's speed a frame, its semi-axes its hitbox (an ellipsoid touching
+--   the trainee's sphere hits); gone DESPAWN from where it left; homing (trainee - ball) x t / (t
+--   + k) on x and y, t its frames
+--   a goal: a box of half GOAL_HALF (GOAL_HALF_BIG for the red); a shot: the table SHOT (speed a
+--   frame, size) x (1 + Speed x 0.005), x (1 + HP x 0.00125), flying as a lob LOB over its line
+--   the balloon: its phase's scale (attack data `scale`), growing to GROW x as it fills, swaying
+--   SWAY (x amplitude, degrees a frame, y amplitude, degrees a frame) when its phase says
+--   ours (the sprites standing in for the 3D models): BAL_SIZE the balloon sprite's mean side
+--   at scale 1, its feet on the grass (GROUND) or, with a midY, its middle midY x scale above it; TRAINEE_SIZE every trainee sprite's sqrt(w x h) and BOARD_W its board's width; BIT_R a
+--   bitbot's size; PLAY_FOVY / LOOK_Y the play camera's field and the height it looks at (fitted to
+--   a capture: e77's intro camera has the same 37.85)
+N.GAME3D = { EL = { 0, 45 }, AZ = { 60, 120 }, SPEED = 2, SPE_K = 0.001, ACTOR_IN = 11.5, ACTOR_SIDE = 2.5,
+  ACTOR_UP = 3.5, HIT_R = 3, EYE_UP = 4.5, DESPAWN = 300, GOAL_HALF = 10, GOAL_HALF_BIG = 15, LOB = 6,
+  SHOT = { black = { 3.6, 1.0 }, yellow = { 3.6, 0.7 }, orange = { 3.6, 2.0 }, green = { 2.6, 1.5 },
+    blue = { 5.2, 0.85 }, weak = { 3.6, 0.7 } },
+  SHOT_CHARGED = { black = { 3.0, 1.0 }, yellow = { 3.0, 0.7 }, orange = { 3.0, 2.0 }, green = { 2.1, 1.5 },
+    blue = { 5.2, 0.85 }, weak = { 3.0, 0.7 } },
+  SHOT_SPE_K = 0.005, SHOT_HP_K = 0.00125, GROW = 1.5, SWAY = { 12, 2, 6, 1 },
+  -- the shield's target (0xbacc / 0xe670): its sphere's radius, the swing about it, its foot's
+  -- height and its hit radius; a bitbot's shot: wind-up, life and its linger after a hit
+  SHIELD_R = 58.3032, SHIELD_SWING = 22.5, SHIELD_Y0 = 0, SHIELD_HIT = 6,
+  BIT_WINDUP_F = 30, BIT_LIFE_F = 300, BIT_LINGER_F = 30,
+  BAL_SIZE = 105, GROUND = -6.7, TRAINEE_SIZE = 1.8, BOARD_W = 3.6, RIDE_UP = 0.75, BIT_R = 8.3, BIT_SPEED = 3.5, BIT_SHOT_R = 2.8, BALL_LOOK = 1.19,
+  -- the bitbots where the game has them: left / middle / right spots (x, y, z), each circling a
+  -- loop BIT_LOOP_R round it facing the camera
+  BIT_SPOTS = { { -44.4, 28, 90 }, { 0, 28, 120 }, { 44.4, 28, 90 } }, BIT_LOOP_R = 16, PLAY_FOVY = 37.81,
+  LOOK_Y = 35, EDGE_OFF = 2.5, EDGE_TURN = 9, EDGE_TILT = 15,
+  -- each balloon as the captures show it at the start (the middle distance, score 0), by National
+  -- Dex number: { width, height, middle y, stands } in the 3DS's 400x240 px (stands: its feet on
+  -- the grass; the rest float, placed by their middle; unmeasured ones stand unless their
+  -- phase has a midY)
+  SIZE_PX = {
+    [610] = { 71, 105, 119.5, true },    -- Axew (lv1_atk)
+    [74] = { 111, 53, 122.5 },     -- Geodude (lv1_def)
+    [81] = { 106, 63, 90.5 },      -- Magnemite (lv1_spa)
+    [714] = { 63.5, 94.5, 94 },    -- Noibat (lv1_spe)
+    [72] = { 52.5, 93, 110.5 },    -- Tentacool (lv1_spd)
+    [320] = { 137, 79, 117.5 },    -- Wailmer (lv1_hp)
+    [142] = { 113, 88, 101 },      -- Aerodactyl (lv2_spe)
+    [611] = { 134, 100, 121, true },     -- Fraxure (lv2_atk)
+    [75] = { 146.5, 80, 131, true },     -- Graveler (lv2_def)
+    [82] = { 128, 67, 90.5 },      -- Magneton (lv2_spa)
+    [369] = { 44, 95, 108 },       -- Relicanth (lv2_hp)
+    [73] = { 88, 106, 106 },       -- Tentacruel (lv2_spd)
+    [691] = { 74, 83, 90.5 },      -- Dragalge (lv3_spd)
+    [76] = { 136, 106, 119, true },      -- Golem (lv3_def)
+    [612] = { 83, 109, 117.5, true },    -- Haxorus (lv3_atk)
+    [462] = { 134, 94, 116 },      -- Magnezone (lv3_spa)
+    [715] = { 145, 103, 111.5 },   -- Noivern (lv3_spe)
+    [321] = { 84, 82, 122 },       -- Wailord (lv3_hp)
+    [699] = { 54, 132, 106, true },      -- Aurorus (secret_01)
+    [697] = { 72, 118, 110.5, true },    -- Tyrantrum (secret_01, its second balloon)
+    [3] = { 148, 103, 120, true },       -- Venusaur (secret_02)
+    -- the Super Secret Training balloons with no capture, from the card (GAME3D.SIZE_PX's
+    -- evidence: the phase scale x the model info's b / a, x its info box, x the measured
+    -- balloons' ratio for its kind)
+    [664] = { 63.3, 95.9, 132.9, true },   -- Scatterbug
+    [665] = { 131.4, 84.5, 138.5, true },  -- Spewpa
+    [6] = { 101.4, 104.5, 88.1 },          -- Charizard (flies)
+    [9] = { 119.8, 103.1, 129.3, true },   -- Blastoise
+    [618] = { 120.3, 15.3, 173.4, true },  -- Stunfisk
+    [681] = { 103.1, 129.3, 104.2 },       -- Aegislash (hovers)
+    [407] = { 89.3, 117.9, 122.0, true },  -- Roserade
+    [475] = { 54.8, 122.9, 119.6, true },  -- Gallade
+    [666] = { 93.7, 92.9, 63.8 },          -- Vivillon (flies)
+    [476] = { 125.3, 91.1, 103.7 },        -- Probopass (hovers)
+    [635] = { 110.3, 101.9, 93.9 },        -- Hydreigon (flies)
+    [246] = { 77.3, 108.1, 126.9, true },  -- Larvitar
+    [247] = { 86.1, 101.2, 130.3, true },  -- Pupitar
+    [248] = { 85.1, 111.9, 125.0, true },  -- Tyranitar
+    [304] = { 62.1, 75.0, 143.3, true },   -- Aron
+    [305] = { 111.1, 86.4, 137.6, true },  -- Lairon
+    [306] = { 147.4, 114.6, 123.6, true }, -- Aggron
+    [633] = { 52.6, 97.4, 132.1, true },   -- Deino
+    [634] = { 130.2, 93.5, 134.1, true },  -- Zweilous
+  },
+  -- a phase whose model is another form than its species' first (the Megas), by phase id
+  SIZE_PHASE = {
+    [31] = { 128.8, 131.6, 115.3, true },  -- Mega Tyranitar
+    [32] = { 143.6, 102.9, 129.4, true },  -- Mega Aggron
+  } }
+
 N.VIEW = { NEAR = { hw = 118, fy = 140, hu = 70 }, FAR = { hw = 120, fy = 140, hu = 75 } }
 
 N.BOT = { GROWTH = 0.02, SCALE_MAX = 1.2, GROW_K = 0.56, GROW_EASE = 10, SHAKE_HZ = 2, R = 0.32, FLINCH_S = 0.35, CY = 0.45,
@@ -401,6 +543,10 @@ N.EVIDENCE = {
   ["GOALS.MIN_GAP_S"] = { class = "placeholder", source = "ours: the least gap after a group runs out", confidence = "low" },
   ["GOALS.EXPIRE_GAP_S"] = { class = "measured", source = "Wooble's Lv1 captures 2026-10-23: a group that ran out is followed 0.7-1.0 s later (new groups every 13.0-13.2 s; Noibat 1.4)", confidence = "medium" },
   ["GOALS.CHANCE_S"] = { class = "measured", source = "AS text 44:62: red goals disappear after a set amount of time; ORAS Wiki: over 10 seconds; live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: one stood 10.4 s before its first hit and stayed after hits", confidence = "medium" },
+  ["GOALS.PHASE"] = { class = "verified", source = "the Super Secret Training balloons' goal groups (2026-10-24, a research agent on DllSparring.cro and a/1/1/8 / a/1/2/0): phase +0xd8 a cmd 1 step (+4 kind, +0xa bone or 0xffff random, +0xc count, +0x10 f32 life frames, +0x20 in order), +0xde the red goal; the goal (0x8f9c) counts to 32 at 32 / life a frame (0xe42c) on the HUD clip upper_target_count, white until frame 20 (0.625), then 10 frames between groups (0x7484); the same rule gives the measured Lv1-3 timers (Lv1 360 frames: 7.7 / 12.2 / 13.2 s measured, 7.7 / 12.2 / 13.1 by it; Relicanth 450, Tentacruel 240, Dragalge 150 alike within ~0.2 s) and the red goal's 300 frames the live read's ~10.4 s", confidence = "high" },
+  ["GAME3D.SHIELD_R"] = { class = "verified", source = "DllSparring 0xbacc posts the shield's target with radius 58.3032 (a code constant), the step's half-angle 22.5 (+0x14), its turn (+0x1c) and a start a random multiple of 45 degrees; 0xe670 places it at (R cos psi cos phi, R sin phi + R / 2, R sin psi cos phi), phi = 22.5 cos theta, psi = 90 + 22.5 sin theta; hit radius 6.0 (0xe7e4) - a circle r 22.3 about (0, 29.15, 53.9), on the live read's cage (r 59.5) face", confidence = "high" },
+  ["GAME3D.BIT_WINDUP_F"] = { class = "verified", source = "the bit actor (DllSparring 0x13e74): bit list 1 entry 0 (chance 200, cooldown 0) -> bit step 1 (a/1/2/1: +0x10 a 30-frame wind-up, +0x12 4 -> a/1/2/4 record 0: type 5, life 300 frames, radius 2.4; +0x14 speed 3.5); it fires only when its last shot (the type 5 object) is gone (0x13f9c), which lingers 30 frames after a hit (0x16128, +0x130); 30 + the flight (~32 from the middle, ~42 from the sides) + 30 = the captures' 94 / 105 frames. The 3D sim only: a dodged shot frees its bit after its 300 frames (no removal past the trainee was found - medium); the bit record's HP (100 / 500 / 250) taken down by each shot's points is inferred (the hit's subtraction was not traced); the loop starts at a multiple of 45 degrees (rodata 0x181dc)", confidence = "medium" },
+  ["ATTACK.SHIELD.SPIN"] = { class = "verified", source = "the shield's step (a/1/2/0 cmd 2) carries its target's turn at +0x1c in degrees a frame (DllSparring 0xbacc posts event 0x14 with it; 0xe670 turns the target by it), read into the attack data as `spin`: step 28 (Graveler, Golem, Aurorus, Aggron, Tyranitar) 1, 600 frames - the captures' 29.3 deg/s -, step 95 (Blastoise, Spewpa, Lairon, Pupitar, the Megas' second form) 2, 900 frames; DEG_S x spin; the target waits 30 frames before its time runs (TAIL_S)", confidence = "high" },
   ["GOALS.CHANCE_ODDS"] = { class = "placeholder", source = "AS text 45:84: a red bonus goal needs every white goal blasted first (necessary, not always sufficient); gamepedia.jp", confidence = "low" },
   ["GOALS.CHANCE_EVERY"] = { class = "measured", source = "live read of the HUD target panes in Alpha Sapphire (Azahar, 2026-10-12): Speed Lv1, Sp. Atk Lv2 / Lv3; oras-extract/live_st: a single goal that takes several hits came after the second group of three each time", confidence = "medium" },
   ["GOALS.CHANCE_DELAY_S"] = { class = "measured", source = "Wooble's magneton-2 capture: the red goal fades in 0.5 s after the clearing hit (settled at 0.7), the balloon holding its pose and puffing air from both sides ~1.4 s; it took two hits of +177 each (a plain goal's)", confidence = "medium" },
@@ -456,6 +602,25 @@ N.EVIDENCE = {
   ["ATTACK"] = { class = "placeholder", source = "the kinds are verified (atwiki enemy patterns); speeds and counts are not", confidence = "low" },
   ["ATTACK.bit.regen_s"] = { class = "placeholder", source = "AS text 44:70: bits regenerate given enough time; the time is not stated", confidence = "low" },
   ["BLOCK"] = { class = "placeholder", source = "AS text 44:67: L throws up a barrier for a short period, not usable nonstop; longer with Def/SpD (gamepedia); lengths unknown", confidence = "low" },
+  ["GAME3D"] = { class = "verified", source = "DllSparring.cro (research 2026-10-24): the sphere (0xadcc), limits el 0..45 / az 60..120 (0x21f0-0x2200), speed stat+0xc = 2 x (1 + SPEv x 0.001) a frame, x0.5 guarding (0x21e0); the trainee actor at sphere(el, az + 2.5 units of arc, r - 11.5) + (0, 3.5, 0) (0xcaf0); its hit sphere radius 3 at every distance (table 0x18228); the camera at sphere(el, az, r) + (0, 4.5, 0) looking at (0, 4.5, 0) (0x6ed4); the enemy ball's hit: the trainee sphere's nearest point inside the ball's ellipsoid of its record's semi-axes (0x15900-0x15ac0), base += normalize(target - start) x speed a frame (0x163f4 / 0x15624), gone at 300 from its start (0x15ad4), homing (trainee - base) x t / (t + k) (0x155ec); goals boxes of half 10 / 15 (0xdf68 / 0xdf6c); shots: tables 0x18234 / 0x1833c (speed, size), x (1 + SPEv x 0.005), x (1 + HPv x 0.00125), a lob 6 over its line (0x16488); the balloon's phase scale a/1/1/8 +4, growing to 1.5x (0x122e4), sway (12 sin 2t, 6 sin t) degrees a frame (0x11b58)", confidence = "high" },
+  ["GAME3D.BAL_SIZE"] = { class = "measured", source = "ours (the balloon's 3D model stands in as its sprite): the sprite's mean side sqrt(w x h) at phase scale 1, fitted to the capture magneton-2 (Magneton, scale 0.7: the model 93 x 57 of the 240x160 frame at 240 out with the play camera, sqrt 73 frame = 73.5 game units); a floating balloon's middle is its phase's midY x scale above the grass (Magneton: 75 x 0.7 = 52.5, measured 53.1)", confidence = "low" },
+    ["GAME3D.TRAINEE_SIZE"] = { class = "measured", source = "ours (the trainee's sprite for its model, every Pokemon the same size, Wooble 2026-10-24): the captures' Latias at the middle, 68 x 46 of 400x240 px (sqrt 55.9 = 37.3 frame units at ~11.5 out: 1.8 game units); the game scales most trainee models 0.015 (a/1/3/0)", confidence = "medium" },
+  ["GAME3D.BOARD_W"] = { class = "measured", source = "the board under it as wide as the game's stand in the captures (horn tip to horn tip 111 of 400 px: 3.6 game units)", confidence = "medium" },
+  ["GAME3D.RIDE_UP"] = { class = "measured", source = "the trainee rides a ball on the stand: its feet over the actor point (the stand's top) by the ball - the captures' Latias bottom at y 169 of 240 against the actor point's ~193 (24 px = 0.75 game units at 11.5 out)", confidence = "medium" },
+  ["GAME3D.BIT_SPOTS"] = { class = "verified", source = "read live (Azahar GDB stub, 2026-10-24, Tentacruel): the three bitbots' world matrices at z 90 / 119.7 / 90, sampled twice - middle (2, 12.7) and (-10.9, 38.8): a loop round (0, 28.0) of 15.4; sides (-34.7, 42.3) / (-42.4, 14.5) and (45, 45) / (59.6, 21.2): round x ~-37 / ~44 at y 28, radii 14.5 / 17 (two points each, their roots off their middles); across from the captures, where the side loops are exactly symmetric (centres x 96 / 200 / 304 of 400, radii 37 / 47 / 37 px, clockwise every ~6 s, facing the camera): (+-44.4, 28, 90) and (0, 28, 120), a loop of 16; bodies 38x41 / 45x51 px (~16.5 across), their balls 17 / 12.5 px at launch (radius ~2.8)", confidence = "high" },
+  ["GAME3D.BIT_LOOP_R"] = { class = "measured", source = "see GAME3D.BIT_SPOTS", confidence = "medium" },
+  ["GAME3D.BALL_LOOK"] = { class = "verified", source = "the enemy shot models a/1/1/4 e24..e60 (emd_spXXX_en_shot01..13, read by tools/bch.py model, 2026-10-24) are one soccer-ball sphere of radius 1.18-1.20, scaled by the projectile's size: a ball shows 1.19 x its hitbox semi-axes (a size-4.8 ball 5.7 across its radius, 17 px of 400 at launch - the Lv1 captures' reading); the trainee's shots e15..e17 are radius 1.0 (drawn at their size)", confidence = "high" },
+  ["GAME3D.PLAY_FOVY"] = { class = "verified", source = "read live (Azahar GDB stub, 2026-10-24, Tentacruel's regimen at the middle): the top screen's projection uploaded with each draw holds 2.920762 / 1.752457 (5:3): cot(fovy / 2) = 2.920762, fovy 37.81 degrees (the intro camera e77's 37.85; the capture fit had 37.85)", confidence = "high" },
+  ["GAME3D.LOOK_Y"] = { class = "verified", source = "read live (Azahar GDB stub, 2026-10-24, Tentacruel's regimen): the stadium's modelview is the view itself; at the middle rows (1, 0, 0, 0), (0, 0.992021, 0.126070, -34.720844), (0, -0.126070, 0.992021, -237.517853): the eye (0, 4.5, 240) looking 7.24 degrees up at (0, 35.0, 0); at the top (elevation 45) the eye (0, 174.21, 169.71) looking 39.36 degrees down, again at (0, 35.0, 0): a fixed target (the capture fit had 31)", confidence = "high" },
+  ["GAME3D.EDGE_OFF"] = { class = "verified", source = "DllSparring.cro 0x1450c-0x14988: at a limit effect #3 is spawned beside the trainee at (0, 2.5, 0) for the top, (+-2.5, 0, 0) for the sides; the 3d-ref captures (Axew / Aerodactyl / Graveler, 2026-10-24) show a ripple disc there: the left one edge-on ~100 px left of Latias, the right a crescent by the stand, the top a ~2:1 ellipse above-left of it", confidence = "high" },
+  ["GAME3D.EDGE_TURN"] = { class = "measured", source = "the ripple discs' facing, fitted to the 3d-ref captures (2026-10-24): a side disc nearly edge-on (Axew / Graveler left edge: a streak 10-12 px wide, 90+ tall, leaning 10-15 degrees), the top one a ~0.8 ellipse (Axew top edge 150 x 125 px); EDGE_TURN off the line of sight, EDGE_TILT toward the camera", confidence = "low" },
+  ["GAME3D.EDGE_TILT"] = { class = "measured", source = "see GAME3D.EDGE_TURN", confidence = "low" },
+  ["GAME3D.SIZE_PX"] = { class = "measured", source = "every regular balloon, Aurorus and Venusaur measured at the start (middle distance, score 0, no aura) in Wooble's captures (st regimens/*.mp4, s2, s3, s4; 2026-10-24, one research agent, medians of 10-20 frames, goal boxes cut out): body box width / height and middle y in 400x240 px; Axew / Aerodactyl cross-checked on the 3d-ref takes; Venusaur (aura on, 0.6 s), Dragalge / Noibat / Noivern / Aerodactyl (thin or flapping) +-5..10 px; Tyrantrum from Wooble's Azahar screenshot of its stage paused at score 0 (2026-10-24; the trainee read live at elevation 0, azimuth 90.05: the middle), blue-masked, its right edge touching a goal box (+-2 px)", confidence = "medium" },
+  ["GAME3D.SIZE_PHASE"] = { class = "inferred", source = "the Super Secret Training balloons (2026-10-24, a research agent on the main program and a/0/0/8): a balloon is drawn at the phase scale (a/1/1/8 +4) x b / a from its model info (a/0/0/8 entry 10 + 8 x form slot: u32 a, u32 b - b 0 is int(a / (a x 0.01)^0.43) -, a box of 6 floats at +0xc; main 0x0046f74c, the factor at PokeModel +0x3f0), checked live on Graveler 0.586, Tentacruel 0.464, Tyrantrum 0.256; that scale x the info box matches the 21 measured balloons as they stand (x 1.02 standing, ~0.88 hovering, ~0.62 flying - the box spans a wingbeat); the secret balloons sized so, a hover's middle at the box middle less 7.4 (fly 6.2), the median offset of the measured floaters", confidence = "medium" },
+  ["ATTACK.GAME.PHASE"] = { class = "inferred", source = "the Super Secret Training balloons' timing from their models (2026-10-24, a research agent): a phase's s16 motion[9] at a/1/1/8 +0xBE by pose, motion m = the form's battle pack (a/0/0/8 e + 5) slot m + 1; a wait (cmd 0) lasts that motion's frame count then its recovery (DllSparring 0xef24 / 0x10760 -> a920); fire -1 arms a 90-unit timer (0xa970) cut short by the motion's event (callback 0x601c), read as the SESD record's frame (slot 55 + m, u32 +12); checked on the 18 measured courses: waits within ~1-5 units and keys 0-3 under the captures' but Golem (lv3_def) and Tentacool (lv1_spd), which keep their measured rows; Hydreigon's attack motion holds two event frames (29 / 25), the first taken", confidence = "medium" },
+  ["GAME3D.BIT_R"] = { class = "placeholder", source = "ours: a bitbot's hit size against shots (its model e73 is ~47 long)", confidence = "low" },
+  ["GAME3D.GROUND"] = { class = "verified", source = "the stadium model's pitch lines (a/1/1/4 e75)", confidence = "high" },
+  ["PLAYER.DIST"] = { class = "verified", source = "DllSparring.cro: the trainee's radius targets {180, 240, 300} (table 0x1821c), the step index starting at 1 (0x6fc0), stepped one nearer / farther by button masks 4 / 8 (0x4338 / 0x43f4; blocked while stunned or knocked back), the radius closing at 2.0 units a frame (1.0 guarding; literals 0x45a4 / 0x45a0) - 30 frames a step - with SE 0x100102 (0x42c0-0x4590)", confidence = "high" },
   ["PLAYER"] = { class = "placeholder", source = "bounded box and faster with Spe verified; sizes are not", confidence = "low" },
   ["BOT.GROWTH"] = { class = "placeholder", source = "atwiki: the balloon grows with every goal (no longer used: GROW_K)", confidence = "low" },
   ["BOT.GROW_EASE"] = { class = "measured", source = "Wooble's graveler-2 capture: most of a growth step in the first frame, all of it within 0.2-0.3 s", confidence = "medium" },

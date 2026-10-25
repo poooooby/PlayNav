@@ -112,6 +112,256 @@ function M.texture(blob, name)
   return nil, "no texture " .. tostring(name)
 end
 
+-- ------- models (3D SUPER TRAINING's stadium, a/1/1/4 entry 75): twin of tools/bch.py model()
+
+-- a little-endian IEEE float32 at 0-based p
+local function f32(s, p)
+  local v = u32(s, p)
+  if v == 0 or v == 2147483648 then return 0 end
+  local sign = v >= 2147483648 and -1 or 1
+  local e = floor(v / 8388608) % 256
+  local m = v % 8388608
+  if e == 0 then return sign * m * 2 ^ -149 end
+  if e == 255 then return 0 end
+  return sign * math.ldexp(1 + m / 8388608, e - 127)
+end
+local function u16(s, p)
+  local a, b = s:byte(p + 1, p + 2)
+  return a + b * 256
+end
+local function s16(s, p)
+  local v = u16(s, p)
+  return v >= 32768 and v - 65536 or v
+end
+
+-- a GPU command list -> { [register] = { every value written, in order } }
+local function commandsAll(s, at, words)
+  local regs = {}
+  local i, stop = at, at + words * 4
+  while i + 8 <= stop do
+    local param, hdr = u32(s, i), u32(s, i + 4)
+    local reg = hdr % 65536
+    local extra = floor(hdr / 1048576) % 2048
+    local consec = hdr >= 2147483648
+    for k = 0, extra do
+      local v = k == 0 and param or u32(s, i + 4 + 4 * k)
+      local r = reg + (consec and k or 0)
+      local list = regs[r]
+      if not list then list = {}; regs[r] = list end
+      list[#list + 1] = v
+    end
+    i = i + 8 + 4 * extra
+    if extra % 2 == 1 then i = i + 4 end
+  end
+  return regs
+end
+local function first(regs, r) local l = regs[r]; return l and l[1] or 0 end
+
+-- the vertex shader inputs' meanings by input register (what 0x2bb / 0x2bc map each loaded
+-- attribute to), and the attribute types (s8, u8, s16, f32)
+local ATTR_NAMES = { [0] = "pos", "normal", "tangent", "color", "uv0", "uv1", "uv2", "bone", "weight" }
+local ATTR_SIZE = { [0] = 1, 1, 2, 4 }
+
+-- the inverse of an affine 3x4 (rows { a, b, c, t })
+local function invert34(m)
+  local a, b, c, tx = m[1][1], m[1][2], m[1][3], m[1][4]
+  local d, e, f, ty = m[2][1], m[2][2], m[2][3], m[2][4]
+  local g, h, i, tz = m[3][1], m[3][2], m[3][3], m[3][4]
+  local det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g)
+  if math.abs(det) < 1e-12 then return { { 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 } } end
+  local inv = {
+    { (e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det },
+    { (f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det },
+    { (d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det },
+  }
+  local out = {}
+  for r = 1, 3 do
+    local row = inv[r]
+    out[r] = { row[1], row[2], row[3], -(row[1] * tx + row[2] * ty + row[3] * tz) }
+  end
+  return out
+end
+
+-- one attribute value: n components of type t (0 s8, 1 u8, 2 s16, 3 f32) at 0-based p
+local function readAttr(s, p, t, n, out)
+  local size = ATTR_SIZE[t]
+  for k = 0, n - 1 do
+    local q = p + k * size
+    local v
+    if t == 3 then v = f32(s, q)
+    elseif t == 2 then v = s16(s, q)
+    elseif t == 1 then v = s:byte(q + 1)
+    else v = s:byte(q + 1); if v >= 128 then v = v - 256 end end
+    out[k + 1] = v
+  end
+  return out
+end
+
+-- A model's meshes in model space: per mesh its material's texture, render priority,
+-- positions (moved by the bone's bind pose), UVs, vertex colours (0..1, or nil) and triangle
+-- indices (0-based). Offsets as tools/bch.py model() documents (BCH 0x21, SPICA's H3D).
+-- -> { name, meshes = { { texture, priority, pos = { x, y, z, ... }, uv = { u, v, ... },
+--      col = { r, g, b, a, ... } | nil, idx = { ... } } } } | nil, why
+function M.model(blob, index)
+  if type(blob) ~= "string" or blob:sub(1, 4) ~= "BCH\0" then return nil, "not a BCH" end
+  local main, strings, gpu, data = u32(blob, 8), u32(blob, 12), u32(blob, 16), u32(blob, 20)
+  local function name(off) return cstring(blob, strings + off) end
+  local mdl = main + u32(blob, main + u32(blob, main) + 4 * (index or 0))
+  local out = { name = name(u32(blob, mdl + 0x84)), meshes = {} }
+  local matTab, matN = u32(blob, mdl + 0x34), u32(blob, mdl + 0x38)
+  local texOf = {}
+  for k = 0, matN - 1 do texOf[k] = name(u32(blob, main + matTab + k * 0x2c + 0x1c)) end
+  local boneTab, boneN = u32(blob, mdl + 0x70), u32(blob, mdl + 0x74)
+  local worlds = {}
+  for k = 0, boneN - 1 do
+    local e = main + boneTab + k * 0x64
+    local inv = {}
+    for r = 0, 2 do
+      inv[r + 1] = {}
+      for c = 0, 3 do inv[r + 1][c + 1] = f32(blob, e + 0x2c + 4 * (r * 4 + c)) end
+    end
+    worlds[k] = invert34(inv)
+  end
+  local meshTab, meshN = u32(blob, mdl + 0x40), u32(blob, mdl + 0x44)
+  local vals = {}
+  -- every mesh's vertex buffer start (data-relative) and the first index buffer's: a buffer runs
+  -- to the next start, so a mesh's vertex count is its span over its stride - more than 256
+  -- vertices take u16 indices, whether or not 0x227's bit 31 says so (the stadium's
+  -- spa_stadium00 mesh: 1516 vertices, u16, the bit clear)
+  local bounds = {}
+  do
+    local seen, firstIb = {}, nil
+    for k = 0, meshN - 1 do
+      local e = main + meshTab + k * 0x38
+      local r = commandsAll(blob, gpu + u32(blob, e + 8), u32(blob, e + 0xc))
+      local vb = first(r, 0x203)
+      if not seen[vb] then seen[vb] = true; bounds[#bounds + 1] = vb end
+      local subTab, subN = u32(blob, e + 0x10), u32(blob, e + 0x14)
+      for sIdx = 0, subN - 1 do
+        local se = main + subTab + sIdx * 0x34
+        local sr = commandsAll(blob, gpu + u32(blob, se + 0x2c), u32(blob, se + 0x30))
+        for _, a in ipairs(sr[0x227] or {}) do
+          a = a % 2147483648
+          if not firstIb or a < firstIb then firstIb = a end
+        end
+      end
+    end
+    if firstIb and not seen[firstIb] then bounds[#bounds + 1] = firstIb end
+    table.sort(bounds)
+  end
+  local function spanEnd(start)
+    for _, x in ipairs(bounds) do if x > start then return x end end
+    return #blob - data
+  end
+  for k = 0, meshN - 1 do
+    local e = main + meshTab + k * 0x38
+    local mat, prio = u16(blob, e), u16(blob, e + 6)
+    local regs = commandsAll(blob, gpu + u32(blob, e + 8), u32(blob, e + 0xc))
+    local fmtLo, r202 = first(regs, 0x201), first(regs, 0x202)
+    local types, counts = {}, {}
+    for a = 0, 11 do
+      local nib
+      if a < 8 then nib = floor(fmtLo / 16 ^ a) % 16 else nib = floor(r202 / 16 ^ (a - 8)) % 16 end
+      types[a], counts[a] = nib % 4, floor(nib / 4) + 1
+    end
+    local permLo, permHi = first(regs, 0x2bb), first(regs, 0x2bc)
+    local meaning = {}
+    for a = 0, 11 do
+      local v = a < 8 and floor(permLo / 16 ^ a) % 16 or floor(permHi / 16 ^ (a - 8)) % 16
+      meaning[a] = ATTR_NAMES[v] or "user"
+    end
+    local boff = first(regs, 0x203)
+    local orderLo, r205 = first(regs, 0x204), first(regs, 0x205)
+    local stride, count = floor(r205 / 65536) % 256, floor(r205 / 268435456)
+    local layout, at = {}, 0
+    for slot = 0, count - 1 do
+      local a = slot < 8 and floor(orderLo / 16 ^ slot) % 16 or floor((r205 % 65536) / 16 ^ (slot - 8)) % 16
+      if a >= 12 then
+        at = at + 4 * (a - 11)
+      else
+        local t, n = types[a], counts[a]
+        local size = ATTR_SIZE[t]
+        at = floor((at + size - 1) / size) * size
+        layout[#layout + 1] = { meaning[a], t, n, at }
+        at = at + size * n
+      end
+    end
+    -- the sub meshes: their bone lists and index buffers (0x227 address, bit 31 = u16; 0x228 count)
+    local subTab, subN = u32(blob, e + 0x10), u32(blob, e + 0x14)
+    local idx, vbone, nverts, skin = {}, {}, 0, 0
+    local vcount = stride > 0 and floor((spanEnd(boff) - boff) / stride) or 0
+    for sIdx = 0, subN - 1 do
+      local se = main + subTab + sIdx * 0x34
+      -- skinning: 0 none, 1 rigid (vertices in their bone's space), 2 smooth (model space)
+      skin = math.max(skin, blob:byte(se + 1))
+      local nb = u16(blob, se + 2)
+      local bones = {}
+      for i = 0, math.min(nb, 20) - 1 do bones[i] = u16(blob, se + 4 + 2 * i) end
+      local sregs = commandsAll(blob, gpu + u32(blob, se + 0x2c), u32(blob, se + 0x30))
+      local addrs, cnts = sregs[0x227] or {}, sregs[0x228] or {}
+      for d = 1, math.min(#addrs, #cnts) do
+        local wide = addrs[d] >= 2147483648 or vcount > 256
+        local base = data + addrs[d] % 2147483648
+        for i = 0, cnts[d] - 1 do
+          local v = wide and u16(blob, base + 2 * i) or blob:byte(base + i + 1)
+          idx[#idx + 1] = v
+          if v + 1 > nverts then nverts = v + 1 end
+          if vbone[v] == nil then vbone[v] = bones end
+        end
+      end
+    end
+    local pos, uv, col = {}, {}, nil
+    for v = 0, nverts - 1 do
+      local x, y, z, u, w = 0, 0, 0, 0, 0
+      local cr, cg, cb, ca, bi = nil, nil, nil, nil, 0
+      for _, L in ipairs(layout) do
+        local p = data + boff + v * stride + L[4]
+        readAttr(blob, p, L[2], L[3], vals)
+        if L[1] == "pos" then x, y, z = vals[1], vals[2], vals[3]
+        elseif L[1] == "uv0" then u, w = vals[1], vals[2]
+        elseif L[1] == "color" and L[2] == 1 then cr, cg, cb, ca = vals[1] / 255, vals[2] / 255, vals[3] / 255, (vals[4] or 255) / 255
+        elseif L[1] == "bone" then bi = vals[1] end
+      end
+      local bl = vbone[v] or { [0] = 0 }
+      local bone = bl[bi] or bl[0] or 0
+      local W = skin == 1 and worlds[bone] or nil
+      if W then
+        x, y, z = W[1][1] * x + W[1][2] * y + W[1][3] * z + W[1][4],
+          W[2][1] * x + W[2][2] * y + W[2][3] * z + W[2][4],
+          W[3][1] * x + W[3][2] * y + W[3][3] * z + W[3][4]
+      end
+      local n = #pos
+      pos[n + 1], pos[n + 2], pos[n + 3] = x, y, z
+      uv[#uv + 1], uv[#uv + 2] = u, w
+      if cr then
+        col = col or {}
+        local c = #col
+        col[c + 1], col[c + 2], col[c + 3], col[c + 4] = cr, cg, cb, ca
+      end
+    end
+    out.meshes[#out.meshes + 1] = { texture = texOf[mat], priority = prio, skin = skin, pos = pos, uv = uv, col = col, idx = idx }
+  end
+  return out
+end
+
+-- the model as Lua source (a table constructor the main thread loads in an empty environment)
+function M.serializeModel(m)
+  local parts = { "return { name = ", ("%q"):format(m.name or ""), ", meshes = {\n" }
+  local function list(t, fmt)
+    local s = {}
+    for i = 1, #t do s[i] = (fmt):format(t[i]) end
+    return "{" .. table.concat(s, ",") .. "}"
+  end
+  for _, me in ipairs(m.meshes) do
+    parts[#parts + 1] = ("{ texture = %q, priority = %d, skin = %d,\n pos = %s,\n uv = %s,\n idx = %s"):format(
+      me.texture or "", me.priority or 0, me.skin or 0, list(me.pos, "%.3f"), list(me.uv, "%.5f"), list(me.idx, "%d"))
+    if me.col then parts[#parts + 1] = (",\n col = %s"):format(list(me.col, "%.3f")) end
+    parts[#parts + 1] = " },\n"
+  end
+  parts[#parts + 1] = "} }\n"
+  return table.concat(parts)
+end
+
 -- Game Freak's package (X / Y / OR / AS: 'PC' Pokemon, 'GR' field, 'MM', 'AD' ...): a
 -- two-letter tag, a u16 count, then count + 1 u32 offsets (the last is the end) -> the
 -- files as strings, or nil when s is not one. Twin of tools/bch.py's package().

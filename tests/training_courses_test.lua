@@ -176,6 +176,21 @@ do
   T.eq(C.botsFor(fin, "leafgreen")[4].national, 248, "LeafGreen: ...to Mega Tyranitar")
   T.check(C.botsFor(fin, "leafgreen")[4].mega and C.botsFor(fin, "sapphire")[4].damage == 2500, "...its Mega, 2500 a hit")
   T.eq(C.botsFor(C.byId.lv1_hp, "sapphire")[1].national, 320, "every other course is the same in both")
+  -- the attack data holds both finales, each line's species the bots'
+  local GD = loadFile("mods/play_nav/data/training_attacks.lua")
+  for _, v in ipairs({ { "secret_12", "sapphire" }, { "secret_12_omega", "ruby" } }) do
+    local ids, bots, same = GD.courses[v[1]], C.botsFor(fin, v[2]), true
+    for i, b in ipairs(bots) do same = same and GD.phases[ids[i]] and GD.phases[ids[i]].species == b.national end
+    T.check(same and #ids == #bots, v[1] .. ": the attack data's phases are " .. v[2] .. "'s balloons")
+  end
+  -- every secret balloon's timing from its model
+  local untimed = {}
+  for id, ids in pairs(GD.courses) do
+    if id:match("^secret") then
+      for _, pid in ipairs(ids) do if not N.ATTACK.GAME.PHASE[pid] then untimed[#untimed + 1] = pid end end
+    end
+  end
+  T.check(#untimed == 0, "every secret phase timed (" .. table.concat(untimed, " ") .. ")")
 end
 
 T.finish()

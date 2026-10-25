@@ -1564,9 +1564,21 @@ bchtex("a/1/5/2", 320, "sea_b_yoru", "tile/sea_night", 128, 128)
 bchtex("a/1/5/2", 317, "skytrip_alpha_a", "tile/trees_day", 256, 256)
 bchtex("a/1/5/2", 320, "skytrip_alpha_a_yoru", "tile/trees_night", 256, 256)
 bchtex("a/1/5/2", 321, "star", "tile/night_star", 32, 32)
+-- 3D SUPER TRAINING's stadium (2026-10-24): the model "bg" of a/1/1/4 entry 75 (LZ; 12 meshes,
+-- 1617 vertices, read by src/import/bch.lua M.model into oras/model/<id>.lua) and its 11 textures
+-- (path "": the entry is opened from its LZ wrapper)
+local function bchmodel(archive, entry, name, id)
+  A[#A + 1] = { kind = "model", archive = archive, entry = entry, sub = 0, name = name, id = id, path = "" }
+end
+bchmodel("a/1/1/4", 75, "bg", "st3d/stadium")
+for _, t in ipairs({ { "spa_black", 32, 32 }, { "spa_cloud00", 256, 128 }, { "spa_ground00", 64, 64 },
+  { "spa_kusa01", 128, 128 }, { "spa_kyaku", 128, 64 }, { "spa_prop00", 128, 128 }, { "spa_prop01", 128, 128 },
+  { "spa_roof00", 128, 64 }, { "spa_sky00", 128, 128 }, { "spa_stadium00", 128, 128 }, { "spa_whiteline", 64, 64 } }) do
+  bchtex("a/1/1/4", 75, t[1], "st3d/" .. t[1], t[2], t[3], "")
+end
 
 return {
-  version = 36,
+  version = 39,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

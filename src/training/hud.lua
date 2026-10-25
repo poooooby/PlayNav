@@ -46,6 +46,18 @@ return function(mod, T, Rules, Sim)
   H.CAM = { ZOOM = 2.4, OUT = { 2.7, 7.0 } }
   H.OUTRO = { HUD_OUT = 0.3, WOBBLE = { 0.5, 1.5 }, FLY = { 1.5, 4.8 }, AWAY = { 4.8, 6.0 }, TWINKLE = { 6.0, 6.8 }, BANNER = 7.5,
     FADE = { 9.0, 9.5 }, END = 9.6 }
+  -- 3D SUPER TRAINING's ending (arena_draw D.ENDING): its own times for the same sounds - the
+  -- leak from the cut to the ending's camera, the burst as it shoots off, the star
+  H.OUTRO3D = { HISS = 0.25, BURST = 3.75, STAR = 6.0 }
+  -- the exit's three sound times: the 3D ending's, else the 2D exit's phases
+  local function exitTimes()
+    if T.is3d and T.is3d() then
+      local E = H.OUTRO3D
+      return E.HISS, E.BURST, E.STAR
+    end
+    local O = H.OUTRO
+    return O.FLY[1], O.AWAY[1], O.TWINKLE[1]
+  end
 
   -- 400x240 -> 240x160
   local S = 0.6
@@ -205,13 +217,14 @@ return function(mod, T, Rules, Sim)
     -- the exit's sounds on our own animation's phases: the leak while it zigzags off, the
     -- burst as it zips away, the twinkle as it vanishes (data/training_sounds.lua)
     if o.outcome and o.outcome.clear and T.playSe then
-      cue("hiss", O.FLY[1], t, function() H.hiss = T.playSe("deflate_hiss") end)
-      cue("burst", O.AWAY[1], t, function()
+      local hissAt, burstAt, starAt = exitTimes()
+      cue("hiss", hissAt, t, function() H.hiss = T.playSe("deflate_hiss") end)
+      cue("burst", burstAt, t, function()
         if type(H.hiss) == "table" then H.hiss.stop() end
         H.hiss = nil
         T.playSe("deflate_burst")
       end)
-      cue("star", O.TWINKLE[1], t, function() T.playSe("star") end)
+      cue("star", starAt, t, function() T.playSe("star") end)
     end
     cue("banner", O.BANNER, t, function()
       if o.outcome and o.outcome.clear then P:play("game_clear") else P:play("ohdear") end
@@ -267,14 +280,14 @@ return function(mod, T, Rules, Sim)
       cue("bot_name_se", I.BOT_NAME_SE, sim.t, function() if T.playSe then T.playSe("bot_name") end end)
     end
     if o and o.outcome and o.outcome.clear and T.playSe then
-      local O = H.OUTRO
-      cue("hiss", O.FLY[1], o.t, function() H.hiss = T.playSe("deflate_hiss") end)
-      cue("burst", O.AWAY[1], o.t, function()
+      local hissAt, burstAt, starAt = exitTimes()
+      cue("hiss", hissAt, o.t, function() H.hiss = T.playSe("deflate_hiss") end)
+      cue("burst", burstAt, o.t, function()
         if type(H.hiss) == "table" then H.hiss.stop() end
         H.hiss = nil
         T.playSe("deflate_burst")
       end)
-      cue("star", O.TWINKLE[1], o.t, function() T.playSe("star") end)
+      cue("star", starAt, o.t, function() T.playSe("star") end)
     end
     if H.score ~= sim.score then
       if H.score then H.scoreAt = H.clock end
