@@ -71,11 +71,16 @@ return function(mod, deps)
   function A3.setView(ex, ey, ew, eh)
     VIEW.x, VIEW.y, VIEW.w, VIEW.h = ex or 0, ey or 0, ew or 240, eh or 160
   end
+  local tvNow = math.tan(rad(37.81) / 2)
   local function fitView(fovy)
     local tv = math.tan(rad(fovy) / 2)
+    tvNow = tv
     CX, PY = VIEW.x + VIEW.w / 2, VIEW.y + VIEW.h / 2
     F = math.min((VIEW.w / 2) / (tv * A3.ASPECT), (VIEW.h / 2) / tv)
   end
+  -- the view's middle (240x160 units) and the units one of the game's 400x240 px spans there
+  function A3.viewCentre() return CX, PY end
+  function A3.unitsPerGamePx() return 2 * F * tvNow / 240 end
   -- the mapping's state: the trainee's anchor (A), the camera's right (R, horizontal), the
   -- scales on the two planes, the balloon plane's foot, the trainee's flat x / y / z
   local Ax, Ay, Az, Rx, Rz = 0, 0, 200, 1, 0
@@ -407,6 +412,9 @@ return function(mod, deps)
 
   local color, depth, cw, ch = nil, nil, 0, 0
   local viewM, projM = {}, {}
+  -- (reused each frame: setCanvas' table, the sky's fallback colour)
+  local canvasArg, SKY = {}, { 0.45, 0.7, 0.95 }
+  local hasCanvasFlag = nil
   function A3.lastSize() return cw, ch end
 
   -- the stadium under the sprites, over the screen rect ex, ey, ew, eh (240x160 units, in the
@@ -437,12 +445,23 @@ return function(mod, deps)
     G.push("all")
     G.setScissor()
     G.origin()
-    if depth then G.setCanvas({ color, depthstencil = depth }) else G.setCanvas({ color, depth = true }) end
-    local sky = sc.clear or { 0.45, 0.7, 0.95 }
+    canvasArg[1] = color
+    if depth then canvasArg.depthstencil, canvasArg.depth = depth, nil
+    else canvasArg.depthstencil, canvasArg.depth = nil, true end
+    G.setCanvas(canvasArg)
+    local sky = sc.clear or SKY
     G.clear(sky[1], sky[2], sky[3], 1, true, true)
     G.setMeshCullMode("none")
     G.setBlendMode("alpha")
     G.setColor(1, 1, 1, 1)
+    -- the shader and the camera's matrices once a frame (g3d's model:draw sends all three and
+    -- swaps the shader per piece); a model matrix only when a piece's differs
+    G.setShader(shader)
+    shader:send("viewMatrix", cam.viewMatrix)
+    shader:send("projectionMatrix", cam.projectionMatrix)
+    if hasCanvasFlag == nil then hasCanvasFlag = shader:hasUniform("isCanvasEnabled") end
+    if hasCanvasFlag then shader:send("isCanvasEnabled", true) end
+    local lastM = nil
     -- far away first, with no depth (the sky's size would spend the depth buffer's precision),
     -- then the solid pieces, then the see-through ones (the game's render priority 256)
     for pass = 1, 3 do
@@ -450,8 +469,14 @@ return function(mod, deps)
       elseif pass == 2 then G.setDepthMode("lequal", true)
       else G.setDepthMode("lequal", false) end
       shader:send("alphaCut", pass == 2 and 0.5 or 0.02)
-      for _, piece in ipairs(sc.pieces) do
-        if piece.pass == pass then piece.model:draw(shader) end
+      local pieces = sc.pieces
+      for i = 1, #pieces do
+        local piece = pieces[i]
+        if piece.pass == pass then
+          local m = piece.model
+          if m.matrix ~= lastM then shader:send("modelMatrix", m.matrix); lastM = m.matrix end
+          G.draw(m.mesh)
+        end
       end
     end
     G.setDepthMode()

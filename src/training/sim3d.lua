@@ -444,20 +444,24 @@ return function(Sim, N, I)
 
   -- a segment from (x0..) to (x1..) against a box (middle c, half h, grown by r): where along it
   -- (0..1) it first enters, or nil
-  local function segBox(x0, y0, z0, x1, y1, z1, cx, cy, cz, h)
-    local tmin, tmax = 0, 1
-    local o = { x0 - cx, y0 - cy, z0 - cz }
-    local d = { x1 - x0, y1 - y0, z1 - z0 }
-    for i = 1, 3 do
-      if abs(d[i]) < 1e-9 then
-        if abs(o[i]) > h then return nil end
-      else
-        local t1, t2 = (-h - o[i]) / d[i], (h - o[i]) / d[i]
-        if t1 > t2 then t1, t2 = t2, t1 end
-        tmin, tmax = max(tmin, t1), min(tmax, t2)
-        if tmin > tmax then return nil end
-      end
+  -- (one axis of the slab test: the segment's start o and travel d on it; nil when it misses)
+  local function slab(o, d, h, tmin, tmax)
+    if abs(d) < 1e-9 then
+      if abs(o) > h then return nil end
+      return tmin, tmax
     end
+    local t1, t2 = (-h - o) / d, (h - o) / d
+    if t1 > t2 then t1, t2 = t2, t1 end
+    tmin, tmax = max(tmin, t1), min(tmax, t2)
+    if tmin > tmax then return nil end
+    return tmin, tmax
+  end
+  local function segBox(x0, y0, z0, x1, y1, z1, cx, cy, cz, h)
+    local tmin, tmax = slab(x0 - cx, x1 - x0, h, 0, 1)
+    if not tmin then return nil end
+    tmin, tmax = slab(y0 - cy, y1 - y0, h, tmin, tmax)
+    if not tmin then return nil end
+    tmin = slab(z0 - cz, z1 - z0, h, tmin, tmax)
     return tmin
   end
 

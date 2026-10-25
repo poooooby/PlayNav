@@ -2092,12 +2092,23 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     GLOW = { 0.82, 1, 0.62 }, CORE = { 1, 1, 0.94 }, RING = { 0.43, 0.35, 0.16 } }
   local rippleT = setmetatable({}, { __mode = "k" })   -- sim -> { held = {}, last = {}, rings = {} }
   local ringPts = {}
+  -- drop the entries of `list` (with t0) past `life` at time t, in place
+  local function prune(list, t, life)
+    local n = 0
+    for i = 1, #list do
+      local e = list[i]
+      if t - e.t0 < life and t >= e.t0 then n = n + 1; list[n] = e end
+    end
+    for i = #list, n + 1, -1 do list[i] = nil end
+    return list
+  end
+  local EDGE_BITS = { 1, 2, 4 }
   local function edgeRipples(sim)
     local st = rippleT[sim]
     if not st then st = { held = {}, last = {}, rings = {} }; rippleT[sim] = st end
     local t = sim.t or 0
     local edge = sim.phase == "play" and sim.player and sim.player.edge or 0
-    for _, bit in ipairs({ 1, 2, 4 }) do
+    for _, bit in ipairs(EDGE_BITS) do
       local on = edge % (bit * 2) >= bit
       if on and (not st.held[bit] or t - (st.last[bit] or -1e9) >= D.RIPPLE.EVERY_S) then
         st.rings[#st.rings + 1] = { edge = bit, t0 = t }
@@ -2105,12 +2116,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       end
       st.held[bit] = on
     end
-    local keep = {}
-    for _, r in ipairs(st.rings) do
-      if t - r.t0 < D.RIPPLE.LIFE_S and t >= r.t0 then keep[#keep + 1] = r end
-    end
-    st.rings = keep
-    return keep
+    return prune(st.rings, t, D.RIPPLE.LIFE_S)
   end
   D.edgeRipples = edgeRipples
   -- a disc's ring at radius r on the screen, into ringPts (false when a point is behind the eye)
@@ -2214,12 +2220,14 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     else
       st.acc = 0
     end
-    local keep = {}
-    for _, z in ipairs(st.streaks) do
-      if t - z.t0 < Z.LIFE_S and t >= z.t0 then keep[#keep + 1] = z end
-    end
-    st.streaks = keep
+    local keep = prune(st.streaks, t, Z.LIFE_S)
+    -- about the view's middle, at the game's px as the view scales them
     local k, mx, my = Z.PX, 120, 80
+    local A3 = D.arena3d
+    if A3 and A3.viewCentre then
+      mx, my = A3.viewCentre()
+      k = A3.unitsPerGamePx()
+    end
     for _, z in ipairs(keep) do
       local ca, sa = math.cos(z.a), math.sin(z.a)
       local K = Z[z.kind]
