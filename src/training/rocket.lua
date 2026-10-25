@@ -402,6 +402,9 @@ return function(mod, T, deps)
     elseif what == "down" then move(r, 1)
     elseif what == "row" and i then
       if i == r.sel then ask(r) else move(r, i - r.sel) end
+    elseif what == "scroll" and i then
+      -- a drag: the list's first row shown (the bag picked stays picked)
+      r.top = max(1, min(floor(i + 0.5), #Rk.STOCK - Rk.ROWS + 1))
     elseif what == "buy" then ask(r)
     elseif what == "advance" and not typed(r) then r.chars = #r.line end
   end
@@ -569,32 +572,29 @@ return function(mod, T, deps)
     G2.draw(shadeMesh, x, y, 0, w, h)
   end
 
+  -- the grimy wall behind the store (the touch screen): tiled from the rect's corner, the faded R
+  -- sprayed on it a little crooked, dark at the top, a lamp's warmth from below
   local wallQuad = nil
-  local function drawWall(G2, e)
-    local ex, ey, ew, eh = frameRect(e)
+  local function drawWall(G2, ex, ey, ew, eh)
     local img = wallImg
     if img then
       local iw, ih = img:getDimensions()
-      -- 100 units of wall a picture's height, tiled across the extent from the frame's origin
       local k = 100 / ih
-      local u0, v0 = (ex / k) % iw, (ey / k) % ih
       wallQuad = wallQuad or G2.newQuad(0, 0, 1, 1, iw, ih)
-      wallQuad:setViewport(u0, v0, ew / k, eh / k, iw, ih)
+      wallQuad:setViewport(0, 0, ew / k, eh / k, iw, ih)
       G2.setColor(1, 1, 1, 1)
       G2.draw(img, wallQuad, ex, ey, 0, k, k)
     else
       G2.setColor(0.24, 0.13, 0.11, 1)
       G2.rectangle("fill", ex, ey, ew, eh)
     end
-    -- the faded R sprayed on it, a little crooked
     local logo = topArt("rocket/logo")
     if logo then
       local lw, lh = logo:getDimensions()
-      local k = 120 / lh
+      local k = math.min(ew, eh) * 0.7 / lh
       G2.setColor(0.5, 0.08, 0.1, 0.32)
-      G2.draw(logo, 120, 82, -0.08, k, k, lw / 2, lh / 2)
+      G2.draw(logo, ex + ew / 2, ey + eh / 2, -0.08, k, k, lw / 2, lh / 2)
     end
-    -- dark at the top, a lamp's warmth from below
     shade(G2, ex, ey, ew, eh)
   end
 
@@ -615,7 +615,6 @@ return function(mod, T, deps)
   end
   Rk.bagIcon = bagIcon
 
-  -- the shop's panel (240x160 units), slid down from above by k (0..1)
   -- ------- the UI's pieces (src/training/ui_art.lua's rocket/*): nine-sliced panels, glowing
   -- dividers, text with a shadow
 
@@ -691,19 +690,24 @@ return function(mod, T, deps)
     G2.print(text, x, y)
   end
 
-  -- the shop's panel (240x160 units), slid down from above by k (0..1)
-  local SHOP = { x = 12, y = 6, w = 216, h = 148, head = 22, rowY = 32, rowH = 18, detailY = 127 }
+  -- the store (the touch screen's units), slid up from below by k (0..1): its panel, the head
+  -- (the R, the name, the money, the back button's place), the rows as many as fit (Rk.ROWS),
+  -- a scroll bar, the bag picked's line. Where things are, for taps: Rk.where
+  local SHOP = { pad = 6, head = 24, rowY = 36, rowH = 20, detail = 24, back = 22 }
   Rk.SHOP = SHOP
+  Rk.where = { rows = {} }
   local GOLD = { 1, 0.86, 0.35 }
-  local function drawShop(G2, r, k)
+  local function drawShop(G2, r, k, X, Y, W, H)
     local P = SHOP
     local e = 1 - (1 - k) ^ 3
-    local x, y, w, h = P.x, P.y - (1 - e) * 170, P.w, P.h
+    local x, y, w, h = X + P.pad, Y + P.pad + (1 - e) * (H + 20), W - 2 * P.pad, H - 2 * P.pad
+    local where = Rk.where
+    where.panel = { x = x, y = y, w = w, h = h }
     -- the panel, its shadow under it
     G2.setColor(0, 0, 0, 0.4)
     G2.rectangle("fill", x + 3, y + 4, w, h, 8, 8)
     Rk.slice(G2, "rocket/panel", x, y, w, h, 9, 1, true)
-    -- the head: a red glass band with the R and the name, the money in a recess at its right
+    -- the head: red glass, the R, the name; the money in a recess; the back button at its right
     local big, small = fontAt(G2, 11), fontAt(G2, 9)
     Rk.slice(G2, "rocket/red", x + 5, y + 4, w - 10, P.head, 6, 1, true)
     local ty = y + 4 + (P.head - big:getHeight()) / 2
@@ -717,21 +721,31 @@ return function(mod, T, deps)
       G2.draw(logo, x + 18, y + 4 + P.head / 2, 0, lk, lk, lw / 2, lh / 2)
     end
     Rk.print(G2, big, "BLACK MARKET", x + 30, ty, 1, 0.95, 0.92)
+    where.back = { x = x + w - P.back - 8, y = y + 4 + (P.head - P.back) / 2, w = P.back, h = P.back }
     local money = host.money and host.money() or 0
     local mw = small:getWidth("P 999,999") + 14
-    Rk.slice(G2, "rocket/inset", x + w - mw - 9, y + 7, mw, P.head - 6, 4)
+    local mx = where.back.x - mw - 4
+    Rk.slice(G2, "rocket/inset", mx, y + 7, mw, P.head - 6, 4)
     G2.setColor(0, 0, 0, 0.7)
-    Rk.printMoney(G2, small, money, x + w - 15.4, y + 7 + (P.head - 6 - small:getHeight()) / 2 + 0.7, "right")
+    Rk.printMoney(G2, small, money, mx + mw - 5.4, y + 7 + (P.head - 6 - small:getHeight()) / 2 + 0.7, "right")
     G2.setColor(GOLD[1], GOLD[2], GOLD[3], 1)
-    Rk.printMoney(G2, small, money, x + w - 16, y + 7 + (P.head - 6 - small:getHeight()) / 2, "right")
-    -- the rows: the chosen one on red glass, the rest divided by faint lines
+    Rk.printMoney(G2, small, money, mx + mw - 6, y + 7 + (P.head - 6 - small:getHeight()) / 2, "right")
+    -- the rows: as many as fit; the picked one on red glass, the rest divided by faint lines
     local n = #Rk.STOCK
+    local rows = math.max(3, floor((h - P.rowY - P.detail - 4) / P.rowH))
+    if rows ~= Rk.ROWS then
+      Rk.ROWS = rows
+      r.top = max(1, min(r.top, n - rows + 1))
+      if r.sel < r.top then r.top = r.sel elseif r.sel > r.top + rows - 1 then r.top = r.sel - rows + 1 end
+    end
     local rx, rw = x + 8, w - 26
-    for i = 0, Rk.ROWS - 1 do
+    for i = #where.rows, 1, -1 do where.rows[i] = nil end
+    for i = 0, rows - 1 do
       local idx = r.top + i
       local id = Rk.STOCK[idx]
       if id then
         local ry = y + P.rowY + i * P.rowH
+        where.rows[#where.rows + 1] = { x = rx, y = ry, w = rw, h = P.rowH, idx = idx }
         local sel = idx == r.sel
         if sel then
           Rk.slice(G2, "rocket/red", rx, ry, rw, P.rowH - 1, 5, 1)
@@ -739,50 +753,97 @@ return function(mod, T, deps)
           G2.setColor(1, 1, 1, 0.06)
           G2.rectangle("fill", rx + 6, ry - 0.5, rw - 12, 0.6)
         end
-        bagIcon(G2, id, rx + 10, ry + (P.rowH - 1) / 2, P.rowH - 3)
+        bagIcon(G2, id, rx + 11, ry + (P.rowH - 1) / 2, P.rowH - 3)
         local ty2 = ry + (P.rowH - 1 - small:getHeight()) / 2
         local price = Rk.price(id) or 0
         local afford = money >= price
         local c = sel and 1 or 0.82
-        Rk.print(G2, small, T.bagName(id), rx + 22, ty2, c, c, sel and 1 or 0.86)
+        Rk.print(G2, small, T.bagName(id), rx + 24, ty2, c, c, sel and 1 or 0.86)
         G2.setColor(0, 0, 0, 0.7)
         Rk.printMoney(G2, small, price, rx + rw - 5.4, ty2 + 0.7, "right")
         if afford then G2.setColor(GOLD[1], GOLD[2], GOLD[3], 1) else G2.setColor(0.6, 0.42, 0.42, 1) end
         Rk.printMoney(G2, small, price, rx + rw - 6, ty2, "right")
       end
     end
+    where.list = { x = rx, y = y + P.rowY, w = rw, h = rows * P.rowH }
     -- the scroll bar: a recessed track, a red glass thumb
-    if n > Rk.ROWS then
-      local top, span = y + P.rowY, Rk.ROWS * P.rowH - 1
+    if n > rows then
+      local top, span = y + P.rowY, rows * P.rowH - 1
       local tx = x + w - 15
       Rk.slice(G2, "rocket/inset", tx, top, 6, span, 3)
-      local bh = math.max(8, span * Rk.ROWS / n)
-      local by = top + (span - bh) * (r.top - 1) / (n - Rk.ROWS)
+      local bh = max(8, span * rows / n)
+      local by = top + (span - bh) * (r.top - 1) / (n - rows)
       Rk.slice(G2, "rocket/red", tx + 0.5, by + 0.5, 5, bh - 1, 2.5)
     end
-    -- the chosen one: what it does, and the drawer's room, under a glowing divider
+    -- the bag picked: what it does, and the drawer's room, under a glowing divider
     local id = Rk.STOCK[r.sel]
     local b = id and Rules.bag(id)
-    Rk.neonLine(G2, x + 10, y + P.detailY - 4, x + w - 10, y + P.detailY - 4, 0.8)
+    local dy = y + h - P.detail
+    Rk.neonLine(G2, x + 10, dy - 2, x + w - 10, dy - 2, 0.8)
     if b then
+      local ly = dy + (P.detail - 8 - small:getHeight()) / 2 + 2
       Rk.print(G2, small, ("+%d %s EVs  ·  %d hits"):format(b.ev, Rules.STAT_LABEL[b.stat] or b.stat, b.hits),
-        x + 11, y + P.detailY, 0.85, 0.85, 0.9)
+        x + 11, ly, 0.85, 0.85, 0.9)
       local room = ("DRAWER %d/%d"):format(#Store.bags(), Rules.N.LIMITS.BAG_MAX)
       local full = Rules.inventoryFull(Store.bags())
-      if full then Rk.print(G2, small, room, x + w - 11 - small:getWidth(room), y + P.detailY, 1, 0.45, 0.45)
-      else Rk.print(G2, small, room, x + w - 11 - small:getWidth(room), y + P.detailY, 0.72, 0.72, 0.78) end
+      if full then Rk.print(G2, small, room, x + w - 11 - small:getWidth(room), ly, 1, 0.45, 0.45)
+      else Rk.print(G2, small, room, x + w - 11 - small:getWidth(room), ly, 0.72, 0.72, 0.78) end
     end
   end
 
-  function T.drawRocketTop(G2, s, e)
-    drawWall(G2, e)
+  -- the touch screen: the wall, the store over it (from the shop on), dimmed while he asks
+  function Rk.drawBottom(G2, s, x, y, w, h)
+    drawWall(G2, x, y, w, h)
     local r = s.rocket
-    if r and (r.shopT or 0) > 0 then drawShop(G2, r, r.shopT) end
-    -- dimmed while he talks to the player below
+    if r and (r.shopT or 0) > 0 then drawShop(G2, r, r.shopT, x, y, w, h)
+    else Rk.where.panel, Rk.where.back = nil, nil end
     if r and (r.dim or 0) > 0 then
-      local ex, ey, ew, eh = frameRect(e)
       G2.setColor(0, 0, 0, Rk.DIM * r.dim)
+      G2.rectangle("fill", x - 10, y - 10, w + 20, h + 20)
+    end
+  end
+
+  -- the top screen: the alley (rocket_scene.lua) over the area, his words in a box along its foot
+  function T.drawRocketTop(G2, s, e)
+    local ex, ey, ew, eh = frameRect(e)
+    local r = s.rocket
+    local st = Rk.state()
+    if Scene then
+      local ok, err = pcall(Scene.draw, G2, ex, ey, ew, eh, st and st.dealer or 0, st and st.clock or 0)
+      if not ok and not Rk.drawWarned then
+        Rk.drawWarned = true
+        mod.log:warn("Super Training: the alley's draw failed (%s)", tostring(err))
+      end
+    else
+      G2.setColor(0.03, 0.035, 0.07, 1)
       G2.rectangle("fill", ex, ey, ew, eh)
+    end
+    if not (r and st and st.line) then return end
+    local font, small = fontAt(G2, 9), fontAt(G2, 7)
+    -- the box: across the area (at most 300 wide, centred), along its foot
+    local bw, bh = math.min(ew - 12, 300), 40
+    local bx = ex + (ew - bw) / 2
+    local by = ey + eh - bh - 5
+    Rk.slice(G2, "rocket/panel", bx, by, bw, bh, 8, 0.96, true)
+    local tag = "???"
+    local tw, th = small:getWidth(tag) + 12, small:getHeight() + 4
+    Rk.slice(G2, "rocket/red", bx + 8, by - th + 3, tw, th, 4)
+    Rk.print(G2, small, tag, bx + 14, by - th + 5, 1, 0.9, 0.9)
+    local shown = st.shown or ""
+    if shown:find(Rk.PD, 1, true) or shown:find("\n", 1, true) then
+      Rk.printLine(G2, font, shown, bx + 10, by + 7, 0.96, 0.94, 0.92)
+    else
+      G2.setFont(font)
+      G2.setColor(0, 0, 0, 0.7)
+      G2.printf(shown, bx + 10.6, by + 7.7, bw - 22, "left")
+      G2.setColor(0.96, 0.94, 0.92, 1)
+      G2.printf(shown, bx + 10, by + 7, bw - 22, "left")
+    end
+    -- the line is out: a blinking mark to go on (not while the shop waits for a pick)
+    if st.typed and st.phase ~= "shop" and (st.clock * 2) % 1 < 0.6 then
+      local mx, my = bx + bw - 12, by + bh - 8
+      G2.setColor(1, 0.4, 0.4, 1)
+      G2.polygon("fill", mx - 4, my - 3, mx + 4, my - 3, mx, my + 2)
     end
   end
 

@@ -140,21 +140,36 @@ local function body(game, log)
     log("greet:", st.line)
     local app = X.apps:get("training_rocket")
     local Gm = app.geometry()
-    tapRect(2, Gm.BOX)
+    -- a tap anywhere on the touch screen goes on
+    tapRect(2, { x = 120, y = 80, w = 10, h = 10 })
     waitFor(function() return Rk.state().shopT >= 1 end, 600)
     U.wait(10)
     shot("r08_shop")
     -- money for the run; an R+ (the seventh: HP R+) then an R
     Runtime.getSession().money = 40000
-    for _ = 1, 6 do tapRect(3, Gm.DOWN) end
+    -- a drag up the list scrolls it; then a tap on a row picks it, a second asks for it
+    do
+      Gm = app.geometry()
+      local L = Gm.LIST
+      local x0, y0 = win(L.x + L.w / 2, L.y + L.h - 4)
+      local x1, y1 = win(L.x + L.w / 2, L.y + 4)
+      love.touchpressed(40, x0, y0, 0, 0, 1); U.wait(2)
+      for k = 1, 8 do local f = k / 8; love.touchmoved(40, x0, y0 + (y1 - y0) * f, 0, 0, 1); U.wait(1) end
+      love.touchreleased(40, x1, y1, 0, 0, 1); U.wait(3)
+      log("dragged: the list from", Rk.state().top, "picked", Rk.state().id)
+    end
+    local function rowOf(id)
+      for _, rw in ipairs(app.geometry().ROWS or {}) do if Rk.STOCK[rw.idx] == id then return rw end end
+    end
+    tapRect(3, rowOf("hp_rp"))
     U.wait(5)
     shot("r09_scrolled")
-    -- a tap on his box asks for the bag picked
-    tapRect(4, Gm.BOX)
+    log("tapped HP R+: picked", Rk.state().id)
+    tapRect(4, rowOf("hp_rp"))
     waitFor(function() return Rk.state().dim >= 1 end, 600)
     U.wait(5)
     shot("r10_confirm")
-    log("asked:", (Rk.state().line:gsub("\n", " / "):gsub("\1", "P")), "top dimmed", Rk.state().dim)
+    log("asked:", (Rk.state().line:gsub("\n", " / "):gsub("\1", "P")), "store dimmed", Rk.state().dim)
     -- NO (down, then A): the question goes, the top screen lights again
     U.tap(game, "down"); U.wait(3); U.tap(game, "a"); U.wait(3)
     waitFor(function() return Rk.state().dim <= 0 end, 600)
@@ -169,13 +184,13 @@ local function body(game, log)
     waitFor(function() return Rk.state().dim <= 0 end, 600)
     log("after the sale: top dimmed", Rk.state().dim)
     shot("r11_sold")
-    tapRect(6, Gm.UP)
+    U.tap(game, "up"); U.wait(3)
     U.tap(game, "a"); U.wait(3); U.tap(game, "a"); U.wait(3)
     U.wait(5)
     st = Rk.state()
     log("bought an R:", "money", st.money, "drawer", st.bags)
     -- short now (5,000)
-    tapRect(9, Gm.BOX); U.tap(game, "a"); U.wait(3)
+    tapRect(9, rowOf(Rk.state().id)); U.tap(game, "a"); U.wait(3)
     U.wait(5)
     st = Rk.state()
     log("short:", "money", st.money, "drawer", st.bags, "said:", st.line)
@@ -185,15 +200,15 @@ local function body(game, log)
     local before = #bags
     while #bags < 12 do bags[#bags + 1] = "hp_s" end
     Runtime.getSession().money = 999999
-    -- (a tap on his box asks, a tap on YES buys)
-    tapRect(11, Gm.BOX); tapRect(12, Gm.YES)
+    -- (a tap on the picked row asks, a tap on YES buys)
+    tapRect(11, rowOf(Rk.state().id)); tapRect(12, app.geometry().YES)
     U.wait(5)
     st = Rk.state()
     log("full:", "money", st.money, "drawer", st.bags, "said:", st.line)
     shot("r13_full")
     while #bags > before do table.remove(bags) end
     -- leave
-    tapRect(13, Gm.BACK)
+    tapRect(13, app.geometry().BACK)
     waitFor(function() local s2 = Rk.state(); return s2 and s2.typed end, 600)
     U.wait(5)
     shot("r14_bye")

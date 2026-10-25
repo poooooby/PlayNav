@@ -27,7 +27,7 @@ return function(mod, deps)
   Al.NEON = { z0 = -22.4, z1 = -20.6, y0 = 3.1, y1 = 3.5 }
   Al.WALK = { from = { 0.35, 1.62, 4 }, to = { 0.3, 1.6, -10.9 }, S = 4.6, STRIDE = 0.78, BOB = 0.045, SWAY = 0.025 }
   Al.LOOK = { from = { 0, 1.5, -26 }, to = { -0.7, 1.55, -15.8 } }
-  Al.FOVY = 52
+  Al.FOVY, Al.ASPECT = 52, 1.5
   Al.NEAR, Al.FAR = 0.05, 200
   Al.CLEAR = { 0.03, 0.035, 0.07 }
 
@@ -117,8 +117,11 @@ return function(mod, deps)
     local tz = L.from[3] + (L.to[3] - L.from[3]) * k
     eye[1], eye[2], eye[3] = ex, ey, ez
     lookAt(cam, ex, ey, ez, tx, ty, tz, 0.008 * sin(phase / 2) * live)
+    -- the field fits a 3:2 view (the 240x160 frame's) to the rect: by its height on a wider
+    -- rect, by its width on a taller one (a tall screen shows more above and below)
     local ew, eh = rect[3], rect[4]
-    cam.F = (eh / 2) / tan(rad(Al.FOVY) / 2)
+    local tv = tan(rad(Al.FOVY) / 2)
+    if ew / eh > Al.ASPECT then cam.F = (eh / 2) / tv else cam.F = (ew / 2) / (tv * Al.ASPECT) end
     cam.CX, cam.CY = rect[1] + ew / 2, rect[2] + eh / 2
   end
   Al.place = place
