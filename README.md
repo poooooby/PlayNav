@@ -319,7 +319,8 @@ Open **OPTIONS → MODS → PlayNav**.
   © Nintendo / Creatures Inc. / GAME FREAK Inc.; see `assets/credits.txt`). Their names
   and descriptions come from [PokeAPI](https://pokeapi.co).
 - **Super Training stadium and hover board, the Amie cottage and play sky, and the regimen
-  picker's music:** original art and music by Wooble for PlayNav.
+  picker's music, along with other sprites and music:** original art and music by Wooble for
+  PlayNav.
 - **Balloon Bot sprites:** the Gen 9 Pack's Pokémon battler sprites — Gen 1-5 Pokémon by
   veekun, Gen 6 Pokémon by all contributors to the Smogon X/Y Sprite Project.
 - **Pokémon-Amie's Décor, wallpapers, Poké Puffs, hand and minigame art** (used without a card
