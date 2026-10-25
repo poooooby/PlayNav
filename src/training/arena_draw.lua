@@ -1154,6 +1154,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   -- and the rings of balls that miss (under the trainee), true the rings of balls that would
   -- hit (over it, else its board hides them)
   local function drawLandings(G2, sim, over)
+    -- (none in 3D: the game shows no warning there)
+    if in3d() then return end
     local W = D.WARN
     local pz = sim.player.z or 0.1
     for _, b in ipairs(sim.balls) do
@@ -1184,7 +1186,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
   end
   -- the red outline round a ball about to hit
   local function ballBlink(G2, sim, x, y, rx, ry, eta, hits)
-    if not (hits and eta and eta <= D.WARN.BLINK_S and blinkOn(sim)) then return end
+    if in3d() or not (hits and eta and eta <= D.WARN.BLINK_S and blinkOn(sim)) then return end
     local W = D.WARN
     local R = W.RED
     G2.setLineWidth(math.max(W.RING_W, rx * 0.22))
@@ -1571,7 +1573,8 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
 
   -- the rider's opacity this frame, eased toward RIDER_SEE while it covers a target, else 1
   function D.riderAlpha(sim, x0, y0, x1, y1)
-    if not sim or sim.phase == "countdown" then return 1 end
+    -- (solid in 3D, as the game draws it)
+    if not sim or sim.phase == "countdown" or in3d() then return 1 end
     local st = riderA[sim]
     if not st then st = { a = 1, t = sim.t or 0 }; riderA[sim] = st end
     local dt = math.max(0, math.min(0.1, (sim.t or 0) - st.t))
@@ -1730,7 +1733,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       srx, sry = 18 * k * shrink, 5 * k * shrink
     end
     -- a ball about to hit: the shadow blinks red with it
-    local soon = sim.phase == "play" and D.soonestHit(sim)
+    local soon = not in3d() and sim.phase == "play" and D.soonestHit(sim)
     local warn = soon and soon <= D.WARN.BLINK_S and blinkOn(sim)
     if warn then
       local R = D.WARN.RED
@@ -2251,6 +2254,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     -- 3D SUPER TRAINING: its camera follows the trainee and the arena is drawn through it
     local A3 = D.mode3d and not D.failed3d and D.arena3d or nil
     if A3 and A3.available() then
+      if A3.setView then A3.setView(extent(T)) end
       A3.update(sim)
       proj = A3.project
     else

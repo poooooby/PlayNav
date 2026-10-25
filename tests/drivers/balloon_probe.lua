@@ -50,6 +50,8 @@ local function body(game, log)
   local X = loader and loader.exports and loader.exports.play_nav
   if not X then log("FAIL no exports"); return end
   local TR = X.training
+  -- PROBE_3D=0 / 1: 2D or 3D SUPER TRAINING for this run only, whatever the saved option
+  if os.getenv("PROBE_3D") and TR.session.arenaDraw then TR.session.arenaDraw.mode3d = os.getenv("PROBE_3D") == "1" end
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   loader.modOptions.play_nav.display_mode = "combined"
   if X.import then

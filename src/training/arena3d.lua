@@ -61,6 +61,21 @@ return function(mod, deps)
   local m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12 = 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0
   local eyeX, eyeY, eyeZ = 0, 0, 240
   local F, PY = 172, 80          -- focal length (240x160 units) and the axis's screen height
+  local CX = 120                 -- ...and its screen x
+  -- The area the arena fills (240x160 units, set each frame by the drawer: the playfield, which
+  -- can reach past the GBA frame's whole-number scale), and the game's screen shape (400x240):
+  -- the camera shows the game's whole view contained in the area, about its middle - the
+  -- game's width on a taller area, its height on a wider one - whatever the frame's scale.
+  local VIEW = { x = 0, y = 0, w = 240, h = 160 }
+  A3.ASPECT = 400 / 240
+  function A3.setView(ex, ey, ew, eh)
+    VIEW.x, VIEW.y, VIEW.w, VIEW.h = ex or 0, ey or 0, ew or 240, eh or 160
+  end
+  local function fitView(fovy)
+    local tv = math.tan(rad(fovy) / 2)
+    CX, PY = VIEW.x + VIEW.w / 2, VIEW.y + VIEW.h / 2
+    F = math.min((VIEW.w / 2) / (tv * A3.ASPECT), (VIEW.h / 2) / tv)
+  end
   -- the mapping's state: the trainee's anchor (A), the camera's right (R, horizontal), the
   -- scales on the two planes, the balloon plane's foot, the trainee's flat x / y / z
   local Ax, Ay, Az, Rx, Rz = 0, 0, 200, 1, 0
@@ -105,8 +120,7 @@ return function(mod, deps)
     local sx, sy, sz = A3.sphere(el, az, r)
     local ex, ey, ez = sx, sy + C.EYE_H, sz
     local tx, ty, tz = 0, C.TARGET_Y, 0
-    F = 80 / math.tan(rad(C.FOVY) / 2)
-    PY = 80
+    fitView(C.FOVY)
     -- the play camera fixes the mapping
     lookAt(ex, ey, ez, tx, ty, tz)
     Rx, Rz = m1, m3
@@ -143,8 +157,7 @@ return function(mod, deps)
   A3.game = nil   -- the sim played in the game's space this frame, else nil
   local function placeGame(sim, intro)
     local G3, p = N.GAME3D, sim.player
-    F = 80 / math.tan(rad(G3.PLAY_FOVY) / 2)
-    PY = 80
+    fitView(G3.PLAY_FOVY)
     azNow, elNow, rNow = p.az or 90, p.el or 0, p.dist or 240
     local ex, ey, ez, tx, ty, tz = p.ex, p.ey, p.ez, 0, G3.LOOK_Y, 0
     if intro and intro < 1 then
@@ -197,7 +210,7 @@ return function(mod, deps)
     local d = -(m9 * X + m10 * Y + m11 * Z + m12)
     if d < 1e-3 then d = 1e-3 end
     local f = F / d
-    return 120 + vx * f, PY - vy * f, d
+    return CX + vx * f, PY - vy * f, d
   end
   A3.projectModel = projectModel
 
@@ -226,7 +239,7 @@ return function(mod, deps)
   -- the camera's ray through screen (sx, sy) meets the balloon's plane (z 1) at world (x, y)
   -- (in the game's space: the game's plane z 0 through the balloon, as the flat world's x, y)
   function A3.unprojectToPlane(sx, sy)
-    local dx, dy = (sx - 120) / F, -(sy - PY) / F
+    local dx, dy = (sx - CX) / F, -(sy - PY) / F
     local wx = m1 * dx + m5 * dy - m9
     local wy = m2 * dx + m6 * dy - m10
     local wz = m3 * dx + m7 * dy - m11
@@ -280,7 +293,7 @@ return function(mod, deps)
   end
   function A3.projectionMatrix(out, ex, ey, ew, eh)
     local n, f = A3.CAM.NEAR, A3.CAM.FAR
-    local l, r = (ex - 120) / F * n, (ex + ew - 120) / F * n
+    local l, r = (ex - CX) / F * n, (ex + ew - CX) / F * n
     local t, b = (PY - ey) / F * n, (PY - (ey + eh)) / F * n
     out[1], out[2], out[3], out[4] = 2 * n / (r - l), 0, (r + l) / (r - l), 0
     out[5], out[6], out[7], out[8] = 0, 2 * n / (t - b), (t + b) / (t - b), 0

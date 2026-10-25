@@ -44,7 +44,7 @@ local function body(game, log)
   Player.cellX, Player.cellY, Player.px, Player.py = 14, 12, 14 * 16, 12 * 16
   Player.targetX, Player.targetY = 14, 12
   if s and #(s.party or {}) == 0 then
-    Party.giveMon(s, C:require("species", "SPECIES_TORCHIC"), 12)
+    Party.giveMon(s, C:require("species", "SPECIES_" .. (os.getenv("PROBE_SPECIES") or "TORCHIC")), 12)
     Party.giveMon(s, C:require("species", "SPECIES_ZIGZAGOON"), 6)
   end
   U.wait(60)
@@ -67,6 +67,8 @@ local function body(game, log)
   opts.display_mode = "separate"
   local TR = X.training
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
+  -- PROBE_3D=1: 3D SUPER TRAINING for this run only (never saved)
+  if os.getenv("PROBE_3D") == "1" and TR.session.arenaDraw then TR.session.arenaDraw.mode3d = true end
 
   local ok, err = pcall(function()
     log("training open:", TR.open())
