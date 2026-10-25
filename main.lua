@@ -1792,8 +1792,10 @@ return function(mod)
     local s = Training and Training.session
     if type(s) ~= "table" then return false end
     if s.mode == "regimen" or s.mode == "result" then return true end
+    -- the easter egg too (src/training/rocket.lua): the R's unlock, the alley, the ways in and out
+    if s.mode == "rocket" or (s.anim and s.anim.rocket) then return true end
     local tr = s.trans
-    return type(tr) == "table" and (tr.to == "regimen" or tr.from == "result")
+    return type(tr) == "table" and (tr.to == "regimen" or tr.from == "result" or tr.to == "rocket" or tr.from == "rocket")
   end
   if not (mod.supports and not mod:supports("hooks", "core.logic_speed")) then
     mod.hooks:wrap("core.logic_speed", function(next, game)
