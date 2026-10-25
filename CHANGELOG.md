@@ -5,6 +5,14 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-24 (beta)
+
+### Fixed
+
+- 3D SUPER TRAINING on Android handhelds (the AYN Thor): the top screen drew only its
+  bottom-left quarter.
+- 3D SUPER TRAINING's crosshair shrank to a dot; it is now the size it is in 2D.
+
 ## [0.8.0] - 2026-10-24 (beta)
 
 ### Added
