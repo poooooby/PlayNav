@@ -5,6 +5,13 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-25 (beta)
+
+### Added
+
+- Azahar's compressed card images (`.zcci`) can be imported as they are, with no need to
+  decompress them first.
+
 ## [0.8.1] - 2026-10-24 (beta)
 
 ### Fixed
