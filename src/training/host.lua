@@ -272,6 +272,41 @@ return function(mod, base)
     return ok and added == true
   end
 
+  -- an engine item's bag icon (24x24) by its numeric id, or nil: FRLG's bag hands out an image
+  -- (BagChrome.iconImage); RSE's only draws one (drawItemIcon from its icon strip), so that is
+  -- drawn once into a canvas of its own. Cached per id.
+  local itemIcons = {}
+  function H.itemIcon(id)
+    id = tonumber(id)
+    if not id then return nil end
+    if itemIcons[id] ~= nil then return itemIcons[id] or nil end
+    local img = nil
+    local frlg = req("src.ui.game3.bag_chrome")
+    if frlg and frlg.iconImage then
+      local ok, r = pcall(frlg.iconImage, id)
+      if ok and r then img = r end
+    end
+    local G = love and love.graphics
+    local rse = not img and req("src.ui.game3.rse.bag_chrome") or nil
+    if rse and rse.drawItemIcon and G and G.newCanvas then
+      local okC, c = pcall(G.newCanvas, 24, 24, { dpiscale = 1 })
+      if okC and c then
+        G.push("all")
+        G.setCanvas(c)
+        G.origin()
+        G.clear(0, 0, 0, 0)
+        local ok = pcall(rse.drawItemIcon, id, 0, 0)
+        G.pop()
+        if ok then
+          c:setFilter("nearest", "nearest")
+          img = c
+        end
+      end
+    end
+    itemIcons[id] = img or false
+    return img
+  end
+
   function H.removeItem(id, qty)
     local s = H.session()
     if not (s and s.bag and H.Bag and H.Bag.remove) then return false end

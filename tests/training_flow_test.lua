@@ -96,10 +96,10 @@ do
   local okI, info = false, nil
   if ok and ItemsData and ItemsData.info then okI, info = pcall(ItemsData.info, 400) end
   if okI and type(info) == "table" then
-    T.eq(info and info.name, "Health Wing", "item 400 is the Health Wing")
+    T.eq(info and info.name, "HEALTH WING", "item 400 is the HEALTH WING")
     T.eq(info and info.price, 3000, "...priced 3000")
     T.eq(info and info.fieldUse, "vitamin", "...used like a vitamin")
-    T.eq(ItemsData.info(409) and ItemsData.info(409).name, "Dawn Stone", "item 409 is the Dawn Stone")
+    T.eq(ItemsData.info(409) and ItemsData.info(409).name, "DAWN STONE", "item 409 is the DAWN STONE")
     T.eq(ItemsData.toNumericId and ItemsData.toNumericId("HEALTH_WING"), 400, "the name resolves after the registry write")
   else
     T.check(true, "the item pack is not in the headless cache; the engine checks run in the driver")

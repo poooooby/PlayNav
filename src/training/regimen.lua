@@ -391,6 +391,15 @@ return function(mod, T, deps)
   -- ------- the end of a regimen
 
   -- { item = "ITEM_X" } or { training = "<slug>" } -> { name, index, given }
+  -- a prize's icon by its item index: ours (Items.icon), else the engine's bag icon (a Soda Pop,
+  -- Stardust, an evolution stone...); nil when neither has one
+  function T.itemIcon(index)
+    if not index then return nil end
+    local icon = Items and Items.icon and Items.icon(index) or nil
+    if not icon and host.itemIcon then icon = host.itemIcon(index) end
+    return icon
+  end
+
   function T.giveItemSpec(spec)
     local index, name
     if spec.training then

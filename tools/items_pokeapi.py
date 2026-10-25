@@ -108,7 +108,8 @@ def main(argv: list[str]) -> int:
     rows = []
     for slug, index, price, field_use, stat, folder in ITEMS:
         d = fetch(slug, cache)
-        name = NAMES.get(slug) or english(d["names"], "name") or slug.replace("-", " ").title()
+        # Gen 3's bag names are all capitals ("SODA POP"), as the engine's and other mods' are
+        name = (NAMES.get(slug) or english(d["names"], "name") or slug.replace("-", " ")).upper()
         effect = english(d.get("effect_entries", []), "short_effect") or ""
         rows.append({
             "slug": slug, "index": index, "name": name, "price": price, "fieldUse": field_use,

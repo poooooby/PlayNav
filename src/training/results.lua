@@ -151,7 +151,7 @@ return function(mod, T, Rules, Radar)
         end
         if r.item then
           B:setText("4d", r.item.name or "", { align = "left" })
-          local icon = T.items and T.items.icon and r.item.index and T.items.icon(r.item.index)
+          local icon = r.item.index and (T.itemIcon and T.itemIcon(r.item.index) or (T.items and T.items.icon and T.items.icon(r.item.index))) or nil
           if icon then B:setImage("4f", icon) else B:set("4f", "visible", false) end
         else
           B:set("41", "visible", false)
@@ -754,7 +754,7 @@ return function(mod, T, Rules, Radar)
       end
       if r.item then
         plate(206)
-        local icon = T.items and T.items.icon and r.item.index and T.items.icon(r.item.index)
+        local icon = r.item.index and (T.itemIcon and T.itemIcon(r.item.index) or (T.items and T.items.icon and T.items.icon(r.item.index))) or nil
         if icon then
           local iw = icon:getDimensions()
           G.setColor(1, 1, 1, 1)
