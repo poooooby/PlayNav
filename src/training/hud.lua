@@ -359,6 +359,8 @@ return function(mod, T, Rules, Sim)
     -- the reticle and its charge
     local aim = sim.player.aim
     local rx, ry, rz = T.toScreen(Sim.project(aim.x, aim.y, 1))
+    -- in 3D it keeps its 2D size (the scene's depth scale there would shrink it to a dot)
+    if T.is3d and T.is3d() then rz = 1 end
     placeAt(P, "13", rx, ry)
     P:set("13", "sx", rz)
     P:set("13", "sy", rz)
@@ -762,10 +764,12 @@ return function(mod, T, Rules, Sim)
     end
   end
 
+  -- in 3D the crosshair keeps its 2D size (the scene's depth scale there would shrink it to a dot)
   local function reticle(G2, sim)
     local aim = sim.player.aim
     local rx, ry, rz = T.toScreen(Sim.project(aim.x, aim.y, 1))
-    local k = rz or 1
+    local in3 = T.is3d and T.is3d()
+    local k = in3 and 1 or (rz or 1)
     local h = 9 * k
     G2.setColor(1, 1, 1, 0.95)
     G2.setLineWidth(1.4)
@@ -791,7 +795,7 @@ return function(mod, T, Rules, Sim)
         G2.line(cx, cy - sgn[2] * 5 * k, cx, cy, cx - sgn[1] * 5 * k, cy)
       end
     elseif stage >= 2 then
-      local p = 0.5 + 0.5 * math.sin(H.clock * 14)
+      local p = 0.5 + 0.5 * math.sin((H.clock or sim.t or 0) * 14)
       G2.setColor(1, 0.15, 0.1, 0.25 + 0.2 * p)
       G2.circle("fill", rx, ry, (10 + 2 * p) * k, 28)
       G2.setColor(1, 0.2, 0.12, 1)
@@ -802,7 +806,7 @@ return function(mod, T, Rules, Sim)
         G2.line(cx, cy - sgn[2] * 5 * k, cx, cy, cx - sgn[1] * 5 * k, cy)
       end
     end
-    if H.fullAt and H.clock - H.fullAt < 0.3 then
+    if H.fullAt and H.clock and H.clock - H.fullAt < 0.3 then
       local a = 1 - (H.clock - H.fullAt) / 0.3
       G2.setColor(1, 0.9, 0.4, a)
       G2.circle("line", rx, ry, (8 + 10 * (1 - a)) * k, 28)
