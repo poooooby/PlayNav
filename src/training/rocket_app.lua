@@ -1,8 +1,9 @@
 -- The alley on the touch screen (src/training/rocket.lua's easter egg): the 3D alley with the
 -- dealer and the rain (src/training/rocket_scene.lua), his words in a dark box along the foot,
--- and while his shop is open (on the top screen) the bag picked shown big (a tap asks to buy
--- it), arrows up and down the list, Yes / No when asked, and the red button that leaves.
--- Anywhere else a tap goes on with what he says.
+-- and while his shop is open (on the top screen) arrows up and down the list and the red button
+-- that leaves. A (or a tap on his box) asks for the bag picked: "You want the ...? It's ...", with
+-- a YES / NO choice above his box as the game's shops have it (up / down, A, B; or a tap on
+-- YES or NO). Anywhere else a tap goes on with what he says.
 
 return function(mod, Pointer, T, Rules)
   local app = { id = "training_rocket", title = "ALLEY", live = true, hideTabs = true }
@@ -23,9 +24,10 @@ return function(mod, Pointer, T, Rules)
     G_.BACK = { x = w - 44, y = h - 46, w = 38, h = 38 }
     G_.UP = { x = w - 40, y = top + 8, w = 32, h = 30 }
     G_.DOWN = { x = w - 40, y = top + 44, w = 32, h = 30 }
-    G_.PICK = { x = 6, y = top + 8, w = 126, h = 54 }
-    G_.YES = { x = w - 136, y = h - 80, w = 52, h = 26 }
-    G_.NO = { x = w - 78, y = h - 80, w = 52, h = 26 }
+    -- the YES / NO choice, above his box at the right
+    G_.CHOICE = { x = w - 84, y = h - 50 - 56, w = 72, h = 50 }
+    G_.YES = { x = G_.CHOICE.x, y = G_.CHOICE.y, w = G_.CHOICE.w, h = G_.CHOICE.h / 2 }
+    G_.NO = { x = G_.CHOICE.x, y = G_.CHOICE.y + G_.CHOICE.h / 2, w = G_.CHOICE.w, h = G_.CHOICE.h / 2 }
     return G_
   end
   geo(W, H)
@@ -45,15 +47,15 @@ return function(mod, Pointer, T, Rules)
     local H_ = mod.haptics
     if H_ then H_.pulse("tick") end
     if st.phase == "shop" then
+      -- asked to buy: YES or NO
       if st.confirm ~= nil then
-        if inRect(x, y, G_.YES) then T.rocketTap("yes")
-        elseif inRect(x, y, G_.NO) then T.rocketTap("no") end
+        if inRect(x, y, G_.YES) then T.rocketTap("yes") elseif inRect(x, y, G_.NO) then T.rocketTap("no") end
         return
       end
       if inRect(x, y, G_.BACK) then T.rocketTap("back")
       elseif inRect(x, y, G_.UP) then T.rocketTap("up")
       elseif inRect(x, y, G_.DOWN) then T.rocketTap("down")
-      elseif inRect(x, y, G_.PICK) then T.rocketTap("buy")
+      elseif inRect(x, y, G_.BOX) then T.rocketTap("buy")
       else T.rocketTap("advance") end
       return
     end
@@ -67,7 +69,7 @@ return function(mod, Pointer, T, Rules)
     return ok and img or nil
   end
 
-  -- a round art button (or a drawn disc), centred in r, pressed in by `down`
+  -- a round art button (or a drawn disc), centred in r
   local function roundButton(G, id, r, fallback)
     local img = art(id)
     local cx, cy, d = r.x + r.w / 2, r.y + r.h / 2, math.min(r.w, r.h)
@@ -81,20 +83,34 @@ return function(mod, Pointer, T, Rules)
     end
   end
 
+  -- the alley's panels (src/training/ui_art.lua's rocket/*, nine-sliced by Rk.slice)
   local function panel(G, r, alpha)
+    local Rkm = Rk()
+    if Rkm and Rkm.slice then Rkm.slice(G, "rocket/panel", r.x, r.y, r.w, r.h, 8, alpha or 0.96, true); return end
     G.setColor(0.04, 0.04, 0.06, alpha or 0.86)
     G.rectangle("fill", r.x, r.y, r.w, r.h, 5, 5)
-    G.setColor(0.6, 0.06, 0.1, 1)
-    G.setLineWidth(1.2)
-    G.rectangle("line", r.x, r.y, r.w, r.h, 5, 5)
   end
 
   local function arrow(G, r, up)
-    panel(G, r, 0.75)
-    local cx, cy = r.x + r.w / 2, r.y + r.h / 2
-    local s = up and -1 or 1
-    G.setColor(0.95, 0.9, 0.9, 1)
-    G.polygon("fill", cx - 8, cy - 4 * s, cx + 8, cy - 4 * s, cx, cy + 6 * s)
+    roundButton(G, up and "rocket/up" or "rocket/down", r, { 0.7, 0.1, 0.14 })
+  end
+
+  -- the YES / NO choice: a panel, the two words, the cursor at the one picked
+  local function drawChoice(G, Rkm, font, yes)
+    local C = G_.CHOICE
+    panel(G, C, 0.98)
+    for i, row in ipairs({ { G_.YES, "YES", yes }, { G_.NO, "NO", not yes } }) do
+      local r, on = row[1], row[3]
+      local ty = r.y + (r.h - font:getHeight()) / 2 + (i == 1 and 2 or -2)
+      Rkm.print(G, font, row[2], r.x + 26, ty, 1, on and 1 or 0.78, on and 1 or 0.78)
+      if on then
+        local cx, cy = r.x + 15, ty + font:getHeight() / 2
+        G.setColor(0, 0, 0, 0.7)
+        G.polygon("fill", cx - 4.4, cy - 4.4, cx + 4.6, cy + 0.6, cx - 4.4, cy + 5.6)
+        G.setColor(0.95, 0.22, 0.26, 1)
+        G.polygon("fill", cx - 5, cy - 5, cx + 4, cy, cx - 5, cy + 5)
+      end
+    end
   end
 
   function app:draw(G, w, h)
@@ -118,56 +134,36 @@ return function(mod, Pointer, T, Rules)
     if st then
       local fontAt = Rkm.fontAt
       local font, small = fontAt(G, 10), fontAt(G, 8)
-      -- the shop's controls
+      -- the shop's controls (the bag picked shows on the top screen)
       if st.phase == "shop" and st.shopT >= 1 then
         if st.confirm == nil then
-          local P = G_.PICK
-          panel(G, P)
-          local id = st.id
-          if id then
-            Rkm.bagIcon(G, id, P.x + 18, P.y + P.h / 2, P.h - 10)
-            G.setFont(font)
-            G.setColor(1, 1, 1, 1)
-            G.print(T.bagName(id), P.x + 36, P.y + 7)
-            G.setColor(1, 0.86, 0.35, 1)
-            Rkm.printMoney(G, font, Rkm.price(id) or 0, P.x + 36, P.y + 7 + font:getHeight())
-            G.setFont(small)
-            G.setColor(1, 0.45, 0.45, 1)
-            G.print("TAP TO BUY", P.x + 36, P.y + P.h - small:getHeight() - 5)
-          end
           arrow(G, G_.UP, true)
           arrow(G, G_.DOWN, false)
-        else
-          for _, b in ipairs({ { G_.YES, "YES", st.confirm == true }, { G_.NO, "NO", st.confirm == false } }) do
-            local r, on = b[1], b[3]
-            G.setColor(on and 0.6 or 0.12, on and 0.06 or 0.12, on and 0.1 or 0.14, 0.95)
-            G.rectangle("fill", r.x, r.y, r.w, r.h, 5, 5)
-            G.setColor(on and 1 or 0.6, on and 0.5 or 0.2, on and 0.5 or 0.25, 1)
-            G.setLineWidth(1.2)
-            G.rectangle("line", r.x, r.y, r.w, r.h, 5, 5)
-            G.setFont(font)
-            G.setColor(1, 1, 1, 1)
-            G.print(b[2], r.x + (r.w - font:getWidth(b[2])) / 2, r.y + (r.h - font:getHeight()) / 2)
-          end
+          roundButton(G, "rocket/back", G_.BACK, { 0.8, 0.1, 0.12 })
         end
-        if st.confirm == nil then roundButton(G, "rocket/back", G_.BACK, { 0.8, 0.1, 0.12 }) end
       end
       -- his words
       if st.line then
         local B = G_.BOX
         local bw = (st.phase == "shop") and B.w or (w - 12)
-        panel(G, { x = B.x, y = B.y, w = bw, h = B.h }, 0.88)
-        -- his name tag
+        panel(G, { x = B.x, y = B.y, w = bw, h = B.h }, 0.96)
+        -- his name tag: a red glass plate over the box's corner
         G.setFont(small)
         local tag = "???"
-        local tw = small:getWidth(tag) + 12
-        G.setColor(0.32, 0.03, 0.06, 1)
-        G.rectangle("fill", B.x + 8, B.y - small:getHeight() - 2, tw, small:getHeight() + 4, 3, 3)
-        G.setColor(1, 0.85, 0.85, 1)
-        G.print(tag, B.x + 14, B.y - small:getHeight())
-        G.setFont(font)
-        G.setColor(0.95, 0.93, 0.9, 1)
-        G.printf(st.shown or "", B.x + 9, B.y + 7, bw - 22, "left")
+        local tw, th = small:getWidth(tag) + 14, small:getHeight() + 5
+        Rkm.slice(G, "rocket/red", B.x + 8, B.y - th + 3, tw, th, 4)
+        Rkm.print(G, small, tag, B.x + 15, B.y - th + 5.5, 1, 0.9, 0.9)
+        local shown = st.shown or ""
+        if shown:find(Rkm.PD, 1, true) or shown:find("\n", 1, true) then
+          -- his own lines (the price's sign drawn)
+          Rkm.printLine(G, font, shown, B.x + 10, B.y + 8, 0.96, 0.94, 0.92)
+        else
+          G.setFont(font)
+          G.setColor(0, 0, 0, 0.7)
+          G.printf(shown, B.x + 10.6, B.y + 8.7, bw - 24, "left")
+          G.setColor(0.96, 0.94, 0.92, 1)
+          G.printf(shown, B.x + 10, B.y + 8, bw - 24, "left")
+        end
         -- the line is out: a blinking mark to go on (not while the shop waits for a pick)
         if st.typed and st.phase ~= "shop" and (st.clock * 2) % 1 < 0.6 then
           local mx, my = B.x + bw - 12, B.y + B.h - 9
@@ -175,6 +171,7 @@ return function(mod, Pointer, T, Rules)
           G.polygon("fill", mx - 4, my - 3, mx + 4, my - 3, mx, my + 2)
         end
       end
+      if st.phase == "shop" and st.confirm ~= nil then drawChoice(G, Rkm, font, st.confirm) end
     end
     -- in and out of the alley: black over everything
     local v = T.transView and T.transView("bottom")

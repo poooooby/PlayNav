@@ -204,8 +204,12 @@ do
   T.check(st.top > 1, "the list scrolled")
   S.rocketInput(input("a"))
   T.eq(R2.state().confirm, true, "asked, Yes picked first")
+  for _ = 1, 30 do S.tickRocket(S.session, 1 / 30) end
+  T.eq(R2.state().dim, 1, "the top screen dims while asked")
   S.rocketInput(input("a"))
   T.eq(money, 5000, "25,000 spent")
+  for _ = 1, 30 do S.tickRocket(S.session, 1 / 30) end
+  T.eq(R2.state().dim, 0, "and lights again after the sale")
   T.eq(store.list[1], "hp_rp", "the bag in the drawer")
   local saidSold = false
   for _, l in ipairs(Rk.LINES.sold) do if R2.state().line == l then saidSold = true end end
@@ -218,6 +222,8 @@ do
   S.rocketInput(input("up"))
   S.rocketInput(input("a")); S.rocketInput(input("b"))
   T.eq(R2.state().confirm, nil, "B answers No")
+  for _ = 1, 30 do S.tickRocket(S.session, 1 / 30) end
+  T.eq(R2.state().dim, 0, "and the top screen lights again")
   -- a full drawer
   for i = 2, 12 do store.list[i] = "hp_s" end
   money = 999999
