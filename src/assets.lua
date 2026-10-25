@@ -49,6 +49,11 @@ return function(mod)
   -- itself, so those never come from the card image.
   function A.image(id)
     if not (love and love.graphics and love.image and love.data) then return nil end
+    -- A.own: ids PlayNav always draws itself, whatever the asset option (the easter eggs')
+    if A.own then
+      local drawn, owned = A.own(id)
+      if drawn or owned then return drawn end
+    end
     if A.engine then
       local drawn, owned = A.engine(id)
       if drawn or owned then return drawn end
@@ -124,7 +129,7 @@ return function(mod)
   -- card image's, PlayNav's own file for the id (A.ownMusic[id] = a path in the mod, looping
   -- whole) stands in.
   A.tracks = {}
-  A.ownMusic = { ["bgm/sp_menu"] = "assets/stmenu.ogg" }
+  A.ownMusic = { ["bgm/sp_menu"] = "assets/stmenu.ogg", ["bgm/rocket"] = "assets/UnseenEncounter.ogg" }
   local function ownTrack(id)
     local path = A.ownMusic[id]
     if not (path and love and love.sound and love.filesystem and mod.read) then return false end
@@ -175,6 +180,10 @@ return function(mod)
   A.sounds = {}
   function A.sound(id)
     -- PlayNav's own effects (src/chipmusic.lua) take their ids before the card image's
+    if A.ownSound then
+      local own, owned = A.ownSound(id)
+      if own or owned then return own end
+    end
     if A.engineSound then
       local own, owned = A.engineSound(id)
       if own or owned then return own end

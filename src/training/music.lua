@@ -34,6 +34,8 @@ return function(mod, T, host)
   M.STAGE_AT = 3.0       -- s into the intro: sp_stage begins
   M.FADE_S = 0.5         -- into a regimen: the picker's music fades out
   M.RESULT_FADE_S = 1.0  -- out of the results, with the screens' fade
+  -- the alley's music (assets/UnseenEncounter.ogg, Assets.ownMusic) and its fade on the way out
+  M.ROCKET, M.ROCKET_FADE_S = "bgm/rocket", 1.0
   M.CHUNK = 4096         -- sample frames per queued buffer
   M.BUFFERS = 8
   M.enabled = true
@@ -57,9 +59,12 @@ return function(mod, T, host)
     local tr = s.trans
     if tr and tr.to == "regimen" then return nil, false, M.FADE_S end
     if tr and tr.from == "result" and not tr.switched then return nil, false, M.RESULT_FADE_S end
-    if tr and tr.to == "core" then return nil, false, M.FADE_S end
+    -- (out of the alley: its music fades with both screens' fade, out and in)
+    if tr and tr.to == "core" then return nil, false, tr.from == "rocket" and M.ROCKET_FADE_S or M.FADE_S end
     local mode = s.mode
     if mode == "courses" then return "bgm/sp_menu", true, M.FADE_S end
+    -- the Konami code's alley (src/training/rocket.lua): from the R's flash on
+    if mode == "rocket" then return M.ROCKET, true, 0 end
     if mode == "result" then
       return (s.result and s.result.clear) and "bgm/sp_clear" or "bgm/sp_gameover", true, 0
     end

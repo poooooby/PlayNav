@@ -58,12 +58,35 @@ return function(N, ShotTypes)
   end
   R.BAG_ART, R.GAME_INDEX = { ["black"] = 0 }, {}
   for i, id in ipairs(R.GAME_ORDER) do R.BAG_ART[id] = i; R.GAME_INDEX[id] = i end
+
+  -- the alley dealer's bags (N.ROCKET): <stat>_r / <stat>_rp, stat bags with their own pictures,
+  -- kept out of BAG_LIST and GAME_ORDER (never a blank-bag find, no game text)
+  R.SIZE_LABEL.r, R.SIZE_LABEL.rp = "R", "R+"
+  R.ROCKET_LIST = {}
+  local STAT_NAME = { hp = "HP", atk = "Attack", def = "Defense", spa = "Sp. Atk", spd = "Sp. Def", spe = "Speed" }
+  if N.ROCKET then
+    for _, size in ipairs({ "r", "rp" }) do
+      for _, stat in ipairs(R.STATS) do
+        local base, id = N.ROCKET.BAGS[size], stat .. "_" .. size
+        R.BAGS[id] = { id = id, kind = "stat", stat = stat, size = size, hits = base.hits, ev = base.ev,
+          rocket = true, glow = size == "rp" or nil, price = N.ROCKET.PRICE[size],
+          label = ("%s Bag %s"):format(STAT_NAME[stat], R.SIZE_LABEL[size]) }
+        R.ROCKET_LIST[#R.ROCKET_LIST + 1] = id
+      end
+    end
+  end
+  -- a bag's picture id: the game's icons by their place, the dealer's by stat
+  function R.bagArt(id)
+    local b = R.BAGS[id]
+    if b and b.rocket then return ("training/rbag_%s%s"):format(b.stat, b.size == "rp" and "_plus" or "") end
+    return ("training/sand_bag_%02d"):format(R.BAG_ART[id] or 0)
+  end
   -- where the game keeps the bag screen's strings (a/0/7/3 file 27)
   R.TEXT_LINE = { use = 13, discard = 14, back = 15, yes = 16, no = 17, askUse = 7, askDiscard = 8,
     replaceEffect = 9, replaceBag = 10, resting = 11, descBase = 18 }
 
   -- descriptions in our own words, used until the player's card supplies the game's
-  local SIZE_WORD = { s = "slightly", m = "a fair amount", l = "quite a lot" }
+  local SIZE_WORD = { s = "slightly", m = "a fair amount", l = "quite a lot", r = "a whole lot", rp = "enormously" }
   local EFFECT_TEXT = {
     strength = "More points for every goal in the next regimen.",
     toughen_up = "Balloon Bot hits cost fewer points in the next regimen.",

@@ -4,7 +4,7 @@
 --
 -- local Sfx = makeSfx(mod, { assets = Assets, host = <a host with sfxGain / audioSuspended> })
 -- Sfx.play(id, opts) -> a handle (handle:stop()) or false when the effect is not there (the
---   caller keeps its stand-in) ; opts = { volume = 0..1 }
+--   caller keeps its stand-in) ; opts = { volume = 0..1, loop = bool }
 -- Sfx.has(id) ; Sfx.stopAll()
 
 return function(mod, deps)
@@ -76,6 +76,7 @@ return function(mod, deps)
     local src = voice(id, sd)
     if not src then return false end
     pcall(src.setVolume, src, math.min(1, g))
+    if opts and opts.loop then pcall(src.setLooping, src, true) end
     pcall(src.play, src)
     S.playing[src] = true
     handle.source = src

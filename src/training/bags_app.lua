@@ -242,7 +242,7 @@ return function(mod, Pointer, T, Rules, Store)
   end
 
   local function bagImage(id)
-    return art(("training/sand_bag_%02d"):format(Rules.BAG_ART[id] or 0))
+    return art(Rules.bagArt(id))
   end
 
   local function drawBag(G, id, x, y, scale)
@@ -250,6 +250,14 @@ return function(mod, Pointer, T, Rules, Store)
     local r = math.rad(-BAG.rz)
     if img then
       local iw, ih = img:getDimensions()
+      local def = Rules.bag(id)
+      -- the alley's R+ bags glow (their halo twice the bag's size, about its middle)
+      local glow = def and def.glow and art("training/rbag_glow_" .. def.stat)
+      if glow then
+        local gw, gh = glow:getDimensions()
+        G.setColor(1, 1, 1, 1)
+        G.draw(glow, x, y, r, BAG.w / iw * scale, BAG.h / ih * scale, gw / 2, gh / 2)
+      end
       G.setColor(1, 1, 1, 1)
       G.draw(img, x, y, r, BAG.w / iw * scale, BAG.h / ih * scale, iw / 2, ih / 2)
     else

@@ -35,6 +35,13 @@ N.BAGS = {
   soothing = { hits = 250, effect = "friendship", amount = 20 },
 }
 
+-- the alley dealer's bags (ours: an easter egg, no counterpart in the game): per stat an R bag and
+-- an R+ bag, bought for money, hung and punched like the stat bags
+N.ROCKET = {
+  BAGS = { r = { hits = 25, ev = 32 }, rp = { hits = 50, ev = 64 } },
+  PRICE = { r = 12500, rp = 25000 },
+}
+
 -- the Effort-o-Meter: each axis's length in pixels is the base stat's step plus the EV's step
 -- (the game's own tables: { at least, pixels }, first match wins; 20 + 32 reaches the hexagon)
 N.METER = {
@@ -519,6 +526,7 @@ N.EVIDENCE = {
   ["LIMITS.EV_BY_LEVEL"] = { class = "verified", source = "Bulbapedia Super Training", confidence = "high" },
   ["LIMITS.DOUBLE_UP_MULT"] = { class = "verified", source = "Bulbapedia Double-Up Bag; the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: 2.0" , confidence = "high" },
   ["BAGS"] = { class = "verified", source = "the game's training-bag table (main program 0x007ED098, DllSparring.cro 0x18030, DllSparringMenu.cro 0x6084): per bag { kind, value, hits / 5 }: stat S/M/L +1/+4/+12 in 10/25/50 hits, support bags 10, Team Flare 10, Reset 100, Soothing +20 in 250 (settles gamepedia.jp's 5 for Team Flare); Bulbapedia agrees", confidence = "high" },
+  ["ROCKET"] = { class = "placeholder", source = "ours: the alley dealer's R / R+ bags (an easter egg), +32 / +64 in 25 / 50 hits for 12,500 / 25,000", confidence = "high" },
   ["METER"] = { class = "verified", source = "the game's Effort-o-Meter step tables, main program 0x007EC5E8 (base) / 0x007EC604 (EVs), read by the code at 0x00761228 (u16 threshold, u16 pixels pairs); also DllSparringMenu.cro .rodata 0x6034", confidence = "high" },
   ["CORE.AUTO_HIT_S"] = { class = "verified", source = "Bulbapedia; pente.koro-pokemon.com; measured on Alpha Sapphire (Azahar, 2026-10-12): one punch a minute", confidence = "high" },
   ["CORE.REFRESHED_HITS_DIV"] = { class = "verified", source = "atwiki; game-de (hits halved); Bulbapedia (double speed); lasts one bag or one regimen (player guides)", confidence = "high" },

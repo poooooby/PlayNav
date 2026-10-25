@@ -11,6 +11,7 @@ All notable changes to this mod are documented here. The format follows
   3D stage - from your card image, or a drawn one without it - with the game's camera for each
   species: the lawn, the dotted sky, a rainbow, drifting clouds and rising bubbles, and the top
   screen looking up into the same sky.
+- Something to find on Super Training's home screen, for players who remember the old codes.
 
 ### Fixed
 

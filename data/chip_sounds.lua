@@ -602,4 +602,41 @@ S["se/kw_bonus"] = { peak = 0.6, layers = {
   chime(hz("C6"), 0.24, 0.45, 0.45),
   { at = 0.22, dur = 0.2, wave = "noise", lp = 6000, vol = 0.08, release = 0.15 } } }
 
+-- ------- the Konami code's alley (src/training/rocket.lua)
+-- the R: a low dark swell, a minor second grinding under a falling rumble
+S["se/rk_sting"] = { peak = 0.7, layers = {
+  { dur = 1.8, wave = "saw", f0 = hz("D2"), f1 = hz("C#2"), attack = 0.35, decay = 0.9, release = 0.5, vol = 0.45 },
+  { dur = 1.8, wave = "saw", f0 = hz("D#2"), f1 = hz("D2"), attack = 0.35, decay = 0.9, release = 0.5, vib = { 0.2, 5 }, vol = 0.35 },
+  { dur = 1.8, wave = "noise", poles = 2, lp = 300, lp1 = 90, attack = 0.4, decay = 1, release = 0.5, vol = 0.5 },
+  { dur = 1.2, wave = "sine", f0 = 70, f1 = 38, attack = 0.02, decay = 2.5, vol = 0.5 },
+} }
+-- its glint: a thin high ping, a shimmer over it
+S["se/rk_glint"] = { peak = 0.4, layers = {
+  { dur = 0.6, wave = "sine", f0 = hz("E7"), attack = 0.005, decay = 7, vol = 0.6 },
+  { at = 0.04, dur = 0.5, wave = "sine", f0 = hz("B7"), attack = 0.005, decay = 9, vol = 0.35 },
+  { dur = 0.3, wave = "noise", lp = 9000, attack = 0.01, decay = 14, vol = 0.12 },
+} }
+-- the rain in the alley: a steady hiss with a patter in it (looped while there)
+S["se/rk_rain"] = { peak = 0.3, layers = {
+  { dur = 4, wave = "noise", poles = 2, lp = 5200, lp1 = 5200, vol = 0.55 },
+  { dur = 4, wave = "noise", poles = 2, lp = 700, trem = { 0.35, 11 }, vol = 0.45 },
+} }
+-- a footstep on wet ground
+S["se/rk_step"] = { peak = 0.3, layers = {
+  { dur = 0.12, wave = "noise", poles = 2, lp = 1600, attack = 0.005, decay = 26, vol = 0.6 },
+  { dur = 0.08, wave = "sine", f0 = 120, f1 = 70, decay = 30, vol = 0.4 },
+} }
+-- a sale: coins dropped in a hand
+S["se/rk_buy"] = { peak = 0.55, layers = {
+  { dur = 0.09, wave = "pulse25", f0 = hz("B5"), decay = 20, vol = 0.4 },
+  { at = 0.07, dur = 0.09, wave = "pulse25", f0 = hz("E6"), decay = 20, vol = 0.4 },
+  chime(hz("E7"), 0.12, 0.3, 0.35),
+  { at = 0.12, dur = 0.12, wave = "noise", lp = 7000, decay = 22, vol = 0.15 },
+} }
+-- the shop sliding open: a low whoosh
+S["se/rk_open"] = { peak = 0.45, layers = {
+  { dur = 0.35, wave = "noise", poles = 2, lp = 900, lp1 = 2400, attack = 0.12, release = 0.15, vol = 0.6 },
+  { dur = 0.3, wave = "tri", f0 = hz("A2"), f1 = hz("E3"), attack = 0.05, decay = 5, vol = 0.3 },
+} }
+
 return S

@@ -1342,6 +1342,74 @@ return function(mod, deps)
     gen(("training/sand_bag_%02d"):format(i), 20, 50, function(G) bag(G, def[1], def[2]) end)
   end
 
+  -- ------- the Konami code's alley (src/training/rocket.lua)
+
+  -- the dealer's bags: the same bag in black metal, a red R on it, outlined in its stat's colour
+  -- (the Effort-o-Meter's label colour); R+ a small + by the R (and a glow drawn behind it:
+  -- training/rbag_glow_<stat>)
+  local ROCKET_RED, METAL = C(214, 30, 40), C(40, 42, 48)
+  local function rocketBag(G, stat, plus)
+    bag(G, METAL, function(G2)
+      -- a cold sheen down the body
+      vgrad(G2, X0, 17, X1 - X0, 28, { 1, 1, 1, 0.1 }, { 1, 1, 1, 0 })
+      outlined(G2, "R", 9.5, 29.6, 13, ROCKET_RED, P.ink, 0.6)
+      if plus then outlined(G2, "+", 14.6, 23.4, 8, LABEL_RGB[stat], P.ink, 0.5) end
+    end)
+    G.setLineWidth(1.1)
+    G.setLineJoin("bevel")
+    col(G, LABEL_RGB[stat])
+    G.line(closed(roundPts(BODY_OUT, 1.4)))
+  end
+  for _, stat in ipairs(Rules.STATS) do
+    gen("training/rbag_" .. stat, 20, 50, function(G) rocketBag(G, stat, false) end)
+    gen("training/rbag_" .. stat .. "_plus", 20, 50, function(G) rocketBag(G, stat, true) end)
+    -- the R+'s glow: twice the bag's size about the same middle, soft rings of its stat's colour
+    gen("training/rbag_glow_" .. stat, 40, 100, function(G)
+      local rgb = LABEL_RGB[stat]
+      for i = 12, 1, -1 do
+        local g = i * 0.9
+        G.setColor(rgb[1], rgb[2], rgb[3], 0.07)
+        G.rectangle("fill", 10 + 1.6 - g, 25 + 13.6 - g, 15.8 + 2 * g, 34.2 + 2 * g, 4 + g, 4 + g)
+      end
+    end)
+  end
+  -- the R: a heavy red letter, thick dark outline, a light edge along its top
+  gen("rocket/logo", 128, 128, function(G)
+    outlined(G, "R", 64, 64, 104, { 0, 0, 0, 0 }, { 0, 0, 0, 0.35 }, 5)
+    outlined(G, "R", 64, 64, 104, ROCKET_RED, C(24, 8, 10), 3)
+    G.setColor(1, 0.6, 0.6, 0.35)
+    local f = font(104)
+    G.setFont(f)
+    G.print("R", 64 - f:getWidth("R") / 2 - 1, 64 - f:getHeight() / 2 - 1.5)
+    outlined(G, "R", 64, 64, 104, ROCKET_RED, { 0, 0, 0, 0 }, 0)
+  end)
+  -- its glint: a four-point star with a bright middle
+  gen("rocket/glint", 32, 32, function(G)
+    G.setColor(1, 1, 1, 0.25); circle(G, "fill", 16, 16, 6)
+    G.setColor(1, 1, 1, 0.95)
+    G.polygon("fill", 16, 0, 17.4, 14.6, 16, 32, 14.6, 17.4)
+    G.polygon("fill", 0, 16, 14.6, 14.6, 32, 16, 17.4, 17.4)
+    G.polygon("fill", 16, 0, 17.4, 17.4, 16, 32, 14.6, 14.6)
+    G.polygon("fill", 0, 16, 17.4, 14.6, 32, 16, 14.6, 17.4)
+    circle(G, "fill", 16, 16, 2.4)
+  end)
+  -- the home screen's R button: black metal, a steel rim, the red R
+  gen("rocket/button", 32, 32, function(G)
+    G.setColor(0, 0, 0, 0.35); circle(G, "fill", 16.6, 16.8, 15)
+    col(G, P.rim); circle(G, "fill", 16, 16, 15)
+    shadedDisc(G, 16, 16, 13.4, C(14, 14, 18), C(78, 80, 90))
+    G.setColor(1, 1, 1, 0.12); G.arc("fill", 16, 16, 12.6, math.pi * 1.1, math.pi * 1.6, 16)
+    outlined(G, "R", 16, 16.4, 17, ROCKET_RED, C(10, 4, 6), 0.9)
+  end)
+  -- the alley's back button: red, a white arrow pointing back
+  gen("rocket/back", 32, 32, function(G)
+    G.setColor(0, 0, 0, 0.35); circle(G, "fill", 16.6, 16.8, 15)
+    col(G, C(90, 10, 16)); circle(G, "fill", 16, 16, 15)
+    shadedDisc(G, 16, 16, 13.4, C(150, 16, 24), C(236, 70, 70))
+    G.setColor(1, 1, 1, 1)
+    stroke(G, 3, 19.5, 9.5, 12.5, 16, 19.5, 22.5)
+  end)
+
   -- ------- the regimen picker and its card
 
   -- the medal: a gold disc with a dark rim, its shine and swirl, and two ribbons splaying out
