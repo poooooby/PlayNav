@@ -5,6 +5,15 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-10-25 (beta)
+
+### Fixed
+
+- The last secret regimen showed Tyranitar's picture on Emerald, Ruby and FireRed, where its
+  balloons are the Aron line. It now shows Aggron there, and Tyranitar on Sapphire and LeafGreen.
+- With the card's text, Scatterbug Lugs Back!'s description no longer mentions a tutorial
+  PlayNav doesn't have.
+
 ## [0.8.2] - 2026-10-25 (beta)
 
 ### Added
