@@ -89,6 +89,39 @@ local function body(game, log)
     U.wait(2)
     shot("a02_play_middle")
     Draw.debugMarks = nil
+    -- PROBE_ENDING=1: the regimen cleared, then the 3D ending (arena_draw D.ENDING) shot at the
+    -- end-reg-ref capture's moments (the outro's t)
+    if os.getenv("PROBE_ENDING") == "1" then
+      if os.getenv("PROBE_CULL") then A3.ENDING.CULL = os.getenv("PROBE_CULL") end
+      -- (the score left as it is: the clearing hit itself swells the balloon to its ending size)
+      TR.session.forceEnd({ clear = true, remaining = 90 })
+      local function outroT()
+        local o = TR.session.session and TR.session.session.outro
+        return o and o.t or nil
+      end
+      for _, at in ipairs({ 0.05, 0.15, 0.25, 0.4, 0.6, 2.0, 3.4, 3.8, 3.95, 4.15, 4.5, 4.8, 5.0, 5.3, 5.6, 5.9, 6.3, 8.0 }) do
+        if not waitFor(function() local t = outroT(); return t and t >= at end, 60 * 60) then
+          log("no outro at", at, "outro", tostring(outroT()), "mode", TR.state().mode)
+          break
+        end
+        shot(("n_%04.2f"):format(at))
+        local sim = TR.session.sim or S
+        log("ending", at, "in", tostring(A3.inEnding and A3.inEnding()), "score", tostring(sim.score),
+          "target", tostring(sim.bot and sim.bot.target), "grow3", tostring(sim.bot and sim.bot.grow3), "same sim", tostring(sim == S))
+        local L = Draw.lastEnding
+        if L then log(("  top0 %.1f foot0 %.1f h0 %.1f nH %.1f ncy %.1f cy %.1f H %.1f view %.1f..%.1f"):format(L.top0, L.foot0, L.h0, L.nH, L.ncy, L.cy, L.H, L.viewTop, L.viewBottom)) end
+      end
+      return
+    end
+    -- PROBE_ENDCAM=1: the ending's fixed camera (A3.ENDING) on the arena as it stands, to set
+    -- beside the end-reg-ref capture
+    if os.getenv("PROBE_ENDCAM") == "1" then
+      A3.setEnding(true)
+      U.wait(4)
+      shot("e_endcam")
+      A3.setEnding(false)
+      return
+    end
     -- PROBE_BITS=1 (3D, a bitbot course: lv3_hp Wailord): the bitbots, then their first volley
     if os.getenv("PROBE_BITS") == "1" and S.game3d then
       waitFor(function() return #(S.bits or {}) >= 3 end, 60 * 120)

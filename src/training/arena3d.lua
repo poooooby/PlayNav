@@ -180,10 +180,33 @@ return function(mod, deps)
     lookAt(ex, ey, ez, tx, ty, tz)
   end
 
+  -- the regimen's ending (a cleared course's last balloon): a fixed camera low in front of it,
+  -- looking up past it at the far roof - fitted to the end-reg-ref capture (the emblems' and the
+  -- roof edge's places, the balloon's axis down the middle, the grown Axew's head at y 168 of
+  -- 480: 0.93 px rms; the stadium is 8-fold round, so the turn that sets it in front of the
+  -- balloon). The eye is under the grass (the fit's: 2-4 px off with it held above), so the
+  -- stadium is drawn with back faces culled meanwhile (CULL), as the game does: the ground's
+  -- underside not drawn
+  A3.ENDING = { EYE = { 33.7, -25.7, 193.9 }, AIM = { -3.0, 83.1, -16.8 }, FOVY = 37.81, CULL = "back" }
+  local ending = false
+  function A3.setEnding(on) ending = on and true or false end
+  function A3.inEnding() return ending end
+
   -- follow the trainee: once a frame with the frame's sim (and the HUD's pose: its intro camera)
   function A3.update(sim, pose)
     local p = sim and sim.player
     if not p then return end
+    if ending then
+      local E = A3.ENDING
+      A3.game = sim.game3d and sim or nil
+      fitView(E.FOVY)
+      -- the game's view sits on the area's foot (any room left over is sky above it, as the
+      -- capture looks up into the sky; centred, a taller area showed the crowd and grass under
+      -- the roof that the game never shows)
+      PY = VIEW.y + VIEW.h - F * tvNow
+      lookAt(E.EYE[1], E.EYE[2], E.EYE[3], E.AIM[1], E.AIM[2], E.AIM[3])
+      return
+    end
     local cam = pose and pose.cam
     if sim.game3d then
       A3.game = sim
@@ -451,7 +474,10 @@ return function(mod, deps)
     G.setCanvas(canvasArg)
     local sky = sc.clear or SKY
     G.clear(sky[1], sky[2], sky[3], 1, true, true)
-    G.setMeshCullMode("none")
+    -- (in the ending the eye is under the grass: the card's stadium culls back faces, as the
+    -- game; the drawn stand-in, wound both ways, keeps them and leaves its floor out instead)
+    local skipFloor = ending and sc.standIn
+    G.setMeshCullMode((ending and not sc.standIn) and A3.ENDING.CULL or "none")
     G.setBlendMode("alpha")
     G.setColor(1, 1, 1, 1)
     -- the shader and the camera's matrices once a frame (g3d's model:draw sends all three and
@@ -472,7 +498,7 @@ return function(mod, deps)
       local pieces = sc.pieces
       for i = 1, #pieces do
         local piece = pieces[i]
-        if piece.pass == pass then
+        if piece.pass == pass and not (skipFloor and piece.floor) then
           local m = piece.model
           if m.matrix ~= lastM then shader:send("modelMatrix", m.matrix); lastM = m.matrix end
           G.draw(m.mesh)

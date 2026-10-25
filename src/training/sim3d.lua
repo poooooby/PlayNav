@@ -172,6 +172,8 @@ return function(Sim, N, I)
     local sh = self.shape
     local side = sh and sqrt((sh.halfW or 1) * (sh.halfH or 1)) or 1
     local grow = 1 + (G3.GROW - 1) * min(1, self.score / max(1, self.bot and self.bot.target or 1))
+    -- the clearing hit swells it to its full size for the ending (arena_draw D.ENDING)
+    if self.phase == "clear" then grow = G3.GROW end
     self.bot.grow3 = (self.bot.grow3 or grow) + (grow - (self.bot.grow3 or grow)) * 0.2
     local m = measured(self)
     if m and m.stands then

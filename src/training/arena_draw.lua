@@ -952,7 +952,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       local unitPx = math.abs(x1 - x0)
       local rPx = botR(sim) * (game3d(sim) and hwFar or unitPx)
       local ppx = rPx / shape.ppr
-      drawBalloon(G2, shape, sx + fx, sy, ppx, bot.flinch > 0 and 0.8 or 1, 0.95, 0.3, 1, warn)
+      drawBalloon(G2, shape, sx + fx, sy, ppx, (opts.alpha or 1) * (bot.flinch > 0 and 0.8 or 1), 0.95, 0.3, 1, warn)
     else
       -- no sprite: a plain party balloon, the badge or the front pic on it
       local body = balloonBody(sx + fx, sy, R)
@@ -2253,6 +2253,235 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setColor(1, 1, 1, 1)
   end
 
+  -- 3D SUPER TRAINING's ending, a cleared regimen's last balloon (Wooble's end-reg-ref capture;
+  -- times from the last hit, the outro's t): a white flash, then from CUT the fixed camera low in
+  -- front of it (arena3d A3.ENDING); it squeezes in at the sides and stretches up, feet where
+  -- they were, little spurts of air drifting off (SQUEEZE); at BURST a cloud bursts at its foot
+  -- and it shoots off, tips over to the right, drops behind the roof, comes back up from the left
+  -- and spirals away shrinking, trailing puffs (PATH); a star twinkles where it went (TWINKLE).
+  -- PATH rows { t, u, v, h, rot }: its middle as fractions of the game's 400x240 view (u across,
+  -- v down), its length as a fraction of the view's height, its turn in degrees (clockwise) -
+  -- read from the capture's frames; the ending's camera is fixed, so the view is the capture's.
+  -- Until JOIN the path starts from wherever this balloon stood (its own size and place).
+  D.ENDING = {
+    -- the flash: up to full white at the cut (hiding the camera's jump), then away
+    CUT = 0.25, FLASH = { 0.0, 0.25, 0.55 },
+    SQUEEZE = { 0.25, 3.6, SX = 0.32, SY = 1.32 },
+    SPURT = { EVERY = 0.3, LIFE = 1.1, SIZE = 0.05, RISE = 0.14, DRIFT = 0.05 },
+    -- the burst's clouds { dx, dy -> dx2, dy2 (from its foot, view heights), size }: one stays at
+    -- its foot, one rises off up and to the left, a small one beside
+    BURST = 3.75, BURST_LIFE = 1.1,
+    BURST_CLOUDS = { { 0, -0.04, 0.01, -0.06, 0.17 }, { -0.02, -0.08, -0.13, -0.45, 0.21 }, { 0.07, -0.03, 0.1, -0.06, 0.1 } },
+    -- the trail's puffs: SIZE of its length, kept between MIN and MAX view heights (as it shrinks
+    -- away its puffs stay about its own size, as the capture's spiral)
+    TRAIL = { EVERY = 0.09, LIFE = 0.6, SIZE = 0.6, MIN = 0.04, MAX = 0.12 },
+    JOIN = 4.3, HIDE = { 4.25, 4.35, 4.62, 4.72 },
+    PATH = {
+      { 3.75, 0.49, 0.55, 0.94, 0 }, { 3.85, 0.53, 0.52, 0.9, 22 }, { 3.95, 0.62, 0.49, 0.78, 45 },
+      { 4.05, 0.71, 0.48, 0.62, 62 }, { 4.15, 0.78, 0.56, 0.52, 78 }, { 4.25, 0.83, 0.7, 0.46, 90 },
+      { 4.35, 0.8, 0.85, 0.4, 96 }, { 4.5, 0.68, 0.92, 0.34, 102 }, { 4.62, 0.52, 0.93, 0.29, 100 },
+      { 4.75, 0.4, 0.81, 0.25, 60 }, { 4.85, 0.42, 0.7, 0.22, 25 }, { 4.95, 0.43, 0.55, 0.18, 5 },
+      { 5.05, 0.46, 0.39, 0.14, 0 }, { 5.15, 0.535, 0.27, 0.1, 20 }, { 5.25, 0.62, 0.25, 0.085, 50 },
+      { 5.35, 0.69, 0.28, 0.075, 80 }, { 5.45, 0.7, 0.35, 0.065, 120 }, { 5.55, 0.65, 0.4, 0.05, 170 },
+      { 5.65, 0.61, 0.4, 0.04, 200 }, { 5.75, 0.57, 0.34, 0.03, 250 }, { 5.85, 0.57, 0.26, 0.022, 300 },
+      { 5.95, 0.6, 0.22, 0.014, 340 },
+    },
+    GONE = 6.0, TWINKLE = { 6.0, 6.7, U = 0.6, V = 0.21, SCALE = 1.3 },
+    CONFETTI = { N = 7, SIZE = 4, FALL = 0.035,
+      COLS = { { 0.3, 0.95, 0.85 }, { 0.6, 0.95, 0.3 }, { 0.95, 0.5, 0.7 }, { 0.98, 0.85, 0.35 } } },
+  }
+
+  -- the ending's time (the outro's t) for a cleared regimen in 3D, else nil
+  function D.endingT(sim, s)
+    local o = s and s.outro
+    if not (o and o.outcome and o.outcome.clear) then return nil end
+    return o.t or 0
+  end
+
+  local function smooth01(a, b, t)
+    local u = math.max(0, math.min(1, (t - a) / (b - a)))
+    return u * u * (3 - 2 * u)
+  end
+  -- the path at time t: u, v, h, rot (between its rows; before the first, the first)
+  local function endingPath(t)
+    local P = D.ENDING.PATH
+    if t <= P[1][1] then return P[1][2], P[1][3], P[1][4], P[1][5] end
+    for i = 2, #P do
+      local b = P[i]
+      if t <= b[1] then
+        local a = P[i - 1]
+        local k = (t - a[1]) / (b[1] - a[1])
+        return a[2] + (b[2] - a[2]) * k, a[3] + (b[3] - a[3]) * k, a[4] + (b[4] - a[4]) * k, a[5] + (b[5] - a[5]) * k
+      end
+    end
+    local z = P[#P]
+    return z[2], z[3], z[4], z[5]
+  end
+
+  -- the ending's puff: round white lobes over a soft grey underside (the capture's clouds are
+  -- bright white, shaded only at their foot), `size` across, its lobes turned by `seed`
+  local function endPuff(G2, x, y, size, a, seed)
+    if a <= 0.01 or size <= 0 then return end
+    local r = size * 0.5
+    G2.setColor(0.78, 0.8, 0.84, 0.8 * a)
+    G2.circle("fill", x + r * 0.08, y + r * 0.16, r * 0.92, 18)
+    G2.setColor(1, 1, 1, a)
+    G2.circle("fill", x, y, r * 0.8, 18)
+    for i = 0, 3 do
+      local ang = (seed or 0) * 1.7 + i * math.pi / 2
+      G2.circle("fill", x + math.cos(ang) * r * 0.45, y + math.sin(ang) * r * 0.4, r * 0.52, 14)
+    end
+  end
+
+  local function drawEnding(G2, sim, s, t)
+    local A3 = D.arena3d
+    local E = D.ENDING
+    -- the game's view on our screen: its middle, and our units per game px
+    local mx, my = A3.viewCentre()
+    local gp = A3.unitsPerGamePx()
+    local function at(u, v) return mx + (u * 400 - 200) * gp, my + (v * 240 - 120) * gp end
+    local viewH = 240 * gp
+    -- where the balloon stood when the ending began: its middle and height on this screen (in the
+    -- game's space from the sim; else the flat world's mapping)
+    local bx, by = sim:botOffset()
+    local cyW = sim.botCY and sim:botCY() or N.BOT.CY
+    local ncx, ncy, kb = projB(bx, cyW + by)
+    local halfH = (sim.shape and sim.shape.halfH) or 1
+    local nH = 2 * halfH * botR(sim) * 118 * (kb or 1)
+    local sx0, top0, foot0 = ncx, ncy - nH / 2, ncy + nH / 2
+    if game3d(sim) and sim.botCentre3 and sim.botR3 then
+      local gx, gy = sim:botCentre3()
+      local hh = halfH * sim:botR3()
+      local fx, fy = A3.projectModel(gx, gy - hh, 0)
+      local _, ty = A3.projectModel(gx, gy + hh, 0)
+      sx0, top0, foot0 = fx, ty, fy
+    end
+    local h0 = math.max(1, foot0 - top0)
+    -- its flight from the burst: the capture's path, joined from where this balloon stood by JOIN
+    local u0, v0, hp0 = endingPath(E.BURST)
+    local px0, py0 = at(u0, v0)
+    local sqH = h0 * E.SQUEEZE.SY
+    local function flight(tt)
+      local u, v, h, r = endingPath(tt)
+      local x, y = at(u, v)
+      local j = 1 - smooth01(E.BURST, E.JOIN, tt)
+      return x + (sx0 - px0) * j, y + ((foot0 - sqH / 2) - py0) * j,
+        h * viewH * (1 + (sqH / (hp0 * viewH) - 1) * j), r
+    end
+    -- this frame's place, height and turn
+    local cx, cy, H, rot, wk, alpha
+    if t < E.BURST then
+      local q = smooth01(E.SQUEEZE[1], E.SQUEEZE[2], t)
+      local hy = 1 + (E.SQUEEZE.SY - 1) * q
+      H = h0 * hy
+      cx, cy = sx0, foot0 - H / 2
+      wk = 1 + (E.SQUEEZE.SX - 1) * q
+      rot, alpha = 0, 1
+    else
+      local r
+      cx, cy, H, r = flight(t)
+      rot, wk = math.rad(r), E.SQUEEZE.SX
+      -- behind the roof a moment (drawn over the stadium: faded out there)
+      local Hd = E.HIDE
+      alpha = 1 - smooth01(Hd[1], Hd[2], t) + smooth01(Hd[3], Hd[4], t)
+      if t >= E.GONE then alpha = 0 end
+    end
+    -- the spurts while it squeezes: little puffs off its upper half, drifting up and aside
+    local Sp = E.SPURT
+    if t >= E.SQUEEZE[1] then
+      local first = math.max(0, math.floor((t - Sp.LIFE - E.SQUEEZE[1]) / Sp.EVERY))
+      local last = math.floor((math.min(t, E.BURST) - E.SQUEEZE[1]) / Sp.EVERY)
+      for i = first, last do
+        local t0 = E.SQUEEZE[1] + i * Sp.EVERY
+        local k = (t - t0) / Sp.LIFE
+        if k >= 0 and k < 1 then
+          local q = smooth01(E.SQUEEZE[1], E.SQUEEZE[2], t0)
+          local hh = h0 * (1 + (E.SQUEEZE.SY - 1) * q)
+          local side = ((i * 7) % 3) - 1
+          local ox = sx0 + side * nH * 0.18 * (1 + (E.SQUEEZE.SX - 1) * q)
+          local oy = foot0 - hh * (0.45 + 0.4 * (((i * 13) % 10) / 10))
+          endPuff(G2, ox + (Sp.DRIFT + side * 0.04) * viewH * k, oy - Sp.RISE * viewH * k,
+            Sp.SIZE * viewH * (0.6 + 0.6 * k), 0.85 * (1 - k), i)
+        end
+      end
+    end
+    -- the burst at its foot, and the trail it leaves (the path's earlier places)
+    if t >= E.BURST then
+      local k = (t - E.BURST) / E.BURST_LIFE
+      if k < 1 then
+        local e = 1 - (1 - k) * (1 - k)
+        for i, c in ipairs(E.BURST_CLOUDS) do
+          endPuff(G2, sx0 + (c[1] + (c[3] - c[1]) * e) * viewH, foot0 + (c[2] + (c[4] - c[2]) * e) * viewH,
+            c[5] * viewH * (0.6 + 0.5 * e), k < 0.6 and 1 or (1 - k) / 0.4, i)
+        end
+      end
+      local Tr = E.TRAIL
+      local first = math.max(0, math.floor((t - Tr.LIFE - E.BURST) / Tr.EVERY))
+      local last = math.floor((math.min(t, E.GONE) - E.BURST) / Tr.EVERY)
+      for i = first, last do
+        local t0 = E.BURST + i * Tr.EVERY
+        local k = (t - t0) / Tr.LIFE
+        if k >= 0 and k < 1 then
+          local px, py, hh = flight(t0)
+          local sz = math.max(Tr.MIN * viewH, math.min(Tr.MAX * viewH, hh * Tr.SIZE)) * (0.7 + 0.6 * k)
+          endPuff(G2, px, py, sz, 0.9 * (1 - k), i)
+        end
+      end
+    end
+    -- (for drivers: where it put the balloon and the game's view, one table reused)
+    local L = D.lastEnding or {}
+    D.lastEnding = L
+    L.top0, L.foot0, L.h0, L.nH, L.ncy, L.cx, L.cy, L.H = top0, foot0, h0, nH, ncy, cx, cy, H
+    L.viewTop, L.viewBottom = my - 120 * gp, my + 120 * gp
+    -- the balloon
+    if alpha > 0.01 then
+      local s1 = H / nH
+      G2.push()
+      G2.translate(cx, cy)
+      G2.rotate(rot)
+      G2.scale(s1 * wk, s1)
+      G2.translate(-ncx, -ncy)
+      drawBot(G2, sim, { noShadow = true, noGoals = true, alpha = alpha })
+      G2.pop()
+    end
+    -- the star where it went
+    local Tw = E.TWINKLE
+    if t >= Tw[1] and t < Tw[2] then
+      local x, y = at(Tw.U, Tw.V)
+      local sc = gp / (160 / 240) * Tw.SCALE
+      local k = (t - Tw[1]) / (Tw[2] - Tw[1])
+      -- a soft glow under the star (the capture's is a burst of light, not only lines)
+      local g = math.sin(k * math.pi)
+      G2.setBlendMode("add")
+      for i = 1, 3 do
+        G2.setColor(1, 1, 0.95, 0.16 * g)
+        G2.circle("fill", x, y, (2 + 4 * i) * gp * g, 20)
+      end
+      G2.setBlendMode("alpha")
+      G2.push()
+      G2.translate(x, y)
+      G2.scale(sc, sc)
+      drawTwinkle(G2, 0, 0, k)
+      G2.pop()
+    end
+    -- confetti tumbling down the view
+    local C = E.CONFETTI
+    for i = 1, C.N do
+      local u = ((i * 0.37) % 1) * 0.9 + 0.05 + math.sin(t * 1.3 + i) * 0.02
+      local v = ((i * 0.53 + t * C.FALL) % 1.05)
+      local x, y = at(u, v)
+      local col = C.COLS[(i - 1) % #C.COLS + 1]
+      local tumble = math.cos(t * 4 + i * 1.7)
+      G2.setColor(col[1], col[2], col[3], 0.9)
+      G2.push()
+      G2.translate(x, y)
+      G2.rotate(t * 1.5 + i)
+      G2.rectangle("fill", -C.SIZE * gp / 2, -C.SIZE * gp * 0.35 * math.abs(tumble), C.SIZE * gp, C.SIZE * gp * 0.7 * math.abs(tumble))
+      G2.pop()
+    end
+    G2.setColor(1, 1, 1, 1)
+  end
+
   function D.draw(G2, sim, s, T)
     if not sim then
       G2.setColor(0.1, 0.1, 0.15, 1)
@@ -2261,6 +2490,10 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     end
     -- 3D SUPER TRAINING: its camera follows the trainee and the arena is drawn through it
     local A3 = D.mode3d and not D.failed3d and D.arena3d or nil
+    -- a cleared regimen's ending (D.ENDING): its own camera from the cut, its own scene
+    local endT = A3 and D.endingT(sim, s) or nil
+    local inEnd = endT ~= nil and endT >= D.ENDING.CUT and A3 ~= nil and A3.available() and A3.setEnding ~= nil
+    if D.arena3d and D.arena3d.setEnding then D.arena3d.setEnding(inEnd) end
     if A3 and A3.available() then
       if A3.setView then A3.setView(extent(T)) end
       A3.update(sim)
@@ -2316,6 +2549,9 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       D.cageFoot = nil
       drawBackground(G2, sim, T)
     end
+    if inEnd then
+      drawEnding(G2, sim, s, endT)
+    else
     -- the stadium comes up out of the dark under the intro's title
     if pose and pose.veil and pose.veil > 0 then
       G2.setColor(0.0, 0.12, 0.14, 0.85 * pose.veil)
@@ -2422,6 +2658,15 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
         local mx, my = D.arena3d.projectModel(m[1], m[2], m[3])
         G2.circle("line", mx, my, 4, 12)
       end
+    end
+    end
+    -- the ending's white flash at the last hit, full at the cut
+    if endT and A3 and endT < D.ENDING.FLASH[3] then
+      local F = D.ENDING.FLASH
+      local a = endT < F[2] and smooth01(F[1], F[2], endT) or 1 - smooth01(F[2], F[3], endT)
+      G2.setColor(1, 1, 1, a)
+      G2.rectangle("fill", ex, ey, ew, eh)
+      G2.setColor(1, 1, 1, 1)
     end
     if cam then G2.pop() end
     if vz < 1 then G2.pop() end

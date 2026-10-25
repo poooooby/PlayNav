@@ -8,7 +8,9 @@
 -- (r 886, y 401; spa_stadium00's tallest part, to 449) - the one over the far end shows above
 -- the balloon. Its textures are drawn by the engine into canvases once.
 --
--- Stand(A3, g3d) -> { clear = { r, g, b }, pieces = { { model, pass = 1 sky | 2 solid | 3 see-through } } }
+-- Stand(A3, g3d) -> { clear = { r, g, b }, standIn = true, pieces = { { model, pass = 1 sky | 2 solid |
+-- 3 see-through, floor = true for the grass and the pitch } } } (its faces are not wound one
+-- way, so the ending's camera under the grass skips the floor rather than culling back faces)
 
 local G = love.graphics
 
@@ -138,8 +140,8 @@ local function ring(a, r, y) return math.sin(a) * r, y, math.cos(a) * r end
 return function(A3, g3d)
   local T = textures()
   local pieces = {}
-  local function add(verts, tex, pass)
-    pieces[#pieces + 1] = { model = g3d.newModel(verts, tex), pass = pass }
+  local function add(verts, tex, pass, floor)
+    pieces[#pieces + 1] = { model = g3d.newModel(verts, tex), pass = pass, floor = floor }
   end
   local n = S.SEGS
 
@@ -167,10 +169,10 @@ return function(A3, g3d)
   do
     local v, gr, gy = {}, S.GROUND.r, S.GROUND.y
     quad(v, { -gr, gy, gr, -gr / 64, gr / 64 }, { gr, gy, gr, gr / 64, gr / 64 }, { gr, gy, -gr, gr / 64, -gr / 64 }, { -gr, gy, -gr, -gr / 64, -gr / 64 })
-    add(v, T.grass, 2)
+    add(v, T.grass, 2, true)
     local P, p = S.PITCH, {}
     quad(p, { -P.x, P.y, P.z, 0, 1 }, { P.x, P.y, P.z, 1, 1 }, { P.x, P.y, -P.z, 1, 0 }, { -P.x, P.y, -P.z, 0, 0 })
-    add(p, T.pitch, 2)
+    add(p, T.pitch, 2, true)
   end
 
   -- the stand: its lip, the crowd rising back, the floor behind it, the back wall, the sloping
@@ -215,5 +217,5 @@ return function(A3, g3d)
     add(balls, T.ball, 2)
   end
 
-  return { clear = { 0.55, 0.78, 0.97 }, pieces = pieces }
+  return { clear = { 0.55, 0.78, 0.97 }, standIn = true, pieces = pieces }
 end
