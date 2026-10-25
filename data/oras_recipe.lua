@@ -1576,9 +1576,18 @@ for _, t in ipairs({ { "spa_black", 32, 32 }, { "spa_cloud00", 256, 128 }, { "sp
   { "spa_roof00", 128, 64 }, { "spa_sky00", 128, 128 }, { "spa_stadium00", 128, 128 }, { "spa_whiteline", 64, 64 } }) do
   bchtex("a/1/1/4", 75, t[1], "st3d/" .. t[1], t[2], t[3], "")
 end
+-- 3D AMIE (2026-10-25): PLAY's stage, the CGFX model collision02 in Amie's own 3D archive
+-- (a/1/0/1 entry 0, LZ; entries 5-160 are the Poke Puffs' models): a floor disc, the dotted sky
+-- cylinder, a rainbow, two cloud rings and the bubbles
+bchmodel("a/1/0/1", 0, "collision02", "amie3d/stage")
+for _, t in ipairs({ { "collision02_floor", 128, 128 }, { "collision02_wall", 32, 32 },
+  { "collision02_rainbow", 256, 128 }, { "collision02_kumo00", 512, 256 }, { "collision02_kumo01", 512, 256 },
+  { "collision02_shabon", 256, 256 } }) do
+  bchtex("a/1/0/1", 0, t[1], "amie3d/" .. t[1], t[2], t[3], "")
+end
 
 return {
-  version = 39,
+  version = 40,
   source = {
     name = "Pokemon Alpha Sapphire (USA) (Rev 2)",
     md5 = "0563f9dee1b95de32d579e40c20e2bfc",

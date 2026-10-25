@@ -236,7 +236,8 @@ for _, key in ipairs(order) do
         goto continue
       end
       if item.kind == "model" then
-        -- a 3D model (BCH) read into Lua tables (3D SUPER TRAINING's stadium), opened from its
+        -- a 3D model (BCH or CGFX) read into Lua tables (3D SUPER TRAINING's stadium, 3D AMIE's
+        -- stage), opened from its
         -- LZ wrapper and packages as a texture row is
         local unlz = function(s)
           local f = s:byte(1)
@@ -249,7 +250,9 @@ for _, key in ipairs(order) do
         local src, why = blob, "no BCH reader"
         if Bch then src, why = Bch.descend(blob, item.path or "", unlz) end
         local m
-        if Bch and src then m, why = Bch.model(src, item.index or 0) end
+        -- (a CGFX - NintendoWare - holds Amie PLAY's stage)
+        if Bch and src and src:sub(1, 4) == "CGFX" then m, why = Bch.cgfxModel(src)
+        elseif Bch and src then m, why = Bch.model(src, item.index or 0) end
         if not m then
           fail(item, "model: " .. tostring(why))
         else

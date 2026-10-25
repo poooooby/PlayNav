@@ -228,7 +228,8 @@ The in-game decoders are tested against the same data with
   tile_up:bg_up.bclyt:tile_up`. Entries 3-8 are CGFX (NintendoWare 3D scenes): the six stages,
   each with a photo frame (`pzl_mask` / `pzl_mask1` / `pzl_mask2`, ETC1A4 128 square, the frame
   in its top 128 x 104 with a clear inside), `pzl_pmask`, debug `pzl_size` / `pzl_othr`; their
-  scenery is referenced, not held. `bch.py list` reads CGFX too (every 'TXOB' with pixels:
+  scenery is referenced, not held. (`bch.py model` reads a CGFX model too: Amie PLAY's stage,
+  below.) `bch.py list` reads CGFX too (every 'TXOB' with pixels:
   name +8, height / width +20 / +24, format +48, image +52, all self-relative). Scenery found
   for the 2D picture: a/1/5/2 (the soaring overworld) e318 `sky` (64x128: four columns, day /
   deep blue / sunset / night), e317 / e323 / e320 `sea_b` / `sea_b_yuugata` / `sea_b_yoru`,
@@ -239,3 +240,13 @@ The in-game decoders are tested against the same data with
   `result_title` is in the English pack `a/2/1/6` entry 0 sub 2. Rows from `lyt_rows.py` with
   packs berry_demo / nuts / nutsanim / balloon / rear / front / score (+ berry_lang) / reward.
   Clip keys sit on one long master timeline (some at -760 or 400); `F.eval` holds the ends.
+- Amie PLAY's 3D stage (2026-10-25): `a/1/0/1` is Amie's own 3D archive - entry 0 the stage, a
+  CGFX model `collision02` (LZ; 6 meshes, 767 vertices: `_floor` a disc rising to a lip,
+  `_skyw` the dotted sky cylinder r 468, `_rainbow` one quad, `_kumo` the cumulus ring, `_kumo3`
+  bands of small clouds, `_shabon` the bubbles; its material animation drifts / sways / raises
+  them over 1000 frames), entry 1 its light, 2 its environment, 3-4 shaders, 5-160 the Poke
+  Puffs' models. `python tools/bch.py model romfs/a/1/0/1 0 <dir>` writes it (OBJ, the CGFX, the
+  Lua reference for bch_model_test). There is no camera in it: the camera is per species,
+  `a/0/8/9` entries 1..721 (492-byte records by National Dex number), ten presets of (camera
+  xyz, interest xyz) s16 at 0xB0 - `python tools/amie_cameras.py romfs > data/amie_cameras.lua`
+  keeps presets 0..3. The battle backgrounds (`a/1/3/6`, DllBackGround.cro) are not it.

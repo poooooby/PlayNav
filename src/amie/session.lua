@@ -289,6 +289,9 @@ return function(mod, deps)
   local function hash(i, k) return (math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1 end
 
   local function drawPlayTop(G2, e)
+    -- 3D AMIE: the stage seen looking up (src/amie/stage3d.lua; PLAY's update renders it)
+    local St, s = G.stage3d, G.session
+    if St and St.on and s and s.mode == "play" and St.drawTop(G2, e.x, e.y, e.w, e.h) then return end
     local t = (love and love.timer and love.timer.getTime()) or 0
     local sky = playSkyImage()
     if sky then

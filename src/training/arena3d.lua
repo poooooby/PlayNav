@@ -8,7 +8,7 @@
 --     the shape of Sim.project's, so arena_draw's sprites, shadows, goals and the HUD's reticle
 --     and popups take their places and sizes from the camera; A3.unprojectToPlane casts the
 --     camera's ray back onto a plane of the world (aiming);
---   * the stadium is drawn by g3d (src/g3d, vendored) into a canvas of its own with a depth
+--   * the stadium is drawn by g3d (src/g3d, vendored; src/render3d.lua) into a canvas of its own with a depth
 --     buffer (the window has none), the card's model when extracted (Assets.model
 --     "st3d/stadium"), else a drawn stand-in (arena3d_stand.lua), and blitted under the sprites.
 --
@@ -56,7 +56,6 @@ return function(mod, deps)
     AIM0 = { 0, 80.545, -5 }, AIM1 = { 0, 115.276, -5 } }
 
   local rad, sin, cos, sqrt = math.rad, math.sin, math.cos, math.sqrt
-  local shader                   -- the stadium's shader (A3.available)
   -- the view matrix's rows (g3d's layout) and the eye
   local m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12 = 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0
   local eyeX, eyeY, eyeZ = 0, 0, 240
@@ -330,80 +329,43 @@ return function(mod, deps)
     return out
   end
 
-  -- ------- g3d (loaded once, from this mod's src/g3d; a mod cannot require its own files)
+  -- ------- drawing: src/render3d.lua (g3d, the shader, the depth canvases, rendering in the update
+  -- step), made on first use (the headless tests never draw)
 
-  local g3d, g3dWhy = nil, nil
-  function A3.g3d()
-    if g3d or g3dWhy then return g3d, g3dWhy end
-    local function use(name, lib)
-      local path = "src/g3d/" .. name .. ".lua"
-      local src = mod.read and mod:read(path)
-      if not src then error(path .. " is missing") end
-      local chunk, err = load(src, "@" .. (mod.path or "play_nav") .. "/" .. path)
-      if not chunk then error(err) end
-      return chunk(lib)
+  local R = nil
+  local function renderer()
+    if R then return R end
+    local make = deps.Render3d
+    if not make and mod.read then
+      local src = mod:read("src/render3d.lua")
+      make = src and assert(load(src, "@" .. (mod.path or "play_nav") .. "/src/render3d.lua"))()
     end
-    local ok, lib = pcall(function()
-      local src = mod:read("src/g3d/init.lua")
-      local chunk = assert(load(src, "@" .. (mod.path or "play_nav") .. "/src/g3d/init.lua"))
-      return chunk(use, nil)
-    end)
-    if ok and type(lib) == "table" then g3d = lib else g3dWhy = tostring(lib) end
-    return g3d, g3dWhy
+    R = make(mod, {
+      name = "3D stadium",
+      camera = { view = A3.viewMatrix, projection = A3.projectionMatrix },
+      -- (in the ending the eye is under the grass: the card's stadium culls back faces, as the
+      -- game; the drawn stand-in, wound both ways, keeps them and leaves its floor out instead)
+      state = function(sc)
+        if not ending then return nil, nil end
+        if sc.standIn then return nil, A3.isFloor end
+        return A3.ENDING.CULL, nil
+      end,
+    })
+    A3.stats = R.stats
+    return R
   end
+  function A3.isFloor(piece) return piece.floor end
+  -- (for drivers: renders in the update step, pictures placed as prepared, renders mid-draw)
+  A3.stats = { prepared = 0, placed = 0, inline = 0 }
 
-  -- the stadium's shader: g3d's vertex shader and ours for the pixels: alpha below `alphaCut`
-  -- discarded (the grass tufts, the crowd's gaps), the texture times the vertex colour
-  local FRAG = [[
-    uniform float alphaCut;
-    vec4 effect(vec4 color, Image tex, vec2 uv, vec2 screen) {
-      vec4 c = Texel(tex, uv) * color;
-      if (c.a < alphaCut) discard;
-      return c;
-    }
-  ]]
-
-  -- ------- the device: a shader and a depth buffer, probed once
-
-  local depthFmt
-  local function makeDepth(w, h)
-    local G = love.graphics
-    for _, fmt in ipairs({ "depth24", "depth16", "depth24stencil8", "depth32f" }) do
-      local ok, c = pcall(G.newCanvas, w, h, { format = fmt, readable = false, dpiscale = 1 })
-      if ok and c then return c, fmt end
-      ok, c = pcall(G.newCanvas, w, h, { format = fmt, dpiscale = 1 })
-      if ok and c then return c, fmt end
-    end
-    return nil, nil
-  end
-
-  local probed = nil
+  function A3.g3d() return renderer().g3d() end
   function A3.available()
-    if probed ~= nil then return probed, A3.why end
-    local G = love and love.graphics
-    if not (G and G.newCanvas and G.newShader and G.setDepthMode and G.newMesh) then
-      probed, A3.why = false, "no 3D drawing on this LOVE"
-      return probed, A3.why
-    end
-    local lib, why = A3.g3d()
-    if not lib then
-      probed, A3.why = false, "g3d did not load (" .. tostring(why) .. ")"
-      return probed, A3.why
-    end
-    local vert = mod:read("src/g3d/g3d.vert")
-    local ok, sh = pcall(G.newShader, FRAG, vert)
-    if not (ok and sh) then
-      probed, A3.why = false, "the 3D shader did not compile (" .. tostring(sh) .. ")"
-      return probed, A3.why
-    end
-    shader = sh
-    local d, fmt = makeDepth(4, 4)
-    depthFmt = fmt or "auto"
-    if d then d:release() end
-    probed = true
-    return probed, nil
+    local ok, why = renderer().available()
+    A3.why = why
+    return ok, why
   end
-  function A3.depthFormat() return depthFmt end
+  function A3.depthFormat() return renderer().depthFormat() end
+  function A3.lastSize() return renderer().lastSize() end
 
   -- ------- the scene: the card's stadium or the stand-in, built once
 
@@ -431,181 +393,21 @@ return function(mod, deps)
     return scene
   end
 
-  -- ------- drawing the stadium into its canvas and onto the screen
-
-  local color, depth, cw, ch = nil, nil, 0, 0
-  local targets = {}   -- w * 65536 + h -> { color, depth, used }
-  local maxTex = nil   -- the GPU's largest texture side (capped at 4096)
-  local prepId = 0     -- A3.prepare's count: a target rendered by the latest has .prepared == it
-  -- (for drivers: renders in the update step, pictures placed as prepared, renders mid-draw)
-  A3.stats = { prepared = 0, placed = 0, inline = 0 }
-  local renderInto     -- (below)
-  local viewM, projM = {}, {}
-  -- (reused each frame: setCanvas' table, the sky's fallback colour)
-  local canvasArg, SKY = {}, { 0.45, 0.7, 0.95 }
-  local hasCanvasFlag = nil
-  function A3.lastSize() return cw, ch end
-
   -- the stadium under the sprites, over the screen rect ex, ey, ew, eh (240x160 units, in the
   -- current transform); true when drawn
   function A3.drawStadium(G2, ex, ey, ew, eh)
-    local G = love.graphics
     if not A3.available() then return false end
-    local sc = A3.scene()
-    if not sc then return false end
-    local lib = A3.g3d()
-    -- the canvas at the rect's size in pixels (dpiscale 1: one texel a pixel)
-    local x0, y0 = G2.transformPoint(ex, ey)
-    local x1, y1 = G2.transformPoint(ex + ew, ey + eh)
-    -- (units -> pixels: the window's DPI on the window, the canvas' own inside one - as
-    -- hd.outputScale)
-    local outer = G.getCanvas and G.getCanvas() or nil
-    if type(outer) == "table" then outer = outer[1] end
-    local dpi
-    if outer and outer.getDPIScale then dpi = outer:getDPIScale() or 1
-    else dpi = G.getDPIScale and G.getDPIScale() or 1 end
-    local w = math.max(16, math.floor(math.abs(x1 - x0) * dpi + 0.5))
-    local h = math.max(16, math.floor(math.abs(y1 - y0) * dpi + 0.5))
-    -- never past the GPU's largest texture (a phone's can be 4096; an oversized target there
-    -- left the viewport wrong for the rest of the frame: the whole top screen drawn small in a
-    -- corner)
-    if not maxTex then
-      local ok, lim = pcall(G.getSystemLimits)
-      maxTex = ok and lim and lim.texturesize or 4096
-      maxTex = math.min(maxTex, 4096)
-    end
-    if w > maxTex or h > maxTex then
-      local k = maxTex / math.max(w, h)
-      w, h = math.max(16, math.floor(w * k)), math.max(16, math.floor(h * k))
-    end
-    -- one colour + depth pair per size, two sizes kept: the stadium can be drawn both into the
-    -- frame's low-resolution picture and onto the window (hd_top) - alternating between them
-    -- must not release and rebuild GPU canvases each switch
-    local key = w * 65536 + h
-    if (w ~= cw or h ~= ch or not color) and targets[key] then
-      local tg = targets[key]
-      color, depth, cw, ch = tg.color, tg.depth, w, h
-      tg.used = love.timer and love.timer.getTime() or 0
-    end
-    if w ~= cw or h ~= ch or not color then
-      -- (one line a size: what a device's log needs to tell a mismatch apart)
-      if mod.log then
-        local winW, winH = G.getDimensions()
-        local pxW, pxH = winW, winH
-        if G.getPixelDimensions then pxW, pxH = G.getPixelDimensions() end
-        local ow, oh = 0, 0
-        if outer and outer.getDimensions then ow, oh = outer:getDimensions() end
-        mod.log:info("3D stadium canvas %dx%d px (rect %.1fx%.1f units, dpi %.3f, %s %dx%d, window %dx%d units / %dx%d px)",
-          w, h, math.abs(x1 - x0), math.abs(y1 - y0), dpi, outer and "in a canvas" or "on the window",
-          ow, oh, winW, winH, pxW or 0, pxH or 0)
-      end
-      -- (past two sizes the least recently used pair goes)
-      local n, oldest, oldKey = 0, math.huge, nil
-      for k2, tg in pairs(targets) do
-        n = n + 1
-        if tg.used < oldest then oldest, oldKey = tg.used, k2 end
-      end
-      if n >= 2 and oldKey then
-        local tg = targets[oldKey]
-        if tg.color then tg.color:release() end
-        if tg.depth then tg.depth:release() end
-        targets[oldKey] = nil
-      end
-      color = G.newCanvas(w, h, { dpiscale = 1 })
-      color:setFilter("linear", "linear")
-      depth = makeDepth(w, h)
-      cw, ch = w, h
-      targets[key] = { color = color, depth = depth, used = love.timer and love.timer.getTime() or 0 }
-    end
-    -- this size's place: what A3.prepare renders it with next update (the rect, the view)
-    local tg = targets[key]
-    tg.seen = love.timer and love.timer.getTime() or 0
-    tg.ex, tg.ey, tg.ew, tg.eh = ex, ey, ew, eh
-    tg.vx, tg.vy, tg.vw, tg.vh = VIEW.x, VIEW.y, VIEW.w, VIEW.h
-    -- rendered in this update (A3.prepare, outside any canvas): placed only; else now
-    if tg.prepared ~= prepId or prepId == 0 then
-      renderInto(tg, ex, ey, ew, eh, sc, lib)
-      A3.stats.inline = A3.stats.inline + 1
-    else
-      A3.stats.placed = A3.stats.placed + 1
-    end
-    G2.setColor(1, 1, 1, 1)
-    G2.draw(color, ex, ey, 0, ew / w, eh / h)
-    return true
+    return renderer().draw(G2, A3.scene(), ex, ey, ew, eh, VIEW)
   end
 
-  -- the stadium into a target's colour + depth canvases, through the camera as it is now
-  function renderInto(tg, ex, ey, ew, eh, sc, lib)
-    local G = love.graphics
-    local color, depth = tg.color, tg.depth
-    local cam = lib.camera
-    A3.viewMatrix(cam.viewMatrix)
-    A3.projectionMatrix(cam.projectionMatrix, ex, ey, ew, eh)
-    G.push("all")
-    G.setScissor()
-    G.origin()
-    canvasArg[1] = color
-    if depth then canvasArg.depthstencil, canvasArg.depth = depth, nil
-    else canvasArg.depthstencil, canvasArg.depth = nil, true end
-    G.setCanvas(canvasArg)
-    local sky = sc.clear or SKY
-    G.clear(sky[1], sky[2], sky[3], 1, true, true)
-    -- (in the ending the eye is under the grass: the card's stadium culls back faces, as the
-    -- game; the drawn stand-in, wound both ways, keeps them and leaves its floor out instead)
-    local skipFloor = ending and sc.standIn
-    G.setMeshCullMode((ending and not sc.standIn) and A3.ENDING.CULL or "none")
-    G.setBlendMode("alpha")
-    G.setColor(1, 1, 1, 1)
-    -- the shader and the camera's matrices once a frame (g3d's model:draw sends all three and
-    -- swaps the shader per piece); a model matrix only when a piece's differs
-    G.setShader(shader)
-    shader:send("viewMatrix", cam.viewMatrix)
-    shader:send("projectionMatrix", cam.projectionMatrix)
-    if hasCanvasFlag == nil then hasCanvasFlag = shader:hasUniform("isCanvasEnabled") end
-    if hasCanvasFlag then shader:send("isCanvasEnabled", true) end
-    local lastM = nil
-    -- far away first, with no depth (the sky's size would spend the depth buffer's precision),
-    -- then the solid pieces, then the see-through ones (the game's render priority 256)
-    for pass = 1, 3 do
-      if pass == 1 then G.setDepthMode("always", false)
-      elseif pass == 2 then G.setDepthMode("lequal", true)
-      else G.setDepthMode("lequal", false) end
-      shader:send("alphaCut", pass == 2 and 0.5 or 0.02)
-      local pieces = sc.pieces
-      for i = 1, #pieces do
-        local piece = pieces[i]
-        if piece.pass == pass and not (skipFloor and piece.floor) then
-          local m = piece.model
-          if m.matrix ~= lastM then shader:send("modelMatrix", m.matrix); lastM = m.matrix end
-          G.draw(m.mesh)
-        end
-      end
-    end
-    G.setDepthMode()
-    G.pop()
-  end
-
-  -- Render each recently drawn size's picture now, in the update step, outside any canvas:
-  -- switching to a canvas in the middle of drawing into another left the rest of the frame drawn
-  -- small in a corner on Android (the Thor: the top screen drawn into the engine's frame canvas).
-  -- setup(vx, vy, vw, vh) sets the view and moves the camera as the draw will; drawStadium then
-  -- only places the picture.
+  -- Render each recently drawn size's picture now, in the update step, outside any canvas
+  -- (src/render3d.lua): setup(vx, vy, vw, vh) sets the view and moves the camera as the draw
+  -- will; drawStadium then only places the picture.
+  local function setupTarget(tg) A3.setupFn(tg.vx, tg.vy, tg.vw, tg.vh) end
   function A3.prepare(setup)
     if not A3.available() then return false end
-    local sc = A3.scene()
-    if not sc then return false end
-    local lib = A3.g3d()
-    local now = love.timer and love.timer.getTime() or 0
-    prepId = prepId + 1
-    for _, tg in pairs(targets) do
-      if tg.seen and now - tg.seen < 1 and tg.ew then
-        setup(tg.vx, tg.vy, tg.vw, tg.vh)
-        renderInto(tg, tg.ex, tg.ey, tg.ew, tg.eh, sc, lib)
-        tg.prepared = prepId
-        A3.stats.prepared = A3.stats.prepared + 1
-      end
-    end
-    return true
+    A3.setupFn = setup
+    return renderer().prepare(A3.scene(), setupTarget)
   end
 
   -- ------- the card's stadium (a/1/1/4 entry 75, read by src/import/bch.lua M.model)
@@ -613,20 +415,8 @@ return function(mod, deps)
   -- drawn as stored (the game loads it with no transform: DllSparring.cro 0x7d4c-0x805c)
   A3.CARD = { CLEAR = { 0.55, 0.76, 0.96 } }
 
-  -- one mesh as a g3d model: its triangles expanded, its texture repeated, its baked vertex
-  -- colours kept; the 3DS's texture origin is bottom left, so v is turned over
-  local function cardMesh(lib, me, image)
-    local verts = {}
-    local pos, uv, col, idx = me.pos, me.uv, me.col, me.idx
-    for i = 1, #idx do
-      local v = idx[i]
-      local p, t, c = v * 3, v * 2, v * 4
-      local r, g, b, a = 1, 1, 1, 1
-      if col then r, g, b, a = col[c + 1], col[c + 2], col[c + 3], col[c + 4] end
-      verts[i] = { pos[p + 1], pos[p + 2], pos[p + 3], uv[t + 1], 1 - uv[t + 2], 0, 1, 0, r, g, b, a }
-    end
-    return lib.newModel(verts, image)
-  end
+  -- one mesh as a g3d model (src/render3d.lua R.modelMesh: v turned over, vertex colours kept)
+  local function cardMesh(_, me, image) return renderer().modelMesh(me, image) end
 
   -- the stadium's pieces from the extracted model and its textures (Assets "st3d/<texture>"):
   -- the sky first with no depth, the solid ones, then the game's render priority 256 (clouds,

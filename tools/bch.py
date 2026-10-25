@@ -4,7 +4,7 @@ Usage:
   python tools/bch.py list <garc> [entry] [--deep]              # every BCH in a GARC: its textures (name, size, format)
   python tools/bch.py extract <garc> <entry> <outdir> [--deep]  # one entry's textures as PNGs
   python tools/bch.py find <romfs-dir> <regex>                  # textures named like regex, in every GARC (deep)
-  python tools/bch.py model <garc> <entry> <outdir>             # the entry's model: OBJ + MTL, the BCH, a Lua reference
+  python tools/bch.py model <garc> <entry> <outdir>             # the entry's model (BCH or CGFX): OBJ + MTL, the file, a Lua reference
 
 --deep also opens LZ entries and Game Freak's packages ('PC', 'GR', 'MM', 'AD' ...: a two-letter
 tag, a u16 count, count + 1 u32 offsets) and the packages inside them, where most of the 3D
@@ -410,6 +410,109 @@ def model(b, index=0):
     return out
 
 
+# ------- CGFX models (NintendoWare: Amie PLAY's stage, a/1/0/1 entry 0): twin of
+# src/import/bch.lua M.cgfxModel; the layouts are documented there
+
+def s32(b, p):
+    return struct.unpack_from('<i', b, p)[0]
+
+
+def cgfx_dict(b, p):
+    """a DICT at p -> [(name, object)]"""
+    if b[p:p + 4] != b'DICT':
+        return []
+    out = []
+    for i in range(u32(b, p + 8)):
+        e = p + 0x1c + i * 16
+        out.append((cstring(b, e + 8 + s32(b, e + 8)), e + 12 + s32(b, e + 12)))
+    return out
+
+
+def cgfx_list(b, p):
+    """a count at p and a self-relative pointer to self-relative pointers -> objects"""
+    n = u32(b, p)
+    if n == 0:
+        return []
+    t = p + 4 + s32(b, p + 4)
+    return [t + 4 * i + s32(b, t + 4 * i) for i in range(n)]
+
+
+def cgfx_data(b, kind):
+    d = struct.unpack_from('<H', b, 6)[0]
+    if b[d:d + 4] != b'DATA' or u32(b, d + 8 + 8 * kind) == 0:
+        return []
+    q = d + 12 + 8 * kind
+    return cgfx_dict(b, q + s32(b, q))
+
+
+CGFX_GL = {0x1400: ('b', 1), 0x1401: ('B', 1), 0x1402: ('h', 2), 0x1403: ('H', 2), 0x1406: ('f', 4)}
+CGFX_USE = {0: 'pos', 1: 'normal', 2: 'tangent', 3: 'color', 4: 'uv0'}
+
+
+def cgfx_model(b):
+    """a CGFX file's first model, the same shape as model()'s meshes (texture, priority = the
+    material's layer, skin 0, pos, uv, col, idx); materials by name"""
+    (mname, cm) = cgfx_data(b, 0)[0]
+    tex_names = set(n for n, _ in cgfx_data(b, 1))
+    mats = cgfx_dict(b, cm + 0xc0 + s32(b, cm + 0xc0)) if u32(b, cm + 0xbc) else []
+    mat_tex, mat_layer = {}, {}
+    for i, (n, a) in enumerate(mats):
+        mat_layer[i] = u32(b, a + 0x20)
+        for p in range(a, min(a + 0x800, len(b) - 4), 4):
+            t = p + s32(b, p)
+            if 0 <= t < len(b):
+                name = cstring(b, t)
+                if name in tex_names:
+                    mat_tex[i] = name
+                    break
+    shapes = cgfx_list(b, cm + 0xc4)
+    out = {'name': mname, 'materials': [{'name': n, 'texture': mat_tex.get(i)} for i, (n, _) in enumerate(mats)],
+           'meshes': []}
+    for me in cgfx_list(b, cm + 0xb4):
+        sh = shapes[u32(b, me + 0x18)]
+        mi = u32(b, me + 0x1c)
+        off = struct.unpack_from('<3f', b, sh + 0x20)
+        pos, uv, col = [], [], []
+        for vb in cgfx_list(b, sh + 0x38):
+            if u32(b, vb) != 0x40000002:
+                continue
+            length, raw, stride = u32(b, vb + 0x14), vb + 0x18 + s32(b, vb + 0x18), u32(b, vb + 0x24)
+            attrs = []
+            for a in cgfx_list(b, vb + 0x28):
+                use = CGFX_USE.get(u32(b, a + 4))
+                ch, _ = CGFX_GL.get(u32(b, a + 0x24), ('B', 1))
+                attrs.append((use, ch, u32(b, a + 0x28), struct.unpack_from('<f', b, a + 0x2c)[0], u32(b, a + 0x30)))
+            for v in range(length // stride):
+                x = y = z = u = w = 0.0
+                c = None
+                for use, ch, n, k, ao in attrs:
+                    if not use:
+                        continue
+                    vals = struct.unpack_from('<' + ch * n, b, raw + v * stride + ao)
+                    if use == 'pos':
+                        x, y, z = vals[0] * k, vals[1] * k, vals[2] * k
+                    elif use == 'uv0':
+                        u, w = vals[0] * k, vals[1] * k
+                    elif use == 'color':
+                        c = (vals[0] * k, vals[1] * k, vals[2] * k, vals[3] * k if n >= 4 else 1.0)
+                pos.append((x + off[0], y + off[1], z + off[2]))
+                uv.append((u, w))
+                if c:
+                    col.append(c)
+        idx = []
+        for sm in cgfx_list(b, sh + 0x2c):
+            for face in cgfx_list(b, sm + 0xc):
+                for fd in cgfx_list(b, face):
+                    size, raw = u32(b, fd + 8), fd + 0xc + s32(b, fd + 0xc)
+                    if u32(b, fd) == 0x1403:
+                        idx.extend(struct.unpack_from('<%dH' % (size // 2), b, raw))
+                    else:
+                        idx.extend(b[raw:raw + size])
+        out['meshes'].append({'material': mi, 'texture': mat_tex.get(mi), 'priority': mat_layer.get(mi, 0),
+                              'pos': pos, 'uv': uv, 'col': col or None, 'idx': idx, 'skin': 0})
+    return out
+
+
 def write_obj(mdl, path):
     """the model as an OBJ + MTL to look at (textures by name, PNGs beside it)"""
     base = os.path.splitext(path)[0]
@@ -480,11 +583,12 @@ def main(argv):
         entry, outdir = int(argv[2]), argv[3]
         os.makedirs(outdir, exist_ok=True)
         for k, j, b in garc_bchs(argv[1]):
-            if k != entry or b[:4] != b'BCH\x00':
+            if k != entry or b[:4] not in (b'BCH\x00', b'CGFX'):
                 continue
-            mdl = model(b)
+            bch = b[:4] == b'BCH\x00'
+            mdl = model(b) if bch else cgfx_model(b)
             stem = os.path.join(outdir, 'e%d' % entry)
-            open(stem + '.bch', 'wb').write(b)
+            open(stem + ('.bch' if bch else '.cgfx'), 'wb').write(b)
             write_obj(mdl, stem + '_model.obj')
             with open(stem + '_model.lua', 'w') as f:
                 f.write('return { name = "%s", meshes = {\n' % mdl['name'])
@@ -497,7 +601,7 @@ def main(argv):
                 f.write('} }\n')
             print('%s: %d meshes -> %s' % (mdl['name'], len(mdl['meshes']), stem))
             return 0
-        print('no BCH model in entry', entry)
+        print('no BCH / CGFX model in entry', entry)
         return 1
     if argv[0] == 'extract':
         entry, outdir = int(argv[2]), argv[3]
