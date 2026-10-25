@@ -114,6 +114,9 @@ return function(mod)
     -- Super-Training Regimens in a real 3D stadium (the card's, else a drawn one), the camera
     -- behind the trainee; the 2D view when off or when the device cannot draw it
     { key = "training_3d", label = "3D SUPER TRAINING", type = "toggle", default = false },
+    -- Pokemon-Amie's PLAY on the game's own 3D stage (the card's, else a drawn one), both screens;
+    -- the 2D scene when off or when the device cannot draw it
+    { key = "amie_3d", label = "3D AMIE", type = "toggle", default = false },
     { key = "haptics", label = "HAPTICS", type = "choice", default = "medium",
       choices = { { "HIGH", "high" }, { "MEDIUM", "medium" }, { "LOW", "low" }, { "OFF", "off" } } },
   })
@@ -178,6 +181,8 @@ return function(mod)
   -- PLAY's and DECORATE's screens are laid out in Lua (src/amie/panes.lua)
   mod.panes = loadSibling(mod, "src/amie/panes.lua")
   local makePlayApp = loadSibling(mod, "src/amie/play.lua")
+  -- a 3D scene drawn into its own depth canvas (3D SUPER TRAINING's stadium, 3D AMIE's stage)
+  local makeRender3d = loadSibling(mod, "src/render3d.lua")
   local makeHomeApp = loadSibling(mod, "src/amie/home.lua")
   local DecorCatalog = loadSibling(mod, "data/decor_catalog.lua")
   local makeDecor = loadSibling(mod, "src/amie/decor.lua")
@@ -221,6 +226,19 @@ return function(mod)
     end
     -- which of the game's own effects plays when (G.se)
     Amie.sounds = loadSibling(mod, "data/amie_sounds.lua") or {}
+    -- each species' mouth on its Gen 9 front sprite (PLAY holds a Poke Puff there)
+    Amie.mouths = loadSibling(mod, "data/amie_mouths.lua")
+    -- 3D AMIE: PLAY's stage in 3D (the card's, else a drawn one), used while the option is on
+    local makeStage = loadSibling(mod, "src/amie/stage3d.lua")
+    if makeStage and makeRender3d then
+      local okS, St = pcall(makeStage, mod, { Render3d = makeRender3d, cameras = loadSibling(mod, "data/amie_cameras.lua") })
+      if okS and type(St) == "table" then
+        Amie.stage3d = St
+        St.on = mod.options:get("amie_3d") == true
+      else
+        mod.log:warn("3D AMIE failed to build (%s); PLAY stays 2D", tostring(St))
+      end
+    end
     local ok, app = pcall(makePlayApp, mod, Pointer, Amie, Rules, Petting, amieHost)
     if ok and type(app) == "table" then
       Apps:register(app)
@@ -354,7 +372,7 @@ return function(mod)
         -- 3D SUPER TRAINING: the camera and stadium the arena is drawn through when on
         if Draw then
           local makeA3 = loadSibling(mod, "src/training/arena3d.lua")
-          local okA, A3 = pcall(function() return makeA3 and makeA3(mod, { Sim = TSim, Rules = TRules }) end)
+          local okA, A3 = pcall(function() return makeA3 and makeA3(mod, { Sim = TSim, Rules = TRules, Render3d = makeRender3d }) end)
           if okA and type(A3) == "table" then
             Draw.arena3d = A3
             Draw.mode3d = mod.options:get("training_3d") == true
@@ -499,6 +517,7 @@ return function(mod)
       end
       if Training then Training.assets = Assets end
       if Amie then Amie.assets = Assets end
+      if Amie and Amie.stage3d then Amie.stage3d.assets = Assets end
       -- the game's own sound effects (rendered by the import), shared as mod.sfx
       local makeSfx = loadSibling(mod, "src/sfx.lua")
       if makeSfx then
@@ -1086,6 +1105,8 @@ return function(mod)
       if A3 then A3.resetScene() end
     end
     if Amie and Amie.text then Amie.text.ownText = off end
+    -- 3D AMIE's stage is built again: the card's model or the drawn stand-in
+    if Amie and Amie.stage3d then Amie.stage3d.resetScene() end
     if amieMusic then amieMusic.cardOnly = not off end
   end
   applyRomOption()
@@ -1326,6 +1347,8 @@ return function(mod)
     elseif ev.key == "training_3d" then
       local Draw = Training and Training.arenaDraw
       if Draw then Draw.mode3d = ev.value == true end
+    elseif ev.key == "amie_3d" then
+      if Amie and Amie.stage3d then Amie.stage3d.on = ev.value == true end
     elseif ev.key == "use_rom_assets" and Extract then
       if ev.value == false then
         -- PlayNav's own from now on; nothing more is asked

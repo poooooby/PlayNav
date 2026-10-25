@@ -62,4 +62,38 @@ T.check(math.abs(back.meshes[3].pos[1] - m.meshes[3].pos[1]) < 1e-2 and #back.me
   "...with its positions and indices")
 T.check(#src < 400000, ("...in %d KB"):format(math.floor(#src / 1024)))
 
+-- the CGFX reader (M.cgfxModel, Amie PLAY's stage a/1/0/1 entry 0) against the same twin:
+-- python tools/bch.py model <romfs>/a/1/0/1 0 <oras-extract>/cgfx_ref
+do
+  local CREF = (os.getenv("ORAS_EXTRACT") or (os.getenv("USERPROFILE") or "") .. "/Documents/oras-extract") .. "/cgfx_ref/"
+  local cblob, cref = readFile(CREF .. "e0.cgfx"), readFile(CREF .. "e0_model.lua")
+  if not (cblob and cref) then
+    print("skip: no " .. CREF .. "e0.cgfx / e0_model.lua")
+  else
+    local r = assert(load(cref, "=cref", "t", {}))()
+    local cm, cwhy = Bch.cgfxModel(cblob)
+    T.check(cm ~= nil, "Amie's stage reads (" .. tostring(cwhy) .. ")")
+    if cm then
+      T.eq(cm.name, "collision02", "its name")
+      T.eq(#cm.meshes, #r.meshes, "its mesh count")
+      for i, rm in ipairs(r.meshes) do
+        local me = cm.meshes[i]
+        local nv, nt = #me.pos / 3, #me.idx / 3
+        local sx, sy, sz, su, sv, sc, si = 0, 0, 0, 0, 0, 0, 0
+        for k = 1, #me.pos, 3 do sx, sy, sz = sx + me.pos[k], sy + me.pos[k + 1], sz + me.pos[k + 2] end
+        for k = 1, #me.uv, 2 do su, sv = su + me.uv[k], sv + me.uv[k + 1] end
+        for _, c in ipairs(me.col or {}) do sc = sc + c end
+        for _, v in ipairs(me.idx) do si = si + v end
+        local function near(a, b) return math.abs(a - b) <= 2e-3 + 1e-6 * math.abs(b) end
+        T.check(me.texture == rm.texture and me.priority == rm.priority and nv == rm.verts and nt == rm.tris
+          and near(sx, rm.sum[1]) and near(sy, rm.sum[2]) and near(sz, rm.sum[3]) and near(su, rm.sum[4])
+          and near(sv, rm.sum[5]) and near(sc, rm.sum[6]) and si == rm.idx,
+          ("stage mesh %d (%s) as the Python twin reads it"):format(i - 1, tostring(me.texture)))
+      end
+      local back = assert(load(Bch.serializeModel(cm), "=stage", "t", {}))()
+      T.eq(back.meshes[1].name, "collision02_floor", "the serialized stage keeps the mesh names")
+    end
+  end
+end
+
 T.finish("play_nav bch model")

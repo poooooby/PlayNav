@@ -3,6 +3,7 @@
 -- in), taps on each zone (reactions), the puff strip, a puff dragged onto it (the flash, the
 -- close-up, a bite, back out), the games picker (badge 1 -> 2 -> 3 with the arrows, back to 1,
 -- the difficulty ribbons, Easy starts Berry Picker), and the top screen's sky. Shots each step.
+-- PROBE_3D=1: 3D AMIE for this run (never saved); PROBE_FALLBACK=1: PlayNav's own art.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/amie_play_probe.lua love .
 
@@ -26,6 +27,7 @@ local function body(game, log)
   do
     local Xk = game.mods and game.mods.exports and game.mods.exports.play_nav
     if Xk and Xk._test and Xk._test.keepArt then Xk._test.keepArt() end
+    if os.getenv("PROBE_FALLBACK") == "1" and Xk and Xk._test and Xk._test.forceRom then Xk._test.forceRom(false) end
   end
   game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
   U.wait(30)
@@ -73,6 +75,21 @@ local function body(game, log)
     press(id, ax, ay); U.wait(2); release(id, ax, ay); U.wait(3)
   end
 
+  -- 3D AMIE for this run only
+  local St = R.session and R.session.stage3d
+  if St and os.getenv("PROBE_3D") == "1" then
+    St.on = true
+    log("3D AMIE on; available:", St.available())
+  end
+  local function stageLog(when)
+    if not (St and St.on) then return end
+    local lo, hi = St.stats()
+    local sc = St.scene()
+    log(("3D AMIE %s: %s stage, camera eye %.0f,%.0f,%.0f at %.0f,%.0f,%.0f; renders low %d/%d/%d top %d/%d/%d (prepared / placed / mid-draw)"):format(
+      when, sc and (sc.card and "card" or "drawn") or "no", St.cam.ex, St.cam.ey, St.cam.ez, St.cam.ix, St.cam.iy, St.cam.iz,
+      lo.prepared, lo.placed, lo.inline, hi.prepared, hi.placed, hi.inline))
+  end
+
   local ok, err = pcall(function()
     log("open play:", R.openPlay())
     U.wait(10)
@@ -93,6 +110,7 @@ local function body(game, log)
     waitFor(function() return st().wake == "awake" end, 1200)
     U.wait(20)
     shot("p04_awake")
+    stageLog("awake")
     log("awake:", st().wake)
     if os.getenv("PROBE_PARTY") == "1" then
       tapAt("play", app.tapPoint("play_btn"))
@@ -137,6 +155,7 @@ local function body(game, log)
       if k == 30 then
         log("stroking: zoom", ("%.2f"):format(st().zoom), "hand", st().hand, "calm", ("%.2f"):format(st().calm))
         shot("p05_stroke")
+        stageLog("stroke")
       end
       if not shotNotes and love.timer.getTime() - t0 > 1.3 then
         shotNotes = true

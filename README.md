@@ -72,7 +72,10 @@ on a touch screen below the game or on a device's second display.
 - 🌤️ **Play:** your Pokémon stands large on a lawn under the sky, its back to you until you tap
   it. It moves with its mood: lively and hopping when it's happy, drooping when it's hungry,
   and an unwell Pokémon shivers and goes back to its ball. Leave it alone long enough and it
-  dozes off.
+  dozes off. Turn on **3D AMIE** and it stands on the game's own 3D stage instead (from your
+  card image, or a drawn one without it): the lawn, a dotted sky, a rainbow, drifting clouds
+  and rising bubbles, framed by the game's camera for its species, with the top screen looking
+  up into the same sky.
 - 🤚 **Petting:** Stroke your Pokémon with your finger and it wriggles along with music notes
   (hearts on a spot it loves); keep at it and it hops for joy. Every species has a spot it
   loves and one it dislikes (it flinches away), and some have spots you shouldn't touch at
@@ -235,6 +238,7 @@ Open **OPTIONS → MODS → PlayNav**.
 | **USE ROM ASSETS** | On / Off | On | On: the 3DS game's own art, layouts, music, sounds and text, from your Omega Ruby or Alpha Sapphire copy (nothing of PlayNav's stands in). Off: PlayNav's own, no copy needed. **Use fallback assets** on the PlayNav screen turns it off; turning it back on checks for your copy again. |
 | **EXTRACT OR/AS ASSETS ON BOOT** | On / Off | On | Once you have chosen to extract, resume or start the unpacking automatically at the next start. |
 | **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
+| **3D AMIE** | On / Off | Off | Play with your Pokémon in Pokémon-Amie on the game's own 3D stage, both screens, with the game's camera for its species. With your card image it's the game's own stage; without it, a drawn one. Off, or on a device that can't draw it: the flat lawn and sky. |
 | **3D SUPER TRAINING** | On / Off | Off | Play Super-Training Regimens in a real 3D stadium as the game does: you circle the balloon, the camera riding with you; the right stick or the mouse wheel steps nearer or farther. With your card image it's the game's own stadium; without it, a drawn one. Off, or on a device that can't draw it: the flat view. |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
 | **HAPTICS** | High / Medium / Low / Off | Medium | How strongly your phone or handheld vibrates for touches and play: menu presses, petting, bites, high fives, minigame hits, punching bags and Balloon Bot hits. No effect on a PC. |

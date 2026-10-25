@@ -344,6 +344,135 @@ function M.model(blob, index)
   return out
 end
 
+-- ------- CGFX models (NintendoWare: Amie PLAY's stage, a/1/0/1 entry 0): twin of tools/cgfx.py
+
+-- a CGFX dictionary ("DICT") at 0-based p -> { { name, at }, ... } (at: the entry's object)
+local function cgfxDict(s, p)
+  if s:sub(p + 1, p + 4) ~= "DICT" then return {} end
+  local out = {}
+  for i = 0, u32(s, p + 8) - 1 do
+    local e = p + 0x1c + i * 16
+    out[#out + 1] = { name = cstring(s, e + 8 + s32(s, e + 8)), at = e + 12 + s32(s, e + 12) }
+  end
+  return out
+end
+-- a count at p and a self-relative pointer to a table of self-relative pointers at p + 4
+local function cgfxList(s, p)
+  local n = u32(s, p)
+  if n == 0 then return {} end
+  local t = p + 4 + s32(s, p + 4)
+  local out = {}
+  for i = 0, n - 1 do out[i + 1] = t + 4 * i + s32(s, t + 4 * i) end
+  return out
+end
+-- the DATA block's dictionaries by kind (0 models, 1 textures, ...) -> dictionary
+local function cgfxData(s, kind)
+  local d = u16(s, 6)
+  if s:sub(d + 1, d + 4) ~= "DATA" then return {} end
+  if u32(s, d + 8 + 8 * kind) == 0 then return {} end
+  local q = d + 12 + 8 * kind
+  return cgfxDict(s, q + s32(s, q))
+end
+
+local GL_TYPE = { [0x1400] = 0, [0x1401] = 1, [0x1402] = 2, [0x1406] = 3 }
+local CGFX_USAGE = { [0] = "pos", "normal", "tangent", "color", "uv0" }
+
+-- A CGFX file's first model, its meshes unskinned in model space: per mesh its name, its
+-- material's texture, the material's render layer (+0x20: 0 opaque, 1 translucent, 2
+-- subtractive, 3 additive) as `priority`, positions (+ the shape's offset), UVs, vertex
+-- colours (0..1, or nil) and triangle indices (0-based) - the same tables as M.model's.
+-- A mesh is named after its material. Offsets (from each object's start): model meshes +0xB4, materials +0xBC (dict), shapes
+-- +0xC4; a mesh's shape +0x18, material +0x1C; a shape's position offset +0x20, sub-meshes
+-- +0x2C, vertex buffers +0x38; an interleaved buffer (type 0x40000002) its length +0x14, data
+-- +0x18, stride +0x24, attributes +0x28 (usage +4, GL type +0x24, elements +0x28, scale
+-- +0x2C, offset +0x30); a sub-mesh's faces +0xC, a face's descriptors +0 (format +0, size +8,
+-- data +0xC; 0x1403 u16 indices, else u8). A material's texture is the name its texture
+-- reference points to (a self-relative pointer in its first 0x800 bytes naming a texture).
+function M.cgfxModel(blob)
+  if type(blob) ~= "string" or blob:sub(1, 4) ~= "CGFX" then return nil, "not a CGFX" end
+  local s = blob
+  local models = cgfxData(s, 0)
+  if #models == 0 then return nil, "no model" end
+  local cm = models[1].at
+  local texNames = {}
+  for _, t in ipairs(cgfxData(s, 1)) do texNames[t.name] = true end
+  local mats = {}
+  if u32(s, cm + 0xbc) > 0 then mats = cgfxDict(s, cm + 0xc0 + s32(s, cm + 0xc0)) end
+  local matTex, matLayer = {}, {}
+  for i, m in ipairs(mats) do
+    matLayer[i - 1] = u32(s, m.at + 0x20)
+    for p = m.at, math.min(m.at + 0x800, #s - 4) - 1, 4 do
+      local t = p + s32(s, p)
+      if t >= 0 and t < #s then
+        local name = cstring(s, t)
+        if name and texNames[name] then matTex[i - 1] = name; break end
+      end
+    end
+  end
+  local shapes = cgfxList(s, cm + 0xc4)
+  local out = { name = models[1].name, meshes = {} }
+  local vals = {}
+  for _, me in ipairs(cgfxList(s, cm + 0xb4)) do
+    local sh = shapes[u32(s, me + 0x18) + 1]
+    local mi = u32(s, me + 0x1c)
+    -- (meshes carry no names of their own: the material's)
+    local name = mats[mi + 1] and mats[mi + 1].name or nil
+    local ox, oy, oz = f32(s, sh + 0x20), f32(s, sh + 0x24), f32(s, sh + 0x28)
+    local pos, uv, col = {}, {}, nil
+    for _, vb in ipairs(cgfxList(s, sh + 0x38)) do
+      if u32(s, vb) == 0x40000002 then
+        local length, raw, stride = u32(s, vb + 0x14), vb + 0x18 + s32(s, vb + 0x18), u32(s, vb + 0x24)
+        local attrs = {}
+        for _, a in ipairs(cgfxList(s, vb + 0x28)) do
+          attrs[#attrs + 1] = { use = CGFX_USAGE[u32(s, a + 4)], t = GL_TYPE[u32(s, a + 0x24)] or 1,
+            n = u32(s, a + 0x28), scale = f32(s, a + 0x2c), off = u32(s, a + 0x30) }
+        end
+        for v = 0, floor(length / stride) - 1 do
+          local x, y, z, u, w = 0, 0, 0, 0, 0
+          local cr
+          local cg, cb, ca
+          for _, A in ipairs(attrs) do
+            if A.use then
+              readAttr(s, raw + v * stride + A.off, A.t, A.n, vals)
+              local k = A.scale
+              if A.use == "pos" then x, y, z = vals[1] * k, vals[2] * k, vals[3] * k
+              elseif A.use == "uv0" then u, w = vals[1] * k, vals[2] * k
+              elseif A.use == "color" then
+                cr, cg, cb, ca = vals[1] * k, vals[2] * k, vals[3] * k, A.n >= 4 and vals[4] * k or 1
+              end
+            end
+          end
+          local n = #pos
+          pos[n + 1], pos[n + 2], pos[n + 3] = x + ox, y + oy, z + oz
+          uv[#uv + 1], uv[#uv + 2] = u, w
+          if cr then
+            col = col or {}
+            local c = #col
+            col[c + 1], col[c + 2], col[c + 3], col[c + 4] = cr, cg, cb, ca
+          end
+        end
+      end
+    end
+    local idx = {}
+    for _, sm in ipairs(cgfxList(s, sh + 0x2c)) do
+      for _, face in ipairs(cgfxList(s, sm + 0xc)) do
+        for _, fd in ipairs(cgfxList(s, face)) do
+          local wide = u32(s, fd) == 0x1403
+          local size, raw = u32(s, fd + 8), fd + 0xc + s32(s, fd + 0xc)
+          if wide then
+            for i = 0, floor(size / 2) - 1 do idx[#idx + 1] = u16(s, raw + 2 * i) end
+          else
+            for i = 0, size - 1 do idx[#idx + 1] = s:byte(raw + i + 1) end
+          end
+        end
+      end
+    end
+    out.meshes[#out.meshes + 1] = { name = name, texture = matTex[mi], priority = matLayer[mi] or 0, skin = 0,
+      pos = pos, uv = uv, col = col, idx = idx }
+  end
+  return out
+end
+
 -- the model as Lua source (a table constructor the main thread loads in an empty environment)
 function M.serializeModel(m)
   local parts = { "return { name = ", ("%q"):format(m.name or ""), ", meshes = {\n" }
@@ -355,6 +484,7 @@ function M.serializeModel(m)
   for _, me in ipairs(m.meshes) do
     parts[#parts + 1] = ("{ texture = %q, priority = %d, skin = %d,\n pos = %s,\n uv = %s,\n idx = %s"):format(
       me.texture or "", me.priority or 0, me.skin or 0, list(me.pos, "%.3f"), list(me.uv, "%.5f"), list(me.idx, "%d"))
+    if me.name then parts[#parts + 1] = (",\n name = %q"):format(me.name) end
     if me.col then parts[#parts + 1] = (",\n col = %s"):format(list(me.col, "%.3f")) end
     parts[#parts + 1] = " },\n"
   end

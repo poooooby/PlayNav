@@ -5,6 +5,18 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **3D AMIE** (option, off by default): play with your Pokémon in Pokémon-Amie on the game's own
+  3D stage - from your card image, or a drawn one without it - with the game's camera for each
+  species: the lawn, the dotted sky, a rainbow, drifting clouds and rising bubbles, and the top
+  screen looking up into the same sky.
+
+### Fixed
+
+- Pokémon-Amie feeds each Pokémon at its own mouth. A Poké Puff was taken at one spot for
+  every species, so many were fed beside, above or below their mouths.
+
 ## [0.8.3] - 2026-10-25 (beta)
 
 ### Fixed

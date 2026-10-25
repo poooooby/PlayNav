@@ -8,6 +8,8 @@ DEVELOPMENT.md
 .gitignore
 tests/amie_rules_test.lua
 tests/zstd_test.lua
+tests/amie_stage3d_test.lua
+tests/amie_mouths_test.lua
 tests/amie_text_test.lua
 tests/decor_test.lua
 tests/drivers/balloon_probe.lua
@@ -55,10 +57,14 @@ tests/drivers/amie_switch_probe.lua
 tests/drivers/thor_probe.lua
 tests/drivers/extract_probe.lua
 tests/drivers/final_icon_probe.lua
+tests/drivers/front_dump_probe.lua
+tests/drivers/mouth_probe.lua
 tools/README.md
 tools/bclim.py
 tools/bcstm.py
 tools/bcsar.py
+tools/amie_cameras.py
+tools/amie_mouths.py
 tools/bch.py
 tools/clan.py
 tools/clyt.py

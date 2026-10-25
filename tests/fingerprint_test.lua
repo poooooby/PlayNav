@@ -18,6 +18,7 @@ end
 local function module(path) return assert(load(slurp(path), "@" .. path))() end
 
 local Ctr = module("src/import/ctr.lua")
+local Zstd = module("src/import/zstd.lua")
 local Crc = module("src/import/crc32.lua")
 local F = module("src/import/fingerprint.lua")
 local Recipe = module("data/oras_recipe.lua")
@@ -175,6 +176,8 @@ else
     assert(s and #s == length, "short read")
     return s
   end
+  -- (Azahar's compressed image: the card image inside it, as the job reads it)
+  if Zstd.isZ3ds(read) then read = assert(Zstd.wrap(read)) end
   local fs = assert(Ctr.open(read))
   local garcs, bad, n = {}, 0, 0
   for key, want in pairs(Prints.rows) do

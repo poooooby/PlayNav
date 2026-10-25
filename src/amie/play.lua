@@ -75,6 +75,9 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local ZOOM_TOUCH = 1.35         -- the view while a finger is on the Pokemon
   local ZOOM_EAT = 1.7            -- the close-up while it eats (more turns a GBA sprite to blocks)
   local EAT_R = 40                -- how near its mouth (screen units) a held puff must be to be eaten
+  -- its mouth (data/amie_mouths.lua) turned over when its picture's head leans to the other side
+  -- (the middle of the top HEAD_BAND's pixels, both more than HEAD_SIDE_MIN off the middle)
+  local HEAD_BAND, HEAD_SIDE_MIN = 0.35, 0.04
   local JUMP_S, JUMP_PEAK = 0.7, 0.4   -- the high five's leap: its length, and when it reaches the hand
   local JUMP_REACH = 0.75         -- how much of the way from its head to the hand it leaps
   local JUMP_HOP = 30             -- and how high it springs on the way (layout units)
@@ -386,7 +389,20 @@ return function(mod, Pointer, G, Rules, Petting, host)
           end
         end
       end
-      if x1 >= x0 then b.x0, b.y0, b.x1, b.y1 = x0, y0, x1 + 1, y1 + 1 end
+      if x1 >= x0 then
+        b.x0, b.y0, b.x1, b.y1 = x0, y0, x1 + 1, y1 + 1
+        -- the side its head leans to: the middle of the opaque pixels in the box's top band,
+        -- across (as tools/amie_mouths.py measures the Gen 9 sprites the mouths were read on)
+        local band = y0 + math.max(1, math.floor((y1 + 1 - y0) * HEAD_BAND + 0.5))
+        local sx, n = 0, 0
+        for y = y0, band - 1 do
+          for x = x0, x1 do
+            local _, _, _, a = data:getPixel(x, y)
+            if a > 0.1 then sx, n = sx + x + 0.5, n + 1 end
+          end
+        end
+        b.hx = n > 0 and (sx / n - x0) / (x1 + 1 - x0) or 0.5
+      end
     end)
     if not ok then b = { x0 = 0, y0 = 0, x1 = w, y1 = h, w = w, h = h } end
     boxes[img] = b
@@ -415,10 +431,30 @@ return function(mod, Pointer, G, Rules, Petting, host)
     local pl = {
       img = img, b = b, k = k, x = 160, y = feetY,
       cx = 160, cy = feetY - bh * k / 2, rx = bw * k / 2, ry = bh * k / 2,
-      headX = 160, headY = feetY - bh * k * 0.78, mouthY = feetY - bh * k * 0.62,
+      headX = 160, headY = feetY - bh * k * 0.78, mouthX = 160, mouthY = feetY - bh * k * 0.62,
     }
+    -- its mouth, where a puff is held: the species' own (data/amie_mouths.lua, fractions of the
+    -- Gen 9 front sprite's opaque box), on this picture's box (drawn about its foot middle)
+    -- (a picture whose head leans the other way from the Gen 9 sprite's - a sprite mod's art
+    -- drawn mirrored - has the mouth turned over)
+    local m = G.mouths and s and s.national and G.mouths[s.national]
+    if m and pic == (s and s.pic) then
+      local fx = m[1]
+      local hs, hx = m[3], b.hx
+      if hs and hx and math.abs(hs - 0.5) > HEAD_SIDE_MIN and math.abs(hx - 0.5) > HEAD_SIDE_MIN
+        and (hs - 0.5) * (hx - 0.5) < 0 then
+        fx = 1 - fx
+      end
+      pl.mouthX = 160 + (b.x0 + fx * bw - (b.x0 + b.x1) / 2) * k
+      pl.mouthY = feetY - (b.y1 - (b.y0 + m[2] * bh)) * k
+    end
     if img then placements[img] = pl end
     return pl
+  end
+
+  -- the part of the scene on screen (scene units, under the view): what 3D AMIE draws
+  local function visibleRect()
+    return view.fx - view.px / view.z, view.fy - view.py / view.z, 320 / view.z, LH / view.z
   end
 
   local function toScene(lx, ly)
@@ -820,6 +856,22 @@ return function(mod, Pointer, G, Rules, Petting, host)
 
   local function ease(cur, target, k) return cur + (target - cur) * k end
 
+  -- 3D AMIE: the stage's pictures for this frame, rendered in the update step (never in the
+  -- middle of drawing) for the view just eased; a new visit or another Pokemon starts the
+  -- camera's entry ease again
+  -- (on app: update is at LuaJIT's 60 upvalues)
+  function app.prepareStage(s, dt)
+    local St = G.stage3d
+    if not (St and St.on) then return end
+    if St.cam.national ~= s.national or app.stageVisit ~= wake then
+      app.stageVisit = wake
+      St.enter(s.national)
+    end
+    St.update(dt)
+    St.setFoot(160, LH - FEET_UP, LH)
+    St.prepare(visibleRect())
+  end
+
   function app:update(dt)
     dt = dt or 0
     local s = G.session
@@ -1008,7 +1060,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
               stars[i] = { a = a, v = 90 + math.random() * 80, r = 6 + math.random() * 6,
                 kind = (i % 2 == 0) and "lyt/amie_play/star_normal" or "lyt/amie_play/star_easy" }
             end
-            want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.headX, pl.mouthY, drag.x, drag.y
+            want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.mouthX, pl.mouthY, drag.x, drag.y
           else
             drag.refused = true
             buzzPattern("bad"); G.se("refuse")     -- full, or it can't eat: it turns the puff away
@@ -1022,7 +1074,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
       feed.t = feed.t + dt
       local pl = placement(s)
       -- the mouth on screen (it moves with the view), and whether the puff is at it
-      local mx = view.px + (pl.headX - view.fx) * view.z
+      local mx = view.px + (pl.mouthX - view.fx) * view.z
       local my = view.py + (pl.mouthY - view.fy) * view.z
       feed.atMouth = drag ~= nil and (drag.x - mx) ^ 2 + (drag.y - my) ^ 2 <= EAT_R * EAT_R
       if feed.stage == "flash" then
@@ -1037,7 +1089,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
           feed.bites, feed.taken = f.bites, f.taken
           local what, hearts = G.feedHold(dt)
           if what == "bite" then
-            spawn("crumb", pl.headX, pl.mouthY, 3)
+            spawn("crumb", pl.mouthX, pl.mouthY, 3)
             buzz("medium")
             feed.taken = (s.feeding and s.feeding.taken) or feed.taken
           elseif what == "done" then
@@ -1066,6 +1118,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
     view.z = ease(view.z, want.z, k)
     view.fx, view.fy = ease(view.fx, want.fx, k), ease(view.fy, want.fy, k)
     view.px, view.py = ease(view.px, want.px, k), ease(view.py, want.py, k)
+
+    app.prepareStage(s, dt)
 
     -- the strip and the picker's panes
     strip.open = ease(strip.open, (s.tool == "beans" and not feed) and 1 or 0, 1 - math.exp(-10 * dt))
@@ -1514,9 +1568,19 @@ return function(mod, Pointer, G, Rules, Petting, host)
     G2.translate(view.px, view.py)
     G2.scale(view.z, view.z)
     G2.translate(-view.fx, -view.fy)
-    drawScene(G2, t)
+    -- 3D AMIE's stage when on (its picture rendered in the update), else the 2D scene
+    local St = G.stage3d
+    local ex, ey, ew, eh = visibleRect()
+    if not (St and St.on and St.drawLower(G2, ex, ey, ew, eh)) then drawScene(G2, t) end
     local pl = drawMon(G2, s, t)
     for _, p in ipairs(particles) do drawParticle(G2, p) end
+    -- (drivers: where a puff is eaten)
+    if app.debugMouth then
+      G2.setColor(1, 0, 0, 1)
+      G2.setLineWidth(1.5)
+      G2.circle("line", pl.mouthX, pl.mouthY, 5, 16)
+      G2.circle("fill", pl.mouthX, pl.mouthY, 1.5, 8)
+    end
     G2.pop()
     -- the emote beside its head, at the screen's own size whatever the view
     local ex = view.px + (pl.headX - view.fx) * view.z
