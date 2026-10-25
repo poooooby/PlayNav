@@ -434,6 +434,12 @@ return function(mod, deps)
   -- ------- drawing the stadium into its canvas and onto the screen
 
   local color, depth, cw, ch = nil, nil, 0, 0
+  local targets = {}   -- w * 65536 + h -> { color, depth, used }
+  local maxTex = nil   -- the GPU's largest texture side (capped at 4096)
+  local prepId = 0     -- A3.prepare's count: a target rendered by the latest has .prepared == it
+  -- (for drivers: renders in the update step, pictures placed as prepared, renders mid-draw)
+  A3.stats = { prepared = 0, placed = 0, inline = 0 }
+  local renderInto     -- (below)
   local viewM, projM = {}, {}
   -- (reused each frame: setCanvas' table, the sky's fallback colour)
   local canvasArg, SKY = {}, { 0.45, 0.7, 0.95 }
@@ -451,17 +457,87 @@ return function(mod, deps)
     -- the canvas at the rect's size in pixels (dpiscale 1: one texel a pixel)
     local x0, y0 = G2.transformPoint(ex, ey)
     local x1, y1 = G2.transformPoint(ex + ew, ey + eh)
-    local dpi = G.getDPIScale and G.getDPIScale() or 1
+    -- (units -> pixels: the window's DPI on the window, the canvas' own inside one - as
+    -- hd.outputScale)
+    local outer = G.getCanvas and G.getCanvas() or nil
+    if type(outer) == "table" then outer = outer[1] end
+    local dpi
+    if outer and outer.getDPIScale then dpi = outer:getDPIScale() or 1
+    else dpi = G.getDPIScale and G.getDPIScale() or 1 end
     local w = math.max(16, math.floor(math.abs(x1 - x0) * dpi + 0.5))
     local h = math.max(16, math.floor(math.abs(y1 - y0) * dpi + 0.5))
+    -- never past the GPU's largest texture (a phone's can be 4096; an oversized target there
+    -- left the viewport wrong for the rest of the frame: the whole top screen drawn small in a
+    -- corner)
+    if not maxTex then
+      local ok, lim = pcall(G.getSystemLimits)
+      maxTex = ok and lim and lim.texturesize or 4096
+      maxTex = math.min(maxTex, 4096)
+    end
+    if w > maxTex or h > maxTex then
+      local k = maxTex / math.max(w, h)
+      w, h = math.max(16, math.floor(w * k)), math.max(16, math.floor(h * k))
+    end
+    -- one colour + depth pair per size, two sizes kept: the stadium can be drawn both into the
+    -- frame's low-resolution picture and onto the window (hd_top) - alternating between them
+    -- must not release and rebuild GPU canvases each switch
+    local key = w * 65536 + h
+    if (w ~= cw or h ~= ch or not color) and targets[key] then
+      local tg = targets[key]
+      color, depth, cw, ch = tg.color, tg.depth, w, h
+      tg.used = love.timer and love.timer.getTime() or 0
+    end
     if w ~= cw or h ~= ch or not color then
-      if color then color:release() end
-      if depth then depth:release() end
+      -- (one line a size: what a device's log needs to tell a mismatch apart)
+      if mod.log then
+        local winW, winH = G.getDimensions()
+        local pxW, pxH = winW, winH
+        if G.getPixelDimensions then pxW, pxH = G.getPixelDimensions() end
+        local ow, oh = 0, 0
+        if outer and outer.getDimensions then ow, oh = outer:getDimensions() end
+        mod.log:info("3D stadium canvas %dx%d px (rect %.1fx%.1f units, dpi %.3f, %s %dx%d, window %dx%d units / %dx%d px)",
+          w, h, math.abs(x1 - x0), math.abs(y1 - y0), dpi, outer and "in a canvas" or "on the window",
+          ow, oh, winW, winH, pxW or 0, pxH or 0)
+      end
+      -- (past two sizes the least recently used pair goes)
+      local n, oldest, oldKey = 0, math.huge, nil
+      for k2, tg in pairs(targets) do
+        n = n + 1
+        if tg.used < oldest then oldest, oldKey = tg.used, k2 end
+      end
+      if n >= 2 and oldKey then
+        local tg = targets[oldKey]
+        if tg.color then tg.color:release() end
+        if tg.depth then tg.depth:release() end
+        targets[oldKey] = nil
+      end
       color = G.newCanvas(w, h, { dpiscale = 1 })
       color:setFilter("linear", "linear")
       depth = makeDepth(w, h)
       cw, ch = w, h
+      targets[key] = { color = color, depth = depth, used = love.timer and love.timer.getTime() or 0 }
     end
+    -- this size's place: what A3.prepare renders it with next update (the rect, the view)
+    local tg = targets[key]
+    tg.seen = love.timer and love.timer.getTime() or 0
+    tg.ex, tg.ey, tg.ew, tg.eh = ex, ey, ew, eh
+    tg.vx, tg.vy, tg.vw, tg.vh = VIEW.x, VIEW.y, VIEW.w, VIEW.h
+    -- rendered in this update (A3.prepare, outside any canvas): placed only; else now
+    if tg.prepared ~= prepId or prepId == 0 then
+      renderInto(tg, ex, ey, ew, eh, sc, lib)
+      A3.stats.inline = A3.stats.inline + 1
+    else
+      A3.stats.placed = A3.stats.placed + 1
+    end
+    G2.setColor(1, 1, 1, 1)
+    G2.draw(color, ex, ey, 0, ew / w, eh / h)
+    return true
+  end
+
+  -- the stadium into a target's colour + depth canvases, through the camera as it is now
+  function renderInto(tg, ex, ey, ew, eh, sc, lib)
+    local G = love.graphics
+    local color, depth = tg.color, tg.depth
     local cam = lib.camera
     A3.viewMatrix(cam.viewMatrix)
     A3.projectionMatrix(cam.projectionMatrix, ex, ey, ew, eh)
@@ -507,8 +583,28 @@ return function(mod, deps)
     end
     G.setDepthMode()
     G.pop()
-    G2.setColor(1, 1, 1, 1)
-    G2.draw(color, ex, ey, 0, ew / w, eh / h)
+  end
+
+  -- Render each recently drawn size's picture now, in the update step, outside any canvas:
+  -- switching to a canvas in the middle of drawing into another left the rest of the frame drawn
+  -- small in a corner on Android (the Thor: the top screen drawn into the engine's frame canvas).
+  -- setup(vx, vy, vw, vh) sets the view and moves the camera as the draw will; drawStadium then
+  -- only places the picture.
+  function A3.prepare(setup)
+    if not A3.available() then return false end
+    local sc = A3.scene()
+    if not sc then return false end
+    local lib = A3.g3d()
+    local now = love.timer and love.timer.getTime() or 0
+    prepId = prepId + 1
+    for _, tg in pairs(targets) do
+      if tg.seen and now - tg.seen < 1 and tg.ew then
+        setup(tg.vx, tg.vy, tg.vw, tg.vh)
+        renderInto(tg, tg.ex, tg.ey, tg.ew, tg.eh, sc, lib)
+        tg.prepared = prepId
+        A3.stats.prepared = A3.stats.prepared + 1
+      end
+    end
     return true
   end
 

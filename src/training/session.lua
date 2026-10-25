@@ -108,7 +108,14 @@ return function(mod, deps)
     end
   end
 
-  function Layer.update(dt) T.tick(dt) end
+  function Layer.update(dt)
+    T.tick(dt)
+    -- 3D: the stadium rendered here, outside any canvas (arena_draw D.prepare3d)
+    local D, s = T.arenaDraw, T.session
+    if D and D.prepare3d and T.sim and s and (s.mode == "regimen" or s.mode == "result") then
+      D.prepare3d(T.sim, s, T)
+    end
+  end
 
   local function drawText(text, x, y, opts)
     if host.Font and host.Font.draw then

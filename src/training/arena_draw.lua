@@ -2482,6 +2482,29 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
     G2.setColor(1, 1, 1, 1)
   end
 
+  -- 3D: the stadium's pictures rendered in the update step (A3.prepare), with the camera placed
+  -- as D.draw places it, so the draw never switches to a canvas mid-frame (on Android that left
+  -- the rest of the top screen drawn small in a corner)
+  function D.prepare3d(sim, s, T)
+    local A3 = D.mode3d and not D.failed3d and D.arena3d or nil
+    if not (sim and A3 and A3.prepare and A3.available()) then return false end
+    local endT = D.endingT(sim, s)
+    local inEnd = endT ~= nil and endT >= D.ENDING.CUT
+    if A3.setEnding then A3.setEnding(inEnd) end
+    local Hud = T and T.hud
+    local pose = Hud and Hud.pose and Hud.pose(sim, s) or nil
+    local ok, err = pcall(A3.prepare, function(vx, vy, vw, vh)
+      A3.setView(vx, vy, vw, vh)
+      A3.update(sim)
+      if pose and pose.cam then A3.update(sim, pose) end
+    end)
+    if not ok then
+      D.failed3d = true
+      if mod.log then mod.log:warn("3D SUPER TRAINING stopped (%s); drawing the 2D view", tostring(err)) end
+    end
+    return ok
+  end
+
   function D.draw(G2, sim, s, T)
     if not sim then
       G2.setColor(0.1, 0.1, 0.15, 1)

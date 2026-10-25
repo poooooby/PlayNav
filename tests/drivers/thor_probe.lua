@@ -67,6 +67,13 @@ local function body(game, log)
   opts.display_mode = "separate"
   local TR = X.training
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
+  -- PROBE_FAKE_DPI=<k>: love.graphics.getDPIScale answers k (a high-density display such as the
+  -- Thor's, on a desktop at 1)
+  if os.getenv("PROBE_FAKE_DPI") then
+    local k = tonumber(os.getenv("PROBE_FAKE_DPI"))
+    love.graphics.getDPIScale = function() return k end
+    log("fake DPI", k)
+  end
   -- PROBE_3D=1: 3D SUPER TRAINING for this run only (never saved)
   if os.getenv("PROBE_3D") == "1" and TR.session.arenaDraw then TR.session.arenaDraw.mode3d = true end
 
@@ -82,6 +89,11 @@ local function body(game, log)
     waitFor(function() local sim = simNow(); return sim and sim.phase == "play" end, 60 * 60)
     waitSecs(1.5)
     shot("h02_play")
+    do
+      local A3 = TR.session.arenaDraw and TR.session.arenaDraw.arena3d
+      local st = A3 and A3.stats
+      if st then log(("3D stadium renders: %d prepared in the update, %d placed as prepared, %d mid-draw"):format(st.prepared, st.placed, st.inline)) end
+    end
     local T = TR.session
     -- the view the arena drew with (D.view records what it last returned)
     local D = T.Draw
