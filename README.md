@@ -161,14 +161,19 @@ on a touch screen below the game or on a device's second display.
     line up). Hold to charge: a Charged Shot scores up to triple points, but held too long it
     fizzles and leaves your Pokémon dazed for a moment. Hold L or R for a shield that bounces a
     ball back and then shatters. A mark on the top screen shows where your last shot went.
-    Regimens always run at normal speed, whatever the game speed is set to.
+    Regimens always run at normal speed, whatever the game speed is set to. The **CONTROLS** tab
+    in the regimen picker (or SELECT) shows them all on the top screen, on a drawn handheld.
   - **Moving:** your Pokémon rides a hover board. Steer it across and up and down with the
     d-pad, anywhere on the screen.
   - **3D stadium (option):** turn on **3D SUPER TRAINING** to play in a real 3D stadium - the
     game's own, from your card image, or a drawn one without it - as the game plays it: your
-    Pokémon circles the balloon as you move, the camera riding with it, and a wall of light
-    shows when you reach an edge. Step nearer or farther with the right stick or the mouse
-    wheel (the game's three distances): nearer, your shots land sooner, but so do the balls.
+    Pokémon circles the balloon as you move, the camera riding with it, framed as the 3DS frames
+    it on any screen shape, and a ripple of light flashes beside it when you reach an edge.
+    Step nearer or farther with the right stick or the mouse wheel (the game's three
+    distances): nearer, your shots land sooner, but so do the balls. The balloons, balls,
+    bitbots and shields are the game's sizes, and a cleared regimen ends as the game's does:
+    the last hit swells the balloon, a flash, and from low on the grass you watch it squeeze
+    thin, burst and spiral away into the sky.
   - **The energy meter** fills as you play; each shot spends some, and with too little left you
     fire a weak shot. Your Pokémon's Energy Shot colour sets the cost and the points.
   - **The goals** move with the balloon, which sways and bobs in its own way, and appear in
@@ -181,8 +186,9 @@ on a touch screen below the game or on a device's second display.
     of a big attack. Blue balls home in on you, but slower than you move: keep moving, or juke,
     and they miss. Wide and tall balls home the same way; they're just harder to get round.
   - **What you see is what hits:** a ball hits your Pokémon only if it visibly touches it.
-    Where each ball will cross your line shows as a shadow on the grass with a ring closing in,
-    red and blinking if it's going to hit you where you stand.
+    On the flat view, where each ball will cross your line shows as a shadow on the grass with a
+    ring closing in, red and blinking if it's going to hit you where you stand; the 3D stadium
+    shows no warnings, as the game doesn't.
   - **Circuits:** on courses with more than one balloon the clock stops when one is beaten; it
     collapses onto the grass, the next inflates where it lies, and 30 seconds go on the clock.
   - **Your EVs count, the game's way:** Attack and Sp. Atk power your shots, Speed makes them
@@ -277,10 +283,11 @@ Open **OPTIONS → MODS → PlayNav**.
 
 ## 📌 Good to Know
 
-- 🧪 **Beta:** Super Training's rules, damage and attacks are read from the game's own code and
-  data, and its timings from recordings of the game; a few things are tuned for a flat touch
-  screen instead of the 3DS's 3D view (bigger hitboxes you can see, homing you can outrun,
-  quicker movement). Balance may change between releases.
+- 🧪 **Beta:** Super Training's rules, damage, attacks, balloon sizes and timings are read from
+  the game's own code and data, and checked against recordings of the game; on the flat view a
+  few things are tuned for a flat touch screen (bigger hitboxes you can see, homing you can
+  outrun, quicker movement), while the 3D stadium plays them the game's way. Balance may change
+  between releases.
 - 🎮 **Generation 3 only.** Ruby, Sapphire, Emerald, FireRed and LeafGreen.
 - 💾 **Your copy of the game is never part of the mod.** The 3DS art and text come from the
   card image you supply, unpacked on your own device. Encrypted dumps (a raw cartridge dump, an eShop `.cia`)

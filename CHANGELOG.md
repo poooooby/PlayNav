@@ -5,6 +5,38 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-24 (beta)
+
+### Added
+
+- **3D SUPER TRAINING** (option, off by default): Super-Training Regimens in a real 3D stadium -
+  the game's own from your card image, or a drawn one without it - played as the game plays
+  them. Your Pokémon circles the balloon as you move, with the camera riding along, and the
+  game's view is framed the same on any screen shape. Step nearer or farther with the right
+  stick or the mouse wheel. Reaching an edge flashes a ripple of light beside you, and the
+  balloons, balls, bitbots and shields are the game's own sizes. A cleared regimen ends as the
+  game's does: the last hit swells the balloon and, after a flash, you watch it from low on the
+  grass as it squeezes thin, bursts and spirals off into the sky.
+- A **CONTROLS** tab in the regimen picker (or SELECT) shows a regimen's controls on the top
+  screen, on a drawn handheld.
+
+### Changed
+
+- The secret regimens' balloons now match the game: their sizes, how long they wait and wind up
+  before throwing, their goal groups, the shield's turning target, and the bitbots' firing.
+- PlayNav's new items are named in capitals, like the game's own and other mods' items ("PRETTY
+  WING", "DAWN STONE").
+- Faster drawing in the 3D stadium, with less work per frame for low-power devices.
+
+### Fixed
+
+- On Alpha Sapphire, the last secret regimen is the Larvitar line again. It had been the Aron
+  line, Omega Ruby's.
+- Head It in FEVER: two balls can no longer arrive at the same Pokémon at once. Only one of them
+  could be hit.
+- The regimen rewards screen shows every prize's icon. Game items such as Soda Pop, Stardust and
+  the evolution stones showed only their names.
+
 ## [0.7.3] - 2026-10-24 (beta)
 
 ### Fixed
