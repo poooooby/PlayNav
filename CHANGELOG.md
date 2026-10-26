@@ -3,6 +3,25 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.1] - 2026-10-26 (beta)
+
+### Added
+
+- **LOW POWER MODE** (option, off by default): for a phone or handheld with little memory, the
+  touch screen is sent to a second display at half the resolution, a quarter of the pixels each
+  frame.
+- On Gen 1 and 2 with G9 Battle Sprites' party icons on, Super Training's home and
+  Pokémon-Amie's room show the same icons as the party list.
+
+### Fixed
+
+- A slowdown and crash with the touch screen on a second display, worst on devices with little
+  memory: every frame sent there was kept in memory until the game got round to freeing it. Each
+  is now freed as soon as it is sent.
+- On Gen 1 and 2, a gamepad's shoulder buttons are L and R in Super Training (the regimen's
+  shield, the picker's pages) instead of changing the game speed.
+- On Gen 1 and 2, the Pokémon in Pokémon-Amie's room are drawn at full size.
+
 ## [0.9.0] - 2026-10-25 (beta)
 
 ### Added

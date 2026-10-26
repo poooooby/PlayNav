@@ -243,6 +243,7 @@ Open **OPTIONS → MODS → PlayNav**.
 | **3D SUPER TRAINING** | On / Off | Off | Play Super-Training Regimens in a real 3D stadium as the game does: you circle the balloon, the camera riding with you; the right stick or the mouse wheel steps nearer or farther. With your card image it's the game's own stadium; without it, a drawn one. Off, or on a device that can't draw it: the flat view. |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
 | **HAPTICS** | High / Medium / Low / Off | Medium | How strongly your phone or handheld vibrates for touches and play: menu presses, petting, bites, high fives, minigame hits, punching bags and Balloon Bot hits. No effect on a PC. |
+| **LOW POWER MODE** | On / Off | Off | For a phone or handheld with little memory: the touch screen is sent to a second display at half the resolution, a quarter of the pixels each frame. Slightly softer there, much lighter on the device. |
 
 ## 💾 Installation
 
