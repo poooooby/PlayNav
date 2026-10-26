@@ -634,13 +634,23 @@ return function(mod, profile)
   -- ------- the top-screen layers: states on the engine's StateStack
 
   -- the pad as the Gen 3 layers read it (input:wasPressed / isDown over the game's Input)
+  -- The Game Boy has no L / R: the engine gives a pad's shoulders (and triggers) to GAME SPEED
+  -- instead. While a layer of ours is up it takes them as L / R (the regimen's shield, the
+  -- picker's pages): the engine hands a gamepad press to the top state's onGamepadPressed first
+  -- and then skips its own handling, speed included (layerState below). Pressed edges are held
+  -- until the layer's next logic step reads them.
+  local SHOULDER = { leftshoulder = "l", rightshoulder = "r", triggerleft = "l", triggerright = "r" }
+  local shoulder = { held = {}, pending = {}, now = {} }
+
   local padProxy = {}
   function padProxy:wasPressed(b)
+    if shoulder.now[b] then return true end
     local g = game()
     local inp = g and g.input
     return inp ~= nil and inp.pressed ~= nil and inp.pressed[b] == true
   end
   function padProxy:isDown(b)
+    if shoulder.held[b] then return true end
     local g = game()
     local inp = g and g.input
     if not inp then return false end
@@ -653,11 +663,33 @@ return function(mod, profile)
   local function layerState(id, module)
     local st = { isOpaque = true, playNavId = id, module = module, isMenu = module.isMenu }
     function st.update(self, dt)
+      -- the shoulders pressed since the last step, seen by this step only
+      shoulder.now, shoulder.pending = shoulder.pending, shoulder.now
       if module.handleInput then
         local ok, err = pcall(module.handleInput, padProxy)
         if not ok then mod.log:warn("layer %s input failed: %s", id, tostring(err)) end
       end
+      for k in pairs(shoulder.now) do shoulder.now[k] = nil end
       if module.update then module.update(dt) end
+    end
+    -- a gamepad press: the shoulders are L / R here (not GAME SPEED); every other button goes
+    -- on to the engine's input as it would have
+    function st.onGamepadPressed(self, button)
+      local b = SHOULDER[button]
+      if b then
+        shoulder.held[b], shoulder.pending[b] = true, true
+        return
+      end
+      local g = game()
+      local inp = g and g.input
+      if inp and inp.gamepadpressed then pcall(inp.gamepadpressed, inp, nil, button) end
+    end
+    function st.onGamepadReleased(self, button)
+      local b = SHOULDER[button]
+      if b then shoulder.held[b] = nil end
+    end
+    function st.exit(self)
+      for k in pairs(shoulder.held) do shoulder.held[k] = nil end
     end
     -- the scene over the 160x144 frame: the layer draws in 240-unit space, the frame its
     -- profile.frame (src/hd_top.lua redraws it at window resolution and sets hdLive)

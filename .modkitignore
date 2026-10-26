@@ -153,3 +153,4 @@ tests/statexp_test.lua
 tests/drivers/gb_probe.lua
 tools/gb_backs_atlas.py
 tests/drivers/gb_mem_probe.lua
+tests/drivers/gb_shoulder_probe.lua
