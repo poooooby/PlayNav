@@ -239,4 +239,48 @@ do
   T.eq(S.went, "core", "and back to the home screen")
 end
 
+-- ------- earned: every regular regimen cleared opens the mart for good, the code then unneeded
+
+do
+  local courses = loadFile("data/training_courses.lua").courses
+  local cleared = {}
+  local S = { onChange = function() end, bagName = function(id) return Rules.bag(id).label end,
+    playSe = function() end }
+  S.session = { mode = "core", anim = { hit = 0, t = 0 }, rec = {} }
+  function S.courseList() return courses end
+  local meta, saves = {}, 0
+  local St = { bags = function() return {} end, save = function() saves = saves + 1 end,
+    cleared = function() return cleared end, meta = function() return meta end }
+  makeRocket({ log = { warn = function() end } }, S, { host = {}, Rules = Rules, Store = St })
+  T.check(not S.rocketEarned() and not S.rocketUnlocked(), "nothing cleared: locked")
+  local last
+  for _, c in ipairs(courses) do
+    if not c.secret then cleared[c.id] = true; last = c.id end
+  end
+  cleared[last] = nil
+  T.check(not S.rocketEarned(), "one regular regimen left: still locked")
+  T.check(Rules.levelUnlocked(cleared, 3, courses), "(Lv3 is open by then)")
+  cleared[last] = true
+  T.check(S.rocketEarned() and S.rocketUnlocked(), "Lv1 to Lv3 all cleared: the mart is open")
+  T.check(not S.session.rocketUnlocked, "without the code")
+  -- once: the unlock plays on the home screen at rest, never during a finishing move
+  S.session.anim.finish = { t = 0 }
+  S.konamiStep({ pressed = {} })
+  T.check(not S.rocketBusy() and not meta.rocketShown, "not over a finishing move")
+  S.session.anim.finish = nil
+  S.konamiStep({ pressed = {} })
+  T.check(S.rocketBusy() and meta.rocketShown == true and saves == 1, "earned: the unlock plays once, saved")
+  T.check(not S.session.rocketUnlocked, "(earned, not the visit's code)")
+  for _ = 1, 400 do S.tickRocket(S.session, 1 / 60) end
+  T.check(not S.rocketBusy(), "and ends")
+  for _, b in ipairs(K) do S.konamiStep({ pressed = { [b] = true } }) end
+  T.check(not S.rocketBusy(), "the code plays no unlock once earned")
+  -- a new session (the screen closed and opened again) keeps it: the save holds it
+  S.session = { mode = "core", anim = { hit = 0, t = 0 }, rec = {} }
+  T.check(S.rocketUnlocked(), "and it stays open on the next visit")
+  S.konamiStep({ pressed = {} })
+  T.check(not S.rocketBusy(), "with no unlock again")
+  T.check(Rules.regularCleared(cleared, courses) and not Rules.regularCleared({}, courses), "Rules.regularCleared")
+end
+
 T.finish("play_nav rocket")

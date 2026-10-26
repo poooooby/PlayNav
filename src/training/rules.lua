@@ -345,6 +345,19 @@ return function(N, ShotTypes, profile)
     return true
   end
 
+  -- every regular course (Lv1 to Lv3) cleared: Super Secret Training's ground, and the rocket
+  -- mart's (src/training/rocket.lua) for good
+  function R.regularCleared(cleared, courses)
+    local any = false
+    for _, c in ipairs(courses or {}) do
+      if not c.secret then
+        any = true
+        if not (cleared and cleared[c.id]) then return false end
+      end
+    end
+    return any
+  end
+
   -- the secret courses open one after another
   function R.nextSecret(cleared, courses)
     local n = 0

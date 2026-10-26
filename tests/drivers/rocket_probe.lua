@@ -141,6 +141,35 @@ local function body(game, log)
   end
 
   local ok, err = pcall(function()
+    -- PROBE_EARNED=1: Lv1 to Lv3 all cleared and the unlock never shown: it plays once on opening,
+    -- then the probe stops (the save's cleared courses and flag are put back)
+    if os.getenv("PROBE_EARNED") == "1" then
+      local St = TR.store
+      local cleared, meta = St.cleared(), St.meta()
+      local was, shownWas = {}, meta.rocketShown
+      for _, c in ipairs(T.courseList()) do
+        if not c.secret then was[c.id] = cleared[c.id] or false; cleared[c.id] = true end
+      end
+      meta.rocketShown = nil
+      log("earned:", T.rocketEarned(), "unlocked:", T.rocketUnlocked())
+      TR.open()
+      waitFor(function() return T.rocketBusy() end, 2000)
+      log("the unlock plays on its own:", T.rocketBusy(), "shown flag:", tostring(meta.rocketShown))
+      waitSecs(0.6)
+      shot("e01_earned_unlock")
+      waitFor(function() return not T.rocketBusy() end, 3000)
+      U.wait(10)
+      shot("e02_earned_button")
+      TR.finish(); U.wait(20)
+      TR.open(); U.wait(60)
+      log("next visit: plays again?", T.rocketBusy(), "button:", T.rocketUnlocked())
+      shot("e03_next_visit")
+      TR.finish(); U.wait(10)
+      for id, v in pairs(was) do cleared[id] = v or nil end
+      meta.rocketShown = shownWas
+      St.save()
+      return
+    end
     log("open:", TR.open())
     U.wait(20)
     garbage("on the home screen")

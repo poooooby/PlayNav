@@ -162,16 +162,27 @@ return function(mod, T, deps)
   end
   Rk.prewarm = prewarm
 
-  function T.rocketUnlocked() local s = T.session; return s ~= nil and s.rocketUnlocked == true end
+  -- earned for good once every regular regimen (Lv1 to Lv3) is cleared on the save, as Super
+  -- Secret Training opens; until then the Konami code opens it for the visit (s.rocketUnlocked)
+  function T.rocketEarned()
+    if not (Store and Store.cleared and T.courseList) then return false end
+    local ok, cleared = pcall(Store.cleared)
+    return ok and Rules.regularCleared(cleared, T.courseList()) or false
+  end
+  function T.rocketUnlocked()
+    local s = T.session
+    return s ~= nil and (s.rocketUnlocked == true or T.rocketEarned())
+  end
   -- the unlock is playing: the home screen takes no taps
   function T.rocketBusy() local s = T.session; return s ~= nil and s.anim ~= nil and s.anim.rocket ~= nil end
 
-  function Rk.unlock()
+  -- earned: no START to close (the code's last button opens the menu)
+  function Rk.unlock(earned)
     local s = T.session
     if not s then return end
-    s.rocketUnlocked = true
+    if not earned then s.rocketUnlocked = true end
     s.anim.rocket = { t = 0 }
-    Rk.closeMenu = 20
+    if not earned then Rk.closeMenu = 20 end
     prewarm()
     if mod.haptics then mod.haptics.pattern("big") end
   end
@@ -188,6 +199,20 @@ return function(mod, T, deps)
     -- once a session is open, never in the middle of a draw (the drawer, the stand)
     if s and not Rk.warmed then Rk.warmed = prewarm() end
     if not (s and s.mode == "core") or s.trans or s.anim.rocket then matcher.n = 0; return end
+    -- earned and never shown: the unlock plays once, the first time the home screen is at rest
+    -- (no finishing move, no find); the save remembers it
+    if T.rocketEarned() then
+      matcher.n = 0
+      local meta = Store.meta and Store.meta()
+      if meta and not meta.rocketShown and not (s.anim.finish or s.anim.gift) then
+        meta.rocketShown = true
+        if Store.save then pcall(Store.save) end
+        Rk.unlock(true)
+      end
+      return
+    end
+    -- (opened by the code this visit: nothing more to unlock)
+    if T.rocketUnlocked() then matcher.n = 0; return end
     local p = input and input.pressed
     if type(p) ~= "table" then return end
     for _, b in ipairs(Rk.BUTTONS) do
