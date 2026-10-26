@@ -29,4 +29,20 @@ return {
     ["bgm/sp_clear"] = "MUS_VICTORY_TRAINER",
     ["bgm/sp_gameover"] = "MUS_OLDALE",
   },
+  -- the Game Boy games (src/refresh/host_gb.lua; a list = the first the game has: Gold and
+  -- Silver have no Battle Tower)
+  gen1 = {
+    ["bgm/sp_gamestart"] = "Music_SafariZone",
+    ["bgm/sp_stage"] = "Music_SafariZone",          -- a regimen: the Safari Zone's timed run
+    ["bgm/sp_stage_02"] = "Music_GymLeaderBattle",  -- a secret regimen
+    ["bgm/sp_clear"] = "Music_DefeatedTrainer",
+    ["bgm/sp_gameover"] = "Music_PalletTown",
+  },
+  gen2 = {
+    ["bgm/sp_gamestart"] = { "Music_BattleTowerTheme", "Music_JohtoTrainerBattle" },
+    ["bgm/sp_stage"] = { "Music_BattleTowerTheme", "Music_JohtoTrainerBattle" },
+    ["bgm/sp_stage_02"] = "Music_JohtoGymBattle",
+    ["bgm/sp_clear"] = "Music_TrainerVictory",
+    ["bgm/sp_gameover"] = "Music_NewBarkTown",
+  },
 }

@@ -150,6 +150,13 @@ return function(mod)
     return tonumber(species)
   end
 
+  -- a species' National Dex number (internal ids differ past Celebi)
+  function H.speciesNational(species)
+    if not (H.Pokemon and H.Pokemon.national) then return tonumber(species) end
+    local ok, n = pcall(H.Pokemon.national, species)
+    return ok and tonumber(n) or tonumber(species)
+  end
+
   function H.playerName()
     local ok, session = pcall(H.Runtime3.getSession)
     local n = ok and session and session.name

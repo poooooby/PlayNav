@@ -149,3 +149,6 @@ tests/drivers/prize_probe.lua
 tests/rocket_test.lua
 tests/drivers/rocket_probe.lua
 tests/drivers/rocket_bags_probe.lua
+tests/statexp_test.lua
+tests/drivers/gb_probe.lua
+tools/gb_backs_atlas.py

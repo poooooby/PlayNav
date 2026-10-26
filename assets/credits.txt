@@ -65,6 +65,16 @@ The Gen 6 bots are Noibat, Noivern, Dragalge, Tyrantrum, Aurorus, Aegislash, Sca
 Spewpa, Vivillon and Mega Aggron; the rest are Gen 1-5. Pokemon and their designs are
 (c) Nintendo / Creatures Inc. / GAME FREAK Inc.; PlayNav is an unofficial fan project.
 
+Game Boy Pokemon sprites (assets/gb_fronts.png, assets/gb_backs.png)
+---------------------------------------------------------------------
+On Gen 1 and Gen 2, your Pokemon in Pokemon-Amie (PLAY, the room's games) and in Super Training:
+Pokemon Crystal's front sprites (each animation's first frame) and back sprites, normal and
+shiny, from the Crystal Animated Sprites with Shiny Visuals mod by distilledorion-sketch
+(https://github.com/distilledorion-sketch/crystal_animated_sprites_with_shiny_visuals), packed
+into atlases of colour numbers with the colours in data/gb_fronts.lua and data/gb_backs.lua (by
+tools/gb_backs_atlas.py). Pokemon and their designs are (c) Nintendo / Creatures Inc. /
+GAME FREAK Inc.; PlayNav is an unofficial fan project.
+
 Pokemon-Amie Decoration sprites (assets/amie_decor.png)
 -------------------------------------------------------
 The 172 Decor cushions and objects, packed into one atlas of colour numbers with the palettes

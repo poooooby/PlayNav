@@ -133,6 +133,11 @@ return function(mod, T, deps)
   Rk.closeMenu = 0
 
   local function closeStartMenu()
+    -- the Game Boy games' host closes their own (src/refresh/host_gb.lua)
+    if host.closeStartMenu then
+      local okC, closed = pcall(host.closeStartMenu)
+      return okC and closed == true
+    end
     local ok, SM = pcall(require, "src.ui.game3.start_menu")
     if not (ok and type(SM) == "table") then return false end
     local okO, open = pcall(function() return SM.isOpen and SM.isOpen() end)

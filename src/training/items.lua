@@ -12,10 +12,16 @@
 -- the time a prize is handed out (the plain id, or a Wing by its later name, HEALTH_FEATHER),
 -- the prize is that mod's item (its index), not this mod's copy, and its use is that mod's.
 --
--- I = items(mod, { host, Rules, data })
+-- On the Game Boy games (deps.gb) item ids are strings: each of ours is registered under its
+-- own (HEALTH_WING, ST_DUSK_STONE), the index the engine's to give, and the Wings' +1 EV is an
+-- item_effects record (Gen 1: use(ctx) -> "consumed" | "failed", messages; Gen 2: the native
+-- action record, use(ctx) -> { used, text }). The bags draw no icons there.
+--
+-- I = items(mod, { host, Rules, data, gb, gen })
 
 return function(mod, deps)
   local host, Rules, data = deps.host, deps.Rules, deps.data or {}
+  local gb, gen = deps.gb == true, deps.gen
   local N = Rules.N
   local I = { list = data, byIndex = {}, bySlug = {}, installed = false, images = {} }
 
@@ -42,6 +48,7 @@ return function(mod, deps)
   -- also the one we register: a mod that took it first leaves ours unregistered - the
   -- registry refuses a second record - and its record, with its own index, is found here.)
   local function resolve(def)
+    if gb then return def end
     if def and not def.shared then
       local reg = mod.content and mod.content.items
       for _, id in ipairs(reg and otherIds(def) or {}) do
@@ -58,8 +65,8 @@ return function(mod, deps)
     return def
   end
 
-  function I.isTrainingItem(id) return I.byIndex[tonumber(id) or -1] ~= nil end
-  function I.def(id) return I.byIndex[tonumber(id) or -1] end
+  function I.isTrainingItem(id) return I.def(id) ~= nil end
+  function I.def(id) return I.byIndex[id] or I.byIndex[tonumber(id) or -1] end
 
   function I.index(slug)
     local d = resolve(I.bySlug[slug])
@@ -183,8 +190,62 @@ return function(mod, deps)
     return n
   end
 
+  -- a Wing's use on the Game Boy games: +1 EV of its stat (Stat Exp, src/training/host_gb.lua)
+  local function wingOn(def, mon)
+    if type(mon) ~= "table" or mon.isEgg then return false, "It won't have any effect." end
+    local evs = host.evsOf(mon)
+    local added = Rules.addEv(evs, def.stat, N.ITEMS.WING_EV)
+    if added <= 0 then return false, "It won't have any effect." end
+    host.setEvs(mon, evs)
+    if host.vitaminFriendship then host.vitaminFriendship(mon) end
+    local name = host.displayName and host.displayName(mon) or "The POKeMON"
+    local stat = Rules.statOf(def.stat)
+    return true, ("%s's\n%s rose."):format(name, Rules.STAT_LABEL[stat] or stat)
+  end
+
+  local function installGb()
+    local reg = mod.content and mod.content.items
+    local effects = mod.content and mod.content.item_effects
+    if not reg then return false, "no item registry" end
+    local n = 0
+    for _, def in ipairs(data) do
+      local id = regId(def)
+      local effectId = nil
+      if def.stat and effects then
+        effectId = "PLAYNAV_" .. id
+        local rec
+        if gen == 2 then
+          rec = { action = "mod", field = true, battle = false, use = function(ctx)
+            local ok, text = wingOn(def, ctx and ctx.mon)
+            return { used = ok, text = text }
+          end }
+        else
+          rec = { needsTarget = true, field = true, battle = false, use = function(ctx)
+            local ok, text = wingOn(def, ctx and ctx.target)
+            return ok and "consumed" or "failed", { text }
+          end }
+        end
+        local okE, errE = pcall(effects.register, effects, effectId, rec)
+        if not okE then mod.log:warn("item effect %s not registered: %s", effectId, tostring(errE)); effectId = nil end
+      end
+      local ok, err = pcall(reg.register, reg, id, { id = id, name = def.name, price = def.price,
+        effect = effectId, needsTarget = def.stat ~= nil or nil })
+      if ok then
+        n = n + 1
+        def.index, def.ownIndex = id, id
+        I.byIndex[id] = def
+      else
+        mod.log:warn("item %s not registered: %s", def.slug, tostring(err))
+      end
+    end
+    I.installed = n > 0
+    mod.log:info("super training: %d items registered", n)
+    return I.installed
+  end
+
   function I.install()
     if I.installed then return true end
+    if gb then return installGb() end
     if mod.generation ~= 3 then return false, "gen3 only" end
     local reg = mod.content and mod.content.items
     if not reg then return false, "no item registry" end

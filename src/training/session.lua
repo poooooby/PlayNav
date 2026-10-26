@@ -253,7 +253,7 @@ return function(mod, deps)
     end
     G2.setColor(1, 1, 1, 0.9)
     G2.rectangle("fill", 140, 28, 96, 30, 3, 3)
-    drawText(("EVs %d/%d"):format(total, N.LIMITS.EV_TOTAL), 144, 30, { maxWidth = 90 })
+    drawText(("EVs %d/%d"):format(total, Rules.evTotalMax()), 144, 30, { maxWidth = 90 })
     local status = s.rec.resting and "RESTING" or (refreshedNow(s.rec) and "REFRESHED" or
       (s.rec.pending and ("NEXT: " .. (Rules.EFFECT_LABEL[s.rec.pending] or s.rec.pending)) or ""))
     drawText(status, 144, 44, { maxWidth = 90 })
@@ -270,7 +270,7 @@ return function(mod, deps)
   end
 
   T.STAT_RGB = { hp = { 0.95, 0.4, 0.45 }, atk = { 0.95, 0.6, 0.3 }, def = { 0.9, 0.8, 0.3 },
-    spa = { 0.4, 0.6, 0.95 }, spd = { 0.4, 0.85, 0.5 }, spe = { 0.85, 0.5, 0.9 } }
+    spa = { 0.4, 0.6, 0.95 }, spd = { 0.4, 0.85, 0.5 }, spe = { 0.85, 0.5, 0.9 }, spc = { 0.4, 0.72, 0.85 } }
 
   function Layer.draw()
     local s = T.session
@@ -300,6 +300,8 @@ return function(mod, deps)
     local s = T.session
     if not s then return end
     T.topExtent = FILL_MODES[s.mode] and Layer.extent or nil
+    -- (the touch screen inset over it, src/hd_top.lua: what the screens keep clear of)
+    T.topInset = FILL_MODES[s.mode] and Layer.inset or nil
     G2.push("all")
     if (s.mode == "regimen" or s.mode == "result") and T.drawTop then
       local ok, err = pcall(T.drawTop, G2, s)
@@ -325,7 +327,7 @@ return function(mod, deps)
     -- the way into the alley flashes the R over the black
     if v and v.logo and T.drawRocketLogo then pcall(T.drawRocketLogo, G2, v.logo, T.topExtent, v.logoA) end
     G2.pop()
-    T.topExtent = nil
+    T.topExtent, T.topInset = nil, nil
   end
 
   -- ------- lifecycle
@@ -637,15 +639,16 @@ return function(mod, deps)
     if def.kind == "stat" then
       local evs = host.evsOf(s.mon)
       local added = Rules.addEv(evs, def.stat, def.ev)
+      local stat = Rules.statOf(def.stat)
       host.setEvs(s.mon, evs)
       s.evs = evs
       if added > 0 then
-        if s.anim and s.anim.finish then s.anim.finish.statUp = { stat = def.stat, added = added } end
-        say(T.gameLine("training_bags", T.CORE_LINE.statUp + STAT_INDEX[def.stat])
-          or ("%s's %s rose by %d!"):format(s.name, Rules.STAT_LABEL[def.stat], added), 3)
+        if s.anim and s.anim.finish then s.anim.finish.statUp = { stat = stat, added = added } end
+        say((STAT_INDEX[stat] and T.gameLine("training_bags", T.CORE_LINE.statUp + STAT_INDEX[stat]))
+          or ("%s's %s rose by %d!"):format(s.name, Rules.STAT_LABEL[stat], added), 3)
       else
-        say(T.gameLine("training_courses", 145, { STAT = T.statWord(def.stat) })
-          or ("%s's %s can't go any higher."):format(s.name, Rules.STAT_LABEL[def.stat]), 3)
+        say(T.gameLine("training_courses", 145, { STAT = T.statWord(stat) })
+          or ("%s's %s can't go any higher."):format(s.name, Rules.STAT_LABEL[stat]), 3)
       end
     elseif def.kind == "reset" then
       local evs = host.evsOf(s.mon)
@@ -721,7 +724,7 @@ return function(mod, deps)
     if source == "tap" then meta.blackTaps = (meta.blackTaps or 0) + 1 end
     if #Store.bags() >= N.LIMITS.BAG_MAX then return nil, "full" end
     local evs = t.evs or host.evsOf(t.mon)
-    local id = Rules.rollBlankBag(T.rng, { fully = Rules.evTotal(evs) >= N.LIMITS.EV_TOTAL })
+    local id = Rules.rollBlankBag(T.rng, { fully = Rules.isFullyTrained(evs) })
     if not id then return nil end
     if not Rules.inventoryAdd(Store.bags(), id) then return nil, "full" end
     meta.blackTaps = 0
@@ -973,11 +976,13 @@ return function(mod, deps)
     possible = 59, increase = 60, bagsReceived = 61, itemsReceived = 62, statWord = 64,
     targetRemaining = 72, bestTime = 73, unlocked = 125, failed = 127, quit = 128, locked = 129,
     timeRemaining = 130, praise = { 132, 133, 134, 135 }, tryTarget = 136, targetHit = 137, award = 138,
-    newBest = 139, statLine = { hp = 140, atk = 141, spa = 141, def = 142, spd = 142, spe = 143 },
+    newBest = 139, statLine = { hp = 140, atk = 141, spa = 141, def = 142, spd = 142, spe = 143, spc = 141 },
     fullyNow = 150, supremelyNow = 153, rackFull = 163, results = 165, andResults = 166 }
   -- the game's word for a stat ("Sp. Atk"), else ours
+  -- (Gen 1 / 2's Special has no word of the game's: ours)
   function T.statWord(stat)
-    return gameText("training_courses", T.COURSE_LINE.statWord + (STAT_INDEX[stat] or 1)) or Rules.STAT_LABEL[stat] or stat
+    if not STAT_INDEX[stat] then return stat == "spc" and "Special" or Rules.STAT_LABEL[stat] or stat end
+    return gameText("training_courses", T.COURSE_LINE.statWord + STAT_INDEX[stat]) or Rules.STAT_LABEL[stat] or stat
   end
 
   local RESULT_FALLBACK = {

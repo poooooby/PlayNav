@@ -29,6 +29,9 @@ return function(mod, T, Rules, Radar)
   local POINT_UP = { hp = "8c", atk = "82", def = "84", spa = "8a", spd = "88", spe = "86" }
   local UP_CLIP = { hp = "hp_up", atk = "kougeki_up", def = "bougyo_up", spa = "tokukou_up", spd = "tokubou_up",
     spe = "subayasa_up" }
+  -- the card's layout has the game's six rows: Gen 1 / 2's Special takes Sp. Atk's (relabelled),
+  -- Sp. Def's is left without a word
+  local function cardRow(k) return k == "spc" and "spa" or k end
 
   local function clock(secs)
     secs = math.max(0, secs or 0)
@@ -83,9 +86,10 @@ return function(mod, T, Rules, Radar)
   end
 
   -- the engine draws the screens (src/training/ui_art.lua's Assets.engine); off, the game's layouts
+  -- (Gen 1 / 2 always: the card's layout has the game's six stats and their hexagon)
   local function engineOn()
     local A = T.assets
-    return A ~= nil and A.engine ~= nil
+    return A ~= nil and (A.engine ~= nil or Rules.gb == true)
   end
 
   function R.begin(s)
@@ -94,7 +98,7 @@ return function(mod, T, Rules, Radar)
     R.t, R.page, R.pageT, R.cues, R.done, R.shown = 0, 1, 0, {}, false, nil
     R.list = r and pages(s, r) or {}
     R.engine = engineOn()
-    R.gauge = math.min(1, Rules.evTotal(s and s.evs or {}) / N.LIMITS.EV_TOTAL) * 128
+    R.gauge = math.min(1, Rules.evTotal(s and s.evs or {}) / Rules.evTotalMax()) * 128
     R.gaugeNow = 0
     if R.engine then
       R.top, R.bottom = nil, nil
@@ -114,7 +118,10 @@ return function(mod, T, Rules, Radar)
       P:setText("5l", r.courseName or "", { align = "left" })
       P:setText("63", r.clear and (line(60) or "Base stat increase:") or (line(59) or "Possible base stat increase:"))
       for _, k in ipairs(STATS) do
-        P:setText(ROW_LABEL[k], T.statWord and T.statWord(k) or k, { align = "left" })
+        local word = T.statWord and T.statWord(k) or k
+        if Rules.gb and k == "spa" then word = T.statWord and T.statWord("spc") or "Special"
+        elseif Rules.gb and k == "spd" then word = "" end
+        P:setText(ROW_LABEL[k], word, { align = "left" })
         P:set(ROW_UP[k], "visible", false)
       end
       -- the rows wait off to the left for status_in
@@ -123,7 +130,7 @@ return function(mod, T, Rules, Radar)
       -- it (meter2_gage scales the bar 8g, arrow_up lifts the arrow 8i 128 units); the bar's
       -- length is the code's to set (the layout leaves it 0 tall). They rise from the foot to
       -- the Pokemon's new total and stop there.
-      R.gauge = math.min(1, Rules.evTotal(s.evs or {}) / N.LIMITS.EV_TOTAL) * 128
+      R.gauge = math.min(1, Rules.evTotal(s.evs or {}) / Rules.evTotalMax()) * 128
       P:set("8g", "h", 128)
       P:play("meter2_gage", { speed = 0 })
       P:play("arrow_up", { speed = 0 })
@@ -236,7 +243,7 @@ return function(mod, T, Rules, Radar)
       end
       if not R.cues.up and R.t >= R.TOP.STAT_UP and r and r.stat and (r.ev or 0) > 0 then
         R.cues.up = true
-        local k = r.stat
+        local k = cardRow(r.stat)
         P:set(ROW_UP[k], "visible", true)
         P:setText(ROW_UP[k], "+" .. tostring(r.ev), { align = "left" })
         P:setText(POINT_UP[k], "+" .. tostring(r.ev))
@@ -261,8 +268,8 @@ return function(mod, T, Rules, Radar)
     local ri, ro = Rules.meterAxes(s.base or {}, s.evs or {}, Radar.ORDER)
     local k = w / 128   -- the canvas pane is 128 across; larger when the meter is scaled up
     local inner, outer = {}, {}
-    for i = 1, 6 do
-      local a = -math.pi / 2 + (i - 1) * math.pi / 3
+    for i = 1, #Radar.ORDER do
+      local a = Radar.angle(i)
       inner[#inner + 1] = cx + math.cos(a) * ri[i] * k
       inner[#inner + 1] = cy + math.sin(a) * ri[i] * k
       outer[#outer + 1] = cx + math.cos(a) * ro[i] * k
@@ -288,7 +295,10 @@ return function(mod, T, Rules, Radar)
   -- meter x 224..390, y 100..235 (centre 307, 167.5).
   R.FIT = { ROWS = { "5r", "5t", "5v", "5x", "61", "5z" }, ROWS_TOP = 55, ROWS_W = 180, ROWS_H = 180,
     METER = { cx = 307, cy = 167.5, hw = 83, hh = 67.5 }, BAND = 60, GAP = 12, EDGE = 8, MAX = 1.9 }
-  function R.fitAdjust(P, Wl, Hl)
+  -- A tall area (a portrait window): the rows grown across the width and the meter centred
+  -- under them in the room left, down to `insetTop` (the touch screen inset over this screen,
+  -- layout units) when it is there.
+  function R.fitAdjust(P, Wl, Hl, insetTop)
     local F, A = R.FIT, {}
     local kx = Wl / P.L.W
     for name, pane in pairs(P.L.byName) do
@@ -316,11 +326,17 @@ return function(mod, T, Rules, Radar)
     about("5p", P.L.W / 2, 0, t, { qx = kx / t })
     A["6v"] = { qx = kx / t }
     local band = F.BAND * t
-    -- the rows and the meter: one scale
+    -- the rows and the meter: one scale (side by side), or each its own (stacked, tall)
     local room = Hl - band - F.EDGE
-    local s = math.min(F.MAX, (Wl - 2 * F.EDGE - F.GAP) / (F.ROWS_W + 2 * M.hw),
-      (room + 5) / F.ROWS_H, room / (2 * M.hh))
-    s = math.max(1, s)
+    local tall = Hl > Wl * 1.05
+    local s
+    if tall then
+      s = math.max(1, math.min(F.MAX, (Wl - 2 * F.EDGE) / F.ROWS_W, (room * 0.45 + 5) / F.ROWS_H))
+    else
+      s = math.min(F.MAX, (Wl - 2 * F.EDGE - F.GAP) / (F.ROWS_W + 2 * M.hw),
+        (room + 5) / F.ROWS_H, room / (2 * M.hh))
+      s = math.max(1, s)
+    end
     -- the rows: each grows from its left edge (x -> Lx + x * s, the slide in scaled with it,
     -- so they wait fully off the area), from just under the band; their parent 5i sits at the
     -- layout's middle
@@ -333,18 +349,29 @@ return function(mod, T, Rules, Radar)
         A[name] = { mx = s, dx = Lx + P.L.W / 2 * (s - 1), dy = -(ny - y), sx = s, sy = s }
       end
     end
-    -- the meter: right-aligned, centred down the room under the band
+    -- the meter: right-aligned, centred down the room under the band; tall: centred across,
+    -- in the room under the rows (and over the inset)
+    local ms = s
     local Xc = Rx - F.EDGE - M.hw * s
     local Yc = band + F.EDGE / 2 + room / 2
+    if tall then
+      local rowsFoot = top + F.ROWS_H * s
+      local foot = Hl
+      if insetTop and insetTop > rowsFoot + 2 * M.hh then foot = math.min(foot, insetTop - 6) end
+      local mroom = foot - rowsFoot - F.EDGE
+      ms = math.max(1, math.min(F.MAX, mroom / (2 * M.hh), (Wl - 2 * F.EDGE) / (2 * M.hw)))
+      Xc = P.L.W / 2
+      Yc = rowsFoot + F.EDGE / 2 + mroom / 2
+    end
     local function place(name)
       local pane = P.L.byName[name]
       if not pane then return end
       local ox, oy = P.L.W / 2 + pane.t[1], P.L.H / 2 - pane.t[2]
-      local nx, ny = Xc + (ox - M.cx) * s, Yc + (oy - M.cy) * s
-      A[name] = { dx = nx - ox, dy = -(ny - oy), sx = s, sy = s }
+      local nx, ny = Xc + (ox - M.cx) * ms, Yc + (oy - M.cy) * ms
+      A[name] = { dx = nx - ox, dy = -(ny - oy), sx = ms, sy = ms }
     end
     place("7n"); place("8i")
-    R.fitScales = { title = t, rows = s, meter = s }
+    R.fitScales = { title = t, rows = s, meter = ms }
     return A
   end
 
@@ -404,7 +431,7 @@ return function(mod, T, Rules, Radar)
   local WHITE, INK = { 255, 255, 255 }, { 0, 30, 40 }
   local TEAL, TEAL_HI, NAVY = { 30, 190, 160 }, { 120, 245, 225 }, { 16, 34, 64 }
   local STAT_RGB = { hp = { 150, 230, 60 }, atk = { 250, 210, 40 }, def = { 250, 150, 40 },
-    spa = { 120, 196, 255 }, spd = { 96, 156, 246 }, spe = { 236, 120, 240 } }
+    spa = { 120, 196, 255 }, spd = { 96, 156, 246 }, spe = { 236, 120, 240 }, spc = { 108, 176, 250 } }
 
   -- the grid over the room's top, seen from below like a ceiling: lines run down toward the
   -- middle, rows spread apart toward the top, everything fading out downward. One mesh of
@@ -528,6 +555,14 @@ return function(mod, T, Rules, Radar)
   -- across the top, the band "Stat gain:", the six rows sliding in (each shorter than the one
   -- above), the meter with its labels, the trained stat's +N on its burst, the total's gauge
   local LABEL_AT = { hp = { 0, -64 }, atk = { 50, -38 }, def = { 50, 40 }, spe = { 0, 66 }, spd = { -50, 40 }, spa = { -50, -38 } }
+  -- Gen 1 / 2's five stats: a pentagon, a label at each corner the same way out
+  if Radar and #Radar.ORDER ~= 6 then
+    LABEL_AT = {}
+    for i, k in ipairs(Radar.ORDER) do
+      local a = Radar.angle(i)
+      LABEL_AT[k] = { math.cos(a) * 62, math.sin(a) * 66 }
+    end
+  end
   local function topEngine(G2, s)
     local r = R.r
     local e = T.topExtent or { x = 0, y = 0, w = 240, h = 160 }
@@ -535,10 +570,19 @@ return function(mod, T, Rules, Radar)
     if not r then return end
     local t = R.t or 0
     G2.push()
-    local ox = e.x + e.w / 2 - 120
+    -- landscape: the layout's 400 units at 0.6 about the middle (the frame's 240 across), the
+    -- meter beside the rows; a tall area (a portrait window, the touch screen inset over the
+    -- game): the layout across the width, the rows grown and the meter grown under them, so
+    -- the screen is filled rather than its top fifth
+    local tall = e.h > e.w * 1.05
+    local K = tall and e.w / 400 or 0.6
+    local ox = tall and e.x or (e.x + e.w / 2 - 120)
     G2.translate(ox, e.y)
-    G2.scale(0.6, 0.6)
-    local LX0, LX1 = (e.x - ox) / 0.6, (e.x + e.w - ox) / 0.6
+    G2.scale(K, K)
+    local LX0, LX1 = (e.x - ox) / K, (e.x + e.w - ox) / K
+    local HL = e.h / K
+    local rowK = tall and math.max(1, math.min(1.5, (HL * 0.42 - 61) / (#Rules.STATS * 29))) or 1
+    local rowsFoot = 61 + #Rules.STATS * 29 * rowK
     -- the title bar
     local title = art("training/res_title")
     G2.setColor(1, 1, 1, 1)
@@ -574,12 +618,15 @@ return function(mod, T, Rules, Radar)
     G2.setColor(0.5, 0.85, 0.95, 0.35); G2.rectangle("fill", LX0, 35, LX1 - LX0, 0.8); G2.rectangle("fill", LX0, 56.2, LX1 - LX0, 0.8)
     say(G2, r.clear and (line(60) or "Base stat increase:") or (line(59) or "Possible base stat increase:"),
       146, 38, 15, "center", WHITE)
-    -- the six rows sliding in from the left, one after another
+    -- the rows sliding in from the left, one after another (the stats trained: six, five on
+    -- Gen 1 / 2)
     local row, arrow = art("training/res_row"), art("training/res_arrow")
-    for i, k in ipairs(STATS) do
+    G2.push()
+    if rowK ~= 1 then G2.translate(0, 61); G2.scale(rowK, rowK); G2.translate(0, -61) end
+    for i, k in ipairs(Rules.STATS) do
       local inK = ease((t - R.TOP.STATUS_IN - (i - 1) * 0.05) / 0.25)
       local y = 61 + (i - 1) * 29
-      local x1 = 186 - (i - 1) * 5
+      local x1 = (tall and (LX1 / rowK - 60) or 186) - (i - 1) * 5
       G2.push()
       G2.translate((1 - inK) * -(x1 - LX0 + 20), 0)
       G2.setColor(1, 1, 1, 1)
@@ -596,10 +643,28 @@ return function(mod, T, Rules, Radar)
       if up then say(G2, "+" .. tostring(r.ev), 128, y + 4 - hop, 16, "left", LIME) end
       G2.pop()
     end
-    -- the meter on the right: the hexagon, the stats in it, the labels, the total's gauge
+    G2.pop()
+    -- the meter on the right (a tall area: under the rows, grown into the room left): the
+    -- hexagon, the stats in it, the labels, the total's gauge
     if t >= R.TOP.STATUS_IN + 0.1 then
       local mk = ease((t - R.TOP.STATUS_IN - 0.1) / 0.3)
       local cx, cy = 300, 160
+      local meterPushed = false
+      if tall then
+        -- down to the foot, or to the touch screen inset over this screen (T.topInset)
+        local foot = HL
+        local ins = T.topInset
+        if ins then
+          local top = (ins.y - e.y) / K
+          if top > rowsFoot + 60 then foot = math.min(foot, top - 6) end
+        end
+        local room = foot - rowsFoot
+        local ms = math.max(1, math.min(1.9, (room - 20) / 190, (LX1 - LX0 - 30) / 230))
+        G2.push()
+        G2.translate((LX0 + LX1) / 2 - 10 * ms, rowsFoot + room / 2)
+        G2.scale(ms, ms)
+        cx, cy, meterPushed = 0, 0, true
+      end
       local meter = art("training/home_meter")
       if meter then
         local mw, mh = meter:getDimensions()
@@ -610,8 +675,8 @@ return function(mod, T, Rules, Radar)
       if Rules.meterAxes and Radar then
         local ri, ro = Rules.meterAxes(s.base or {}, s.evs or {}, Radar.ORDER)
         local inner, outer = {}, {}
-        for i = 1, 6 do
-          local a = -math.pi / 2 + (i - 1) * math.pi / 3
+        for i = 1, #Radar.ORDER do
+          local a = Radar.angle(i)
           inner[#inner + 1] = cx + math.cos(a) * ri[i] * mk; inner[#inner + 1] = cy + math.sin(a) * ri[i] * mk
           outer[#outer + 1] = cx + math.cos(a) * ro[i] * mk; outer[#outer + 1] = cy + math.sin(a) * ro[i] * mk
         end
@@ -664,6 +729,7 @@ return function(mod, T, Rules, Radar)
         G2.setColor(0.82, 1, 0.62, 1)
         G2.draw(block, gx, foot - hgt - 1, 0, size / bw, size / bw, bw / 2, bw * 15.5 / 16)
       end
+      if meterPushed then G2.pop() end
     end
     G2.pop()
   end
@@ -807,10 +873,12 @@ return function(mod, T, Rules, Radar)
     -- it is wider, across it
     P.stretchY = ((e and e.h or 160) / 0.6) / 240
     P.stretchMode = "backdrop"
-    local fitKey = e and ("%.2f %.2f"):format(e.w, e.h) or "frame"
+    local ins = T.topInset
+    local insetTop = (e and ins) and (ins.y - e.y) / 0.6 or nil
+    local fitKey = e and ("%.2f %.2f %.1f"):format(e.w, e.h, insetTop or -1) or "frame"
     if P._fitKey ~= fitKey then
       P._fitKey = fitKey
-      P.adjust = e and R.fitAdjust(P, e.w / 0.6, e.h / 0.6) or nil
+      P.adjust = e and R.fitAdjust(P, e.w / 0.6, e.h / 0.6, insetTop) or nil
     end
     -- the meter's canvas is drawn by the game: hide the pane, draw the stats over it after
     P:set("7o", "visible", false)

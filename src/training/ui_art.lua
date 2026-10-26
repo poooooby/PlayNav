@@ -677,26 +677,36 @@ return function(mod, deps)
   gen("training/home_meter", 150, 150, function(G)
     local cx, cy, r = 63.5, 85.5, 50.5
     local hex, inner = {}, {}
-    for i = 0, 5 do
-      local a = -math.pi / 2 + i * math.pi / 3
+    -- a hexagon; a pentagon on Gen 1 / 2 (five stats)
+    local sides = (Rules and Rules.gb) and 5 or 6
+    for i = 0, sides - 1 do
+      local a = -math.pi / 2 + i * 2 * math.pi / sides
       hex[#hex + 1] = cx + math.cos(a) * r; hex[#hex + 1] = cy + math.sin(a) * r
       inner[#inner + 1] = cx + math.cos(a) * r * 0.5; inner[#inner + 1] = cy + math.sin(a) * r * 0.5
     end
     -- see-through glass, brighter toward the middle, a fine hex mesh in it
     local fan = { { cx, cy, 0, 0, P.tealHi[1], P.tealHi[2], P.tealHi[3], 0.62 } }
-    for i = 0, 6 do
-      local k = (i % 6) * 2
+    for i = 0, sides do
+      local k = (i % sides) * 2
       fan[#fan + 1] = { hex[k + 1], hex[k + 2], 0, 0, P.tealLo[1], P.tealLo[2], P.tealLo[3], 0.82 }
     end
     G.setColor(1, 1, 1, 1); G.draw(G.newMesh(fan, "fan", "static"))
     within(G, hex, function() hexes(G, cx - r, cy - r, 2 * r, 2 * r, 2.6, 0.1) end)
     col(G, P.tealHi, 0.3); G.polygon("fill", inner)
     local spoke = {}
-    for i = 0, 2 do
-      local a = -math.pi / 2 + i * math.pi / 3
-      spoke[1], spoke[2] = cx + math.cos(a) * r, cy + math.sin(a) * r
-      spoke[3], spoke[4] = cx - math.cos(a) * r, cy - math.sin(a) * r
-      neon(G, 0.6, P.tealHi, 0.7, spoke, false)
+    if sides == 6 then
+      for i = 0, 2 do
+        local a = -math.pi / 2 + i * math.pi / 3
+        spoke[1], spoke[2] = cx + math.cos(a) * r, cy + math.sin(a) * r
+        spoke[3], spoke[4] = cx - math.cos(a) * r, cy - math.sin(a) * r
+        neon(G, 0.6, P.tealHi, 0.7, spoke, false)
+      end
+    else
+      for i = 0, sides - 1 do
+        spoke[1], spoke[2] = cx, cy
+        spoke[3], spoke[4] = hex[i * 2 + 1], hex[i * 2 + 2]
+        neon(G, 0.6, P.tealHi, 0.7, spoke, false)
+      end
     end
     neon(G, 0.7, P.tealHi, 0.85, closed(inner), false)
     neon(G, 1.3, P.tealHi, 1, closed(hex))
@@ -708,9 +718,9 @@ return function(mod, deps)
   end)
 
   -- the stat labels: the stat's name in outlined block letters
-  local LABELS = { hp = "HP", atk = "ATTACK", def = "DEFENSE", spa = "SP. ATK", spd = "SP. DEF", spe = "SPEED" }
+  local LABELS = { hp = "HP", atk = "ATTACK", def = "DEFENSE", spa = "SP. ATK", spd = "SP. DEF", spe = "SPEED", spc = "SPECIAL" }
   local LABEL_RGB = { hp = c255(196, 236, 60), atk = c255(252, 196, 40), def = c255(252, 150, 40),
-    spa = c255(120, 196, 255), spd = c255(96, 156, 246), spe = c255(236, 120, 240) }
+    spa = c255(120, 196, 255), spd = c255(96, 156, 246), spe = c255(236, 120, 240), spc = c255(108, 176, 250) }
   for stat, word in pairs(LABELS) do
     gen("training/label_" .. stat, 64, 20, function(G)
       -- a soft halo in the stat's colour, then the letters in a thin dark outline

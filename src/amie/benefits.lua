@@ -10,12 +10,19 @@
 -- patched. Skipped in link, facility and tutorial battles, before any extra
 -- RNG draw, so a link battle never desyncs.
 --
--- deps = { Rules, Store, host, enabled = fn() -> bool }
+-- On the Game Boy games (deps.gb) the same benefits run on their battles' shapes: Gen 1's
+-- battlers { mon, isPlayer }, Gen 2's mons themselves (battle.player is the party record); lines
+-- through the battle's own text queue (Gen 1 battle:say, Gen 2 battle:emit); the crit doubled by a
+-- second roll of the engine's own (their odds come from base Speed / the move, not a stage); the
+-- dodge as one in ten hits missed; a cure clears mon.status. Link and Battle Tower battles skip.
+--
+-- deps = { Rules, Store, host, enabled = fn() -> bool, gb = bool }
 
 local unpack = unpack or table.unpack
 
 return function(mod, deps)
   local Rules, Store, host = deps.Rules, deps.Store, deps.host
+  local gb = deps.gb == true
   local N = Rules.N.BENEFITS
   local B = { installed = false, stats = { exp = 0, crit = 0, dodge = 0, endure = 0, cure = 0 },
     -- how often the engine reached each hook (applied or not): the drivers' proof of wiring
@@ -26,7 +33,15 @@ return function(mod, deps)
     return true
   end
 
+  -- the Game Boy battle running (Gen 1's crit hook passes none)
+  B.current = nil
   local function skip(st)
+    if gb then
+      st = st or B.current
+      if type(st) ~= "table" then return true end
+      return st.kind == "link" or st.linkBattle == true or st.inBattleTowerBattle == true or st.safari == true
+        or st.kind == "safari"
+    end
     if type(st) ~= "table" then return true end
     if st.link or st.safari or st.facility or st.trainerTower or st.battleTower or st.eReader
         or st.pokedude or st.oldManTutorial then return true end
@@ -37,7 +52,22 @@ return function(mod, deps)
     return false
   end
 
+  -- the Pokemon a battler is (Gen 3 / Gen 1: b.mon; Gen 2: the mon itself)
+  local function monOf(b)
+    if type(b) ~= "table" then return nil end
+    if type(b.mon) == "table" then return b.mon end
+    if gb and b.species then return b end
+    return b.mon
+  end
+  B.monOf = monOf
+
   local function isPlayer(st, b)
+    if gb then
+      if type(b) ~= "table" then return false end
+      if b.isPlayer ~= nil then return b.isPlayer == true end
+      st = st or B.current
+      return type(st) == "table" and (b == st.player or (type(st.player) == "table" and b == st.player.mon))
+    end
     if type(b) ~= "table" or b.side ~= "player" then return false end
     local half = tonumber(st and st.playerHalf) or 6
     return (tonumber(b.partyIndex) or 1) <= half
@@ -45,6 +75,7 @@ return function(mod, deps)
 
   local function keyOf(mon)
     if type(mon) ~= "table" then return nil end
+    if host and host.monKey then return host.monKey(mon) end
     return ("%s:%s"):format(tostring(mon.personality or "?"), tostring(mon.otId or "?"))
   end
 
@@ -71,6 +102,10 @@ return function(mod, deps)
   local function trainerName(st)
     local n = st and st.playerName
     if type(n) == "string" and n ~= "" then return n end
+    if host and host.playerName then
+      local ok, p = pcall(host.playerName)
+      if ok and type(p) == "string" and p ~= "" then return p end
+    end
     return "its Trainer"
   end
 
@@ -82,6 +117,15 @@ return function(mod, deps)
 
   local function say(text)
     if B.sayHook then return B.sayHook(text) end   -- the tests read the lines here
+    if gb then
+      local st = B.current
+      if type(st) ~= "table" then return end
+      local ok, err
+      if type(st.say) == "function" then ok, err = pcall(st.say, st, text)
+      elseif type(st.emit) == "function" then ok, err = pcall(st.emit, st, { kind = "message", text = text }) end
+      if ok == false then mod.log:warn("amie benefits: message failed: %s", tostring(err)) end
+      return
+    end
     local ad = adapter()
     if ad and ad.say then
       local ok, err = pcall(ad.say, ad, text)
@@ -92,6 +136,7 @@ return function(mod, deps)
   -- B.forceRoll(lo, hi): the drivers' stand-in for the affection rolls only (crit, endure, cure)
   local function rngOf(ctx)
     if B.forceRoll then return B.forceRoll end
+    if gb then return function(lo, hi) return love.math.random(lo, hi) end end
     if type(ctx.rng) == "function" then return ctx.rng end
     local ad = adapter()
     if ad and ad.rng then
@@ -169,7 +214,18 @@ return function(mod, deps)
       if hit or not enabled() or type(ctx) ~= "table" then return hit end
       local st = ctx.battle
       if skip(st) or (st and st.pokedude) or not isPlayer(st, ctx.attacker) then return hit end
-      if levelOf(ctx.attacker.mon) < N.CRIT_LEVEL then return hit end
+      if levelOf(monOf(ctx.attacker)) < N.CRIT_LEVEL then return hit end
+      if gb then
+        -- the Game Boy games' odds are the engine's own (base Speed, the move): a second roll of
+        -- them, near enough twice the chance
+        local again = next()
+        if again then
+          B.stats.crit = B.stats.crit + 1
+          pendingText[#pendingText + 1] = ("%s is so in sync with %s's wishes that it landed a critical hit!")
+            :format(nameOf(monOf(ctx.attacker)), trainerName(st))
+        end
+        return again
+      end
       local okR, RulesG3 = pcall(require, "src.core.game3.battle.rules")
       local CHANCE = okR and RulesG3.crit and RulesG3.crit.CHANCE or { [0] = 16, [1] = 8, [2] = 4, [3] = 3, [4] = 2 }
       -- the attacker's crit stage (high-crit move, Focus Energy, Scope Lens...): the engine's hook
@@ -187,7 +243,7 @@ return function(mod, deps)
       if v == 0 then
         B.stats.crit = B.stats.crit + 1
         pendingText[#pendingText + 1] = ("%s is so in sync with %s's wishes that it landed a critical hit!")
-          :format(nameOf(ctx.attacker.mon), trainerName(st))
+          :format(nameOf(monOf(ctx.attacker)), trainerName(st))
         return true
       end
       return hit
@@ -197,7 +253,18 @@ return function(mod, deps)
       B.calls.accuracy = B.calls.accuracy + 1
       if enabled() and type(ctx) == "table" then
         local st = ctx.battle
-        if not skip(st) and isPlayer(st, ctx.target) and not isPlayer(st, ctx.user)
+        if gb and not skip(st) and isPlayer(st, ctx.target) and not isPlayer(st, ctx.user)
+            and affectionOf(monOf(ctx.target)) >= N.DODGE_AFFECTION then
+          -- 10 points off the foe's accuracy: one hit in ten missed
+          local hit = next()
+          if hit and rngOf(ctx)(0, 99) < N.DODGE_POINTS then
+            B.stats.dodge = B.stats.dodge + 1
+            say(("%s read %s's mind and avoided the move!"):format(nameOf(monOf(ctx.target)), trainerName(st)))
+            return false
+          end
+          return hit
+        end
+        if not gb and not skip(st) and isPlayer(st, ctx.target) and not isPlayer(st, ctx.user)
             and affectionOf(ctx.target.mon) >= N.DODGE_AFFECTION then
           local eff = ctx.move and tonumber(ctx.move.effect)
           if eff ~= 17 and eff ~= 78 then
@@ -222,10 +289,12 @@ return function(mod, deps)
       local target = ctx.target
       if skip(st) or not isPlayer(st, target) or type(info) == "table" and info.failed then return dmg, info end
       if (tonumber(target.substituteHP) or 0) > 0 then return dmg, info end
-      local hp = target.mon and tonumber(target.mon.hp) or 0
+      if gb and type(target.volatile) == "table" and (tonumber(target.volatile.substituteHP) or 0) > 0 then return dmg, info end
+      local tmon = monOf(target)
+      local hp = tmon and tonumber(tmon.hp) or 0
       local d = tonumber(dmg) or 0
       if hp <= 1 or d < hp then return dmg, info end
-      local pct = endurePct(affectionOf(target.mon))
+      local pct = endurePct(affectionOf(tmon))
       if pct <= 0 then return dmg, info end
       local rng = rngOf(ctx)
       if rng(0, 99) < pct then
@@ -240,20 +309,21 @@ return function(mod, deps)
       local target = ev and ev.target
       if type(target) == "table" and target._amieEndure then
         target._amieEndure = nil
-        say(("%s toughed it out to show its best side to %s!"):format(nameOf(target.mon), trainerName(ev.battle)))
+        say(("%s toughed it out to show its best side to %s!"):format(nameOf(monOf(target)), trainerName(ev.battle)))
       end
       if not enabled() or type(ev) ~= "table" or skip(ev.battle) then return end
       local st, user = ev.battle, ev.user
       -- a super-effective hit by a fond Pokemon
-      if isPlayer(st, user) and not isPlayer(st, target) and (tonumber(ev.effectiveness) or 10) > 10
-          and (tonumber(ev.damage) or 0) > 0 and fond(user.mon) then
+      if isPlayer(st, user) and not isPlayer(st, target) and (tonumber(ev.effectiveness or ev.typeMult) or 10) > 10
+          and (tonumber(ev.damage) or 0) > 0 and fond(monOf(user)) then
         soonText[#soonText + 1] = B.LINES.super
       end
       -- a fond Pokemon's HP bar turning red
-      if isPlayer(st, target) and type(target.mon) == "table" and fond(target.mon) then
-        local mon = target.mon
+      if isPlayer(st, target) and type(monOf(target)) == "table" and fond(monOf(target)) then
+        local mon = monOf(target)
         local before = (tonumber(mon.hp) or 0) + (tonumber(ev.damage) or 0)
-        if inRed(mon.hp, mon.maxHp) and not inRed(before, mon.maxHp) then
+        local max = mon.maxHp or (type(mon.stats) == "table" and mon.stats.hp)
+        if inRed(mon.hp, max) and not inRed(before, max) then
           soonText[#soonText + 1] = B.LINES.pinch:format(nameOf(mon))
         end
       end
@@ -261,7 +331,8 @@ return function(mod, deps)
 
     -- an HP item used on a fond Pokemon in battle: the engine has no event for it, so its battle
     -- item use is wrapped (once); "heal" is its result for an HP-restoring item
-    local okI, BattleItems = pcall(require, "src.core.game3.battle.items")
+    local okI, BattleItems = false, nil
+    if not gb then okI, BattleItems = pcall(require, "src.core.game3.battle.items") end
     if okI and type(BattleItems) == "table" and type(BattleItems.use) == "function" and not BattleItems._amieWrapped then
       local use = BattleItems.use
       BattleItems._amieWrapped = true
@@ -291,6 +362,22 @@ return function(mod, deps)
       if not enabled() then return end
       local st = ev and ev.battle
       if skip(st) or (st and st.over) then return end
+      if gb then
+        -- the player's Pokemon in play shakes off its condition: mon.status cleared
+        local b = st and st.player
+        local mon = monOf(b)
+        local status = type(mon) == "table" and mon.status or nil
+        if mon and status and (tonumber(mon.hp) or 0) > 0 and levelOf(mon) >= N.CURE_LEVEL
+            and rngOf(ev)(0, 99) < N.CURE_PCT then
+          local code = statusCode(status)
+          mon.status, mon.sleepTurns, mon.statusTurns = nil, nil, nil
+          if type(b) == "table" and b ~= mon then b.sleepTurns, b.shownStatus = nil, nil end
+          B.stats.cure = B.stats.cure + 1
+          local text = STATUS_TEXT[code] or "%s shook off its condition so that %s wouldn't worry!"
+          pendingText[#pendingText + 1] = text:format(nameOf(mon), trainerName(st))
+        end
+        return
+      end
       local ad = adapter()
       if not (ad and ad.clearStatus) then return end
       local battlers = {}
@@ -335,18 +422,24 @@ return function(mod, deps)
         list[1] = st.player
       end
       for _, b in ipairs(list) do
-        local status = b.status or (b.mon and b.mon.status)
+        local m = monOf(b) or {}
+        local status = b.status or m.status
         local asleep = statusCode(status) == "SLP"
         if not asleep then
           b._amieSleepSaid = nil
-        elseif isPlayer(st, b) and not b._amieSleepSaid and fond(b.mon) then
+        elseif isPlayer(st, b) and not b._amieSleepSaid and fond(m) then
           b._amieSleepSaid = true
-          say(B.LINES.asleep:format(nameOf(b.mon)))
+          say(B.LINES.asleep:format(nameOf(m)))
         end
       end
     end)
-    mod.events:on("battle.started", function() pendingText, soonText = {}, {} end)
-    mod.events:on("battle.ended", function() pendingText, soonText = {}, {} end)
+    mod.events:on("battle.started", function(ev)
+      pendingText, soonText = {}, {}
+      -- (Gen 2 raises it from its battle and its battle screen: the screen's .battle is the battle)
+      local b = type(ev) == "table" and ev.battle or nil
+      if gb and type(b) == "table" then B.current = (type(b.battle) == "table" and b.battle) or b end
+    end)
+    mod.events:on("battle.ended", function() pendingText, soonText = {}, {}; B.current = nil end)
     return true
   end
 

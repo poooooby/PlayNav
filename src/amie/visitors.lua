@@ -49,7 +49,9 @@ return function(mod, deps)
       if sp and not set[sp] then set[sp] = true; list[#list + 1] = sp end
     end
     if #list < 4 then
-      for _, sp in ipairs(V.FALLBACK) do if not set[sp] then set[sp] = true; list[#list + 1] = sp end end
+      -- (the Game Boy games' hosts name their own: string species ids)
+      local fallback = host.visitorFallback and host.visitorFallback() or V.FALLBACK
+      for _, sp in ipairs(fallback) do if not set[sp] then set[sp] = true; list[#list + 1] = sp end end
     end
     V.pool = list
     return list
@@ -84,7 +86,8 @@ return function(mod, deps)
     local aff = Rules.clamp(math.floor(avg + (V.rng() - 0.5) * 200), 0, 255)
     local side = V.rng() < 0.5 and -1 or 1
     local spot = #V.present + 1
-    return { species = sp, name = host.speciesName and host.speciesName(sp) or tostring(sp),
+    return { species = sp, national = host.speciesNational and host.speciesNational(sp) or nil,
+      name = host.speciesName and host.speciesName(sp) or tostring(sp),
       affection = aff, types = host.typesOf and host.typesOf(sp) or {}, root = host.evoRoot and host.evoRoot(sp) or sp,
       icon = host.iconSpecies and host.iconSpecies(sp) or nil,
       x = side < 0 and -25 or 345, y = V.SPOTS[spot].y, tx = V.SPOTS[spot].x, ty = V.SPOTS[spot].y,

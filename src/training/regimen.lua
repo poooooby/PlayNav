@@ -443,7 +443,7 @@ return function(mod, T, deps)
         local evs = host.evsOf(s.mon)
         res.evWanted = Rules.courseEv(course, pending)
         res.ev = Rules.addEv(evs, course.stat, res.evWanted)
-        res.stat = course.stat
+        res.stat = Rules.statOf(course.stat)
         host.setEvs(s.mon, evs)
         s.evs = evs
       end

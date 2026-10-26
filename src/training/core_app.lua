@@ -913,6 +913,22 @@ return function(mod, Pointer, T, Rules, Radar, host)
     return top ~= nil
   end
 
+  -- the stat labels round the meter: the layout's six, or (Gen 1 / 2's five stats, a pentagon)
+  -- one at each corner the same way out
+  local gbLabels = nil
+  local function labelPanes()
+    if #Radar.ORDER == 6 then return PANE.label end
+    if not gbLabels then
+      gbLabels = {}
+      local h = PANE.hex
+      for i, k in ipairs(Radar.ORDER) do
+        local a = Radar.angle(i)
+        gbLabels[k] = { h[1] + math.cos(a) * 46, h[2] + math.sin(a) * 48 }
+      end
+    end
+    return gbLabels
+  end
+
   local function drawMeter(G, s, small)
     local meter = art("training/home_meter")
     local h = PANE.hex
@@ -927,8 +943,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
     -- the hexagon's 50.5); the texture's pixels are layout units here
     local ri, ro = Rules.meterAxes(s.base, s.evs, Radar.ORDER)
     local inner, outer = {}, {}
-    for i = 1, 6 do
-      local a = -math.pi / 2 + (i - 1) * math.pi / 3
+    for i = 1, #Radar.ORDER do
+      local a = Radar.angle(i)
       inner[#inner + 1] = h[1] + math.cos(a) * ri[i]
       inner[#inner + 1] = h[2] + math.sin(a) * ri[i]
       outer[#outer + 1] = h[1] + math.cos(a) * ro[i]
@@ -944,14 +960,14 @@ return function(mod, Pointer, T, Rules, Radar, host)
     G.setLineWidth(1)
     local up = s.anim and s.anim.statUp
     local uf = up and up.t * 30
-    for k, at in pairs(PANE.label) do
+    for k, at in pairs(labelPanes()) do
       local img = art("training/label_" .. k)
       local sc = (up and up.stat == k) and pulse(uf) or 1
       if img then fit(G, img, { at[1], at[2], 64 * sc, 20 * sc }) end
     end
     -- the total: a green quad rising from the gauge's foot
     local g = PANE.gauge
-    local frac = math.max(0, math.min(1, total / N.LIMITS.EV_TOTAL))
+    local frac = Rules.evShare(s.evs)
     if frac > 0 then
       local hh = g[4] * frac
       G.setColor(1, 1, 1, 1)
@@ -965,7 +981,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local up = s.anim and s.anim.statUp
     if not up then return end
     local uf, sc = up.t * 30, pulse(up.t * 30)
-    local at = PANE.label[up.stat]
+    local at = labelPanes()[up.stat]
     if at then
       -- the +N (point_up_win 3p 40x20, 17 above the label, alpha 180; text 3d)
       local cx, cy = at[1], at[2] - 17 * sc
@@ -979,7 +995,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     end
     -- the arrow (arrow_up_anime: pane 5k climbs 128 over the gauge; the arrow pic 5i sits 6
     -- right and 12 up of it, light green at alpha 200), pulsing (arrow_scale)
-    local frac = math.max(0, math.min(1, Rules.evTotal(s.evs) / N.LIMITS.EV_TOTAL))
+    local frac = Rules.evShare(s.evs)
     local ax, ay = 314, 174 - 128 * frac
     local arrow = art("training/arrow")
     if arrow then

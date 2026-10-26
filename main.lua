@@ -125,6 +125,12 @@ return function(mod)
   local makeRename = loadSibling(mod, "src/rename.lua")
   if makeRename then makeRename(mod, "ds_touch").install() end
 
+  -- the game PlayNav runs on (src/gen.lua): every generation-specific piece below is picked
+  -- from it, so none of Gen 3's runs on Gen 1 / 2
+  local Gen = loadSibling(mod, "src/gen.lua")
+  local profile = Gen and Gen.detect(mod) or { gen = tonumber(mod.generation) or 3, gb = mod.generation ~= 3 }
+  local GB = profile.gb == true
+
   local Layout = loadSibling(mod, "src/layout.lua")
   -- the touch screen is Kanto Gear's shape, 10:9 (Layout's default)
   local makePointer = loadSibling(mod, "src/pointer.lua")
@@ -161,7 +167,7 @@ return function(mod)
   local Pointer = makePointer(mod)
   local Surface = makeSurface(mod, Layout, HD)
   local HdTop = (HD and makeHdTop) and makeHdTop(mod, { HD = HD,
-    ids = { play_nav_amie = true, play_nav_training = true } }) or nil
+    ids = { play_nav_amie = true, play_nav_training = true }, frame = profile.frame, gb = GB }) or nil
   mod.hdTop = HdTop
   local Apps = makeApps(mod, Pointer, Layout)
   local PadHide = makePadHide(mod)
@@ -176,7 +182,8 @@ return function(mod)
   local PettingData = loadSibling(mod, "data/petting_gen3.lua")
   local makePetting = loadSibling(mod, "src/amie/petting.lua")
   local makeStore = loadSibling(mod, "src/amie/store.lua")
-  local makeHost = loadSibling(mod, "src/refresh/host_gen3.lua")
+  -- the engine's adapter: Gen 3's, or the Game Boy games' (Gen 1 / 2)
+  local makeHost = loadSibling(mod, GB and "src/refresh/host_gb.lua" or "src/refresh/host_gen3.lua")
   local makeSession = loadSibling(mod, "src/amie/session.lua")
   -- PLAY's and DECORATE's screens are laid out in Lua (src/amie/panes.lua)
   mod.panes = loadSibling(mod, "src/amie/panes.lua")
@@ -201,7 +208,15 @@ return function(mod)
     Rules = makeRules(RuleNumbers)
     Petting = makePetting(PettingData or {})
     Store = makeStore(mod, Rules)
-    amieHost = makeHost(mod)
+    amieHost = makeHost(mod, profile)
+    -- (the Game Boy games play their own effects for PlayNav's engine stand-ins)
+    if GB and amieHost.setSounds then amieHost.setSounds(loadSibling(mod, "data/gb_sounds.lua")) end
+    -- (and Pokemon Crystal's front and back pics from PlayNav's atlases: the games' own are four
+    -- shades, their white see-through)
+    if GB and amieHost.setBacks then
+      amieHost.setBacks(loadSibling(mod, "data/gb_backs.lua"), function(path) return mod:read(path) end,
+        loadSibling(mod, "data/gb_fronts.lua"))
+    end
     -- every sound effect Amie (and Super Training's stand-ins, through the same host) plays has
     -- its haptic: menu presses tick, good hits pulse, misses knock twice (src/haptics.lua)
     if mod.haptics and amieHost.playSe then
@@ -291,7 +306,7 @@ return function(mod)
       end
     end
     if makeBenefits then
-      Benefits = makeBenefits(mod, { Rules = Rules, Store = Store, host = amieHost,
+      Benefits = makeBenefits(mod, { Rules = Rules, Store = Store, host = amieHost, gb = GB,
         enabled = function() return mod.options:get("affection_benefits") ~= false end })
     end
   else
@@ -324,7 +339,7 @@ return function(mod)
     local ItemsTable = loadSibling(mod, "data/training_items.lua")
     local makeTRules = loadSibling(mod, "src/training/rules.lua")
     local makeTStore = loadSibling(mod, "src/training/store.lua")
-    local makeTHost = loadSibling(mod, "src/training/host.lua")
+    local makeTHost = loadSibling(mod, GB and "src/training/host_gb.lua" or "src/training/host.lua")
     local makeTItems = loadSibling(mod, "src/training/items.lua")
     local makeTSession = loadSibling(mod, "src/training/session.lua")
     local Radar = loadSibling(mod, "src/training/radar.lua")
@@ -342,11 +357,13 @@ return function(mod)
     local makeResults = loadSibling(mod, "src/training/results.lua")
     local makeMusic = loadSibling(mod, "src/training/music.lua")
     if amieHost and TrainingNumbers and makeTRules and makeTStore and makeTHost and makeTSession and makeCoreApp and Radar then
-      TRules = makeTRules(TrainingNumbers, ShotTypes or {})
+      TRules = makeTRules(TrainingNumbers, ShotTypes or {}, profile)
+      -- Gen 1 / 2's five stats: the Effort-o-Meter is a pentagon
+      if GB and Radar.setOrder then Radar.setOrder(Radar.ORDER_GB) end
       TStore = makeTStore(mod, TRules)
       trainHost = makeTHost(mod, amieHost)
       if makeTItems then
-        TItems = makeTItems(mod, { host = trainHost, Rules = TRules, data = ItemsTable or {} })
+        TItems = makeTItems(mod, { host = trainHost, Rules = TRules, data = ItemsTable or {}, gb = GB, gen = profile.gen })
       end
       Training = makeTSession(mod, { host = trainHost, Rules = TRules, Store = TStore, Items = TItems, Apps = Apps,
         busy = function() return Amie ~= nil and Amie.session ~= nil end, onChange = dirty })
@@ -474,6 +491,13 @@ return function(mod)
           -- the easter eggs' art is PlayNav's whatever the asset option (the card has none)
           Assets.own = function(id)
             if id:sub(1, 7) == "rocket/" or id:sub(1, 14) == "training/rbag_" then return ui.image(id) end
+            -- the Game Boy games' Effort-o-Meter is a pentagon (five stats, one Special), which
+            -- the card has no picture or label for
+            -- (and its results: PlayNav's drawn ones, src/training/results.lua R.engine)
+            if GB and (id == "training/home_meter" or id:sub(1, 15) == "training/label_" or id:sub(1, 13) == "training/res_"
+                or id == "training/point_up_win" or id == "training/arrow" or id == "training/medal") then
+              return ui.image(id)
+            end
             return nil
           end
           -- Pokemon-Amie's room draws through the same maker
@@ -957,7 +981,9 @@ return function(mod)
     if gearPresent == nil then gearPresent = (mod.find and mod:find("kanto_gear")) ~= nil end
     if gearPresent then return 0 end
     local game = state.game
-    local opts = game and type(game.options) == "table" and game.options or nil
+    -- (the engine's options: on the game on Gen 2 / 3, in the save on Gen 1)
+    local opts = game and (type(game.options) == "table" and game.options
+      or (type(game.save) == "table" and type(game.save.options) == "table" and game.save.options)) or nil
     if opts and TC.normalizeConfig then
       local okC, cfg = pcall(TC.normalizeConfig, opts.touchControls)
       if okC and type(cfg) == "table" and not cfg.enabled then return 0 end
@@ -1006,8 +1032,19 @@ return function(mod)
   -- the area a filling top layer paints: split's playfield; with the touch screen on a second
   -- display (a Thor, Kanto Gear's phone) the whole top display, past the game's 3:2 picture
   if HdTop then
+    -- the touch screen over the top screen: the OVERLAY layout's inset while it shows
+    HdTop.inset = function()
+      local lay = layoutCache.lay
+      if state.mode == "split" and lay and lay.overlay and state.rect and not state.overlayHidden then
+        local r = state.rect
+        return { x = r.x, y = r.y, w = r.w, h = r.h }
+      end
+      return nil
+    end
     HdTop.playfield = function()
       if Cutout and Cutout:active() then return Cutout.rect end
+      -- Gen 1 / 2's split: the game's part of the window (render.viewport)
+      if GB and state.mode == "split" and state.gbGame then return state.gbGame end
       if state.mode == "second_screen" or state.mode == "phone" then
         local ok, w, h = pcall(function() return love.graphics.getDimensions() end)
         if ok and w and h then return { x = 0, y = 0, w = w, h = h } end
@@ -1060,51 +1097,62 @@ return function(mod)
     swapHeld, overlayHeld = down, odown
   end
 
+  -- Kanto Gear's layouts (src/layout.lua Layout.gear) for a window and the game's picture
+  -- (240x160 on Gen 3, 160x144 on Gen 1 / 2) on the settings as they apply now (displaySetting:
+  -- the Gear's under K-GEAR), re-read once a second; cached until something moves
+  local function gearLayout(ww, wh, gameW, gameH)
+    local c, now, dpi = layoutCache, Pointer.now(), windowDpi()
+    local fill = topFills()
+    local style = state.displayStyle or "combined"
+    local moved = c.ww ~= ww or c.wh ~= wh or c.dpi ~= dpi or c.fill ~= fill or c.H ~= Layout.H
+      or c.style ~= style or c.swap ~= state.swapped or c.gameW ~= gameW
+    if moved or now >= (c.padAt or 0) then
+      local reserve = padReserve(ww, wh)
+      c.padAt = now + 1
+      local layout = style == "fullscreen" and "fullscreen" or displaySetting("combined_layout")
+      local size, corner = displaySetting("secondary_size"), displaySetting("overlay_corner")
+      local primary = displaySetting("combined_primary")
+      local safe = tonumber(displaySetting("bottom_safe_area")) or 0
+      -- PRIMARY VIEW: the touch screen first ("playnav", the Gear's own "gear"); QUICK SWAP turns it
+      local swapped = (primary ~= nil and primary ~= "game") ~= (state.swapped == true)
+      local gk = ("%s|%s|%s|%s|%s|%s"):format(style, tostring(layout), tostring(size), tostring(safe),
+        tostring(swapped), tostring(corner))
+      if moved or c.reserve ~= reserve or c.gk ~= gk or c.lay == nil then
+        c.ww, c.wh, c.dpi, c.reserve, c.fill, c.H, c.gk, c.style, c.swap, c.gameW =
+          ww, wh, dpi, reserve, fill, Layout.H, gk, style, state.swapped, gameW
+        c.lay = Layout.gear(ww, wh, { dpi = dpi, reserveBottom = style == "fullscreen" and 0 or reserve,
+          layout = layout, corner = corner, size = size ~= "auto" and size or nil, safe = safe,
+          swapped = swapped, gameW = gameW, gameH = gameH }) or false
+      end
+    end
+    return c.lay or nil, style
+  end
+
+  -- the touch screen's rect for a layout, or nil while it is out of sight: FULLSCREEN SWAP
+  -- showing the game (START SCREEN, QUICK SWAP), or OVERLAY hidden by its button; the game then
+  -- has the window and every touch. Sets state.coverWindow (FULLSCREEN SWAP: the touch screen
+  -- alone on a black window).
+  local function surfaceOf(lay, style)
+    state.coverWindow = false
+    if style == "fullscreen" then
+      local start = displaySetting("fullscreen_start")
+      local playnavFirst = start ~= "game"
+      if playnavFirst == (state.swapped == true) then return nil end
+      state.coverWindow = true
+    elseif lay.overlay and state.overlayHidden then
+      return nil
+    end
+    return lay.surface
+  end
+
   local function gen3Rect(vp)
     local ww, wh = vp.width or 0, vp.height or 0
     if ww < 1 or wh < 1 then return nil end
     if Cutout and Cutout.pf then
-      local c, now, dpi = layoutCache, Pointer.now(), windowDpi()
-      local fill = topFills()
-      local style = state.displayStyle or "combined"
-      local moved = c.ww ~= ww or c.wh ~= wh or c.dpi ~= dpi or c.fill ~= fill or c.H ~= Layout.H
-        or c.style ~= style or c.swap ~= state.swapped
-      if moved or now >= (c.padAt or 0) then
-        local reserve = padReserve(ww, wh)
-        c.padAt = now + 1
-        -- Kanto Gear's layouts (src/layout.lua Layout.gear) on the settings as they apply now
-        -- (displaySetting: the Gear's under K-GEAR), re-read once a second
-        local layout = style == "fullscreen" and "fullscreen" or displaySetting("combined_layout")
-        local size, corner = displaySetting("secondary_size"), displaySetting("overlay_corner")
-        local primary = displaySetting("combined_primary")
-        local safe = tonumber(displaySetting("bottom_safe_area")) or 0
-        -- PRIMARY VIEW: the touch screen first ("playnav", the Gear's own "gear"); QUICK SWAP turns it
-        local swapped = (primary ~= nil and primary ~= "game") ~= (state.swapped == true)
-        local gk = ("%s|%s|%s|%s|%s|%s"):format(style, tostring(layout), tostring(size), tostring(safe),
-          tostring(swapped), tostring(corner))
-        if moved or c.reserve ~= reserve or c.gk ~= gk or c.lay == nil then
-          c.ww, c.wh, c.dpi, c.reserve, c.fill, c.H, c.gk, c.style, c.swap =
-            ww, wh, dpi, reserve, fill, Layout.H, gk, style, state.swapped
-          c.lay = Layout.gear(ww, wh, { dpi = dpi, reserveBottom = style == "fullscreen" and 0 or reserve,
-            layout = layout, corner = corner, size = size ~= "auto" and size or nil, safe = safe,
-            swapped = swapped }) or false
-        end
-      end
-      local lay = c.lay
+      local lay, style = gearLayout(ww, wh, 240, 160)
       if lay then
         Cutout:set(lay.game)
-        -- the touch screen out of sight: FULLSCREEN SWAP showing the game (START SCREEN, QUICK
-        -- SWAP), or OVERLAY hidden by its button; the game then has the window and every touch
-        state.coverWindow = false
-        if style == "fullscreen" then
-          local start = displaySetting("fullscreen_start")
-          local playnavFirst = start ~= "game"
-          if playnavFirst == (state.swapped == true) then return nil end
-          state.coverWindow = true
-        elseif lay.overlay and state.overlayHidden then
-          return nil
-        end
-        return lay.surface
+        return surfaceOf(lay, style)
       end
     end
     if wh >= ww then
@@ -1200,7 +1248,8 @@ return function(mod)
       -- still being wired then and a cache read can miss files that exist
       extractTicks = extractTicks + 1
       local game = state.game
-      local booting = game and game.phase ~= nil and game.phase ~= "field"
+      -- (Gen 3's field phase is "field", Gen 2's "play"; Gen 1 has none)
+      local booting = game and game.phase ~= nil and game.phase ~= "field" and game.phase ~= "play"
       if booting or extractTicks < 30 then return end
       extractChecked = true
       applyRomOption()
@@ -1333,7 +1382,8 @@ return function(mod)
       return ok and type(spec) == "table" and spec.icon or nil
     end
     local apps = {}
-    if Amie and mod.generation == 3 and amieHost and amieHost.available() then
+    -- (the Game Boy games have no save at load: their host is asked when the card is pressed)
+    if Amie and amieHost and (GB or amieHost.available()) then
       apps[#apps + 1] = {
         id = "amie", caption = "Play with your Pokémon", name = "Pokémon-Amie",
         icon = iconFor("amie"),
@@ -1345,7 +1395,7 @@ return function(mod)
         end,
       }
     end
-    if Training and mod.generation == 3 and trainHost and trainHost.available() then
+    if Training and trainHost and (GB or trainHost.available()) then
       apps[#apps + 1] = {
         id = "training", caption = "Train your Pokémon", name = "Super Training",
         icon = iconFor("training"), shutters = true, slant = 0.18,
@@ -1515,7 +1565,9 @@ return function(mod)
     end
     -- Super Training keeps punching (and resting) while its screen is closed
     if Training and Training.background then
-      local ok, err = pcall(Training.background, game ~= nil and game.phase == "field")
+      local inField = game ~= nil and game.phase == "field"
+      if GB then inField = amieHost ~= nil and amieHost.inField ~= nil and amieHost.inField() end
+      local ok, err = pcall(Training.background, inField)
       if not ok and not state.bgWarned then
         state.bgWarned = true
         mod.log:warn("super training: background tick failed (%s); training resumes when the screen opens", tostring(err))
@@ -1558,8 +1610,12 @@ return function(mod)
           if needsDraw or k ~= Surface.k then Surface:render(drawAll, k) end
           Surface:blit(rect)
         end
-      elseif needsDraw then
-        Surface:render(drawAll)
+      elseif state.rect then
+        -- Gen 1 / 2 (from render.window): FULLSCREEN SWAP's black is drawn there
+        local rect = state.rect
+        local k = Surface:densityFor(rect)
+        if needsDraw or k ~= Surface.k then Surface:render(drawAll, k) end
+        Surface:blit(rect)
       end
       return
     end
@@ -1632,22 +1688,27 @@ return function(mod)
 
   -- ------- hooks
 
+  -- Gen 1 / 2: the window is laid out here, as Gen 3's Cutout does it (Kanto Gear's layouts on
+  -- a 160x144 picture): the game renders into its part as if it were the window (capture), and
+  -- render.window puts the touch screen beside or over it
   mod.hooks:wrap("render.viewport", function(next, ctx)
     local base = next(ctx)
+    if not GB then return base end
     setMode(wantedMode())
-    if state.mode ~= "split" or mod.generation == 3 then
-      if mod.generation ~= 3 then state.rect = nil end
+    state.gbGame = nil
+    if state.mode ~= "split" then
+      state.rect = nil
       return base
     end
     local b = type(base) == "table" and base
       or { x = 0, y = 0, width = ctx.width, height = ctx.height }
-    local layout = Layout.split(b.width, b.height, {})
-    local s = layout.surface
-    state.rect = { x = s.x + (b.x or 0), y = s.y + (b.y or 0), w = s.w, h = s.h, scale = s.scale }
-    return {
-      x = layout.game.x + (b.x or 0), y = layout.game.y + (b.y or 0),
-      width = layout.game.w, height = layout.game.h, capture = true,
-    }
+    local lay, style = gearLayout(b.width, b.height, profile.frameW, profile.frameH)
+    if not lay then state.rect = nil; return base end
+    local s = surfaceOf(lay, style)
+    state.rect = s and { x = s.x + (b.x or 0), y = s.y + (b.y or 0), w = s.w, h = s.h, scale = s.scale } or nil
+    local g = lay.game
+    state.gbGame = { x = g.x + (b.x or 0), y = g.y + (b.y or 0), w = g.w, h = g.h }
+    return { x = state.gbGame.x, y = state.gbGame.y, width = g.w, height = g.h, capture = true }
   end)
 
   -- PlayNav first on the second display: this wrap runs outside every other
@@ -1722,12 +1783,12 @@ return function(mod)
 
   -- the engine hands its finished frame to render.output only when a mod asks
   mod.hooks:wrap("render.output_enabled", function(next)
-    if mod.generation == 3 and state.mode == "handheld" then return true end
+    if state.mode == "handheld" then return true end
     return next()
   end, -10000)
 
   mod.hooks:wrap("render.output", function(next, ctx)
-    if mod.generation == 3 and state.mode == "handheld" and type(ctx) == "table" and ctx.canvas then
+    if state.mode == "handheld" and type(ctx) == "table" and ctx.canvas then
       local okG, err = pcall(pushGame, ctx)
       if not okG and not state.pushGameWarned then
         state.pushGameWarned = true
@@ -1764,11 +1825,36 @@ return function(mod)
     return next(ctx)
   end, -10000)
 
+  -- Gen 1 / 2 while the game is captured (the split): the engine's canvas is set through its
+  -- whole draw, render.hud included, so PlayNav's frame waits for here, where it has been put
+  -- on the window and no canvas is set (no canvas is ever switched to inside another's draw:
+  -- Android). The top screen at window resolution, then the tick (the apps, the touch screen).
+  local gbHud = { game = nil, viewport = nil }
   mod.hooks:wrap("render.window", function(next, game, ctx)
     local result = next(game, ctx)
-    if state.mode == "split" and mod.generation ~= 3 and state.rect then
-      Surface:blit(state.rect)
+    if not GB then return result end
+    local vp = gbHud.viewport
+    local wv = {}
+    if type(vp) == "table" then for k, v in pairs(vp) do wv[k] = v end end
+    local ox, oy = (type(ctx) == "table" and ctx.x) or 0, (type(ctx) == "table" and ctx.y) or 0
+    wv.gameX, wv.gameY = (wv.gameX or 0) + ox, (wv.gameY or 0) + oy
+    wv.width = type(ctx) == "table" and ctx.windowWidth or wv.width
+    wv.height = type(ctx) == "table" and ctx.windowHeight or wv.height
+    gbHud.viewport = nil
+    local G = love and love.graphics
+    if state.coverWindow and G then
+      G.push("all")
+      G.origin()
+      G.setScissor()
+      G.setColor(0, 0, 0, 1)
+      G.rectangle("fill", 0, 0, wv.width or 0, wv.height or 0)
+      G.pop()
+    elseif HdTop and vp then
+      local okT, errT = pcall(HdTop.draw, wv)
+      if not okT then mod.log:warn("top screen overlay failed: %s", tostring(errT)) end
     end
+    local ok, err = pcall(tick, game or gbHud.game, wv)
+    if not ok then mod.log:warn("frame tick failed: %s", tostring(err)) end
     return result
   end)
 
@@ -1804,14 +1890,42 @@ return function(mod)
     end)
   end
 
+  local okGV, GameViewport = pcall(require, "src.render.GameViewport")
+  if not (okGV and type(GameViewport) == "table") then GameViewport = nil end
+  local function captured()
+    if not (GB and GameViewport and GameViewport.active) then return false end
+    local ok, on = pcall(GameViewport.active)
+    return ok and on == true
+  end
+
+  local okR, Renderer = pcall(require, "src.render.Renderer")
+  if not (okR and type(Renderer) == "table") then Renderer = nil end
+  local function gbViewport()
+    if not (Renderer and Renderer.frameRects and love and love.graphics) then return nil end
+    local ok, r = pcall(Renderer.frameRects, Renderer)
+    if not (ok and type(r) == "table" and r.uvpw) then return nil end
+    local w, h = love.graphics.getDimensions()
+    return { width = w, height = h, gameX = r.uox, gameY = r.uoy, gameWidth = r.uvpw, gameHeight = r.uvph,
+      scale = r.Up, dpiX = 1, dpiY = 1 }
+  end
+
   mod.hooks:wrap("render.hud", function(next, game, viewport)
     syncHd()
+    -- a mod's Renderer:endFrame wrap that drops its return (TERRARIUM's lib/BattleExit.lua)
+    -- leaves Gen 1's hooks no viewport: the picture's rect from the renderer itself
+    if GB and type(viewport) ~= "table" then viewport = gbViewport() end
+    -- Gen 1 / 2 captured: drawn from render.window (above)
+    if captured() then
+      gbHud.game, gbHud.viewport = game, viewport
+      state.game = game
+      return next(game, viewport)
+    end
     -- the top screen first, PlayNav's touch screen over it: on the OVERLAY layout the panel sits
     -- on the game's picture, and a filling top screen (a regimen) would otherwise paint it out
-    if HdTop and mod.generation == 3 and state.mode == "handheld" then
+    if HdTop and state.mode == "handheld" then
       -- the top screen is the game's frame on the second display, drawn into it plainly
       HdTop.standDown()
-    elseif HdTop and mod.generation == 3 then
+    elseif HdTop then
       local okT, errT = pcall(HdTop.draw, viewport)
       if not okT then mod.log:warn("top screen overlay failed: %s", tostring(errT)) end
     end
@@ -1862,27 +1976,38 @@ return function(mod)
     return next(game, ev)
   end)
 
-  -- Pokemon-Amie: after a battle, from the Gen 3 start menu, steps and
-  -- battles for the stats, and the affection benefits
-  if Amie and mod.generation == 3 then
-    if amieHost.available() then
-      Store.migrate()
-      mod.events:on("battle.ended", function(ev)
-        local ok, err = pcall(Amie.onBattleEnded, ev)
-        if not ok then mod.log:warn("amie after battle failed: %s", tostring(err)) end
-      end)
-      mod.events:on("battle.started", function()
-        pcall(Amie.onBattleStarted)
-      end)
-      mod.events:on("world.stepped", function()
-        pcall(Amie.onStep)
-      end)
-      if Benefits then Benefits.install() end
-    else
-      mod.log:warn("Pokemon-Amie needs the Gen 3 UI stack and pokemon modules; it stays off")
+  -- Pokemon-Amie: after a battle, from the START menu, steps and battles for the stats, and the
+  -- affection benefits. Gen 2 raises battle.started / battle.ended twice a battle (its battle
+  -- and its battle screen, two objects): one of each a battle counts.
+  if Amie then
+    -- (the Game Boy games' save is read once the game has one: available() asks then)
+    Store.migrate()
+    local lastBattle, lastAt = { started = nil, ended = nil }, { started = -1, ended = -1 }
+    local function once(kind, ev)
+      if not GB then return true end
+      local b = type(ev) == "table" and ev.battle or nil
+      local key = type(b) == "table" and (b.battle or b) or b
+      local t = Pointer.now()
+      if key ~= nil and lastBattle[kind] == key then return false end
+      if key == nil and t - lastAt[kind] < 1 then return false end
+      -- a battle's two objects: the screen's .battle is the logic's
+      if key ~= nil and type(lastBattle[kind]) == "table" and lastBattle[kind].battle == key then return false end
+      lastBattle[kind], lastAt[kind] = key, t
+      return true
     end
-  elseif Amie then
-    mod.log:info("Pokemon-Amie runs on Gen 3 in this version")
+    mod.events:on("battle.ended", function(ev)
+      if not once("ended", ev) then return end
+      local ok, err = pcall(Amie.onBattleEnded, ev)
+      if not ok then mod.log:warn("amie after battle failed: %s", tostring(err)) end
+    end)
+    mod.events:on("battle.started", function(ev)
+      if not once("started", ev) then return end
+      pcall(Amie.onBattleStarted)
+    end)
+    mod.events:on("world.stepped", function()
+      pcall(Amie.onStep)
+    end)
+    if Benefits then Benefits.install() end
   end
 
   -- the PlayNav strip across the top of Amie's room, as over Super Training's home
@@ -1899,46 +2024,63 @@ return function(mod)
     end
   end
 
-  if Training and mod.generation == 3 and trainHost.available() then
+  if Training then
     TStore.migrate()
     -- registered at load (the registry closes afterwards); national_dex_gen3 is an optional
     -- dependency so it loads first and its Gen 4 stones are found and shared, not fought
     if TItems then TItems.install() end
-  elseif Training then
-    mod.log:info("Super Training runs on Gen 3 in this version")
   end
 
   -- one START menu entry, PLAYNAV: the menu of PlayNav's apps (src/apps/menu.lua). It
   -- toggles: with an app or the menu up, it closes them.
   local menuApp = Apps:get("menu")
-  if menuApp and mod.generation == 3 and #(menuDeps.apps or {}) > 0 then
+  -- Gen 3's rows: { id, label, onSelect }, closed silently first. Gen 1's: { label, onSelect },
+  -- the menu closing itself first. Gen 2's: { label, onSelect(game), desc }, the menu left
+  -- open (closed here). Before SAVE / OPTION / EXIT (QUIT) in each.
+  local function closeStartMenu()
+    if GB then
+      if amieHost and amieHost.closeStartMenu then pcall(amieHost.closeStartMenu) end
+      return
+    end
+    local ok, StartMenu = pcall(require, "src.ui.game3.start_menu")
+    if ok and StartMenu and StartMenu.close then pcall(StartMenu.close, true) end
+  end
+  if Training then Training.closeStartMenu = closeStartMenu end
+  local ANCHOR = { save = true, option = true, exit = true, quit = true, SAVE = true, OPTION = true, EXIT = true, QUIT = true }
+  if menuApp and #(menuDeps.apps or {}) > 0 then
     mod.hooks:wrap("ui.start_menu.items", function(next, game, items)
       local out = next(game, items)
       if type(out) ~= "table" or #menuApp.cards() == 0 then return out end
       for _, e in ipairs(out) do
-        if type(e) == "table" and e.id == "play_nav" then return out end
+        if type(e) == "table" and (e.id == "play_nav" or e.playNav) then return out end
+      end
+      local function select()
+        closeStartMenu()
+        local open = (Amie and Amie.session) or (Training and Training.session)
+          or (menuApp.shown() and Apps:active() == menuApp)
+        if open then
+          menuApp.hide()
+          if Amie and Amie.session then Amie.finish() end
+          if Training and Training.session then Training.finish() end
+          Apps:setActive("play", state.game)
+          return
+        end
+        if importGate() then return end
+        menuApp.show()
       end
       local entry = {
-        id = "play_nav", label = "PLAYNAV", text = "PLAYNAV",
-        onSelect = function()
-          local ok, StartMenu = pcall(require, "src.ui.game3.start_menu")
-          if ok and StartMenu and StartMenu.close then pcall(StartMenu.close, true) end
-          local open = (Amie and Amie.session) or (Training and Training.session)
-            or (menuApp.shown() and Apps:active() == menuApp)
-          if open then
-            menuApp.hide()
-            if Amie and Amie.session then Amie.finish() end
-            if Training and Training.session then Training.finish() end
-            Apps:setActive("play", state.game)
-            return
-          end
-          if importGate() then return end
-          menuApp.show()
-        end,
+        id = "play_nav", label = "PLAYNAV", text = "PLAYNAV", playNav = true,
+        onSelect = function() select() end,
       }
+      if profile.gen == 2 then
+        entry.id = nil
+        entry.desc = { line1 = "Play and train", line2 = "your partners." }
+      elseif profile.gen == 1 then
+        entry.id = nil
+      end
       local at = #out + 1
       for i, e in ipairs(out) do
-        if type(e) == "table" and (e.id == "save" or e.id == "option" or e.id == "exit") then
+        if type(e) == "table" and (ANCHOR[e.id or ""] or ANCHOR[e.value or ""] or ANCHOR[tostring(e.label or "")]) then
           at = i
           break
         end
