@@ -6,25 +6,33 @@
 local Radar = {}
 
 Radar.ORDER = { "hp", "atk", "def", "spe", "spd", "spa" }
-Radar.LABELS = { hp = "HP", atk = "ATK", def = "DEF", spe = "SPE", spd = "SPD", spa = "SPA" }
+Radar.LABELS = { hp = "HP", atk = "ATK", def = "DEF", spe = "SPE", spd = "SPD", spa = "SPA", spc = "SPC" }
+-- the Game Boy games' five (one Special): a pentagon, Special where Sp. Atk / Sp. Def sat
+Radar.ORDER_GB = { "hp", "atk", "def", "spe", "spc" }
+function Radar.setOrder(order) Radar.ORDER = order end
 
--- the six corner points of a hexagon of radius r at (cx, cy), first at the top, clockwise
+-- the angle of axis i (1-based), first at the top, clockwise
+local function angle(i) return -math.pi / 2 + (i - 1) * 2 * math.pi / #Radar.ORDER end
+Radar.angle = angle
+
+-- the corner points of the radar's polygon (a hexagon; a pentagon on Gen 1 / 2) of radius r at
+-- (cx, cy), first at the top, clockwise
 function Radar.corners(cx, cy, r)
   local pts = {}
-  for i = 0, 5 do
-    local a = -math.pi / 2 + i * math.pi / 3
+  for i = 1, #Radar.ORDER do
+    local a = angle(i)
     pts[#pts + 1] = cx + math.cos(a) * r
     pts[#pts + 1] = cy + math.sin(a) * r
   end
   return pts
 end
 
--- the polygon for six values (table keyed by stat) scaled by `max`, clamped 0..1
+-- the polygon for the values (table keyed by stat) scaled by `max`, clamped 0..1
 function Radar.points(cx, cy, r, values, max)
   local pts = {}
   for i, k in ipairs(Radar.ORDER) do
     local v = math.max(0, math.min(1, (tonumber(values and values[k]) or 0) / (max or 1)))
-    local a = -math.pi / 2 + (i - 1) * math.pi / 3
+    local a = angle(i)
     pts[#pts + 1] = cx + math.cos(a) * r * v
     pts[#pts + 1] = cy + math.sin(a) * r * v
   end
@@ -41,7 +49,7 @@ function Radar.layers(cx, cy, r, base, evs, baseMax, evMax, innerShare)
     local b = math.max(0, math.min(1, (tonumber(base and base[k]) or 0) / (baseMax or 1)))
     local e = math.max(0, math.min(1, (tonumber(evs and evs[k]) or 0) / (evMax or 1)))
     local v = b * innerShare + e * (1 - innerShare)
-    local a = -math.pi / 2 + (i - 1) * math.pi / 3
+    local a = angle(i)
     outer[#outer + 1] = cx + math.cos(a) * r * v
     outer[#outer + 1] = cy + math.sin(a) * r * v
   end
@@ -69,7 +77,7 @@ function Radar.draw(G, cx, cy, r, opts)
   G.polygon("line", Radar.corners(cx, cy, r))
   G.polygon("line", Radar.corners(cx, cy, r * 0.5))
   local c = Radar.corners(cx, cy, r)
-  for i = 1, 6 do G.line(cx, cy, c[i * 2 - 1], c[i * 2]) end
+  for i = 1, #Radar.ORDER do G.line(cx, cy, c[i * 2 - 1], c[i * 2]) end
   local inner, outer = Radar.layers(cx, cy, r, opts.base, opts.evs, baseMax, evMax, 0.5)
   if polygonOk(outer) then
     G.setColor(0.98, 0.85, 0.25, 0.85)
@@ -84,7 +92,7 @@ function Radar.draw(G, cx, cy, r, opts)
   if opts.labels ~= false and opts.font then
     G.setFont(opts.font)
     for i, k in ipairs(Radar.ORDER) do
-      local a = -math.pi / 2 + (i - 1) * math.pi / 3
+      local a = angle(i)
       local lx, ly = cx + math.cos(a) * (r + 9), cy + math.sin(a) * (r + 7)
       local label = Radar.LABELS[k]
       local w = opts.font:getWidth(label)

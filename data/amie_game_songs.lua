@@ -28,4 +28,19 @@ return {
     ["bgm/kw_game02"] = "MUS_CYCLING",
     ["bgm/kw_game03"] = "MUS_TRICK_HOUSE",
   },
+  -- the Game Boy games (src/refresh/host_gb.lua)
+  gen1 = {
+    ["bgm/kw_game01"] = "Music_GameCorner",
+    ["bgm/kw_game01_fast"] = "Music_GameCorner",
+    ["bgm/kw_game01_faster"] = "Music_GameCorner",
+    ["bgm/kw_game02"] = "Music_BikeRiding",
+    ["bgm/kw_game03"] = "Music_Celadon",
+  },
+  gen2 = {
+    ["bgm/kw_game01"] = "Music_BugCatchingContest",
+    ["bgm/kw_game01_fast"] = "Music_BugCatchingContest",
+    ["bgm/kw_game01_faster"] = "Music_BugCatchingContest",
+    ["bgm/kw_game02"] = "Music_Bicycle",
+    ["bgm/kw_game03"] = "Music_NationalPark",
+  },
 }

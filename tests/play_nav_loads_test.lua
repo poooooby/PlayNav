@@ -6,11 +6,31 @@ package.path = "./?.lua;./?/init.lua;" .. package.path
 
 local T = require("tests.modkit")
 
+-- the Game Boy games: it loads, and nothing of Gen 3's engine is required (src/gen.lua picks
+-- every generation-specific piece)
 for _, generation in ipairs({ 1, 2 }) do
+  local before = {}
+  for name in pairs(package.loaded) do before[name] = true end
   local run = T.sdk.loadMod("mods/play_nav", { generation = generation })
-  T.eq(run.mod and run.mod.state, "wrong_generation",
-    ("gen %d: the mod is skipped, Gen 3 only"):format(generation))
-  T.eq(#run.errors, 0, ("gen %d: and the skip is not an error (%s)"):format(generation, tostring(run.errors[1])))
+  T.eq(run.mod and run.mod.state, "loaded",
+    ("gen %d: the mod loads (%s)"):format(generation, tostring(run.mod and run.mod.skipReason)))
+  T.eq(#run.errors, 0, ("gen %d: no boot errors (%s)"):format(generation, tostring(run.errors[1])))
+  local exports = run.loader and run.loader.exports and run.loader.exports.play_nav
+  T.check(type(exports) == "table" and type(exports.training) == "table" and type(exports.amie) == "table",
+    ("gen %d: Pokemon-Amie and Super Training are exported"):format(generation))
+  local host = exports and exports._test and exports._test.refreshHost()
+  T.eq(host and host.name, "gen" .. generation, ("gen %d: the Game Boy host"):format(generation))
+  local bled = {}
+  for name in pairs(package.loaded) do
+    -- (the engine's own online trade loads Gen 3's link modules on the first load: not ours)
+    if not before[name] and (name:find("game3", 1, true) or name:find("Game3", 1, true))
+        and not name:find("game3.link.", 1, true) then bled[#bled + 1] = name end
+  end
+  table.sort(bled)
+  T.eq(#bled, 0, ("gen %d: no Gen 3 engine module required (%s)"):format(generation, table.concat(bled, ", ")))
+  local rules = exports and exports.training and exports.training.rules
+  T.eq(rules and #rules.STATS, 5, ("gen %d: five stats trained (one Special)"):format(generation))
+  T.eq(rules and rules.EV_TOTAL, nil, ("gen %d: no total EV cap"):format(generation))
   run.release()
 end
 
@@ -99,7 +119,14 @@ for _, generation in ipairs({ 3 }) do
     local Draw = TRx and TRx.session and TRx.session.arenaDraw
     T.check(Draw ~= nil and Draw.arena3d ~= nil, "the 3D arena is built")
     if Draw then
-      T.eq(Draw.mode3d, false, "3D SUPER TRAINING is off by default")
+      -- the option's own default (the engine-root options.lua may hold a player's choice)
+      local default
+      for _, row in ipairs(loader.optionSchemas and loader.optionSchemas.play_nav or {}) do
+        if row.key == "training_3d" then default = row.default end
+      end
+      T.eq(default, false, "3D SUPER TRAINING is off by default")
+      T.eq(Draw.mode3d, loader.modOptions and loader.modOptions.play_nav
+        and loader.modOptions.play_nav.training_3d == true or false, "...and follows the option as set")
       loader.events:emit("mod.options_changed", { mod = "play_nav", key = "training_3d", value = true })
       T.eq(Draw.mode3d, true, "...switched on, regimens draw in 3D")
       loader.events:emit("mod.options_changed", { mod = "play_nav", key = "training_3d", value = false })

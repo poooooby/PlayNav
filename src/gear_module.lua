@@ -6,6 +6,11 @@
 -- passes in - `open` (the press: the app's session, or the PLAYNAV import screen) and
 -- `shown` (true while PlayNav's surface is up, so the Gear stands down).
 
+-- every generation the Gear runs on (its ctx: { edition, generation = 1 | 2 | 3, gen3 })
+local function available(ctx)
+  return ctx ~= nil and (ctx.gen3 == true or ctx.generation == 1 or ctx.generation == 2 or ctx.generation == 3)
+end
+
 local function amie(deps)
   return {
     id = "pokemon_amie",
@@ -46,7 +51,7 @@ local function amie(deps)
       "........................",
     } },
     accent = "amber",
-    available = function(ctx) return ctx ~= nil and ctx.gen3 == true end,
+    available = available,
     shown = deps.shown,
     open = deps.open,
     translations = {
@@ -129,7 +134,7 @@ return function(deps)
       "........................",
     } },
     accent = "red",
-    available = function(ctx) return ctx ~= nil and ctx.gen3 == true end,
+    available = available,
     shown = deps.shown,
     open = deps.open,
     translations = {

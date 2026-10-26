@@ -45,8 +45,11 @@ return function(mod)
     elseif self.hidden then
       self.hidden = false
       local restored = false
-      if game and type(game.options) == "table" and tc.applyOptions then
-        restored = pcall(tc.applyOptions, tc, game.options)
+      -- the engine's options: on the game (Gen 2 / 3), in the save (Gen 1)
+      local opts = game and (type(game.options) == "table" and game.options
+        or (type(game.save) == "table" and type(game.save.options) == "table" and game.save.options)) or nil
+      if opts and tc.applyOptions then
+        restored = pcall(tc.applyOptions, tc, opts)
       end
       if not restored then tc.enabled = self.prevEnabled end
     end

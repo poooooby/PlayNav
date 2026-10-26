@@ -4,15 +4,29 @@
 --
 -- R = rules(N, ShotTypes)   N = data/training_rules.lua, ShotTypes = data/training_shot_types.lua
 
-return function(N, ShotTypes)
+-- profile (src/gen.lua, optional): the Game Boy games train five stats - HP, Attack, Defense,
+-- Speed and one Special (spc) that Sp. Atk and Sp. Def bags and regimens both train - with no
+-- total cap; Gen 3 (the default) six, 510 in all.
+return function(N, ShotTypes, profile)
   ShotTypes = ShotTypes or {}
   local R = { N = N }
+  local gb = type(profile) == "table" and profile.gb == true
+  R.gb = gb
 
-  R.STATS = { "hp", "atk", "def", "spa", "spd", "spe" }
-  R.STAT_LABEL = { hp = "HP", atk = "ATTACK", def = "DEFENSE", spa = "SP. ATK", spd = "SP. DEF", spe = "SPEED" }
-  R.STAT_SHORT = { hp = "HP", atk = "ATK", def = "DEF", spa = "SPA", spd = "SPD", spe = "SPE" }
+  -- the game's six (its bag order, art and text follow them); R.STATS the ones trained here
+  R.GAME_STATS = { "hp", "atk", "def", "spa", "spd", "spe" }
+  R.STATS = gb and { "hp", "atk", "def", "spe", "spc" } or R.GAME_STATS
+  R.STAT_LABEL = { hp = "HP", atk = "ATTACK", def = "DEFENSE", spa = "SP. ATK", spd = "SP. DEF", spe = "SPEED", spc = "SPECIAL" }
+  R.STAT_SHORT = { hp = "HP", atk = "ATK", def = "DEF", spa = "SPA", spd = "SPD", spe = "SPE", spc = "SPC" }
   -- the line each stat bag is patterned after (Bulbapedia)
-  R.STAT_BAG_LINE = { hp = "Azurill", atk = "Machop", def = "Aron", spa = "Litwick", spd = "Flabebe", spe = "Zubat" }
+  R.STAT_BAG_LINE = { hp = "Azurill", atk = "Machop", def = "Aron", spa = "Litwick", spd = "Flabebe", spe = "Zubat", spc = "Litwick" }
+  -- the stat a bag, course or item of `stat` trains: Sp. Atk and Sp. Def are Special on Gen 1 / 2
+  local TRAINS = gb and { spa = "spc", spd = "spc" } or {}
+  function R.statOf(stat) return TRAINS[stat] or stat end
+  -- the total EV cap, or nil (Gen 1 / 2: none)
+  R.EV_TOTAL = (not gb) and N.LIMITS.EV_TOTAL or nil
+  -- the most EVs a Pokemon can hold: 510, or every stat full on Gen 1 / 2
+  function R.evTotalMax() return R.EV_TOTAL or (#R.STATS * N.LIMITS.EV_CAP) end
   R.SIZES = { "s", "m", "l" }
   R.SIZE_LABEL = { s = "S", m = "M", l = "L" }
   R.COLOURS = { "black", "yellow", "orange", "green", "blue" }
@@ -29,7 +43,12 @@ return function(N, ShotTypes)
     R.BAG_LIST[#R.BAG_LIST + 1] = id
     def.id = id
   end
-  for _, stat in ipairs(R.STATS) do
+  -- the game's six stats' bags always (their order, art and text are the game's); the Special
+  -- bags too on Gen 1 / 2, which hand them out in place of Sp. Atk / Sp. Def ones (`regular`)
+  local bagStats = {}
+  for _, s in ipairs(R.GAME_STATS) do bagStats[#bagStats + 1] = s end
+  if gb then bagStats[#bagStats + 1] = "spc" end
+  for _, stat in ipairs(bagStats) do
     for _, size in ipairs(R.SIZES) do
       local base = N.BAGS.STAT[size]
       addBag(stat .. "_" .. size, {
@@ -50,7 +69,7 @@ return function(N, ShotTypes)
   -- Soothing. The icons in a/0/2/8 entry 0 follow it (sand_bag00 is the empty bag), and
   -- the descriptions sit at a/0/7/3 file 27 lines 18 + n.
   R.GAME_ORDER = {}
-  for _, stat in ipairs(R.STATS) do
+  for _, stat in ipairs(R.GAME_STATS) do
     for _, size in ipairs(R.SIZES) do R.GAME_ORDER[#R.GAME_ORDER + 1] = stat .. "_" .. size end
   end
   for _, id in ipairs({ "strength", "toughen_up", "swiftness", "big_shot", "double_up", "team_flare", "reset", "soothing" }) do
@@ -58,12 +77,16 @@ return function(N, ShotTypes)
   end
   R.BAG_ART, R.GAME_INDEX = { ["black"] = 0 }, {}
   for i, id in ipairs(R.GAME_ORDER) do R.BAG_ART[id] = i; R.GAME_INDEX[id] = i end
+  -- a Special bag wears the Sp. Atk bag's picture (it has no game text: its name is ours)
+  for _, size in ipairs(R.SIZES) do
+    if R.BAGS["spc_" .. size] then R.BAG_ART["spc_" .. size] = R.BAG_ART["spa_" .. size] end
+  end
 
   -- the alley dealer's bags (N.ROCKET): <stat>_r / <stat>_rp, stat bags with their own pictures,
   -- kept out of BAG_LIST and GAME_ORDER (never a blank-bag find, no game text)
   R.SIZE_LABEL.r, R.SIZE_LABEL.rp = "R", "R+"
   R.ROCKET_LIST = {}
-  local STAT_NAME = { hp = "HP", atk = "Attack", def = "Defense", spa = "Sp. Atk", spd = "Sp. Def", spe = "Speed" }
+  local STAT_NAME = { hp = "HP", atk = "Attack", def = "Defense", spa = "Sp. Atk", spd = "Sp. Def", spe = "Speed", spc = "Special" }
   if N.ROCKET then
     for _, size in ipairs({ "r", "rp" }) do
       for _, stat in ipairs(R.STATS) do
@@ -76,10 +99,13 @@ return function(N, ShotTypes)
     end
   end
   -- the dealer's bags are sold, never found, won or given: every roll below passes its pick
-  -- through `regular`, which turns one of his into nothing
+  -- through `regular`, which turns one of his into nothing (and, on Gen 1 / 2, a Sp. Atk /
+  -- Sp. Def bag into the Special one of its size)
   function R.isRocketBag(id) local b = R.BAGS[id]; return b ~= nil and b.rocket == true end
   local function regular(id)
     if id ~= nil and R.isRocketBag(id) then return nil end
+    local b = id and R.BAGS[id]
+    if b and b.kind == "stat" and R.statOf(b.stat) ~= b.stat then return R.statOf(b.stat) .. "_" .. b.size end
     return id
   end
   R.regularBag = regular
@@ -162,15 +188,20 @@ return function(N, ShotTypes)
     return t
   end
 
-  -- adds `amount` to evs[stat] within the 252 / 510 caps; returns the amount really added
+  -- adds `amount` to evs[stat] within the caps (252 a stat; 510 in all on Gen 3); returns the
+  -- amount really added. On Gen 1 / 2 a Sp. Atk / Sp. Def gain goes to Special (evs.spc, and
+  -- spa / spd follow it so the game's formulas read Special for both).
   function R.addEv(evs, stat, amount)
+    stat = R.statOf(stat)
     if not evs or not R.STAT_LABEL[stat] then return 0 end
     amount = math.floor(tonumber(amount) or 0)
     if amount <= 0 then return 0 end
     local cur = evOf(evs, stat)
-    local room = math.min(N.LIMITS.EV_CAP - cur, N.LIMITS.EV_TOTAL - R.evTotal(evs))
+    local room = N.LIMITS.EV_CAP - cur
+    if R.EV_TOTAL then room = math.min(room, R.EV_TOTAL - R.evTotal(evs)) end
     local add = math.max(0, math.min(amount, room))
     evs[stat] = cur + add
+    if stat == "spc" then evs.spa, evs.spd = evs.spc, evs.spc end
     return add
   end
 
@@ -178,14 +209,25 @@ return function(N, ShotTypes)
     if not evs then return 0 end
     local before = R.evTotal(evs)
     for _, k in ipairs(R.STATS) do evs[k] = 0 end
+    if gb then evs.spa, evs.spd = 0, 0 end
     return before
   end
 
-  function R.isFullyTrained(evs) return R.evTotal(evs) >= N.LIMITS.EV_TOTAL end
-  function R.evRoom(evs) return math.max(0, N.LIMITS.EV_TOTAL - R.evTotal(evs)) end
+  -- every EV a Pokemon can hold: 510 in all (Gen 3), every stat at 252 (Gen 1 / 2)
+  function R.isFullyTrained(evs)
+    if R.EV_TOTAL then return R.evTotal(evs) >= R.EV_TOTAL end
+    for _, k in ipairs(R.STATS) do
+      if evOf(evs, k) < N.LIMITS.EV_CAP then return false end
+    end
+    return true
+  end
+  function R.evRoom(evs) return math.max(0, R.evTotalMax() - R.evTotal(evs)) end
   function R.statRoom(evs, stat)
+    stat = R.statOf(stat)
     return math.max(0, math.min(N.LIMITS.EV_CAP - evOf(evs, stat), R.evRoom(evs)))
   end
+  -- the EVs held as a share of the most there can be (the meters' gauge)
+  function R.evShare(evs) return math.max(0, math.min(1, R.evTotal(evs) / R.evTotalMax())) end
 
   -- the EVs a cleared course gives: level x 4, doubled by a pending Double-Up
   function R.courseEv(course, pending)
@@ -218,8 +260,10 @@ return function(N, ShotTypes)
   function R.shotStats(base, evs, pending)
     if type(base) ~= "table" then return nil end
     local function b(k) return tonumber(base[k]) or 0 end
-    local total = 0
-    for _, k in ipairs({ "hp", "atk", "def", "spe", "spa", "spd" }) do total = total + evOf(evs, k) end
+    -- the EV total, as the game's 510 scale: Gen 1 / 2's five stats (1260 at most) are put
+    -- on it, so a fully trained Pokemon shoots as hard there as on Gen 3
+    local total = R.evTotal(evs)
+    if not R.EV_TOTAL then total = math.floor(total * N.LIMITS.EV_TOTAL / R.evTotalMax()) end
     local p = math.floor((b("atk") + b("spa")) / 5) + math.floor((evOf(evs, "atk") + evOf(evs, "spa")) / 4)
     local from = 0
     for _, step in ipairs(N.POINTS.EV_STEPS) do

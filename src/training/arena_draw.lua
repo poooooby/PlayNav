@@ -2733,7 +2733,7 @@ vec4 effect(vec4 color, Image tex, vec2 uv, vec2 sc) {
       if r.stat then
         local label = art("training/label_" .. r.stat)
         if label then G2.setColor(1, 1, 1, 1); G2.draw(label, 18, y - 1, 0, 0.7, 0.7) end
-        drawText(("+%d  (%d/510)"):format(r.ev or 0, Rules.evTotal(s.evs)), label and 66 or 18, y, { maxWidth = 160 })
+        drawText(("+%d  (%d/%d)"):format(r.ev or 0, Rules.evTotal(s.evs), Rules.evTotalMax()), label and 66 or 18, y, { maxWidth = 160 })
         y = y + 13
       end
     else

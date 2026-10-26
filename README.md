@@ -323,6 +323,9 @@ Open **OPTIONS → MODS → PlayNav**.
   PlayNav.
 - **Balloon Bot sprites:** the Gen 9 Pack's Pokémon battler sprites — Gen 1-5 Pokémon by
   veekun, Gen 6 Pokémon by all contributors to the Smogon X/Y Sprite Project.
+- **Gen 1 and 2 Pokémon sprites:** Pokémon Crystal's fronts and backs, from the
+  [Crystal Animated Sprites with Shiny Visuals](https://github.com/distilledorion-sketch/crystal_animated_sprites_with_shiny_visuals)
+  mod by distilledorion-sketch.
 - **Pokémon-Amie's Décor, wallpapers, Poké Puffs, hand and minigame art** (used without a card
   image): from Pokémon X and Y (© The Pokémon Company), provided via The Spriters Resource.
 - **Tile Puzzle's trees and PLAY's treeline:** TREE PIXEL PACK and PIXEL BUSHES PACK by
