@@ -16,14 +16,17 @@ return function(mod, Pointer, T, Rules)
   local BLEED = 14
   local W, H = 256, 178
   -- the YES / NO choice, in app units (y from -bleed), rebuilt for the height drawn
-  local G_ = {}
+  -- (the rects are made once and filled again for each draw's size)
+  local G_ = { CHOICE = {}, YES = {}, NO = {} }
+  local function rset(t, x, y, w, h) t.x, t.y, t.w, t.h = x, y, w, h; return t end
   local function geo(w, h)
     local top = -(app.bleed or BLEED)
     G_.top, G_.w, G_.h = top, w, h
     local cw, ch = 84, 56
-    G_.CHOICE = { x = w - cw - 22, y = top + (h - top) / 2 - ch / 2, w = cw, h = ch }
-    G_.YES = { x = G_.CHOICE.x, y = G_.CHOICE.y, w = cw, h = ch / 2 }
-    G_.NO = { x = G_.CHOICE.x, y = G_.CHOICE.y + ch / 2, w = cw, h = ch / 2 }
+    local cx, cy = w - cw - 22, top + (h - top) / 2 - ch / 2
+    rset(G_.CHOICE, cx, cy, cw, ch)
+    rset(G_.YES, cx, cy, cw, ch / 2)
+    rset(G_.NO, cx, cy + ch / 2, cw, ch / 2)
     return G_
   end
   geo(W, H)
@@ -108,21 +111,22 @@ return function(mod, Pointer, T, Rules)
   end
 
   -- the YES / NO choice: a panel, the two words, the cursor at the one picked
+  local function choiceRow(G, Rkm, font, r, word, on, nudge)
+    local ty = r.y + (r.h - font:getHeight()) / 2 + nudge
+    Rkm.print(G, font, word, r.x + 30, ty, 1, on and 1 or 0.78, on and 1 or 0.78)
+    if on then
+      local cx, cy = r.x + 18, ty + font:getHeight() / 2
+      G.setColor(0, 0, 0, 0.7)
+      G.polygon("fill", cx - 4.4, cy - 4.4, cx + 4.6, cy + 0.6, cx - 4.4, cy + 5.6)
+      G.setColor(0.95, 0.22, 0.26, 1)
+      G.polygon("fill", cx - 5, cy - 5, cx + 4, cy, cx - 5, cy + 5)
+    end
+  end
   local function drawChoice(G, Rkm, font, yes)
     local C = G_.CHOICE
     Rkm.slice(G, "rocket/panel", C.x, C.y, C.w, C.h, 8, 1, true)
-    for i, row in ipairs({ { G_.YES, "YES", yes }, { G_.NO, "NO", not yes } }) do
-      local r, on = row[1], row[3]
-      local ty = r.y + (r.h - font:getHeight()) / 2 + (i == 1 and 2 or -2)
-      Rkm.print(G, font, row[2], r.x + 30, ty, 1, on and 1 or 0.78, on and 1 or 0.78)
-      if on then
-        local cx, cy = r.x + 18, ty + font:getHeight() / 2
-        G.setColor(0, 0, 0, 0.7)
-        G.polygon("fill", cx - 4.4, cy - 4.4, cx + 4.6, cy + 0.6, cx - 4.4, cy + 5.6)
-        G.setColor(0.95, 0.22, 0.26, 1)
-        G.polygon("fill", cx - 5, cy - 5, cx + 4, cy, cx - 5, cy + 5)
-      end
-    end
+    choiceRow(G, Rkm, font, G_.YES, "YES", yes, 2)
+    choiceRow(G, Rkm, font, G_.NO, "NO", not yes, -2)
   end
 
   function app:draw(G, w, h)

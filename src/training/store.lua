@@ -24,15 +24,21 @@ return function(mod, Rules)
       meta = { blackTaps = 0, lastAutoHitAt = nil, pendingItems = {} } }
   end
 
+  -- the missing parts filled in once per save table (the screens ask every frame; filling
+  -- them each time built a whole fresh table a call)
+  local filled = setmetatable({}, { __mode = "k" })
   function S.data()
     local d = mod.save:get("training")
     if type(d) ~= "table" then
       d = fresh()
       mod.save:set("training", d)
     end
-    local f = fresh()
-    for k, v in pairs(f) do if d[k] == nil then d[k] = v end end
-    for k, v in pairs(f.meta) do if d.meta[k] == nil then d.meta[k] = v end end
+    if not filled[d] then
+      local f = fresh()
+      for k, v in pairs(f) do if d[k] == nil then d[k] = v end end
+      for k, v in pairs(f.meta) do if d.meta[k] == nil then d.meta[k] = v end end
+      filled[d] = true
+    end
     return d
   end
 

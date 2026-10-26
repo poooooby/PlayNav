@@ -694,14 +694,16 @@ return function(mod, deps)
   end
 
   -- the flat version (no 3D): the same camera's alley as filled polygons, far to near
-  local function poly(G2, pts)
-    local out = {}
-    for i = 1, #pts, 3 do
-      local x, y = project(pts[i], pts[i + 1], pts[i + 2])
-      if not x then return end
-      out[#out + 1] = x; out[#out + 1] = y
-    end
-    if #out >= 6 then pcall(G2.polygon, "fill", out) end
+  -- a quad of four points, projected into one kept buffer (no table a call)
+  local quadBuf = {}
+  local function poly(G2, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz)
+    local x1, y1 = project(ax, ay, az); if not x1 then return end
+    local x2, y2 = project(bx, by, bz); if not x2 then return end
+    local x3, y3 = project(cx, cy, cz); if not x3 then return end
+    local x4, y4 = project(dx, dy, dz); if not x4 then return end
+    local q = quadBuf
+    q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8] = x1, y1, x2, y2, x3, y3, x4, y4
+    G2.polygon("fill", q)
   end
   function Al.drawFlat(G2, ex, ey, ew, eh)
     Al.setRect(ex, ey, ew, eh)
@@ -713,13 +715,13 @@ return function(mod, deps)
       local z1 = min(near, z + 1)
       local cr, cg, cb = lit(0, 0, z + 0.5, 0.8, 0.8, 0.85)
       G2.setColor(cr * 0.5, cg * 0.5, cb * 0.5, 1)
-      poly(G2, { -W, 0, z, W, 0, z, W, 0, z1, -W, 0, z1 })
+      poly(G2, -W, 0, z, W, 0, z, W, 0, z1, -W, 0, z1)
       cr, cg, cb = lit(-W, 2, z + 0.5, 0.55, 0.3, 0.24)
       G2.setColor(cr, cg, cb, 1)
-      poly(G2, { -W, 0, z, -W, 0, z1, -W, Al.H, z1, -W, Al.H, z })
+      poly(G2, -W, 0, z, -W, 0, z1, -W, Al.H, z1, -W, Al.H, z)
       cr, cg, cb = lit(W, 2, z + 0.5, 0.5, 0.27, 0.22)
       G2.setColor(cr, cg, cb, 1)
-      poly(G2, { W, 0, z, W, 0, z1, W, Al.H, z1, W, Al.H, z })
+      poly(G2, W, 0, z, W, 0, z1, W, Al.H, z1, W, Al.H, z)
     end
     local L = Al.LAMP
     local x0, y0 = project(L.x, 0, L.z)

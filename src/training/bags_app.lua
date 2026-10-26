@@ -252,7 +252,7 @@ return function(mod, Pointer, T, Rules, Store)
       local iw, ih = img:getDimensions()
       local def = Rules.bag(id)
       -- the alley's R+ bags glow (their halo twice the bag's size, about its middle)
-      local glow = def and def.glow and art("training/rbag_glow_" .. def.stat)
+      local glow = def and def.glow and art(Rules.bagGlowArt(def.id))
       if glow then
         local gw, gh = glow:getDimensions()
         G.setColor(1, 1, 1, 1)

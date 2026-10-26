@@ -121,6 +121,28 @@ return function(mod, opts)
 
   local renderInto
 
+  -- a uniform sent only when its value differs from the one the shader already holds (a
+  -- shader keeps its uniforms; each Shader:send of a table makes ~0.4 KB of Lua garbage in
+  -- LOVE 11, and the scene sent ~16 a frame)
+  local held = {}
+  local function sendIf(name, v)
+    local h = held[name]
+    if type(v) == "table" then
+      local same = h ~= nil
+      if same then
+        for i = 1, #v do if h[i] ~= v[i] then same = false; break end end
+      end
+      if same then return end
+      h = h or {}
+      for i = 1, #v do h[i] = v[i] end
+      held[name] = h
+    else
+      if h == v then return end
+      held[name] = v
+    end
+    shader:send(name, v)
+  end
+
   function R.draw(G2, scene, ex, ey, ew, eh, view)
     local G = love.graphics
     if not (scene and R.available()) then return false end
@@ -217,24 +239,22 @@ return function(mod, opts)
     -- the shader and the camera's matrices once a frame (g3d's model:draw sends all three and
     -- swaps the shader per piece); a model matrix / shift only when a piece's differs
     G.setShader(shader)
-    shader:send("viewMatrix", cam.viewMatrix)
-    shader:send("projectionMatrix", cam.projectionMatrix)
+    sendIf("viewMatrix", cam.viewMatrix)
+    sendIf("projectionMatrix", cam.projectionMatrix)
     if hasCanvasFlag == nil then hasCanvasFlag = shader:hasUniform("isCanvasEnabled") end
-    if hasCanvasFlag then shader:send("isCanvasEnabled", true) end
-    local lastM, lastUV = nil, nil
+    if hasCanvasFlag then sendIf("isCanvasEnabled", true) end
     for pass = 1, 3 do
       if pass == 1 then G.setDepthMode("always", false)
       elseif pass == 2 then G.setDepthMode("lequal", true)
       else G.setDepthMode("lequal", false) end
-      shader:send("alphaCut", pass == 2 and 0.5 or 0.02)
+      sendIf("alphaCut", pass == 2 and 0.5 or 0.02)
       local pieces = scene.pieces
       for i = 1, #pieces do
         local piece = pieces[i]
         if piece.pass == pass and not (skip and skip(piece)) then
           local m = piece.model
-          if m.matrix ~= lastM then shader:send("modelMatrix", m.matrix); lastM = m.matrix end
-          local uv = piece.uv or ZERO
-          if uv ~= lastUV or piece.uv then shader:send("uvShift", uv); lastUV = uv end
+          sendIf("modelMatrix", m.matrix)
+          sendIf("uvShift", piece.uv or ZERO)
           G.draw(m.mesh)
         end
       end

@@ -687,7 +687,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   -- the alley's R+ bags glow behind: the halo (twice the bag's size) drawn as the bag is, its
   -- origin moved by the half-size difference (ox, oy: the bag's origin in its own texels)
   local function bagGlow(G, def, img, x, y, r, sx, sy, ox, oy, a)
-    local glow = def and def.glow and art("training/rbag_glow_" .. def.stat)
+    local glow = def and def.glow and art(Rules.bagGlowArt(def.id))
     if not glow then return end
     local iw, ih = img:getDimensions()
     local gw, gh = glow:getDimensions()

@@ -62,10 +62,17 @@ return function(mod, T, deps)
     return true, money - price
   end
   -- 25000 -> "25,000"
+  -- (kept: the shop draws the same few amounts every frame)
+  local moneyText, moneyCount = {}, 0
   function Rk.money(n)
-    local s = tostring(floor(tonumber(n) or 0))
-    local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
-    return (out:gsub("^,", ""))
+    n = floor(tonumber(n) or 0)
+    local s = moneyText[n]
+    if s then return s end
+    local out = tostring(n):reverse():gsub("(%d%d%d)", "%1,"):reverse()
+    s = (out:gsub("^,", ""))
+    if moneyCount >= 64 then moneyText, moneyCount = {}, 0 end
+    moneyText[n], moneyCount = s, moneyCount + 1
+    return s
   end
 
   -- what he says (ours)
@@ -435,15 +442,25 @@ return function(mod, T, deps)
   end
 
   -- what the touch screen and drivers read
+  -- (one table, filled again on each call: the screens ask several times a frame; the line's
+  -- typed part is cut only when it grows)
+  local stateT, shownLine, shownN, shownS = {}, nil, -1, nil
   function Rk.state()
     local s = T.session
     local r = s and s.rocket
     if not r then return nil end
-    return { phase = r.phase, t = r.t, line = r.line, shown = r.line and r.line:sub(1, floor(r.chars)) or nil,
-      typed = typed(r), sel = r.sel, top = r.top, id = Rk.STOCK[r.sel], confirm = r.confirm and r.confirm.yes,
-      shopT = r.shopT, money = host.money and host.money() or 0, bags = #Store.bags(), dim = r.dim or 0,
-      dealer = r.phase == "walk" and 0 or (r.phase == "appear" and min(1, r.t / Rk.APPEAR_S) or 1),
-      clock = r.clock }
+    local n = floor(r.chars or 0)
+    if r.line ~= shownLine or n ~= shownN then
+      shownLine, shownN = r.line, n
+      shownS = r.line and r.line:sub(1, n) or nil
+    end
+    local o = stateT
+    o.phase, o.t, o.line, o.shown, o.typed = r.phase, r.t, r.line, shownS, typed(r)
+    o.sel, o.top, o.id, o.confirm = r.sel, r.top, Rk.STOCK[r.sel], r.confirm and r.confirm.yes
+    o.shopT, o.money, o.bags, o.dim = r.shopT, host.money and host.money() or 0, #Store.bags(), r.dim or 0
+    o.dealer = r.phase == "walk" and 0 or (r.phase == "appear" and min(1, r.t / Rk.APPEAR_S) or 1)
+    o.clock = r.clock
+    return o
   end
 
   -- ------- the top screen: the brick wall, the R's flash, the shop
@@ -533,17 +550,36 @@ return function(mod, T, deps)
     G2.line(x - 0.5, y + h * 0.48, x + pw + 0.5, y + h * 0.48)
     return pw + 1
   end
+  -- a text cut once into its lines and pieces ({ piece, ... } a line, true for the sign); kept
+  -- for the last few texts (a typed line grows a character at a time)
+  local cut, cutN = {}, 0
+  local function pieces(text)
+    local c = cut[text]
+    if c then return c end
+    c = {}
+    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+      local l = {}
+      for seg, pd in line:gmatch("([^\1]*)(\1?)") do
+        if seg ~= "" then l[#l + 1] = seg end
+        if pd ~= "" then l[#l + 1] = true end
+      end
+      c[#c + 1] = l
+    end
+    if cutN >= 128 then cut, cutN = {}, 0 end
+    cut[text], cutN = c, cutN + 1
+    return c
+  end
   local function lineRaw(G2, font, text, x, y)
     local lh = font:getHeight() * font:getLineHeight()
-    local row = 0
-    for line in (text .. "\n"):gmatch("([^\n]*)\n") do
-      local cx = x
-      local yy = y + row * lh
-      for seg, pd in line:gmatch("([^\1]*)(\1?)") do
-        if seg ~= "" then G2.print(seg, cx, yy); cx = cx + font:getWidth(seg) end
-        if pd ~= "" then cx = cx + pdGlyph(G2, font, cx, yy) end
+    local lines = pieces(text)
+    for row = 1, #lines do
+      local l = lines[row]
+      local cx, yy = x, y + (row - 1) * lh
+      for i = 1, #l do
+        local p = l[i]
+        if p == true then cx = cx + pdGlyph(G2, font, cx, yy)
+        else G2.print(p, cx, yy); cx = cx + font:getWidth(p) end
       end
-      row = row + 1
     end
   end
   function Rk.printLine(G2, font, text, x, y, r, g, b, a)
@@ -604,7 +640,7 @@ return function(mod, T, deps)
     local iw, ih = img:getDimensions()
     local k = h / ih
     local b = Rules.bag(id)
-    local glow = b and b.glow and topArt("training/rbag_glow_" .. b.stat)
+    local glow = b and b.glow and topArt(Rules.bagGlowArt(id))
     if glow then
       local gw, gh = glow:getDimensions()
       G2.setColor(1, 1, 1, 1)
@@ -697,12 +733,16 @@ return function(mod, T, deps)
   Rk.SHOP = SHOP
   Rk.where = { rows = {} }
   local GOLD = { 1, 0.86, 0.35 }
+  -- (the rects are kept and filled again each draw; the rows from a pool; the texts per bag)
+  local panelR, backR, listR, rowPool = {}, {}, {}, {}
+  local function rset(t, x, y, w, h) t.x, t.y, t.w, t.h = x, y, w, h; return t end
+  local detailText, roomText = {}, {}
   local function drawShop(G2, r, k, X, Y, W, H)
     local P = SHOP
     local e = 1 - (1 - k) ^ 3
     local x, y, w, h = X + P.pad, Y + P.pad + (1 - e) * (H + 20), W - 2 * P.pad, H - 2 * P.pad
     local where = Rk.where
-    where.panel = { x = x, y = y, w = w, h = h }
+    where.panel = rset(panelR, x, y, w, h)
     -- the panel, its shadow under it
     G2.setColor(0, 0, 0, 0.4)
     G2.rectangle("fill", x + 3, y + 4, w, h, 8, 8)
@@ -721,7 +761,7 @@ return function(mod, T, deps)
       G2.draw(logo, x + 18, y + 4 + P.head / 2, 0, lk, lk, lw / 2, lh / 2)
     end
     Rk.print(G2, big, "BLACK MARKET", x + 30, ty, 1, 0.95, 0.92)
-    where.back = { x = x + w - P.back - 8, y = y + 4 + (P.head - P.back) / 2, w = P.back, h = P.back }
+    where.back = rset(backR, x + w - P.back - 8, y + 4 + (P.head - P.back) / 2, P.back, P.back)
     local money = host.money and host.money() or 0
     local mw = small:getWidth("P 999,999") + 14
     local mx = where.back.x - mw - 4
@@ -745,7 +785,11 @@ return function(mod, T, deps)
       local id = Rk.STOCK[idx]
       if id then
         local ry = y + P.rowY + i * P.rowH
-        where.rows[#where.rows + 1] = { x = rx, y = ry, w = rw, h = P.rowH, idx = idx }
+        local n2 = #where.rows + 1
+        local rr = rowPool[n2]
+        if not rr then rr = {}; rowPool[n2] = rr end
+        rset(rr, rx, ry, rw, P.rowH).idx = idx
+        where.rows[n2] = rr
         local sel = idx == r.sel
         if sel then
           Rk.slice(G2, "rocket/red", rx, ry, rw, P.rowH - 1, 5, 1)
@@ -765,7 +809,7 @@ return function(mod, T, deps)
         Rk.printMoney(G2, small, price, rx + rw - 6, ty2, "right")
       end
     end
-    where.list = { x = rx, y = y + P.rowY, w = rw, h = rows * P.rowH }
+    where.list = rset(listR, rx, y + P.rowY, rw, rows * P.rowH)
     -- the scroll bar: a recessed track, a red glass thumb
     if n > rows then
       local top, span = y + P.rowY, rows * P.rowH - 1
@@ -782,9 +826,15 @@ return function(mod, T, deps)
     Rk.neonLine(G2, x + 10, dy - 2, x + w - 10, dy - 2, 0.8)
     if b then
       local ly = dy + (P.detail - 8 - small:getHeight()) / 2 + 2
-      Rk.print(G2, small, ("+%d %s EVs  ·  %d hits"):format(b.ev, Rules.STAT_LABEL[b.stat] or b.stat, b.hits),
-        x + 11, ly, 0.85, 0.85, 0.9)
-      local room = ("DRAWER %d/%d"):format(#Store.bags(), Rules.N.LIMITS.BAG_MAX)
+      local dt = detailText[id]
+      if not dt then
+        dt = ("+%d %s EVs  ·  %d hits"):format(b.ev, Rules.STAT_LABEL[b.stat] or b.stat, b.hits)
+        detailText[id] = dt
+      end
+      Rk.print(G2, small, dt, x + 11, ly, 0.85, 0.85, 0.9)
+      local nb = #Store.bags()
+      local room = roomText[nb]
+      if not room then room = ("DRAWER %d/%d"):format(nb, Rules.N.LIMITS.BAG_MAX); roomText[nb] = room end
       local full = Rules.inventoryFull(Store.bags())
       if full then Rk.print(G2, small, room, x + w - 11 - small:getWidth(room), ly, 1, 0.45, 0.45)
       else Rk.print(G2, small, room, x + w - 11 - small:getWidth(room), ly, 0.72, 0.72, 0.78) end

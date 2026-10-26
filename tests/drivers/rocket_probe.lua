@@ -96,9 +96,54 @@ local function body(game, log)
     log("canvases switched to inside love.draw, by file: " .. (#parts > 0 and table.concat(parts, ", ") or "none"))
   end
 
+  -- the Lua garbage the egg's own code makes a frame (the collector stopped meanwhile), over n
+  -- frames: each of its per-frame functions wrapped to count what it allocates
+  local spent, wrapped = {}, false
+  local function wrapAll()
+    if wrapped then return end
+    wrapped = true
+    local Ts = TR.session
+    local apps = X.apps
+    local function wrap(tbl, key, name)
+      local f = tbl and tbl[key]
+      if type(f) ~= "function" then return end
+      tbl[key] = function(...)
+        local k0 = collectgarbage("count")
+        local a, b, c, d = f(...)
+        spent[name] = (spent[name] or 0) + (collectgarbage("count") - k0)
+        return a, b, c, d
+      end
+    end
+    wrap(Ts, "drawRocketTop", "top screen")
+    wrap(Ts, "tickRocket", "tick")
+    wrap(Ts, "rocketPrepare", "prepare (3D render)")
+    wrap(Ts.rocket, "drawBottom", "store")
+    wrap(Ts.rocketScene, "prepare", "scene prepare")
+    wrap(Ts.rocketScene, "draw", "scene draw")
+    wrap(Ts.rocket, "state", "state()")
+    local ra = apps:get("training_rocket")
+    if ra then wrap(ra, "draw", "touch screen (all)") end
+    local core = apps:get("training_core")
+    if core then wrap(core, "draw", "home screen (all)") end
+  end
+  local function garbage(where, n)
+    n = n or 60
+    wrapAll()
+    for k in pairs(spent) do spent[k] = nil end
+    collectgarbage("collect")
+    collectgarbage("stop")
+    U.wait(n)
+    collectgarbage("restart")
+    local parts = {}
+    for k, v in pairs(spent) do parts[#parts + 1] = ("%s %.2f"):format(k, v / n) end
+    table.sort(parts)
+    log(("garbage %s, KB a frame: %s"):format(where, table.concat(parts, ", ")))
+  end
+
   local ok, err = pcall(function()
     log("open:", TR.open())
     U.wait(20)
+    garbage("on the home screen")
     shot("r00_home")
     -- the code, a button a few frames apart
     for _, b in ipairs(Rk.KONAMI) do U.tap(game, b); U.wait(4) end
@@ -130,6 +175,7 @@ local function body(game, log)
     waitFor(function() local v = T.transView("top"); return v and v.logoA and v.logoA <= 0.5 end, 3000)
     shot("r04c_logo_out")
     waitFor(function() return T.session.mode == "rocket" and not T.session.trans end, 3000)
+    garbage("in the walk", 30)
     shot("r05_walk_start")
     waitSecs(1.6)
     shot("r06_walk")
@@ -144,6 +190,7 @@ local function body(game, log)
     tapRect(2, { x = 120, y = 80, w = 10, h = 10 })
     waitFor(function() return Rk.state().shopT >= 1 end, 600)
     U.wait(10)
+    garbage("in the shop")
     shot("r08_shop")
     -- money for the run; an R+ (the seventh: HP R+) then an R
     Runtime.getSession().money = 40000
@@ -168,6 +215,7 @@ local function body(game, log)
     tapRect(4, rowOf("hp_rp"))
     waitFor(function() return Rk.state().dim >= 1 end, 600)
     U.wait(5)
+    garbage("asked to confirm")
     shot("r10_confirm")
     log("asked:", (Rk.state().line:gsub("\n", " / "):gsub("\1", "P")), "store dimmed", Rk.state().dim)
     -- NO (down, then A): the question goes, the top screen lights again

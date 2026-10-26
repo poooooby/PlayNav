@@ -84,10 +84,26 @@ return function(N, ShotTypes)
   end
   R.regularBag = regular
   -- a bag's picture id: the game's icons by their place, the dealer's by stat
+  -- (kept per id: the screens ask every frame)
+  local artIds = {}
   function R.bagArt(id)
+    local key = id or false
+    local s = artIds[key]
+    if s then return s end
     local b = R.BAGS[id]
-    if b and b.rocket then return ("training/rbag_%s%s"):format(b.stat, b.size == "rp" and "_plus" or "") end
-    return ("training/sand_bag_%02d"):format(R.BAG_ART[id] or 0)
+    if b and b.rocket then s = ("training/rbag_%s%s"):format(b.stat, b.size == "rp" and "_plus" or "")
+    else s = ("training/sand_bag_%02d"):format(R.BAG_ART[id] or 0) end
+    artIds[key] = s
+    return s
+  end
+  -- an R+ bag's glow picture id (or nil)
+  local glowIds = {}
+  function R.bagGlowArt(id)
+    local b = R.BAGS[id]
+    if not (b and b.glow) then return nil end
+    local s = glowIds[b.stat]
+    if not s then s = "training/rbag_glow_" .. b.stat; glowIds[b.stat] = s end
+    return s
   end
   -- where the game keeps the bag screen's strings (a/0/7/3 file 27)
   R.TEXT_LINE = { use = 13, discard = 14, back = 15, yes = 16, no = 17, askUse = 7, askDiscard = 8,
