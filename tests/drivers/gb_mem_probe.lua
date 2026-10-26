@@ -35,6 +35,8 @@ local function body(game, log)
   loader.modOptions.play_nav.display_mode = os.getenv("PROBE_DISPLAY") or "combined"
   -- (HD RENDERING off for this run only: keepArt keeps it out of options.lua)
   if os.getenv("PROBE_HD") == "0" then loader.modOptions.play_nav.hd_render = false end
+  -- LOW POWER MODE for this run only
+  if os.getenv("PROBE_LOWPOWER") == "1" then loader.modOptions.play_nav.low_power = true end
   if X.import and os.getenv("PROBE_FALLBACK") ~= "1" then
     waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120)
   end
@@ -69,6 +71,8 @@ local function body(game, log)
   local STEP = tonumber(os.getenv("PROBE_STEP")) or 2
   local function sample(label)
     local st = love.graphics.getStats()
+    local ps = X.state()
+    log(("%-8s display %s  push %sx"):format(label, tostring(ps.mode), tostring(ps.pushK)))
     log(("%-8s lua %8.0f KB  tex %7.1f MB  images %4d  canvases %3d  fonts %3d  draws %4d  fps %3d"):format(
       label, collectgarbage("count"), (st.texturememory or 0) / 1048576, st.images or 0, st.canvases or 0,
       st.fonts or 0, st.drawcalls or 0, love.timer.getFPS()))

@@ -119,6 +119,9 @@ return function(mod)
     { key = "amie_3d", label = "3D AMIE", type = "toggle", default = false },
     { key = "haptics", label = "HAPTICS", type = "choice", default = "medium",
       choices = { { "HIGH", "high" }, { "MEDIUM", "medium" }, { "LOW", "low" }, { "OFF", "off" } } },
+    -- for low-power devices (a phone or handheld with little memory): the touch screen goes to a
+    -- second display at 2x rather than 4x, a quarter of the pixels read back and sent each frame
+    { key = "low_power", label = "LOW POWER MODE", type = "toggle", default = false },
   })
 
   -- save data and options kept under the old id carry over once
@@ -746,6 +749,8 @@ return function(mod)
   end
 
   local PUSH_K_MAX = (HD and HD.MAX_K) or 4
+  -- LOW POWER MODE's: 2x (a 512x460 frame for the Gear-shaped touch screen, against 1024x920)
+  local PUSH_K_LOW = 2
 
   -- The bridge's display checks cross into Android (JNI, system settings) and several hooks
   -- ask every frame: share one answer for BRIDGE_CHECK_S, as Kanto Gear 4.0 does
@@ -1675,8 +1680,9 @@ return function(mod)
       end
       local due = t - state.pushAt
       if not Surface.pending and ((needsDraw and due >= 1 / 30) or due >= 1.0) then
-        -- always as sharp as PlayNav draws (HD.MAX_K, 4); the display fits it to its size
-        local k = PUSH_K_MAX
+        -- as sharp as PlayNav draws (HD.MAX_K, 4), or 2x under LOW POWER MODE; the display fits
+        -- it to its size
+        local k = mod.options:get("low_power") == true and PUSH_K_LOW or PUSH_K_MAX
         state.pushK = k
         state.pushAt = t
         -- drawn now, read back without waiting (the pixels come through pollPush); only a LOVE
