@@ -3,6 +3,23 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] - 2026-10-25 (beta)
+
+### Added
+
+- **Gen 1 and Gen 2:** PlayNav now runs on Red, Blue, Yellow, Gold, Silver and Crystal too, with
+  Pokémon-Amie, its minigames and Super Training, from the START menu's PLAYNAV, in every display
+  mode. It finds out which game it is on by itself.
+- On Gen 1 and 2, Super Training trains Stat Exp: up to 252 EVs a stat (the stat's full bonus),
+  no 510 total, and one Special stat that Sp. Atk and Sp. Def bags and regimens raise. The
+  Effort-o-Meter is a pentagon there.
+- Gen 1 and 2 Pokémon are drawn with Pokémon Crystal's front and back sprites, shinies included.
+
+### Fixed
+
+- Super Training's results fill a tall window and keep clear of a touch screen inset over the
+  top screen; they were drawn small at the top.
+
 ## [0.8.4] - 2026-10-25 (beta)
 
 ### Added

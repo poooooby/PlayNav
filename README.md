@@ -5,7 +5,8 @@
 <div align="center">
 
 *A second screen for your Pokémon. Pet them, feed them Poké Puffs, play games with them and
-train them, on a DS-style touch screen in Ruby, Sapphire, Emerald, FireRed and LeafGreen.*
+train them, on a DS-style touch screen in Red, Blue, Yellow, Gold, Silver, Crystal, Ruby,
+Sapphire, Emerald, FireRed and LeafGreen.*
 
 </div>
 
@@ -15,7 +16,7 @@ train them, on a DS-style touch screen in Ruby, Sapphire, Emerald, FireRed and L
 > you find.
 
 
-A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 3 games. It
+A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 1, 2 and 3 games. It
 brings **Pokémon-Amie** and **Super Training** from X, Y, Omega Ruby and Alpha Sapphire, played
 on a touch screen below the game or on a device's second display.
 
@@ -292,7 +293,12 @@ Open **OPTIONS → MODS → PlayNav**.
   few things are tuned for a flat touch screen (bigger hitboxes you can see, homing you can
   outrun, quicker movement), while the 3D stadium plays them the game's way. Balance may change
   between releases.
-- 🎮 **Generation 3 only.** Ruby, Sapphire, Emerald, FireRed and LeafGreen.
+- 🎮 **Generations 1, 2 and 3.** Red, Blue, Yellow, Gold, Silver, Crystal, Ruby, Sapphire,
+  Emerald, FireRed and LeafGreen. PlayNav finds out which game it is on by itself.
+- 🕹️ **On Gen 1 and 2,** Super Training works in those games' Stat Exp: a stat holds up to 252
+  EVs (Stat Exp 63,504, the stat's full bonus), there is no 510 total, and Sp. Atk and Sp. Def
+  bags and regimens train the one Special stat. A Pokémon is Fully Trained with all five stats
+  at 252. Your Pokémon are drawn with Pokémon Crystal's sprites.
 - 💾 **Your copy of the game is never part of the mod.** The 3DS art and text come from the
   card image you supply, unpacked on your own device. Encrypted dumps (a raw cartridge dump, an eShop `.cia`)
   can't be read; supply a decrypted one. Azahar's compressed `.zcci` works as it is.
