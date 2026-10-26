@@ -583,7 +583,8 @@ return function(mod, profile)
     if type(ex) ~= "table" then return nil end
     local g = game()
     local opts = g and g.mods and g.mods.modOptions and g.mods.modOptions[G9]
-    if type(opts) == "table" and opts.party_icons == false then return nil end
+    -- (its party list shows its icons only with both on: else the game's own icons, as there)
+    if type(opts) == "table" and (opts.party_icons == false or opts.enable_battle_sprites == false) then return nil end
     local hd = type(opts) == "table" and opts.g9_party_screen == true
     local art = hd and ex.iconArtHD or ex.iconArt16
     if type(art) ~= "function" then return nil end

@@ -140,9 +140,12 @@ do
   g9opts.g9_party_screen = true
   ic = host.icon({ species = "TOTODILE" })
   eq(ic and ic.w, 64, "G9 PARTY SCREEN on: its HD icons, the atlas it loads itself")
+  local asked16 = asked["16"]
   g9opts.party_icons = false
-  eq(host.icon({ species = "CHIKORITA" }) and host.icon({ species = "CHIKORITA" }).w, nil,
-    "PARTY ICONS off: the game's own (none in this stand-in's data)")
+  eq(host.icon({ species = "CHIKORITA" }), nil, "PARTY ICONS off: the game's own (none in this stand-in's data)")
+  eq(asked["16"], asked16, "...not G9's small icons")
+  g9opts.party_icons, g9opts.enable_battle_sprites = nil, false
+  eq(host.icon({ species = "SENTRET" }), nil, "ENABLE BATTLE SPRITES off: the game's own too")
 end
 
 print(("%d/%d checks passed%s  (play_nav stat exp)"):format(pass, pass + fail,
