@@ -876,6 +876,16 @@ return function(mod)
     Surface.dirty = true
   end
 
+  -- one frame to the second display, then its pixels freed at once: the bridge copies them
+  -- (Android hands the pointer to native code; the desktop companion packs them into a string),
+  -- and an ImageData sits outside Lua's heap, so left to the collector a 30-a-second stream of
+  -- them (3.8 MB each at 4x) piles up native memory until a small device slows and dies
+  local function pushFrame(SS, data, w, h, bg, pref)
+    local ok, shown = pcall(SS.push, data, w, h, bg, pref)
+    if data and data.release then pcall(data.release, data) end
+    return ok and shown ~= false
+  end
+
   -- ------- pointer feeds
 
   local function feedWindow(phase, id, x, y, pressure, source)
@@ -1661,8 +1671,7 @@ return function(mod)
       -- a frame read back since the last tick goes out now
       local ready, rw, rh = Surface:pollPush()
       if ready then
-        local okP, shown = pcall(SS.push, ready, rw, rh, 0x000000, "secondary")
-        state.ssShown = okP and shown ~= false
+        state.ssShown = pushFrame(SS, ready, rw, rh, 0x000000, "secondary")
       end
       local due = t - state.pushAt
       if not Surface.pending and ((needsDraw and due >= 1 / 30) or due >= 1.0) then
@@ -1674,8 +1683,7 @@ return function(mod)
         -- without the async readback hands them back at once
         local data, w, h = Surface:requestPush(k, drawAll, t)
         if data then
-          local okP, shown = pcall(SS.push, data, w, h, 0x000000, "secondary")
-          state.ssShown = okP and shown ~= false
+          state.ssShown = pushFrame(SS, data, w, h, 0x000000, "secondary")
         end
       else
         Surface:dropStale(t)
@@ -1742,8 +1750,7 @@ return function(mod)
     if read and read.pollImageData and now >= (state.gameRetryAt or 0) then
       local okP, image = pcall(read.pollImageData, read)
       if okP and image then
-        local okS, shown = pcall(SS.push, image, image:getWidth(), image:getHeight(), 0x000000, "secondary:cover")
-        state.ssShown = okS and shown ~= false
+        state.ssShown = pushFrame(SS, image, image:getWidth(), image:getHeight(), 0x000000, "secondary:cover")
         state.gameRead = nil
         if not state.ssShown then state.gameRetryAt = now + 0.25 end
       end
@@ -1775,8 +1782,7 @@ return function(mod)
     elseif c.newImageData then
       local okI, image = pcall(c.newImageData, c)
       if okI and image then
-        local okS, shown = pcall(SS.push, image, cw, ch, 0x000000, "secondary:cover")
-        state.ssShown = okS and shown ~= false
+        state.ssShown = pushFrame(SS, image, cw, ch, 0x000000, "secondary:cover")
       end
     end
   end

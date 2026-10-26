@@ -165,6 +165,11 @@ return function(mod, Layout, HD)
   function S:dropStale(now)
     if self.pending and now and now - self.pending.at > S.STALE_S then
       self.pending = nil
+      -- (freed now: a slow display stalls a readback every second, and left to the collector
+      -- each pair of canvases stays on the GPU)
+      for _, c in ipairs({ self.canvas, self.pushCanvas }) do
+        if c and c.release then pcall(c.release, c) end
+      end
       self.canvas, self.pushCanvas = nil, nil
     end
   end
