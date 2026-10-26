@@ -3,6 +3,17 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.5] - 2026-10-26 (beta)
+
+### Added
+
+- Clear every Level 1 to 3 regimen in Super Training and a secret bag mart opens for good, with a
+  one-time reveal on your next visit to the home screen.
+
+### Changed
+
+- The bag mart's rainy alley runs far lighter on low-power devices, and its rain is 25% quieter.
+
 ## [0.9.4] - 2026-10-26 (beta)
 
 ### Added
