@@ -36,6 +36,10 @@ return function(mod, T, host)
   M.RESULT_FADE_S = 1.0  -- out of the results, with the screens' fade
   -- the alley's music (assets/UnseenEncounter.ogg, Assets.ownMusic) and its fade on the way out
   M.ROCKET, M.ROCKET_FADE_S = "bgm/rocket", 1.0
+  -- a track's own level on top of MIX (dB): the alley's music opens 2-4 dB under the field's
+  -- songs (music_level_probe: its first 35 s heard at -21..-23.6 dB rms against their median
+  -- -19.5), so it is raised 3 dB; MIX x the boost stays under 1
+  M.BOOST_DB = { ["bgm/rocket"] = 3 }
   M.CHUNK = 4096         -- sample frames per queued buffer
   M.BUFFERS = 8
   M.enabled = true
@@ -175,7 +179,9 @@ return function(mod, T, host)
       mod.log:warn("music: no stream source (%s)", tostring(src))
       return nil
     end
-    local v = { id = id, track = tk, src = src, pos = math.max(0, math.min(at or 0, tk.samples - 1)), loop = loop, gain = 1 }
+    local db = M.BOOST_DB[id]
+    local v = { id = id, track = tk, src = src, pos = math.max(0, math.min(at or 0, tk.samples - 1)), loop = loop, gain = 1,
+      boost = db and 10 ^ (db / 20) or 1 }
     if loop == nil then v.loop = LOOPS[id] ~= false and tk.loop end
     pump(v)
     return v
@@ -187,7 +193,7 @@ return function(mod, T, host)
 
   -- the game's settings on one voice: its volume, and the music filter (applied when it changes)
   local function applySettings(v, gain, filter)
-    pcall(v.src.setVolume, v.src, gain * v.gain)
+    pcall(v.src.setVolume, v.src, math.min(1, gain * v.gain * (v.boost or 1)))
     if v.filter ~= (filter or false) and v.src.setFilter then
       v.filter = filter or false
       pcall(function()
