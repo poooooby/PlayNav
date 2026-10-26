@@ -3,6 +3,19 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.2] - 2026-10-26 (beta)
+
+### Changed
+
+- On Gen 1 and 2 with G9 Battle Sprites, PlayNav shows the icons its party list shows, from the
+  icons that mod already has loaded: full size with its G9 PARTY SCREEN on, its small icons
+  otherwise. PlayNav no longer makes it load its large icon set (about 47 MB) on its own.
+
+### Fixed
+
+- With G9 Battle Sprites' PARTY ICONS or ENABLE BATTLE SPRITES off, PlayNav shows the game's
+  own party icons, as the party list does.
+
 ## [0.9.1] - 2026-10-26 (beta)
 
 ### Added
