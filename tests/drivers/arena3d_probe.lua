@@ -89,6 +89,15 @@ local function body(game, log)
     U.wait(2)
     shot("a02_play_middle")
     Draw.debugMarks = nil
+    -- PROBE_SCORE=<0..1>: the score at that share of the target, the balloon grown with it (a
+    -- grown balloon must stay under the top of the view)
+    if os.getenv("PROBE_SCORE") and S.bot then
+      S.score = math.floor((tonumber(os.getenv("PROBE_SCORE")) or 0.95) * (S.bot.target or 300))
+      U.wait(90)
+      local cx, cy, _, s3 = S.botCentre3 and S:botCentre3()
+      log("score", S.score, "of", S.bot.target, "grow3", tostring(S.bot.grow3), "middle y", tostring(cy), "R3", tostring(S.botR3 and S:botR3()))
+      shot("a03_score")
+    end
     -- PROBE_ENDING=1: the regimen cleared, then the 3D ending (arena_draw D.ENDING) shot at the
     -- end-reg-ref capture's moments (the outro's t)
     if os.getenv("PROBE_ENDING") == "1" then

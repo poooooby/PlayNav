@@ -199,10 +199,11 @@ return function(Sim, N, I)
       -- would float or sink), growing up from them
       y = G3.GROUND + halfH * R3
     elseif m then
-      -- floating: its measured middle, rising with its growth from the grass
-      y = G3.GROUND + (m.cy - G3.GROUND) * (self.bot.grow3 or 1)
+      -- floating: its measured middle, growing about it (it rose with its growth once, and a
+      -- balloon near its score passed the top of the view), its feet never under the grass
+      y = math.max(m.cy, G3.GROUND + halfH * R3)
     elseif (ph.midY or 0) > 0 then
-      y = G3.GROUND + ph.midY * (ph.scale or 0.7) * (self.bot.grow3 or 1)
+      y = math.max(G3.GROUND + ph.midY * (ph.scale or 0.7), G3.GROUND + halfH * R3)
     end
     if phase(self).sway == 1 then
       local f = (self.swayT or 0) * FPS

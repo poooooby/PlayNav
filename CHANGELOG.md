@@ -3,6 +3,13 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.3] - 2026-10-26 (beta)
+
+### Fixed
+
+- 3D SUPER TRAINING: a floating balloon (Magnemite and the like) grows in place as the score
+  climbs instead of rising with it, so near the target it no longer passes the top of the view.
+
 ## [0.9.2] - 2026-10-26 (beta)
 
 ### Changed
