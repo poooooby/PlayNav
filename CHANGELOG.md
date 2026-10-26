@@ -3,6 +3,13 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.6] - 2026-10-26 (beta)
+
+### Fixed
+
+- On Gold, Silver and Crystal, Super Training's Wings now raise their stat when used from the
+  PACK. They said "It won't have any effect." and did nothing.
+
 ## [0.9.5] - 2026-10-26 (beta)
 
 ### Added

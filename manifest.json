@@ -1,7 +1,7 @@
 {
   "id": "play_nav",
   "name": "PlayNav",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
