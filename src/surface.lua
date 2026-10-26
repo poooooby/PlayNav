@@ -10,6 +10,7 @@
 
 return function(mod, Layout, HD)
   local G = love and love.graphics
+  local newFont = function(...) return (mod.cjk and mod.cjk.newFont or G.newFont)(...) end
 
   local S = {
     W = Layout.W, H = Layout.H,
@@ -39,11 +40,11 @@ return function(mod, Layout, HD)
     if not self.font or self.fontK ~= k then
       -- glyphs rasterised at k times the size, metrics in logical units: crisp text, the
       -- same widths every layout was written for
-      local ok, font = pcall(G.newFont, 11, "normal", k)
-      if not ok then ok, font = pcall(G.newFont, 11) end
+      local ok, font = pcall(newFont, 11, "normal", k)
+      if not ok then ok, font = pcall(newFont, 11) end
       if ok then self.font = font end
-      local okS, small = pcall(G.newFont, 9, "normal", k)
-      if not okS then okS, small = pcall(G.newFont, 9) end
+      local okS, small = pcall(newFont, 9, "normal", k)
+      if not okS then okS, small = pcall(newFont, 9) end
       if okS then self.smallFont = small end
       self.fontK = k
     end

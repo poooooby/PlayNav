@@ -492,7 +492,7 @@ return function(mod, Pointer, G, Rules, Store, host)
     local size = math.max(4, math.floor(19 * k * 0.64 + 0.5))
     local font = swFonts[size]
     if font == nil then
-      local ok, f = pcall(G2.newFont, size)
+      local ok, f = pcall(mod.cjk and mod.cjk.newFont or G2.newFont, size)
       font = ok and f or false
       swFonts[size] = font
     end

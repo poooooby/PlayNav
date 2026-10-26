@@ -583,8 +583,8 @@ return function(mod, Pointer, T, Rules)
     -- a 20-unit text pane holds the 9-point font at about 1.8x
     local d = math.max(1, math.min(16, math.floor(px * 1.8 * 2 + 0.5) / 2))
     if not app.cardFonts[d] then
-      local ok, f = pcall(G2.newFont, 9, "normal", d)
-      if not ok then ok, f = pcall(G2.newFont, 9) end
+      local ok, f = pcall(mod.cjk and mod.cjk.newFont or G2.newFont, 9, "normal", d)
+      if not ok then ok, f = pcall(mod.cjk and mod.cjk.newFont or G2.newFont, 9) end
       app.cardFonts[d] = ok and f or false
     end
     return app.cardFonts[d] or select(2, fonts())

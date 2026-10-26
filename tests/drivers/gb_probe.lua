@@ -102,6 +102,15 @@ local function body(game, log, dir)
   if gen == 1 then game.save.money = 200000 else game.save.player.money = 200000 end
   U.wait(10)
   local mon = game.save.party[1]
+  -- PROBE_KANA=1: a kana nickname on the lead and every species renamed in kana, as a Japanese
+  -- translation mod renames them (the Balloon Bots' names follow)
+  if os.getenv("PROBE_KANA") == "1" then
+    mon.nickname = "ピカチュウ"
+    for _, rec in pairs(data.pokemon or {}) do
+      if type(rec) == "table" and rec.dex then rec.name = "ナマエ" .. tostring(rec.dex) end
+    end
+    log("kana: lead", host.displayName(mon), "species 81", tostring(host.speciesName(host.speciesFromNational(81))))
+  end
   -- the party icon PlayNav draws: another mod's (G9 Battle Sprites' HD cell, 64 wide) or the
   -- game's (16); a mod's atlas may decode a frame or two after the first ask
   do
@@ -225,6 +234,14 @@ local function body(game, log, dir)
       U.wait(30)
       shot("t05_picker")
       log("start course:", tostring(T.startCourse("lv1_spa")))
+      if os.getenv("PROBE_KANA") == "1" then
+        -- the intro's name bands: the balloon's, then the trainee's (sim time in the countdown)
+        local I = T.hud.INTRO
+        for i, at in ipairs({ (I.BOT_NAME[1] + I.BOT_NAME[2]) / 2, (I.PLAYER_NAME[1] + I.PLAYER_NAME[2]) / 2 }) do
+          waitFor(function() return T.sim and (T.sim.phase ~= "countdown" or (T.sim.t or 0) >= at) end, 60 * 60)
+          shot("t06" .. string.char(96 + i) .. "_name")
+        end
+      end
       waitFor(function() return s.mode == "regimen" and T.sim and T.sim.phase == "play" end, 60 * 40)
       U.wait(60)
       log("top screen hd:", tostring(X.hdTop and X.hdTop.why), "mode", X.state().mode, "rect", X.state().rect and "yes" or "no")
@@ -285,6 +302,19 @@ local function body(game, log, dir)
     check(A.open() ~= false, "Pokemon-Amie opens")
     U.wait(90)
     shot("a01_room")
+    if os.getenv("PROBE_KANA") == "1" then
+      -- SWITCH's panel names the room's Pokemon
+      local home = X.apps:get("home")
+      for _ = 1, 3 do
+        tapAt("pet", home.petPos()); U.wait(30)
+        if home.menuOpen() then break end
+      end
+      tapAt("switch", home.buttonPos("switch"))
+      waitFor(function() local x = home.switchState(); return x and x.phase ~= "in" end, 300)
+      U.wait(30)
+      shot("a01b_switch")
+      tapAt("return", home.switchPos("return")); U.wait(60)
+    end
     A.session.enterPlay()
     U.wait(120)
     shot("a02_play")

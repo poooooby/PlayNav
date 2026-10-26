@@ -63,7 +63,7 @@ return function(mod, deps)
   local function font(size)
     local f = fonts[size]
     if not f then
-      local ok, made = pcall(love.graphics.newFont, size, "normal", U.K)
+      local ok, made = pcall((mod.cjk and mod.cjk.newFont or love.graphics.newFont), size, "normal", U.K)
       f = ok and made or love.graphics.getFont()
       fonts[size] = f
     end

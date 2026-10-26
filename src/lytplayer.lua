@@ -402,7 +402,7 @@ local function fontFor(G, px, opts)
   if f == nil then
     local ok, font = pcall(function()
       if opts and opts.font then return opts.font(size) end
-      return G.newFont(size)
+      return (Player.newFont or G.newFont)(size)
     end)
     f = ok and font or false
     byKey[size] = f

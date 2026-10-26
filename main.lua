@@ -168,6 +168,11 @@ return function(mod)
   end
 
   local Pointer = makePointer(mod)
+  -- kana and CJK in PlayNav's own fonts (src/cjk.lua): shared as mod.cjk
+  do
+    local makeCjk = loadSibling(mod, "src/cjk.lua")
+    mod.cjk = makeCjk and makeCjk(mod) or nil
+  end
   local Surface = makeSurface(mod, Layout, HD)
   local HdTop = (HD and makeHdTop) and makeHdTop(mod, { HD = HD,
     ids = { play_nav_amie = true, play_nav_training = true }, frame = profile.frame, gb = GB }) or nil
@@ -190,6 +195,7 @@ return function(mod)
   local makeSession = loadSibling(mod, "src/amie/session.lua")
   -- PLAY's and DECORATE's screens are laid out in Lua (src/amie/panes.lua)
   mod.panes = loadSibling(mod, "src/amie/panes.lua")
+  if mod.panes and mod.cjk then mod.panes.newFont = mod.cjk.newFont end
   local makePlayApp = loadSibling(mod, "src/amie/play.lua")
   -- a 3D scene drawn into its own depth canvas (3D SUPER TRAINING's stadium, 3D AMIE's stage)
   local makeRender3d = loadSibling(mod, "src/render3d.lua")
@@ -371,6 +377,8 @@ return function(mod)
       Training = makeTSession(mod, { host = trainHost, Rules = TRules, Store = TStore, Items = TItems, Apps = Apps,
         busy = function() return Amie ~= nil and Amie.session ~= nil end, onChange = dirty })
       if Amie then Amie.busy = function() return Training.session ~= nil end end
+      -- the HUD names a balloon by the game's species name when a translation renames it
+      Training.host = trainHost
       local okC, capp = pcall(makeCoreApp, mod, Pointer, Training, TRules, Radar, trainHost)
       if okC and type(capp) == "table" then
         Apps:register(capp)
@@ -602,6 +610,7 @@ return function(mod)
       -- the game's own screens (layouts and clips the extract copies): shared as mod.lyt
       local LytFiles = loadSibling(mod, "src/lytfile.lua")
       local LytPlayer = loadSibling(mod, "src/lytplayer.lua")
+      if LytPlayer and mod.cjk then LytPlayer.newFont = mod.cjk.newFont end
       local makeScreens = loadSibling(mod, "src/lytscreen.lua")
       if LytFiles and LytPlayer and makeScreens then
         local Screens = makeScreens(mod, LytFiles, LytPlayer)

@@ -91,7 +91,7 @@ local function drawText(self, G2, text, st, x, y, w, h, a)
   local size = math.max(4, math.floor((st.size or 19) * k * 0.64 + 0.5))
   local font = self.fonts[size]
   if font == nil then
-    local ok, f = pcall(G2.newFont, size)
+    local ok, f = pcall(Panes.newFont or G2.newFont, size)
     font = ok and f or false
     self.fonts[size] = font
   end

@@ -128,7 +128,12 @@ return function(mod, deps)
     end
     if love and love.graphics then
       love.graphics.setColor(0.1, 0.1, 0.1, 1)
+      -- no engine font (Gen 1 / 2): one that draws kana too
+      local f = mod.cjk and mod.cjk.plain(11)
+      local was = f and love.graphics.getFont()
+      if f then love.graphics.setFont(f) end
       love.graphics.print(text, x, y)
+      if was then love.graphics.setFont(was) end
       love.graphics.setColor(1, 1, 1, 1)
     end
   end

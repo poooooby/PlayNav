@@ -49,6 +49,8 @@ local function body(game, log)
   do
     local Xk = game.mods and game.mods.exports and game.mods.exports.play_nav
     if Xk and Xk._test and Xk._test.keepArt then Xk._test.keepArt() end
+    -- PROBE_FALLBACK=1: PlayNav's own assets (the card's cache never read)
+    if os.getenv("PROBE_FALLBACK") == "1" and Xk and Xk._test and Xk._test.forceRom then Xk._test.forceRom(false) end
   end
   game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
   U.wait(30)
@@ -154,6 +156,8 @@ local function body(game, log)
     touch("up", id, ax, ay); U.wait(4)
   end
   local lead = s.party[1]
+  -- PROBE_KANA=1: a kana nickname (a Japanese-origin Pokemon's, as the engine decodes it)
+  if os.getenv("PROBE_KANA") == "1" then lead.nickname = "アチャモ" end
   local evs0 = Pokemon.evsOf(lead)
   log(("lead %s hp %d/%d evs hp %d atk %d"):format(Pokemon.displayName(lead), lead.hp, lead.maxHp, evs0.hp, evs0.atk))
 

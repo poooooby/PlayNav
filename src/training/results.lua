@@ -381,7 +381,7 @@ return function(mod, T, Rules, Radar)
   local function efont(px)
     local f = efonts[px]
     if not f then
-      local ok, made = pcall(love.graphics.newFont, px)
+      local ok, made = pcall((mod.cjk and mod.cjk.newFont or love.graphics.newFont), px)
       f = ok and made or love.graphics.getFont()
       efonts[px] = f
     end
@@ -927,7 +927,7 @@ return function(mod, T, Rules, Radar)
     local k = math.sqrt((x1 - x0) ^ 2 + (y1 - y0) ^ 2)
     local size = math.max(6, math.floor(16 * 0.64 * k + 0.5))
     if R.fonts[size] == nil then
-      local ok, f = pcall(G.newFont, size)
+      local ok, f = pcall(mod.cjk and mod.cjk.newFont or G.newFont, size)
       R.fonts[size] = ok and f or false
     end
     return R.fonts[size] or nil, k

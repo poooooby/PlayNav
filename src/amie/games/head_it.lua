@@ -936,7 +936,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     if f == nil then
       local ok, font = pcall(function()
         if P and P.opts and P.opts.font then return P.opts.font(size) end
-        return love.graphics.newFont(size)
+        return (mod.cjk and mod.cjk.newFont or love.graphics.newFont)(size)
       end)
       f = ok and font or false
       hudFonts[size] = f

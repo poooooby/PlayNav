@@ -68,10 +68,24 @@ return function(mod, T, Rules, Sim)
     return math.floor(secs / 60), secs % 60
   end
 
+  -- the game's own name for a National Dex number, or nil (a species the game lacks)
+  local function gameSpeciesName(national)
+    local h = T.host
+    if not (h and h.speciesFromNational and h.speciesName) then return nil end
+    local ok, sp = pcall(h.speciesFromNational, national)
+    if not (ok and sp) then return nil end
+    local okN, name = pcall(h.speciesName, sp)
+    if okN and type(name) == "string" and name ~= "" and name ~= "???" then return name end
+    return nil
+  end
+
   local function speciesName(national)
+    -- a translation mod's name (anything past ASCII: kana) wins over PlayNav's English list
+    local game = gameSpeciesName(national)
+    if game and mod.cjk and mod.cjk.has(game) then return game end
     local name = T.gameLine and T.gameLine("species", national) or nil
     if name and name ~= "" then return name end
-    return T.host and T.host.speciesName and T.host.speciesName(national) or ("#" .. tostring(national))
+    return game or ("#" .. tostring(national))
   end
 
   local function balloonName(sim)
@@ -575,7 +589,7 @@ return function(mod, T, Rules, Sim)
   local function font(px)
     local f = fonts[px]
     if not f then
-      local ok, made = pcall(love.graphics.newFont, px)
+      local ok, made = pcall((mod.cjk and mod.cjk.newFont or love.graphics.newFont), px)
       f = ok and made or love.graphics.getFont()
       fonts[px] = f
     end

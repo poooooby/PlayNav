@@ -522,7 +522,7 @@ return function(mod, T, deps)
     local d = max(1, min(16, floor(px * 2 + 0.5) / 2))
     local key = size * 100 + d
     if fonts[key] == nil then
-      local ok, f = pcall(G2.newFont, size, "normal", d)
+      local ok, f = pcall(mod.cjk and mod.cjk.newFont or G2.newFont, size, "normal", d)
       fonts[key] = ok and f or false
     end
     return fonts[key] or G2.getFont()
