@@ -113,7 +113,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local function lowRect(cx, cy, w, h) return rect(cx, cy + SHAPE.D, w, h) end
 
   -- the hit areas for the current shape (rebuilt when it changes)
-  local PIC, BAG, REGIMENS, BAGS, TOTAL, ROOM, RADAR, CLOSE
+  local PIC, BAG, REGIMENS, BAGS, TOTAL, ROOM, RADAR, CLOSE, ROCKET
   local function geo()
     if app.geo then return app.geo end
     PIC = roomRect(110, 128, 80, 80, true)
@@ -128,6 +128,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
     -- PlayNav's return button (message layout pane ab, 27x27 at 305,224)
     CLOSE = { x = (305 - 18) * L, y = (224 + SHAPE.D - 18) * L - BLEED, w = 36 * L, h = 36 * L }
     app.CLOSE = CLOSE
+    -- the Konami code's R button, the return button's mirror (src/training/rocket.lua)
+    ROCKET = { x = (15 - 18) * L, y = CLOSE.y, w = 36 * L, h = 36 * L }
     app.geo = true
     return app.geo
   end
@@ -151,6 +153,31 @@ return function(mod, Pointer, T, Rules, Radar, host)
   local function inRect(x, y, r) return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h end
   -- PlayNav's return button (message layout pane ab, 27x27 at 305,224) leaves Super Training
   local RETURN_PANE = { 305, 224, 27, 27 }
+  local ROCKET_PANE = { 15, 224, 27, 27 }
+
+  -- the Konami code's unlock over the home screen (layout units): black, the R, its glint
+  local function drawUnlock(G, t, Rk)
+    local black, scale, alpha, glint = Rk.unlockView(t)
+    if black > 0 then
+      G.setColor(0, 0, 0, black)
+      G.rectangle("fill", -10, -20, 340, LH + 40)
+    end
+    local logo = alpha > 0 and art("rocket/logo")
+    if not logo then return end
+    local lw, lh = logo:getDimensions()
+    local k = 150 / lh * scale
+    local cx, cy = 160, LH / 2
+    G.setColor(1, 1, 1, alpha)
+    G.draw(logo, cx, cy, 0, k, k, lw / 2, lh / 2)
+    local gl = glint and art("rocket/glint")
+    if gl then
+      local gw, gh = gl:getDimensions()
+      G.setBlendMode("add")
+      G.setColor(1, 1, 1, math.sin(glint * math.pi))
+      G.draw(gl, cx - 45 + 90 * glint, cy - 50 + 30 * glint, glint * 2.5, 1.6, 1.6, gw / 2, gh / 2)
+      G.setBlendMode("alpha")
+    end
+  end
 
   -- the party list once a frame: T.party asks the engine for every member's key, name and
   -- icon, and the screen wanted it eight times a frame (each slot, the active icon, the row)
@@ -182,7 +209,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
 
   function app.geometry()
     geo()
-    return { PIC = PIC, BAG = BAG, RADAR = RADAR, TOTAL = TOTAL, REGIMENS = REGIMENS, BAGS = BAGS, ROOM = ROOM, CLOSE = CLOSE, partySlot = slotOf }
+    return { PIC = PIC, BAG = BAG, RADAR = RADAR, TOTAL = TOTAL, REGIMENS = REGIMENS, BAGS = BAGS, ROOM = ROOM, CLOSE = CLOSE,
+      ROCKET = ROCKET, partySlot = slotOf }
   end
 
   -- the round buttons give under the finger and bounce back on release (measured from a
@@ -194,6 +222,8 @@ return function(mod, Pointer, T, Rules, Radar, host)
   function app:pointer(ev, rec)
     local s = T.session
     if not (s and s.mode == "core") or s.trans then return end
+    -- the R's unlock holds the screen
+    if T.rocketBusy and T.rocketBusy() then return end
     geo()
     local H = mod.haptics
     if ev.phase == "pressed" then
@@ -216,6 +246,12 @@ return function(mod, Pointer, T, Rules, Radar, host)
     if inRect(x, y, CLOSE) then
       if H then H.pulse("tick") end
       T.finish()
+      return
+    end
+    -- (tested before REGIMENS: that button's rect reaches over its top)
+    if T.rocketUnlocked and T.rocketUnlocked() and inRect(x, y, ROCKET) then
+      if H then H.pulse("tick") end
+      T.goTo("rocket")
       return
     end
     -- the finishing move plays out before anything else is taken
@@ -646,7 +682,17 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   local function bagArt(def)
-    return def and art(("training/sand_bag_%02d"):format(Rules.BAG_ART[def.id] or 0)) or art("training/home_sand_bag")
+    return def and art(Rules.bagArt(def.id)) or art("training/home_sand_bag")
+  end
+  -- the alley's R+ bags glow behind: the halo (twice the bag's size) drawn as the bag is, its
+  -- origin moved by the half-size difference (ox, oy: the bag's origin in its own texels)
+  local function bagGlow(G, def, img, x, y, r, sx, sy, ox, oy, a)
+    local glow = def and def.glow and art(Rules.bagGlowArt(def.id))
+    if not glow then return end
+    local iw, ih = img:getDimensions()
+    local gw, gh = glow:getDimensions()
+    G.setColor(1, 1, 1, a or 1)
+    G.draw(glow, x, y, r, sx, sy, ox + (gw - iw) / 2, oy + (gh - ih) / 2)
   end
 
   local function drawBag(G, s, small)
@@ -655,13 +701,15 @@ return function(mod, Pointer, T, Rules, Radar, host)
       -- the cleared bag spins on its hook and flies off; then the room is empty
       if ff >= 70 then return end
       local tr = FINISH[fin.clip].bag
-      local img = bagArt(Rules.bag(fin.bag))
+      local fdef = Rules.bag(fin.bag)
+      local img = bagArt(fdef)
       if not img then return end
       local iw, ih = img:getDimensions()
       local p = PANE.bag
+      local fx, fy, fr = 160 + eval(tr.tx, ff), 120 - eval(tr.ty, ff), math.rad(-(eval(tr.rz, ff) or 0))
+      bagGlow(G, fdef, img, fx, fy, fr, p[3] / iw, p[4] / ih, iw / 2, 0, (p.alpha or 255) / 255)
       G.setColor(1, 1, 1, (p.alpha or 255) / 255)
-      G.draw(img, 160 + eval(tr.tx, ff), 120 - eval(tr.ty, ff), math.rad(-(eval(tr.rz, ff) or 0)),
-        p[3] / iw, p[4] / ih, iw / 2, 0)
+      G.draw(img, fx, fy, fr, p[3] / iw, p[4] / ih, iw / 2, 0)
       return
     end
     local bag = s.rec.bag
@@ -679,6 +727,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     local img = bagArt(def)
     if img then
       local iw, ih = img:getDimensions()
+      bagGlow(G, def, img, p[1], p[2], swing, p[3] / iw, p[4] / ih, iw / 2, ih / 2, (p.alpha or 255) / 255)
       G.setColor(1, 1, 1, (p.alpha or 255) / 255)
       G.draw(img, p[1], p[2], swing, p[3] / iw, p[4] / ih, iw / 2, ih / 2)
     else
@@ -1094,6 +1143,18 @@ return function(mod, Pointer, T, Rules, Radar, host)
       fit(G, ret, RETURN_PANE)
       G.pop()
     end
+    -- the Konami code's R button, opposite the return (shown once the unlock has faded back)
+    local unlock = s.anim and s.anim.rocket
+    local Rk = T.rocket
+    if T.rocketUnlocked and T.rocketUnlocked() and not (unlock and Rk and unlock.t < Rk.UNLOCK.FADE + Rk.UNLOCK.GROW + Rk.UNLOCK.HOLD) then
+      local rb = art("rocket/button")
+      if rb then
+        G.push()
+        G.translate(0, SHAPE.D)
+        fit(G, rb, ROCKET_PANE)
+        G.pop()
+      end
+    end
     if finishing() then
       -- the strip gives way to the night-blue band and the icon row dims, as in the game
       G.setColor(0.07, 0.11, 0.27, 1)
@@ -1138,6 +1199,13 @@ return function(mod, Pointer, T, Rules, Radar, host)
     -- a screen change: the shutters close over the home screen, or open on it
     local tv = T.transView and T.transView("bottom")
     if tv and tv.shutter and app.lyt then app.lyt.shutters(G, art, 320, LH, tv.shutter, tv.f) end
+    -- into the alley and back: a fade through black
+    if tv and tv.black and tv.black > 0 then
+      G.setColor(0, 0, 0, tv.black)
+      G.rectangle("fill", -10, -20, 340, LH + 40)
+    end
+    -- the Konami code: to black, the R grows in with its glint, and back
+    if unlock and Rk then drawUnlock(G, unlock.t, Rk) end
     G.pop()
     G.setColor(1, 1, 1, 1)
   end

@@ -144,7 +144,7 @@ return function(mod, T, Rules, Radar)
         if r.bag then
           B:setText("49", T.bagName and T.bagName(r.bag) or r.bag, { align = "left" })
           local A = T.assets
-          local img = A and A.image and A.image(("training/sand_bag_%02d"):format(Rules.BAG_ART[r.bag] or 0))
+          local img = A and A.image and A.image(Rules.bagArt(r.bag))
           if img then B:setImage("4b", img) end
         else
           B:set("3z", "visible", false)
@@ -743,7 +743,7 @@ return function(mod, T, Rules, Radar)
       end
       if r.bag then
         plate(206)
-        local img = art(("training/sand_bag_%02d"):format(Rules.BAG_ART[r.bag] or 0))
+        local img = art(Rules.bagArt(r.bag))
         if img then
           local iw, ih = img:getDimensions()
           G.setColor(1, 1, 1, 1)

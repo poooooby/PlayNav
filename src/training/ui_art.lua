@@ -1342,6 +1342,191 @@ return function(mod, deps)
     gen(("training/sand_bag_%02d"):format(i), 20, 50, function(G) bag(G, def[1], def[2]) end)
   end
 
+  -- ------- the Konami code's alley (src/training/rocket.lua)
+
+  -- the dealer's bags: the same bag in black metal, a red R on it, outlined in its stat's colour
+  -- (the Effort-o-Meter's label colour); R+ a small + by the R (and a glow drawn behind it:
+  -- training/rbag_glow_<stat>)
+  local ROCKET_RED, METAL = C(214, 30, 40), C(40, 42, 48)
+  local function rocketBag(G, stat, plus)
+    bag(G, METAL, function(G2)
+      -- a cold sheen down the body
+      vgrad(G2, X0, 17, X1 - X0, 28, { 1, 1, 1, 0.1 }, { 1, 1, 1, 0 })
+      outlined(G2, "R", 9.5, 29.6, 13, ROCKET_RED, P.ink, 0.6)
+      if plus then outlined(G2, "+", 14.6, 23.4, 8, LABEL_RGB[stat], P.ink, 0.5) end
+    end)
+    G.setLineWidth(1.1)
+    G.setLineJoin("bevel")
+    col(G, LABEL_RGB[stat])
+    G.line(closed(roundPts(BODY_OUT, 1.4)))
+  end
+  for _, stat in ipairs(Rules.STATS) do
+    gen("training/rbag_" .. stat, 20, 50, function(G) rocketBag(G, stat, false) end)
+    gen("training/rbag_" .. stat .. "_plus", 20, 50, function(G) rocketBag(G, stat, true) end)
+    -- the R+'s glow: twice the bag's size about the same middle, soft rings of its stat's colour
+    gen("training/rbag_glow_" .. stat, 40, 100, function(G)
+      local rgb = LABEL_RGB[stat]
+      for i = 12, 1, -1 do
+        local g = i * 0.9
+        G.setColor(rgb[1], rgb[2], rgb[3], 0.07)
+        G.rectangle("fill", 10 + 1.6 - g, 25 + 13.6 - g, 15.8 + 2 * g, 34.2 + 2 * g, 4 + g, 4 + g)
+      end
+    end)
+  end
+  -- the R: a heavy red letter, thick dark outline, a light edge along its top
+  gen("rocket/logo", 128, 128, function(G)
+    outlined(G, "R", 64, 64, 104, { 0, 0, 0, 0 }, { 0, 0, 0, 0.35 }, 5)
+    outlined(G, "R", 64, 64, 104, ROCKET_RED, C(24, 8, 10), 3)
+    G.setColor(1, 0.6, 0.6, 0.35)
+    local f = font(104)
+    G.setFont(f)
+    G.print("R", 64 - f:getWidth("R") / 2 - 1, 64 - f:getHeight() / 2 - 1.5)
+    outlined(G, "R", 64, 64, 104, ROCKET_RED, { 0, 0, 0, 0 }, 0)
+  end)
+  -- its glint: a four-point star with a bright middle
+  gen("rocket/glint", 32, 32, function(G)
+    G.setColor(1, 1, 1, 0.25); circle(G, "fill", 16, 16, 6)
+    G.setColor(1, 1, 1, 0.95)
+    G.polygon("fill", 16, 0, 17.4, 14.6, 16, 32, 14.6, 17.4)
+    G.polygon("fill", 0, 16, 14.6, 14.6, 32, 16, 17.4, 17.4)
+    G.polygon("fill", 16, 0, 17.4, 17.4, 16, 32, 14.6, 14.6)
+    G.polygon("fill", 0, 16, 17.4, 14.6, 32, 16, 14.6, 17.4)
+    circle(G, "fill", 16, 16, 2.4)
+  end)
+  -- the home screen's R button: black metal, a steel rim, the red R
+  gen("rocket/button", 32, 32, function(G)
+    G.setColor(0, 0, 0, 0.35); circle(G, "fill", 16.6, 16.8, 15)
+    col(G, P.rim); circle(G, "fill", 16, 16, 15)
+    shadedDisc(G, 16, 16, 13.4, C(14, 14, 18), C(78, 80, 90))
+    G.setColor(1, 1, 1, 0.12); G.arc("fill", 16, 16, 12.6, math.pi * 1.1, math.pi * 1.6, 16)
+    outlined(G, "R", 16, 16.4, 17, ROCKET_RED, C(10, 4, 6), 0.9)
+  end)
+  -- the alley's UI, in the home screen's finish (metal bevels, glass, gloss, scanlines, neon)
+  -- but red and black. The panels are drawn whole and nine-sliced by src/training/rocket.lua
+  -- (Rk.slice), so their corners keep their detail at any size.
+  do
+    local RED, REDHI, REDLO = C(214, 30, 40), C(255, 96, 96), C(96, 8, 14)
+    local INKR = C(14, 10, 12)
+
+    -- a round glossy button in red and black (as limeButton): a black ring, a gunmetal bezel, the
+    -- face from faceTop to faceBottom, its inner shadow, a gloss across its top and a glint
+    local function glossDisc(G, cx, cy, r, faceTop, faceBottom)
+      local face = r * 0.84
+      G.setColor(0, 0, 0, 0.35); circle(G, "fill", cx + r * 0.05, cy + r * 0.08, r)
+      col(G, INKR); circle(G, "fill", cx, cy, r)
+      G.stencil(function() circle(G, "fill", cx, cy, r * 0.93) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      vgrad(G, cx - r, cy - r, 2 * r, 2 * r, C(56, 58, 64), C(186, 188, 196))
+      G.setStencilTest()
+      G.setLineWidth(r * 0.05)
+      G.setColor(0, 0, 0, 0.4); G.arc("line", "open", cx, cy, face + r * 0.025, math.rad(200), math.rad(340), 32)
+      G.setColor(1, 1, 1, 0.6); G.arc("line", "open", cx, cy, face + r * 0.025, math.rad(20), math.rad(160), 32)
+      G.stencil(function() circle(G, "fill", cx, cy, face) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      vgrad(G, cx - r, cy - face, 2 * r, 2 * face, faceTop, faceBottom)
+      scan(G, cx - r, cy - face, 2 * r, 2 * face, 0.05, 0.9)
+      G.setLineWidth(face * 0.22); G.setColor(0, 0, 0, 0.3); circle(G, "line", cx, cy, face)
+      vgrad(G, cx - r, cy - face, 2 * r, face * 0.5, { 0, 0, 0, 0.35 }, { 0, 0, 0, 0 })
+      G.setStencilTest()
+      G.stencil(function() circle(G, "fill", cx, cy, face * 0.94) end, "replace", 1)
+      G.stencil(function() G.ellipse("fill", cx, cy - face * 0.42, face * 0.8, face * 0.56, 48) end, "increment", 1, true)
+      G.setStencilTest("equal", 2)
+      vgrad(G, cx - r, cy - face, 2 * r, face * 1.02, { 1, 1, 1, 0.32 }, { 1, 1, 1, 0.02 })
+      G.setStencilTest()
+      G.setColor(1, 1, 1, 0.8); G.ellipse("fill", cx - face * 0.42, cy - face * 0.56, face * 0.16, face * 0.08, 20)
+    end
+
+    -- the back button: the home screen's return (a ring, a glossy face, the return arrow) in
+    -- red and black: a red ring, a black face, the arrow red with a lit edge
+    gen("rocket/back", 30, 30, function(G)
+      G.setColor(0, 0, 0, 0.35); circle(G, "fill", 15.5, 15.8, 14)
+      col(G, REDLO); circle(G, "fill", 15, 15, 14)
+      G.setLineWidth(0.8); col(G, RED); circle(G, "line", 15, 15, 13.1)
+      G.stencil(function() circle(G, "fill", 15, 15, 11.8) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      vgrad(G, 3, 3, 24, 24, C(62, 62, 70), C(10, 10, 12))
+      scan(G, 3, 3, 24, 24, 0.05, 0.9)
+      G.setColor(1, 1, 1, 0.22); G.ellipse("fill", 13, 9.5, 8, 4.6, 24)
+      G.setStencilTest()
+      -- the arrow: a dark shadow under it, the red stroke, a lit line along its top
+      G.push(); G.translate(0.4, 0.6); G.setColor(0, 0, 0, 0.6); returnArrow(G, 15.6, 14.4, 0.66); G.pop()
+      col(G, RED); returnArrow(G, 15.6, 14.4, 0.66)
+      G.setColor(1, 0.7, 0.7, 0.75); G.setLineWidth(0.5); G.line(11.4, 11.1, 18.6, 11.1)
+    end)
+
+    -- the up and down buttons: red glossy discs with a white chevron
+    for _, d in ipairs({ { "rocket/up", -1 }, { "rocket/down", 1 } }) do
+      gen(d[1], 32, 32, function(G)
+        glossDisc(G, 16, 16, 15, C(150, 16, 26), C(236, 64, 64))
+        local s = d[2]
+        G.setColor(0, 0, 0, 0.45); stroke(G, 2.8, 10.4, 16.6 - 3.4 * s, 16, 16.6 + 2.6 * s, 21.6, 16.6 - 3.4 * s)
+        G.setColor(1, 1, 1, 1); stroke(G, 2.8, 10, 16 - 3.4 * s, 16, 16 + 2.6 * s, 22, 16 - 3.4 * s)
+      end)
+    end
+
+    -- a panel (nine-sliced at 14): a faint red glow outside, a black edge, a gunmetal bevel, the
+    -- smoked glass inside with scanlines, a gloss along its top, a red neon line inside its rim,
+    -- a screw in each corner
+    gen("rocket/panel", 48, 48, function(G)
+      for i = 3, 1, -1 do col(G, RED, 0.05 * (4 - i)); G.rectangle("fill", 2 - i, 2 - i, 44 + 2 * i, 44 + 2 * i, 9 + i, 9 + i) end
+      col(G, INKR); G.rectangle("fill", 2, 2, 44, 44, 9, 9)
+      G.stencil(function() G.rectangle("fill", 3, 3, 42, 42, 8, 8) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      vgrad(G, 3, 3, 42, 42, C(120, 122, 130), C(44, 44, 50))
+      G.setStencilTest()
+      G.stencil(function() G.rectangle("fill", 5, 5, 38, 38, 6.5, 6.5) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      vgrad(G, 5, 5, 38, 38, C(34, 26, 34, 245), C(10, 8, 12, 245))
+      scan(G, 5, 5, 38, 38, 0.06, 1)
+      grain(G, 5, 5, 38, 38, 0.06, 59)
+      vgrad(G, 5, 5, 38, 9, { 1, 1, 1, 0.12 }, { 1, 1, 1, 0 })
+      G.setStencilTest()
+      neon(G, 0.5, RED, 0.85, closed(roundPts({ 7, 7, 41, 7, 41, 41, 7, 41 }, 4.5)), false)
+      for _, p in ipairs({ { 9.6, 9.6 }, { 38.4, 9.6 }, { 9.6, 38.4 }, { 38.4, 38.4 } }) do screw(G, p[1], p[2], 1.4) end
+    end)
+    -- red glass (nine-sliced at 10): the selected row, the head band, the name tag
+    gen("rocket/red", 32, 32, function(G)
+      col(G, INKR); G.rectangle("fill", 1, 1, 30, 30, 7, 7)
+      G.stencil(function() G.rectangle("fill", 2.2, 2.2, 27.6, 27.6, 6, 6) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      vgrad(G, 2, 2, 28, 28, C(190, 30, 40), C(84, 6, 14))
+      scan(G, 2, 2, 28, 28, 0.07, 1)
+      vgrad(G, 2, 2, 28, 11, { 1, 1, 1, 0.3 }, { 1, 1, 1, 0.03 })
+      G.setStencilTest()
+      G.setLineWidth(0.6); col(G, REDHI, 0.85); G.rectangle("line", 2.6, 2.6, 26.8, 26.8, 5.6, 5.6)
+    end)
+    -- a recess (nine-sliced at 8): the money box, the scroll track: dark, shaded at the top, a
+    -- light lip along the foot
+    gen("rocket/inset", 24, 24, function(G)
+      G.setColor(1, 1, 1, 0.14); G.rectangle("fill", 1, 1.6, 22, 22, 5, 5)
+      G.setColor(0, 0, 0, 1); G.rectangle("fill", 1, 1, 22, 21.4, 5, 5)
+      G.stencil(function() G.rectangle("fill", 1.8, 1.8, 20.4, 19.8, 4.4, 4.4) end, "replace", 1)
+      G.setStencilTest("greater", 0)
+      vgrad(G, 1, 1, 22, 22, C(4, 4, 6), C(26, 22, 28))
+      vgrad(G, 1, 1, 22, 5, { 0, 0, 0, 0.6 }, { 0, 0, 0, 0 })
+      G.setStencilTest()
+    end)
+    -- the pill buttons (nine-sliced at 11): off black glossy, on red glossy, a gunmetal bezel
+    for _, d in ipairs({ { "rocket/pill", C(64, 64, 72), C(14, 14, 16) }, { "rocket/pill_on", C(236, 64, 64), C(130, 12, 22) } }) do
+      gen(d[1], 48, 26, function(G)
+        G.setColor(0, 0, 0, 0.35); G.rectangle("fill", 1.6, 2.2, 46, 23, 11.5, 11.5)
+        col(G, INKR); G.rectangle("fill", 1, 1, 46, 23, 11.5, 11.5)
+        G.stencil(function() G.rectangle("fill", 2, 2, 44, 21, 10.5, 10.5) end, "replace", 1)
+        G.setStencilTest("greater", 0)
+        vgrad(G, 2, 2, 44, 21, C(176, 178, 186), C(52, 54, 60))
+        G.setStencilTest()
+        G.stencil(function() G.rectangle("fill", 3.6, 3.6, 40.8, 17.8, 8.9, 8.9) end, "replace", 1)
+        G.setStencilTest("greater", 0)
+        vgrad(G, 3.6, 3.6, 40.8, 17.8, d[2], d[3])
+        scan(G, 3.6, 3.6, 40.8, 17.8, 0.05, 0.9)
+        vgrad(G, 3.6, 3.6, 40.8, 8, { 1, 1, 1, 0.34 }, { 1, 1, 1, 0.03 })
+        G.setStencilTest()
+      end)
+    end
+    -- the scanlines laid over a stretched panel's middle (repeated)
+    gen("rocket/scan", 16, 16, function(G) scan(G, 0, 0, 16, 16, 0.08, 1); grain(G, 0, 0, 16, 16, 0.07, 61) end)
+  end
+
   -- ------- the regimen picker and its card
 
   -- the medal: a gold disc with a dark rim, its shine and swirl, and two ribbons splaying out

@@ -419,6 +419,30 @@ return function(mod)
       else
         mod.log:warn("training regimen modules missing; Core Training only")
       end
+      -- an easter egg: the Konami code on the home screen opens the alley's dealer
+      -- (src/training/rocket.lua)
+      local makeRocket = loadSibling(mod, "src/training/rocket.lua")
+      if makeRocket then
+        local makeRocketScene = loadSibling(mod, "src/training/rocket_scene.lua")
+        local Scene = nil
+        if makeRocketScene then
+          local okS, sc = pcall(makeRocketScene, mod, { Render3d = makeRender3d })
+          if okS and type(sc) == "table" then Scene = sc else mod.log:warn("the alley failed to build: %s", tostring(sc)) end
+        end
+        Training.rocketScene = Scene
+        local okR, rk = pcall(makeRocket, mod, Training, { host = trainHost, Rules = TRules, Store = TStore, Scene = Scene })
+        if not okR then mod.log:warn("the alley's dealer failed to build: %s", tostring(rk)) end
+        local makeRocketApp = loadSibling(mod, "src/training/rocket_app.lua")
+        if okR and makeRocketApp then
+          local okA, rapp = pcall(makeRocketApp, mod, Pointer, Training, TRules)
+          if okA and type(rapp) == "table" then
+            Apps:register(rapp)
+            rapp.fontsFn = function() return Surface.font, Surface.smallFont end
+          else
+            mod.log:warn("the alley's screen failed to build: %s", tostring(rapp))
+          end
+        end
+      end
     else
       mod.log:error("super training modules missing; Super Training stays off")
     end
@@ -447,6 +471,11 @@ return function(mod)
         if okU and type(ui) == "table" then
           UiArt = ui
           Assets.engine = ui.image
+          -- the easter eggs' art is PlayNav's whatever the asset option (the card has none)
+          Assets.own = function(id)
+            if id:sub(1, 7) == "rocket/" or id:sub(1, 14) == "training/rbag_" then return ui.image(id) end
+            return nil
+          end
           -- Pokemon-Amie's room draws through the same maker
           local makeAmieArt = ui.gen and loadSibling(mod, "src/amie/ui_art.lua")
           if makeAmieArt then
@@ -502,12 +531,17 @@ return function(mod)
         if okC and type(chip) == "table" then
           Chip = chip
           Assets.engineSound = chip.sound
+          -- (and its sounds)
+          Assets.ownSound = function(id)
+            if id:sub(1, 6) == "se/rk_" then return chip.sound(id) end
+            return nil
+          end
         else
           mod.log:warn("chip music failed to build: %s", tostring(chip))
         end
       end
       for _, id in ipairs({ "play", "home", "decorate", "game_berry", "game_head", "game_tile",
-        "training_core", "training_bags", "training_courses", "training_aim" }) do
+        "training_core", "training_bags", "training_courses", "training_aim", "training_rocket" }) do
         local a = Apps:get(id)
         if a then a.assets = Assets end
       end
@@ -516,6 +550,12 @@ return function(mod)
         if Training.arenaDraw.arena3d then Training.arenaDraw.arena3d.assets = Assets end
       end
       if Training then Training.assets = Assets end
+      -- the easter egg's pictures (the dealer's bags may be in the drawer from an earlier
+      -- session), made now rather than in the middle of a draw (Android)
+      if Training and Training.rocket and Training.rocket.prewarm then
+        local okW, warmed = pcall(Training.rocket.prewarm)
+        if okW and warmed then Training.rocket.warmed = true end
+      end
       if Amie then Amie.assets = Assets end
       if Amie and Amie.stage3d then Amie.stage3d.assets = Assets end
       -- the game's own sound effects (rendered by the import), shared as mod.sfx
@@ -1752,8 +1792,10 @@ return function(mod)
     local s = Training and Training.session
     if type(s) ~= "table" then return false end
     if s.mode == "regimen" or s.mode == "result" then return true end
+    -- the easter egg too (src/training/rocket.lua): the R's unlock, the alley, the ways in and out
+    if s.mode == "rocket" or (s.anim and s.anim.rocket) then return true end
     local tr = s.trans
-    return type(tr) == "table" and (tr.to == "regimen" or tr.from == "result")
+    return type(tr) == "table" and (tr.to == "regimen" or tr.from == "result" or tr.to == "rocket" or tr.from == "rocket")
   end
   if not (mod.supports and not mod:supports("hooks", "core.logic_speed")) then
     mod.hooks:wrap("core.logic_speed", function(next, game)
@@ -1787,6 +1829,20 @@ return function(mod)
       return true
     end
     return next(game, dy)
+  end)
+
+  -- the Konami code on Super Training's home screen (src/training/rocket.lua): read off each
+  -- logic step's pressed buttons, whatever pressed them; nothing is taken from the game
+  mod.hooks:wrap("input.step", function(next, game, dt)
+    local T = Training
+    if T and T.konamiStep and (T.session or (T.rocket and T.rocket.closeMenu > 0)) then
+      local ok, err = pcall(T.konamiStep, game and game.input)
+      if not ok and not state.konamiWarned then
+        state.konamiWarned = true
+        mod.log:warn("super training: the code's check failed (%s)", tostring(err))
+      end
+    end
+    return next(game, dt)
   end)
 
   mod.hooks:wrap("input.pointer", function(next, game, ev)

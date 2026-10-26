@@ -21,7 +21,7 @@ return function(mod, deps)
   local T = { session = nil, rng = math.random, Courses = deps.Courses, Sim = deps.Sim, previousApp = nil }
 
   local APP_FOR = { core = "training_core", bags = "training_bags", courses = "training_courses",
-    regimen = "training_aim", result = "training_aim" }
+    regimen = "training_aim", result = "training_aim", rocket = "training_rocket" }
 
   local function now() return host.now() end
   local function wall() return host.wallClock and host.wallClock() or os.time() end
@@ -105,6 +105,8 @@ return function(mod, deps)
       if T.onRegimenInput then T.onRegimenInput(input) end
     elseif s.mode == "result" then
       if input:wasPressed("a") or input:wasPressed("b") then T.resultNext() end
+    elseif s.mode == "rocket" then
+      if T.rocketInput then T.rocketInput(input) end
     end
   end
 
@@ -115,6 +117,8 @@ return function(mod, deps)
     if D and D.prepare3d and T.sim and s and (s.mode == "regimen" or s.mode == "result") then
       D.prepare3d(T.sim, s, T)
     end
+    -- the alley's pictures, rendered here for the same reason (src/training/rocket_scene.lua)
+    if T.rocketPrepare and s and s.mode == "rocket" then T.rocketPrepare(dt) end
   end
 
   local function drawText(text, x, y, opts)
@@ -286,7 +290,7 @@ return function(mod, deps)
   -- the picker's card, the regimen and the results paint the whole playfield (src/hd_top.lua
   -- hands its extent in as Layer.extent, 240x160 units); main then lays the top screen out as
   -- it does for the overworld
-  local FILL_MODES = { courses = true, regimen = true, result = true }
+  local FILL_MODES = { courses = true, regimen = true, result = true, rocket = true }
   function Layer.fillTop()
     local s = T.session
     return s ~= nil and FILL_MODES[s.mode] == true
@@ -306,6 +310,9 @@ return function(mod, deps)
         mod.log:warn("training card draw failed: %s", tostring(err))
         drawCore(G2, s)
       end
+    elseif s.mode == "rocket" and T.drawRocketTop then
+      local ok, err = pcall(T.drawRocketTop, G2, s, T.topExtent)
+      if not ok then mod.log:warn("training alley draw failed: %s", tostring(err)) end
     else
       drawCore(G2, s)
     end
@@ -315,6 +322,8 @@ return function(mod, deps)
       G2.setColor(0, 0, 0, v.black)
       if e then G2.rectangle("fill", e.x, e.y, e.w, e.h) else G2.rectangle("fill", 0, 0, 240, 160) end
     end
+    -- the way into the alley flashes the R over the black
+    if v and v.logo and T.drawRocketLogo then pcall(T.drawRocketLogo, G2, v.logo, T.topExtent, v.logoA) end
     G2.pop()
     T.topExtent = nil
   end
@@ -324,7 +333,7 @@ return function(mod, deps)
   -- As in the game, Core Training and the bag drawer live on the bottom screen alone: the
   -- overworld stays on top and the player walks about. The top-screen layer (which pauses
   -- the field) comes up for the regimen picker, a regimen and its result only.
-  local LAYER_MODES = { courses = true, regimen = true, result = true }
+  local LAYER_MODES = { courses = true, regimen = true, result = true, rocket = true }
   local function syncLayer(s, mode)
     local want = LAYER_MODES[mode] == true
     if want and not s.layered then
@@ -437,6 +446,7 @@ return function(mod, deps)
     local s = T.session
     if not s then return false end
     if s.mode == "regimen" and T.quitRegimen then T.quitRegimen() end
+    if T.rocketClosed then T.rocketClosed(s) end
     Store.save()
     if s.layered then host.popLayer(); s.layered = false end
     T.session = nil
@@ -471,14 +481,21 @@ return function(mod, deps)
   -- into a regimen (from the capture): both screens fade to black over 15 frames and stay
   -- black while it loads; the regimen's own screens then come up out of black
   T.TRANS_REGIMEN = { FADE = 15, SWITCH = 30 }
+  -- into the alley and out (ours): both screens fade to black over FADE, the mode changes,
+  -- the way in fades the R in once on the top screen with its glint over FLASH (the alley's
+  -- music starting with it), then both fade in over IN, the R going with the black
+  T.ROCKET_TRANS = { FADE = 15, FLASH = 50, IN = 20 }
 
   function T.goTo(mode)
     local s = T.session
     if not s or s.trans then return false end
     if mode == s.mode then return true end
     s.trans = { to = mode, from = s.mode, t = 0 }
-    -- a change behind the shutters has the game's one system sound (the results fade instead)
-    if s.mode ~= "result" and T.playSe then T.playSe("transition") end
+    -- a change behind the shutters has the game's one system sound (the results fade instead;
+    -- the alley has its own, src/training/rocket.lua)
+    if mode == "rocket" or s.mode == "rocket" then
+      if T.rocketTrans then T.rocketTrans(mode) end
+    elseif s.mode ~= "result" and T.playSe then T.playSe("transition") end
     onChange()
     return true
   end
@@ -492,6 +509,8 @@ return function(mod, deps)
     local tr = s.trans
     if not tr then return end
     local X = T.TRANS
+    -- a frame the switch made long (the alley's music decoded behind the black) is not counted
+    if tr.freeze then tr.freeze = nil; return end
     tr.t = tr.t + dt * 30
     if tr.from == "result" then
       -- out of the results: both screens fade to black, the picker fades in
@@ -503,6 +522,14 @@ return function(mod, deps)
         setMode("courses")
       end
       if tr.t >= T.TRANS_REGIMEN.SWITCH + T.TRANS.FADE * 2 then s.trans = nil end
+    elseif tr.to == "rocket" or tr.from == "rocket" then
+      local R = T.ROCKET_TRANS
+      if not tr.switched and tr.t >= R.FADE then
+        tr.switched = true
+        setMode(tr.to)
+        if T.rocketSwitched then T.rocketSwitched(tr.to) end
+      end
+      if tr.t >= R.FADE + (tr.to == "rocket" and R.FLASH or 0) + R.IN then s.trans = nil end
     elseif tr.to == "regimen" then
       if tr.t >= T.TRANS_REGIMEN.SWITCH then
         s.trans = nil
@@ -532,6 +559,16 @@ return function(mod, deps)
     local tr = s and s.trans
     if not tr then return nil end
     local X, t = T.TRANS, tr.t
+    if tr.to == "rocket" or tr.from == "rocket" then
+      local R = T.ROCKET_TRANS
+      if t < R.FADE then return { black = t / R.FADE } end
+      local flash = tr.to == "rocket" and R.FLASH or 0
+      if t < R.FADE + flash then return { black = 1, logo = (t - R.FADE) / R.FLASH } end
+      local black = math.max(0, 1 - (t - R.FADE - flash) / R.IN)
+      -- the R goes with the black as the alley comes in
+      if tr.to == "rocket" then return { black = black, logo = 1, logoA = black } end
+      return { black = black }
+    end
     if tr.to == "regimen" then return { black = math.min(1, t / T.TRANS_REGIMEN.FADE) } end
     if tr.from == "result" then
       local X2 = T.TRANS_REGIMEN
@@ -1099,6 +1136,13 @@ return function(mod, deps)
     if not s.message and not s.anim.finish and s.queue and #s.queue > 0 then
       local nxt = table.remove(s.queue, 1)
       say(nxt.text, nxt.secs)
+    end
+    -- the Konami code's R and the alley (src/training/rocket.lua)
+    if T.tickRocket then T.tickRocket(s, dt) end
+    if s.mode == "rocket" then
+      -- in the alley: no punches meanwhile
+      if s.rec.nextAutoAt then s.rec.nextAutoAt = wall() + autoInterval() end
+      return
     end
     if s.mode == "regimen" and T.tickRegimen then
       T.tickRegimen(dt)

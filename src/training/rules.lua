@@ -58,12 +58,59 @@ return function(N, ShotTypes)
   end
   R.BAG_ART, R.GAME_INDEX = { ["black"] = 0 }, {}
   for i, id in ipairs(R.GAME_ORDER) do R.BAG_ART[id] = i; R.GAME_INDEX[id] = i end
+
+  -- the alley dealer's bags (N.ROCKET): <stat>_r / <stat>_rp, stat bags with their own pictures,
+  -- kept out of BAG_LIST and GAME_ORDER (never a blank-bag find, no game text)
+  R.SIZE_LABEL.r, R.SIZE_LABEL.rp = "R", "R+"
+  R.ROCKET_LIST = {}
+  local STAT_NAME = { hp = "HP", atk = "Attack", def = "Defense", spa = "Sp. Atk", spd = "Sp. Def", spe = "Speed" }
+  if N.ROCKET then
+    for _, size in ipairs({ "r", "rp" }) do
+      for _, stat in ipairs(R.STATS) do
+        local base, id = N.ROCKET.BAGS[size], stat .. "_" .. size
+        R.BAGS[id] = { id = id, kind = "stat", stat = stat, size = size, hits = base.hits, ev = base.ev,
+          rocket = true, glow = size == "rp" or nil, price = N.ROCKET.PRICE[size],
+          label = ("%s Bag %s"):format(STAT_NAME[stat], R.SIZE_LABEL[size]) }
+        R.ROCKET_LIST[#R.ROCKET_LIST + 1] = id
+      end
+    end
+  end
+  -- the dealer's bags are sold, never found, won or given: every roll below passes its pick
+  -- through `regular`, which turns one of his into nothing
+  function R.isRocketBag(id) local b = R.BAGS[id]; return b ~= nil and b.rocket == true end
+  local function regular(id)
+    if id ~= nil and R.isRocketBag(id) then return nil end
+    return id
+  end
+  R.regularBag = regular
+  -- a bag's picture id: the game's icons by their place, the dealer's by stat
+  -- (kept per id: the screens ask every frame)
+  local artIds = {}
+  function R.bagArt(id)
+    local key = id or false
+    local s = artIds[key]
+    if s then return s end
+    local b = R.BAGS[id]
+    if b and b.rocket then s = ("training/rbag_%s%s"):format(b.stat, b.size == "rp" and "_plus" or "")
+    else s = ("training/sand_bag_%02d"):format(R.BAG_ART[id] or 0) end
+    artIds[key] = s
+    return s
+  end
+  -- an R+ bag's glow picture id (or nil)
+  local glowIds = {}
+  function R.bagGlowArt(id)
+    local b = R.BAGS[id]
+    if not (b and b.glow) then return nil end
+    local s = glowIds[b.stat]
+    if not s then s = "training/rbag_glow_" .. b.stat; glowIds[b.stat] = s end
+    return s
+  end
   -- where the game keeps the bag screen's strings (a/0/7/3 file 27)
   R.TEXT_LINE = { use = 13, discard = 14, back = 15, yes = 16, no = 17, askUse = 7, askDiscard = 8,
     replaceEffect = 9, replaceBag = 10, resting = 11, descBase = 18 }
 
   -- descriptions in our own words, used until the player's card supplies the game's
-  local SIZE_WORD = { s = "slightly", m = "a fair amount", l = "quite a lot" }
+  local SIZE_WORD = { s = "slightly", m = "a fair amount", l = "quite a lot", r = "a whole lot", rp = "enormously" }
   local EFFECT_TEXT = {
     strength = "More points for every goal in the next regimen.",
     toughen_up = "Balloon Bot hits cost fewer points in the next regimen.",
@@ -328,7 +375,7 @@ return function(N, ShotTypes)
     if not course or course.secret or not course.stat then return R.rollSupportBag(rng, opts) end
     local du = N.BAG_ODDS.clear.double_up * (opts.pokerus and N.BAG_ODDS.DOUBLE_UP_POKERUS_MULT or 1)
     if rng() < math.min(1, du) then return "double_up" end
-    return course.stat .. "_" .. R.clearBagSize(course, remaining)
+    return regular(course.stat .. "_" .. R.clearBagSize(course, remaining)) or R.rollSupportBag(rng, opts)
   end
 
   function R.clearBagSize(course, remaining)
@@ -343,7 +390,7 @@ return function(N, ShotTypes)
     local w = {}
     for k, v in pairs(N.BAG_ODDS.support) do w[k] = v end
     if opts.pokerus then w.double_up = (w.double_up or 0) * N.BAG_ODDS.DOUBLE_UP_POKERUS_MULT end
-    return pick(w, rng) or "big_shot"
+    return regular(pick(w, rng)) or "big_shot"
   end
 
   -- a bag dropping from the empty black bag, or nil
@@ -389,7 +436,7 @@ return function(N, ShotTypes)
     rng = rng or math.random
     local id = R.GAME_ORDER[1 + math.floor(rng() * #R.GAME_ORDER)]
     if id == "team_flare" then return nil end
-    return id
+    return regular(id)
   end
 
   -- a rare find (anything but a plain S stat bag) gives the Pokemon a second wind

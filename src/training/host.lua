@@ -144,6 +144,23 @@ return function(mod, base)
     return ok and s or nil
   end
 
+  -- the player's money (the session's, as the engine's shops read and spend it; at most 999999)
+  H.MAX_MONEY = 999999
+  function H.money()
+    local s = H.session()
+    return s and math.max(0, math.floor(tonumber(s.money) or 0)) or 0
+  end
+  -- takes n from it; false when there is no session or not enough
+  function H.spendMoney(n)
+    local s = H.session()
+    n = math.floor(tonumber(n) or 0)
+    if not s or n < 0 then return false end
+    local have = H.money()
+    if have < n then return false end
+    s.money = have - n
+    return true
+  end
+
   -- ------- EVs and stats
 
   local KEYS = { "hp", "atk", "def", "spa", "spd", "spe" }

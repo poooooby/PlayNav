@@ -12,6 +12,13 @@ return {
   -- the home screen: punching the bag has no sound in the game; the Regimens button and the shutters into the picker are one system sound
   -- (1.74 s: the close, the black and the fade); every shutter change plays it (T.goTo, the PlayNav menu's card, the import screen's play button)
   transition = "se/sys_057",
+  -- the Konami code's alley (ours, PlayNav's own effects whatever the asset option)
+  rocket_sting = "se/rk_sting",    -- the R appears (the code, the way into the alley)
+  rocket_glint = "se/rk_glint",    -- its glint; the dealer showing up
+  rocket_rain = "se/rk_rain",      -- the rain, looped while in the alley
+  rocket_step = "se/rk_step",      -- a footstep down the alley
+  rocket_buy = "se/rk_buy",        -- a sale
+  rocket_open = "se/rk_open",      -- the shop slides open
   -- the picker
   select_course = "se/sp_decide",  -- the first tap on a course
   start_course = { "se/sp_decide", "se/sp_031" },   -- the second tap: two layered

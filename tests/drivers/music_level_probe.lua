@@ -13,7 +13,7 @@ local MEASURE_S = 40
 local SONGS = { "MUS_LITTLEROOT", "MUS_ROUTE101", "MUS_OLDALE", "MUS_PETALBURG", "MUS_ROUTE104",
   "MUS_RUSTBORO", "MUS_VS_WILD", "MUS_VS_TRAINER" }
 local OURS = { "sp_menu", "sp_stage", "sp_stage_02", "sp_clear", "kw_game01", "kw_game01_fast",
-  "kw_game01_faster", "kw_game02", "kw_game03" }
+  "kw_game01_faster", "kw_game02", "kw_game03", "rocket" }
 
 local function body(game, log)
   local U = require("tests.drivers.util")
@@ -104,8 +104,12 @@ local function body(game, log)
       log(("  %-16s not in the cache"):format(name))
     else
       local rms, p90, pk = stats(monoOf(sd), sd:getSampleCount(), sd:getSampleRate())
-      log(("  %-16s rms %6.1f dB  loud %6.1f dB  peak %6.1f dB   (file rms %.1f)"):format(name, rms + mixDb, p90 + mixDb,
-        pk + mixDb, rms))
+      -- a track's own boost on top of MIX (music.lua M.BOOST_DB)
+      local T = X.training and X.training.session
+      local boost = T and T.music and T.music.BOOST_DB and T.music.BOOST_DB["bgm/" .. name] or 0
+      local h = mixDb + boost
+      log(("  %-16s rms %6.1f dB  loud %6.1f dB  peak %6.1f dB   (file rms %.1f%s)"):format(name, rms + h, p90 + h,
+        pk + h, rms, boost ~= 0 and (", boost %+.1f dB"):format(boost) or ""))
     end
     U.wait(1)
   end
