@@ -568,12 +568,40 @@ return function(mod, profile)
     return ok and entry or nil
   end
 
-  function H.icon(mon)
-    if type(mon) ~= "table" then return nil end
-    return iconFor(mon.species, mon.isEgg == true)
+  -- G9 Battle Sprites (the Gen 1 / 2 mod) with its PARTY ICONS on: its own true-colour icons,
+  -- the HD 64x64 cells it publishes for other screens (exports.iconArtHD, two frames), so
+  -- PlayNav's screens show the same icons as the party list. Its atlas is decoded lazily: a
+  -- first ask can answer nil, and the next frame asks again (only a found icon is kept).
+  local G9 = "g9-battle-sprites"
+  local g9Icons = {}
+  local function g9Icon(mon)
+    local lib = mod.find and mod:find(G9)
+    local ex = lib and lib.exports
+    if not (type(ex) == "table" and type(ex.iconArtHD) == "function") then return nil end
+    local g = game()
+    local opts = g and g.mods and g.mods.modOptions and g.mods.modOptions[G9]
+    if type(opts) == "table" and opts.party_icons == false then return nil end
+    local key = mon.isEgg and "EGG" or tostring(mon.species) .. (mon.gender == "female" and "/f" or "")
+    local hit = g9Icons[key]
+    if hit then return hit end
+    local ok0, q0, img, cell = pcall(ex.iconArtHD, mon, 0)
+    local ok1, q1 = pcall(ex.iconArtHD, mon, 1)
+    if not (ok0 and type(q0) == "table" and q0.full and img) then return nil end
+    local size = tonumber(cell) or 64
+    local entry = { image = img, quads = { [0] = q0.full, [1] = (ok1 and type(q1) == "table" and q1.full) or q0.full },
+      frames = 2, w = size, h = size }
+    g9Icons[key] = entry
+    return entry
   end
 
-  function H.iconSpecies(species) return iconFor(species, false) end
+  function H.icon(mon)
+    if type(mon) ~= "table" then return nil end
+    return g9Icon(mon) or iconFor(mon.species, mon.isEgg == true)
+  end
+
+  function H.iconSpecies(species)
+    return (species and g9Icon({ species = species })) or iconFor(species, false)
+  end
 
   -- ------- sound
 

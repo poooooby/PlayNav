@@ -44,6 +44,8 @@ return function(mod, Pointer, G, Rules, Store, host)
   local FLOOR = { x0 = 40, x1 = 280, y0 = 100, y1 = 198 }  -- where the Pokemon's anchor may go
   local SPEED = 47                                          -- layout units a second
   local ICON_K = 1.25         -- a 32x32 party icon drawn 40 across, as the game's poke_icon_2 pane
+  -- an icon of another size (the Game Boy games' 16, another mod's HD 64) drawn the same size
+  local function iconScale(ic) return 32 / ((ic and ic.w) or 32) end
   local RETURN = { 305, 224, 27, 27 }                       -- the blue return (closes), Super Training's
   local BOTTOM_STRIP_H = (240 - 217.5) * 30 / 24
   local FPS = 30
@@ -612,7 +614,8 @@ return function(mod, Pointer, G, Rules, Store, host)
       if not (ic and ic.image and ic.quads) then return end
       local q = ic.quads[math.floor(love.timer.getTime() * 3) % (ic.frames or 1)] or ic.quads[0]
       G2.setColor(1, 1, 1, 1)
-      drawPixel(ic.image, q, x + w / 2, y + h / 2 + 4, 0, k, k, (ic.w or 32) / 2, (ic.h or 32) / 2 + 4)
+      local kk = k * iconScale(ic)
+      drawPixel(ic.image, q, x + w / 2, y + h / 2 + 4, 0, kk, kk, (ic.w or 32) / 2, (ic.h or 32) / 2 + 4 / iconScale(ic))
     end
     for i, mon in ipairs(party) do
       local x, y, w, h = swBox("slot", i)
@@ -942,7 +945,8 @@ return function(mod, Pointer, G, Rules, Store, host)
       local q = icon.quads[pet.frame % (icon.frames or 1)] or icon.quads[0]
       G2.setColor(1, 1, 1, 1)
       if pet.state == "nap" then G2.setColor(0.8, 0.8, 0.9, 1) end
-      drawPixel(icon.image, q, pet.x, by, 0, ICON_K * -pet.facing, ICON_K, (icon.w or 32) / 2, icon.h or 32)
+      local k = ICON_K * iconScale(icon)
+      drawPixel(icon.image, q, pet.x, by, 0, k * -pet.facing, k, (icon.w or 32) / 2, icon.h or 32)
     elseif s.pic and s.pic.image then
       G2.setColor(1, 1, 1, 1)
       drawPixel(s.pic.image, pet.x, by, 0, -pet.facing * 0.6, 0.6, (s.pic.w or 64) / 2, s.pic.h or 64)
@@ -958,7 +962,8 @@ return function(mod, Pointer, G, Rules, Store, host)
     if ic and ic.image and ic.quads then
       G2.setColor(1, 1, 1, 1)
       local q = ic.quads[v.frame % (ic.frames or 1)] or ic.quads[0]
-      drawPixel(ic.image, q, v.x, v.y + 10, 0, ICON_K * -v.facing, ICON_K, (ic.w or 32) / 2, ic.h or 32)
+      local k = ICON_K * iconScale(ic)
+      drawPixel(ic.image, q, v.x, v.y + 10, 0, k * -v.facing, k, (ic.w or 32) / 2, ic.h or 32)
     else
       G2.setColor(0.6, 0.6, 0.7, 1)
       G2.circle("fill", v.x, v.y - 8, 12, 14)

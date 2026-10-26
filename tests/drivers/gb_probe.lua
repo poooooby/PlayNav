@@ -102,6 +102,13 @@ local function body(game, log, dir)
   if gen == 1 then game.save.money = 200000 else game.save.player.money = 200000 end
   U.wait(10)
   local mon = game.save.party[1]
+  -- the party icon PlayNav draws: another mod's (G9 Battle Sprites' HD cell, 64 wide) or the
+  -- game's (16); a mod's atlas may decode a frame or two after the first ask
+  do
+    local ic
+    for _ = 1, 30 do ic = host.icon(mon); if ic and ic.w ~= 16 then break end; U.wait(2) end
+    log(("party icon: %s px (%s)"):format(tostring(ic and ic.w), (ic and ic.w == 64) and "G9 Battle Sprites" or "the game's"))
+  end
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function win(ax, ay)
     local r = X.state().rect
