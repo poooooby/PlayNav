@@ -569,9 +569,10 @@ return function(mod, profile)
   end
 
   -- G9 Battle Sprites (the Gen 1 / 2 mod) with its PARTY ICONS on: its own true-colour icons,
-  -- the HD 64x64 cells it publishes for other screens (exports.iconArtHD, two frames), so
-  -- PlayNav's screens show the same icons as the party list. Its atlas is decoded lazily: a
-  -- first ask can answer nil, and the next frame asks again (only a found icon is kept).
+  -- its full-size HD cells (exports.iconArtHD: 64x64, two frames), the same art its party list
+  -- shows. The first ask decodes its HD atlas, a 3840x3200 texture (47 MB of texture memory)
+  -- that the mod itself loads only for its G9 PARTY SCREEN. Its atlas is decoded lazily: a first
+  -- ask can answer nil, and the next frame asks again (only a found icon is kept).
   local G9 = "g9-battle-sprites"
   local g9Icons = {}
   local function g9Icon(mon)
