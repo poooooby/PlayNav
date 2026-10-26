@@ -106,10 +106,12 @@ local function body(game, log, dir)
   -- game's (16); a mod's atlas may decode a frame or two after the first ask
   do
     local ic
-    for _ = 1, 30 do ic = host.icon(mon); if ic and ic.w == 64 then break end; U.wait(2) end
-    -- (the game's is 16 across; G9's HD cell 64)
-    local g9 = ic and ic.w == 64
-    log(("party icon: %s px (%s)"):format(tostring(ic and ic.w), g9 and "G9 Battle Sprites" or "the game's"))
+    -- (G9's icons are cells of its shared atlas; the game's a 16x32 strip of their own)
+    local function g9(e) return e and e.image and e.image:getWidth() > 64 end
+    for _ = 1, 30 do ic = host.icon(mon); if g9(ic) then break end; U.wait(2) end
+    log(("party icon: %s px (%s)"):format(tostring(ic and ic.w), g9(ic) and "G9 Battle Sprites" or "the game's"))
+    local o = game.mods.modOptions and game.mods.modOptions["g9-battle-sprites"]
+    log("G9 options: party_icons", tostring(o and o.party_icons), "g9_party_screen", tostring(o and o.g9_party_screen))
   end
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function win(ax, ay)

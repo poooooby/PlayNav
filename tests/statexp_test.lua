@@ -118,6 +118,33 @@ eq(base1.statusOf({ status = "SLP" }), "SLP", "Gen 1 status")
 eq(base1.statusOf({ status = "paralyze" }), "PAR", "Gen 2 status")
 check(type(base1.monKey(mon)) == "string", "a key for the mon")
 
+-- G9 Battle Sprites' party icons: the atlas it already holds, never its HD one on PlayNav's account
+do
+  local asked = {}
+  local fakeImg = { getWidth = function() return 960 end }
+  local function art(name, cell)
+    return function(mon, frame)
+      asked[name] = (asked[name] or 0) + 1
+      return { full = name .. ":" .. tostring(frame) }, fakeImg, cell
+    end
+  end
+  local g9 = { exports = { iconArt16 = art("16", 16), iconArtHD = art("hd", 64) } }
+  local g9opts = {}
+  local m2 = { generation = 2, game = { save = { party = {} }, data = { pokemon = {} },
+      mods = { modOptions = { ["g9-battle-sprites"] = g9opts } } },
+    log = fakeMod.log, find = function(_, id) return id == "g9-battle-sprites" and g9 or nil end }
+  local host = load("src/refresh/host_gb.lua")(m2, Gen.profile(2, "crystal"))
+  local ic = host.icon({ species = "CYNDAQUIL" })
+  eq(ic and ic.w, 16, "G9 PARTY SCREEN off: its 16x16 icons")
+  eq(asked.hd, nil, "...its HD atlas never asked for")
+  g9opts.g9_party_screen = true
+  ic = host.icon({ species = "TOTODILE" })
+  eq(ic and ic.w, 64, "G9 PARTY SCREEN on: its HD icons, the atlas it loads itself")
+  g9opts.party_icons = false
+  eq(host.icon({ species = "CHIKORITA" }) and host.icon({ species = "CHIKORITA" }).w, nil,
+    "PARTY ICONS off: the game's own (none in this stand-in's data)")
+end
+
 print(("%d/%d checks passed%s  (play_nav stat exp)"):format(pass, pass + fail,
   fail > 0 and (", " .. fail .. " FAILURES") or ""))
 if fail > 0 then os.exit(1) end

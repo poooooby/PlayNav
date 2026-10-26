@@ -569,26 +569,31 @@ return function(mod, profile)
   end
 
   -- G9 Battle Sprites (the Gen 1 / 2 mod) with its PARTY ICONS on: its own true-colour icons,
-  -- its full-size HD cells (exports.iconArtHD: 64x64, two frames), the same art its party list
-  -- shows. The first ask decodes its HD atlas, a 3840x3200 texture (47 MB of texture memory)
-  -- that the mod itself loads only for its G9 PARTY SCREEN. Its atlas is decoded lazily: a first
-  -- ask can answer nil, and the next frame asks again (only a found icon is kept).
+  -- the same art its party list shows, from whichever of its atlases it already holds: the HD
+  -- cells (exports.iconArtHD, 64x64) when its G9 PARTY SCREEN is on - the one screen it loads that
+  -- 3840x3200 atlas for (47 MB of texture memory) - else the 16x16 cells its party list draws
+  -- (exports.iconArt16), so PlayNav never makes it load the HD atlas on its own account. Two
+  -- frames each. Its atlases are decoded lazily: a first ask can answer nil, and the next frame
+  -- asks again (only a found icon is kept).
   local G9 = "g9-battle-sprites"
   local g9Icons = {}
   local function g9Icon(mon)
     local lib = mod.find and mod:find(G9)
     local ex = lib and lib.exports
-    if not (type(ex) == "table" and type(ex.iconArtHD) == "function") then return nil end
+    if type(ex) ~= "table" then return nil end
     local g = game()
     local opts = g and g.mods and g.mods.modOptions and g.mods.modOptions[G9]
     if type(opts) == "table" and opts.party_icons == false then return nil end
-    local key = mon.isEgg and "EGG" or tostring(mon.species) .. (mon.gender == "female" and "/f" or "")
+    local hd = type(opts) == "table" and opts.g9_party_screen == true
+    local art = hd and ex.iconArtHD or ex.iconArt16
+    if type(art) ~= "function" then return nil end
+    local key = (hd and "hd:" or "16:") .. (mon.isEgg and "EGG" or tostring(mon.species) .. (mon.gender == "female" and "/f" or ""))
     local hit = g9Icons[key]
     if hit then return hit end
-    local ok0, q0, img, cell = pcall(ex.iconArtHD, mon, 0)
-    local ok1, q1 = pcall(ex.iconArtHD, mon, 1)
+    local ok0, q0, img, cell = pcall(art, mon, 0)
+    local ok1, q1 = pcall(art, mon, 1)
     if not (ok0 and type(q0) == "table" and q0.full and img) then return nil end
-    local size = tonumber(cell) or 64
+    local size = tonumber(cell) or (hd and 64 or 16)
     local entry = { image = img, quads = { [0] = q0.full, [1] = (ok1 and type(q1) == "table" and q1.full) or q0.full },
       frames = 2, w = size, h = size }
     g9Icons[key] = entry
