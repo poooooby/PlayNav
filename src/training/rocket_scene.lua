@@ -630,12 +630,100 @@ return function(mod, deps)
     return x, y, D.h * cam.F / d
   end
 
-  -- the rain: slanted streaks falling through the rect, brighter in the lamp's light
-  local RAIN = { N = 90, SPEED = 1.6, LEN = 0.07, SLANT = 0.18 }
+  -- the rain: slanted streaks falling through the rect, brighter in the lamp's light. Every
+  -- streak is a thin quad of one static mesh holding its own numbers (place, speed, phase,
+  -- length, alpha); a vertex shader moves them from the clock, so the rain is one draw and no
+  -- Lua a drop (90 lines a frame, each its own colour and five hashes, lagged a low-power
+  -- device). `PLAIN_N` streaks drawn as lines stand in where the shader does not build.
+  local RAIN = { N = 90, PLAIN_N = 45, SPEED = 1.6, LEN = 0.07, SLANT = 0.18 }
+  -- (RAIN.plain = true: the lines whatever the shader; drivers compare the two)
   Al.RAIN = RAIN
+  local RAIN_SHADER = [[
+varying mediump float vA;
+#ifdef VERTEX
+attribute highp vec4 DropA;   // x seed, speed, phase, length factor
+attribute highp vec4 DropB;   // base alpha, end (0 head / 1 tail), side (-1 / 1), -
+uniform highp vec4 rect;      // ex, ey, ew, eh
+uniform highp vec4 lamp;      // x, y, on (0 / 1), line width
+uniform highp float fallT;    // the clock x SPEED
+uniform highp vec2 fallK;     // length, slant
+vec4 position(mat4 transform_projection, vec4 vertex_position) {
+  highp float yy = mod(DropA.z + fallT * DropA.y, 1.15) - 0.1;
+  highp float x = rect.x + fract(DropA.x + yy * fallK.y) * rect.z;
+  highp float y = rect.y + yy * rect.w;
+  highp float len = fallK.x * rect.w * DropA.w;
+  highp vec2 d = vec2(-len * fallK.y, -len);
+  highp vec2 n = normalize(vec2(-d.y, d.x));
+  highp vec2 p = vec2(x, y) + d * DropB.y + n * DropB.z * lamp.w * 0.5;
+  highp vec2 q = vec2((x - lamp.x) / (rect.z * 0.25), (y - lamp.y) / (rect.w * 0.45));
+  vA = DropB.x + lamp.z * 0.45 * max(0.0, 1.0 - dot(q, q));
+  return transform_projection * vec4(p, 0.0, 1.0);
+}
+#endif
+#ifdef PIXEL
+vec4 effect(vec4 color, Image tex, vec2 tc, vec2 sc) {
+  return vec4(color.rgb, color.a * vA);
+}
+#endif
+]]
+  local rainMesh, rainShader, rainFailed = nil, nil, false
+  local function rainBuild(G2)
+    if rainFailed then return false end
+    if rainMesh then return true end
+    local ok = pcall(function()
+      local v = {}
+      for i = 1, RAIN.N do
+        local a = { hash(i, 21), 0.7 + 0.6 * hash(i, 22), hash(i, 23), 0.6 + 0.8 * hash(i, 24) }
+        local base = 0.18 + 0.12 * hash(i, 25)
+        -- two triangles: head left / right, tail left / right
+        for _, c in ipairs({ { 0, -1 }, { 0, 1 }, { 1, 1 }, { 0, -1 }, { 1, 1 }, { 1, -1 } }) do
+          v[#v + 1] = { a[1], a[2], a[3], a[4], base, c[1], c[2], 0 }
+        end
+      end
+      -- (no VertexPosition: the shader places every corner itself, and with it in the format
+      -- DropA reached the shader as zeros)
+      rainMesh = G2.newMesh({ { "DropA", "float", 4 }, { "DropB", "float", 4 } }, v, "triangles", "static")
+      rainShader = G2.newShader(RAIN_SHADER)
+      rainShader:send("fallK", { RAIN.LEN, RAIN.SLANT })
+    end)
+    if not ok then
+      rainFailed, rainMesh, rainShader = true, nil, nil
+      if mod.log then mod.log:warn("Super Training: the alley's rain shader did not build; drawn as lines") end
+    end
+    return ok
+  end
+
+  local rainRect, rainLamp, rainT = { 0, 0, 0, 0 }, { 0, 0, 0, 0 }, 0
+  -- (a named function for pcall: a closure made each frame was garbage each frame)
+  local sentRect, sentLamp = {}, {}
+  local function changed(cur, sent)
+    local d = false
+    for i = 1, #cur do if sent[i] ~= cur[i] then sent[i], d = cur[i], true end end
+    return d
+  end
+  local function rainDraw(G2)
+    if changed(rainRect, sentRect) then rainShader:send("rect", rainRect) end
+    if changed(rainLamp, sentLamp) then rainShader:send("lamp", rainLamp) end
+    -- (a number, not a table: a table sent each frame left garbage each frame)
+    rainShader:send("fallT", rainT)
+    G2.setShader(rainShader)
+    G2.setColor(0.75, 0.8, 0.95, 1)
+    G2.draw(rainMesh)
+    G2.setShader()
+  end
   local function rain(G2, ex, ey, ew, eh, t, lampX, lampY)
-    G2.setLineWidth(math.max(0.6, eh / 300))
-    for i = 1, RAIN.N do
+    local lw = math.max(0.6, eh / 300)
+    if not RAIN.plain and rainBuild(G2) then
+      rainRect[1], rainRect[2], rainRect[3], rainRect[4] = ex, ey, ew, eh
+      rainLamp[1], rainLamp[2], rainLamp[3], rainLamp[4] = lampX or 0, lampY or 0, lampX and 1 or 0, lw
+      rainT = t * RAIN.SPEED
+      local ok = pcall(rainDraw, G2)
+      if ok then return end
+      G2.setShader()
+      rainFailed = true
+    end
+    G2.setLineWidth(lw)
+    for i = 1, RAIN.PLAIN_N do
       local sx = hash(i, 21)
       local sp = RAIN.SPEED * (0.7 + 0.6 * hash(i, 22))
       local yy = (hash(i, 23) + t * sp) % 1.15 - 0.1
@@ -652,10 +740,11 @@ return function(mod, deps)
     end
   end
 
-  -- raindrops landing on the ground ahead: small rings opening and fading
+  -- raindrops landing on the ground ahead: small rings opening and fading (SPLASHES of them)
+  Al.SPLASHES = 14
   local function splashes(G2, t)
     G2.setLineWidth(0.6)
-    for i = 1, 26 do
+    for i = 1, Al.SPLASHES do
       local period = 0.5 + 0.6 * hash(i, 60)
       local u = ((t + hash(i, 61) * period) % period) / period
       local cyc = floor((t + hash(i, 61) * period) / period)
@@ -665,7 +754,7 @@ return function(mod, deps)
       if sx then
         local k = cam.F / d
         G2.setColor(0.7, 0.75, 0.9, 0.35 * (1 - u))
-        G2.ellipse("line", sx, sy, (0.05 + 0.12 * u) * k, (0.02 + 0.04 * u) * k, 12)
+        G2.ellipse("line", sx, sy, (0.05 + 0.12 * u) * k, (0.02 + 0.04 * u) * k, 10)
       end
     end
   end

@@ -231,7 +231,7 @@ return function(mod, T, deps)
       local M = T.music
       if A and A.music and M and M.ROCKET then pcall(A.music, M.ROCKET) end
       if s.trans then s.trans.freeze = true end
-      local h = T.sfx and T.sfx.play and T.sounds and T.sounds.rocket_rain and T.sfx.play(T.sounds.rocket_rain, { loop = true, volume = 0.8 })
+      local h = T.sfx and T.sfx.play and T.sounds and T.sounds.rocket_rain and T.sfx.play(T.sounds.rocket_rain, { loop = true, volume = 0.6 })
       if h then s.rocket.rain = h end
     else
       stopRain(s)

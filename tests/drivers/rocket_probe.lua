@@ -192,6 +192,32 @@ local function body(game, log)
     U.wait(10)
     garbage("in the shop")
     shot("r08_shop")
+    -- the rain's cost: the alley's draw timed (CPU) and its garbage, the shader's rain against
+    -- the plain lines, with the JIT off as on the Thor (Android's LuaJIT runs interpreted)
+    if Scene and Scene.RAIN then
+      local hasJit = type(jit) == "table" and jit.off
+      if hasJit then jit.off(); jit.flush() end
+      local f = Scene.draw
+      local tsum, n = 0, 0
+      Scene.draw = function(...)
+        local t0 = love.timer.getTime()
+        local a, b = f(...)
+        tsum, n = tsum + (love.timer.getTime() - t0), n + 1
+        return a, b
+      end
+      for _, plain in ipairs({ false, true }) do
+        Scene.RAIN.plain = plain
+        U.wait(10)
+        tsum, n = 0, 0
+        garbage(plain and "rain as lines" or "rain by shader", 120)
+        log(("alley draw, rain %s: %.3f ms a frame (%d frames, jit %s)"):format(
+          plain and "as lines" or "by shader", n > 0 and tsum / n * 1000 or -1, n, hasJit and "off" or "n/a"))
+        shot(plain and "r08b_rain_lines" or "r08a_rain_shader")
+      end
+      Scene.RAIN.plain = nil
+      Scene.draw = f
+      if hasJit then jit.on() end
+    end
     -- money for the run; an R+ (the seventh: HP R+) then an R
     Runtime.getSession().money = 40000
     -- a drag up the list scrolls it; then a tap on a row picks it, a second asks for it
