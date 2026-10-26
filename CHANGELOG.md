@@ -3,6 +3,14 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.4] - 2026-10-26 (beta)
+
+### Added
+
+- Japanese Pokémon names: kana nicknames (a Pokémon from a Japanese game) and the names a Japanese
+  translation mod gives show on every PlayNav screen instead of empty boxes, through the engine's
+  own Plain Pixel font. Balloon Bots take the translated species name too.
+
 ## [0.9.3] - 2026-10-26 (beta)
 
 ### Fixed
