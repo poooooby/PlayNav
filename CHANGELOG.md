@@ -3,7 +3,7 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.8.4] - 2026-10-25 (beta)
 
 ### Added
 
@@ -11,6 +11,11 @@ All notable changes to this mod are documented here. The format follows
   3D stage - from your card image, or a drawn one without it - with the game's camera for each
   species: the lawn, the dotted sky, a rainbow, drifting clouds and rising bubbles, and the top
   screen looking up into the same sky.
+
+### Changed
+
+- Smoother frames on low-power devices: the 3D views and Super Training's screens make far less
+  memory garbage each frame.
 
 ### Fixed
 

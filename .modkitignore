@@ -146,3 +146,6 @@ tests/training_items_test.lua
 tests/drivers/controls_probe.lua
 tests/drivers/head_gap_probe.lua
 tests/drivers/prize_probe.lua
+tests/rocket_test.lua
+tests/drivers/rocket_probe.lua
+tests/drivers/rocket_bags_probe.lua
