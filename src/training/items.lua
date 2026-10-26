@@ -212,7 +212,10 @@ return function(mod, deps)
       local id = regId(def)
       local effectId = nil
       if def.stat and effects then
-        effectId = "PLAYNAV_" .. id
+        -- Gen 2's PACK finds an effect by the item's own id, as the game's records are keyed
+        -- (src/core/gen2/ItemEffects.lua recordFor); under another name it takes only a record
+        -- the engine marked as a mod's, which ours did not pass, so a Wing did nothing there
+        effectId = gen == 2 and id or ("PLAYNAV_" .. id)
         local rec
         if gen == 2 then
           rec = { action = "mod", field = true, battle = false, use = function(ctx)
