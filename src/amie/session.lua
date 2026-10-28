@@ -599,7 +599,6 @@ return function(mod, deps)
     if s.mode ~= "play" then G.enterPlay() end
     s.tool = "games"
     s.feeding = nil
-    say(G.tx("whichGame", nil, "Pick a game."), 2)
     onChange()
     return true
   end
@@ -677,10 +676,6 @@ return function(mod, deps)
     if opts and opts.toPetting then s.tool = nil else s.tool = "games" end
     syncLayer(s)
     Apps:setActive("play", mod.game)
-    local r = s.lastResult
-    if r and G.Games then
-      say(("%s %s: %s  +%d puffs"):format(G.Games.name(r.game), G.Games.diffLabel(r.diff), r.title, #r.puffs), 4)
-    end
     onChange()
     return true
   end
@@ -902,16 +897,6 @@ return function(mod, deps)
 
   -- ------- feeding: a puff held on the Pokemon is eaten bite by bite
 
-  -- the message box is one line; a long nickname plus a long variety name
-  -- is cut down to the variety alone
-  local function puffMessage(s, kind)
-    local msg = ("%s ate the %s!"):format(s.name, Rules.puffName(kind))
-    if host.Font and host.Font.measure then
-      local ok, w = pcall(host.Font.measure, msg)
-      if ok and tonumber(w) and w > 204 then msg = ("Yum! A %s!"):format(Rules.puffName(kind)) end
-    end
-    return msg
-  end
 
   -- can this puff be offered right now? false, "full" | "cannot" | "none"
   function G.canFeed(kind)
@@ -963,7 +948,6 @@ return function(mod, deps)
       affectionChanged(s, before)
       s.feeding = nil
       bump(s, 0.12, 4)
-      say(puffMessage(s, f.kind))
       onChange()
       return "done", hearts
     end
@@ -1023,7 +1007,6 @@ return function(mod, deps)
     s.feeding = nil
     s.eating = 0.9
     bump(s, 0.12, 2)
-    say(puffMessage(s, kind))
     onChange()
     return true, hearts
   end

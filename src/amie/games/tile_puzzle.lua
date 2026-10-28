@@ -862,12 +862,14 @@ return function(mod, Pointer, G, Games, Rules, host)
     G2.setColor(ORANGE[1], ORANGE[2], ORANGE[3], 1)
     G2.rectangle("fill", 0, -D, 320, LH + D)
     if shown then
-      -- the intro: the picture whole under faint lines
+      -- the intro: the picture whole under faint lines, only the grid's extent of the scene (as
+      -- the tiles show it once shuffled: the scene runs on past the frame)
+      local px, py, pw, ph = picRect(g)
+      qd:setViewport(px * k, py * k, pw * k, ph * k, cw, ch)
       G2.setColor(1, 1, 1, 1)
-      G2.draw(pic, 0, 0, 0, 1 / k, 1 / k)
+      G2.draw(pic, qd, px, py, 0, 1 / k, 1 / k)
       G2.setColor(0.3, 0.3, 0.3, 0.55)
       G2.setLineWidth(0.8)
-      local px, py, pw, ph = picRect(g)
       for c = 1, g.cols - 1 do G2.line(px + c * g.pitch, py, px + c * g.pitch, py + ph) end
       for r = 1, g.rows - 1 do G2.line(px, py + r * g.pitch, px + pw, py + r * g.pitch) end
       G2.setLineWidth(1)

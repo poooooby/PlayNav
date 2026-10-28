@@ -99,6 +99,66 @@ local function body(game, log)
   local function visibleSlot()
     for i = 1, 3 do if app.wanted(i) then return i end end
   end
+  -- PROBE_WANTS=<n>: serve n berries (the clock held), logging every want each spot asks for:
+  -- no spot asks for the same berry twice in a row, two spots may ask for the same one at once
+  -- (shot when they do), and the sequence is no fixed cycle
+  local serves = tonumber(os.getenv("PROBE_WANTS"))
+  if serves then
+    local seq, repeats, together, shotTogether = { {}, {}, {} }, 0, 0, false
+    local function note()
+      local now = {}
+      for i2 = 1, 3 do
+        local w = app.wanted(i2)
+        if w then now[#now + 1] = w end
+      end
+      for a = 1, #now do for b = a + 1, #now do
+        if now[a] == now[b] then
+          together = together + 1
+          if not shotTogether then
+            -- (both bubbles settled on their berry)
+            local function settled()
+              local n = 0
+              for i2, sl in ipairs(app.debugState().slots) do
+                if app.wanted(i2) == now[a] and sl.bal and sl.bal.clip:find("wait") then n = n + 1 end
+              end
+              return n >= 2
+            end
+            if waitFor(settled, 60 * 2) then shotTogether = true; U.wait(2); shot("b05w_same_berry_twice") end
+          end
+        end
+      end end
+    end
+    for n = 1, serves do
+      app.debugState().timer = 60
+      if not waitFor(function() note(); return visibleSlot() ~= nil end, 60 * 30) then break end
+      -- (every fourth serve waits for all three to be asking, so asks overlap)
+      if n % 4 == 0 then
+        waitFor(function()
+          note()
+          local c = 0
+          for i2 = 1, 3 do if app.wanted(i2) then c = c + 1 end end
+          return c >= 3
+        end, 60 * 6)
+      end
+      local i = visibleSlot()
+      local w = app.wanted(i)
+      local before = app.debugState().score
+      local bx, by = app.tapPoint("berry", w)
+      local sx, sy = app.tapPoint("slot", i)
+      drag("w" .. n, bx, by, sx, sy, 4)
+      note()
+      -- (a served ask: one entry; the spot's next ask is a new one)
+      if app.debugState().score > before then
+        local list = seq[i]
+        if list[#list] == w then repeats = repeats + 1 end
+        list[#list + 1] = w
+      end
+    end
+    for i2 = 1, 3 do log(("spot %d wants: %s"):format(i2, table.concat(seq[i2], " "))) end
+    log(("same berry twice in a row at one spot: %d; two spots wanting the same berry at once: %d"):format(repeats, together))
+    log("score:", app.debugState().score, "misses:", app.debugState().misses)
+    return
+  end
   -- the first Pokemon rising from below (it asks once it is up)
   waitFor(function()
     for i2 = 1, 3 do
@@ -118,8 +178,10 @@ local function body(game, log)
   U.wait(3)
   shot("b06_bubble")
   do
-    local B = app.screen("balloon")
-    for _, a in ipairs(B.active) do log("balloon clip", a.name, ("%.1f"):format(a.frame), "loop", tostring(a.loop)) end
+    for b = 1, 3 do
+      local B = app.screen("balloon" .. b)
+      for _, a in ipairs(B.active) do log("balloon", b, "clip", a.name, ("%.1f"):format(a.frame), "loop", tostring(a.loop)) end
+    end
     for i2, sl in ipairs(app.debugState().slots) do
       log("slot", i2, "visible", tostring(sl.visible), "want", tostring(sl.want), "bal", sl.bal and sl.bal.clip, sl.bal and tostring(sl.bal.after))
     end

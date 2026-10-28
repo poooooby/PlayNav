@@ -110,7 +110,7 @@ local function body(game, log)
       -- inside LOVE's own mesh bindings - the same draw against a no-op G makes a tenth of
       -- it - so the lytplayer side is as clean as it gets without batching the quads)
       if id == "berry" and app and app.screen then
-        for _, which in ipairs({ "rear", "front", "nuts", "balloon" }) do
+        for _, which in ipairs({ "rear", "front", "nuts", "balloon1" }) do
           local P = app.screen(which)
           if P then measure("  " .. which .. " layout draw alone", function() Sf:render(function(G) P:draw(G) end, 1) end) end
         end

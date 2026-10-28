@@ -269,6 +269,13 @@ local function body(game, log)
       for _ = 1, 12 do U.tap(game, "left"); U.wait(2) end
       waitSecs(0.5)
       log("pad left x12: scroll", ("%.1f"):format(st().scroll))
+      -- (back to the drawer's start: the feeding below takes the first puffs)
+      for _ = 1, 40 do
+        if st().scroll < 1 then break end
+        U.tap(game, "left"); U.wait(2)
+      end
+      waitSecs(0.5)
+      log("drawer back at its start: scroll", ("%.1f"):format(st().scroll))
     end
     local mx, my = app.tapPoint("pet")
     local function pull(id, i)
@@ -305,14 +312,21 @@ local function body(game, log)
       shot("p08a_puff_falls")
       settle(600)
     end
-    -- 3. the meal: held to it, it eats while the puff stays at its mouth
+    -- 3. the meal: a fast drag (two moves from the drawer to low on its body); the close-up
+    -- frames its mouth at app.EAT_AT whatever the finger did, and the puff is brought there
     local px, py = pull("puff", 2)
-    carry("puff", px, py, mx, my)
+    local lowX, lowY = mx, my + 30
+    carry("puff", px, py, lowX, lowY, 2)
     shot("p08_drag")
     waitFor(function() return st().feed == "flash" end, 200)
     U.wait(3)
     shot("p09_meal_flash")
     waitFor(function() return st().feed == "eat" end, 1200)
+    waitSecs(0.8)    -- (the close-up settled)
+    local ex, ey = app.tapPoint("mouth")
+    log(("close-up: mouth at %.0f,%.0f (finger at %.0f,%.0f)"):format(ex or -1, ey or -1, lowX, lowY))
+    shot("p09b_close_up")
+    carry("puff", lowX, lowY, ex, ey, 6)
     log("eating: at mouth", tostring(st().atMouth))
     waitFor(function() local f = R.state().feeding; return f and f.taken >= 1 end, 2400)
     U.wait(2)
@@ -321,16 +335,17 @@ local function body(game, log)
     do
       local f = R.state().feeding
       local taken = f and f.taken or -1
-      carry("puff", mx, my, mx + 90, my - 40, 4)
+      carry("puff", ex, ey, ex + 90, ey - 40, 4)
       waitSecs(1.2)
       local f2 = R.state().feeding
       log("pulled away: at mouth", tostring(st().atMouth), "bites", taken, "->", f2 and f2.taken or "done")
-      carry("puff", mx + 90, my - 40, mx, my, 4)
+      carry("puff", ex + 90, ey - 40, ex, ey, 4)
     end
     waitFor(function() return st().feed == "after" end, 4800)
     U.wait(6)
     shot("p11_meal_done")
-    release("puff", mx, my)
+    log("after the meal: banner", tostring(R.state().message))
+    release("puff", ex, ey)
     settle(2400)
     shot("p12_back_out")
     -- 4. let go of mid-meal: the rest falls away
@@ -339,8 +354,12 @@ local function body(game, log)
       R.state().meters.fullness = 0
       local qx, qy = pull("mid", 1)
       carry("mid", qx, qy, mx, my)
+      waitFor(function() return st().feed == "eat" end, 1200)
+      waitSecs(0.8)
+      local ex2, ey2 = app.tapPoint("mouth")
+      carry("mid", mx, my, ex2, ey2, 4)
       waitFor(function() local f = R.state().feeding; return f and f.taken >= 1 end, 2400)
-      release("mid", mx, my)
+      release("mid", ex2, ey2)
       U.wait(3)
       log("let go mid-meal: jar", n0, "->", #R.puffs(), "feeding", tostring(R.state().feeding ~= nil),
         "falling", st().falling, "feed", tostring(st().feed))
@@ -352,7 +371,7 @@ local function body(game, log)
     log("drawer folded:", ("%.2f"):format(st().strip))
     tapAt("playbtn", app.tapPoint("play_btn"))
     U.wait(30)
-    log("picker:", st().picker and st().picker.stage, st().picker and st().picker.game)
+    log("picker:", st().picker and st().picker.stage, st().picker and st().picker.game, "banner", tostring(R.state().message))
     shot("p13_picker_berry")
     tapAt("right", app.tapPoint("arrow_r")); U.wait(30)
     shot("p14_picker_head")

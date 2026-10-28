@@ -87,7 +87,11 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   local OPEN = {
     rear = { "berry_rear", "background_rear.bclyt" }, front = { "berry_front", "background_front.bclyt" },
-    nuts = { "berry_nuts", "nuts.bclyt" }, balloon = { "berry_balloon", "balloon.bclyt" },
+    nuts = { "berry_nuts", "nuts.bclyt" },
+    -- the thought bubbles: the layout has one pane set per berry kind, so each spot has a copy
+    -- of its own and two Pokemon may want the same berry at once
+    balloon1 = { "berry_balloon", "balloon.bclyt" }, balloon2 = { "berry_balloon", "balloon.bclyt" },
+    balloon3 = { "berry_balloon", "balloon.bclyt" },
     demo = { "berry_demo", "demoanimation02.bclyt" }, rain = { "berry_nutsanim", "nuts_animation.bclyt" },
     reward = { "berry_reward", "reward.bclyt" }, score = { "berry_score", "score.bclyt", { "berry_score", "berry_lang" } },
   }
@@ -135,24 +139,22 @@ return function(mod, Pointer, G, Games, Rules, host)
     return math.random(a, b)
   end
 
-  -- a want nobody else on screen is asking for (each kind has one bubble set)
-  local function pickWant(exclude)
-    for _ = 1, 20 do
-      local k = roll(1, st.kinds)
-      local clash = false
-      for _, sl in pairs(st.slots) do
-        -- (a bubble still closing holds its set too)
-        if sl ~= exclude and ((sl.visible and sl.want == k) or (sl.bal and sl.bal.kind == k)) then clash = true end
-      end
-      if not clash then return k end
-    end
-    return roll(1, st.kinds)
+  -- a slot's next want: any kind but the one it asked for last, whatever the others want (a
+  -- want nobody else held, as before, ran Easy's three kinds over three Pokemon into one fixed
+  -- cycle - each new want was the kind just served, to the spot just served)
+  local function pickWant(sl)
+    local last = sl and sl.lastWant
+    local n = st.kinds
+    if not last or n < 2 then return roll(1, n) end
+    local k = roll(1, n - 1)
+    if k >= last then k = k + 1 end
+    return k
   end
 
   -- ------- the bubbles (balloon: one set per berry kind, moved onto the spot that wants it)
 
   local function bubble(i, kind, clip, after)
-    local B = screen("balloon")
+    local B = screen("balloon" .. i)
     local sl = st.slots[i]
     if not (B and kind) then return end
     local set = SET[kind]
@@ -173,6 +175,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     sl.visible = true
     sl.asking = false
     sl.want = pickWant(sl)
+    sl.lastWant = sl.want
     sl.patience = patienceFor()
     sl.left = sl.patience
     sl.hideTimer = 0
@@ -299,12 +302,15 @@ return function(mod, Pointer, G, Games, Rules, host)
         local P = screen(name)
         P.active, P.over, P.texts, P.images = {}, {}, {}, {}
       end
-      local Rr, F, Dm, N, B, Sc = screen("rear"), screen("front"), screen("demo"), screen("nuts"), screen("balloon"), screen("score")
+      local Rr, F, Dm, N, Sc = screen("rear"), screen("front"), screen("demo"), screen("nuts"), screen("score")
       Rr:play("anm_clouds", { loop = true })
       Rr:play("anm_grass", { loop = true })
       for _, n in ipairs({ "2", "4", "6", "8" }) do Rr:set(n, "visible", false) end
       for k = 1, #NUT do N:set(GHOST[k], "visible", false) end
-      for k = 1, #SET do B:set(SET[k], "visible", false) end
+      for i = 1, 3 do
+        local B = screen("balloon" .. i)
+        for k = 1, #SET do B:set(SET[k], "visible", false) end
+      end
       F:set("4", "visible", false)
       -- the demo: the long one the first time this session, the short one after
       Dm:setText("18", Games.line("berry", "howTo", nil, "Pick Berries for your Pokémon!"), { align = "center", valign = "center" })
@@ -543,8 +549,8 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     -- a bubble's clip ends: its next one (wait loops; close hides the set)
     if st.art then
-      local B = screen("balloon")
-      for _, sl in ipairs(st.slots) do
+      for i, sl in ipairs(st.slots) do
+        local B = screen("balloon" .. i)
         local b = sl.bal
         -- a clip has ended: wait loops, close plays, and a finished close (or a close
         -- played on its own) hides the set; the Pokemon drops once its bubble is gone
@@ -829,7 +835,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     G2.translate(0, -bleed())
     G2.scale(L, L)
     if not st.art then drawNoArt(G2); G2.pop(); return end
-    local Rr, F, N, B, Dm, Rn, Rw = screen("rear"), screen("front"), screen("nuts"), screen("balloon"),
+    local Rr, F, N, Dm, Rn, Rw = screen("rear"), screen("front"), screen("nuts"),
       screen("demo"), screen("rain"), screen("reward")
     G2.push()
     G2.translate(0, D)
@@ -850,7 +856,7 @@ return function(mod, Pointer, G, Games, Rules, host)
           or phase == "play" or phase == "timeUp"
         if show and (sl.lift or 0) > 0 then drawMon(G2, i, sl) end
       end
-      B:draw(G2)
+      for i = 1, 3 do screen("balloon" .. i):draw(G2) end
     end
     -- the berries on the tree (the demo has its own while it runs)
     if phase == "play" or phase == "timeUp" then

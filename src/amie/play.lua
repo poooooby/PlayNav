@@ -74,6 +74,10 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local MON_K_MIN, MON_K_MAX = 2.5, 5.5
   local ZOOM_TOUCH = 1.35         -- the view while a finger is on the Pokemon
   local ZOOM_EAT = 1.7            -- the close-up while it eats (more turns a GBA sprite to blocks)
+  -- where the close-up puts its mouth on screen, whatever the finger does (a fast drag moved the
+  -- view with it and could leave the Pokemon below the puff): a fixed frame the puff is brought to
+  -- (on app: update is at LuaJIT's 60 upvalues)
+  app.EAT_AT = { x = 160, yk = 0.45 }
   local EAT_R = 40                -- how near its mouth (screen units) a held puff must be to be eaten
   -- its mouth (data/amie_mouths.lua) turned over when its picture's head leans to the other side
   -- (the middle of the top HEAD_BAND's pixels, both more than HEAD_SIDE_MIN off the middle)
@@ -1048,8 +1052,8 @@ return function(mod, Pointer, G, Rules, Petting, host)
     if s.tool == "games" and not picker then openPicker(s) end
     if s.tool ~= "games" and picker then picker = nil end
 
-    -- a held puff touches the Pokemon: the meal starts (the flash, a close-up about its mouth,
-    -- which stays under the finger); a refusal (full, can't eat) is said once a drag
+    -- a held puff touches the Pokemon: the meal starts (the flash, a close-up with its mouth at
+    -- EAT_AT, where the puff is then brought); a refusal (full, can't eat) is said once a drag
     if drag and not feed and wake.stage == "awake" then
       local pl = placement(s)
       local sx, sy = toScene(drag.x, drag.y)
@@ -1064,7 +1068,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
               stars[i] = { a = a, v = 90 + math.random() * 80, r = 6 + math.random() * 6,
                 kind = (i % 2 == 0) and "lyt/amie_play/star_normal" or "lyt/amie_play/star_easy" }
             end
-            want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.mouthX, pl.mouthY, drag.x, drag.y
+            want.z, want.fx, want.fy, want.px, want.py = ZOOM_EAT, pl.mouthX, pl.mouthY, app.EAT_AT.x, LH * app.EAT_AT.yk
           else
             drag.refused = true
             buzzPattern("bad"); G.se("refuse")     -- full, or it can't eat: it turns the puff away
@@ -1082,8 +1086,6 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local my = view.py + (pl.mouthY - view.fy) * view.z
       feed.atMouth = drag ~= nil and (drag.x - mx) ^ 2 + (drag.y - my) ^ 2 <= EAT_R * EAT_R
       if feed.stage == "flash" then
-        -- under the flash the mouth follows the puff, so it is at the finger when the flash clears
-        if drag then want.px, want.py = drag.x, drag.y end
         if feed.t >= 0.6 then feed.stage, feed.t = "eat", 0 end
       elseif feed.stage == "eat" then
         local f = s.feeding
@@ -1794,6 +1796,11 @@ return function(mod, Pointer, G, Rules, Petting, host)
       local sx, sy = pl.cx + zx * pl.rx * 0.9, pl.cy + zy * pl.ry * 0.9
       local lx, ly = view.px + (sx - view.fx) * view.z, view.py + (sy - view.fy) * view.z
       return fromLyt(lx, ly)
+    end
+    if what == "mouth" then
+      -- its mouth where the view puts it now (the meal's close-up eases it to app.EAT_AT)
+      local pl = placement(s)
+      return fromLyt(view.px + (pl.mouthX - view.fx) * view.z, view.py + (pl.mouthY - view.fy) * view.z)
     end
     if what == "off" then
       -- a point clear of the Pokemon (a held hand there asks for a high five): beside it at its

@@ -10,6 +10,22 @@ All notable changes to this mod are documented here. The format follows
 - NaviPlay steps aside on the second screen while a **Galar Rising** raid shows its battle buttons
   there, and comes back when the raid ends. The two no longer fight over the screen.
 
+## [Unreleased]
+
+### Changed
+
+- Pokémon-Amie shows fewer banners in PLAY: none when the minigame menu opens (its own title already
+  asks), none recapping a minigame when you come back (the results screen showed it), and none after
+  a Poké Puff is eaten.
+- Feeding holds still: once a Poké Puff touches your Pokémon the view zooms in on its mouth in one
+  steady spot, however fast you dragged, and you bring the puff to it.
+- Berry Picker no longer falls into a pattern. A Pokémon never asks for the same Berry twice in a
+  row, and two Pokémon may ask for the same Berry at once.
+
+### Fixed
+
+- Tile Puzzle no longer shows the scenery past the puzzle's frame before the pieces are shuffled.
+
 ## [1.0.0] - 2026-10-27
 
 ### Changed
