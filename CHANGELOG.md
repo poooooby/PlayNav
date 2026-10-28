@@ -10,7 +10,7 @@ All notable changes to this mod are documented here. The format follows
 - NaviPlay steps aside on the second screen while a **Galar Rising** raid shows its battle buttons
   there, and comes back when the raid ends. The two no longer fight over the screen.
 
-## [Unreleased]
+## [1.0.1] - 2026-10-28
 
 ### Changed
 
