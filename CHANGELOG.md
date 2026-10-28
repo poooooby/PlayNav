@@ -3,6 +3,19 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.0.0] - 2026-10-27
+
+### Changed
+
+- PlayNav is now **NaviPlay**. It updates as the same mod; your saves and settings carry over.
+
+### Added
+
+- **GEN 1/2 SPRITES** option (NaviPlay / Modded). On Red, Blue, Yellow, Gold, Silver and Crystal,
+  **Modded** shows your Pokémon with an installed sprite mod's art (such as G9 Battle Sprites),
+  front and back, in Pokémon-Amie, its minigames and Super Training. NaviPlay's own Crystal sprites
+  stay the default and fill in for any Pokémon the mod has no art for.
+
 ## [0.9.6] - 2026-10-26 (beta)
 
 ### Fixed

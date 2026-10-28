@@ -1,7 +1,7 @@
 {
   "id": "play_nav",
-  "name": "PlayNav",
-  "version": "0.9.6",
+  "name": "NaviPlay",
+  "version": "1.0.0",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -27,7 +27,7 @@
   ],
   "experimental": false,
   "affects_link": false,
-  "description": "Beta. Pokemon-Amie and Super Training from X, Y, Omega Ruby and Alpha Sapphire on a DS-style touch screen (split screen, or a second display such as the AYN Thor). Pet your Pokemon, feed it Poke Puffs, play the Amie minigames, decorate its room and train its EVs. Gen 1, 2 and 3.",
+  "description": "Pokemon-Amie and Super Training from X, Y, Omega Ruby and Alpha Sapphire on a DS-style touch screen (split screen, or a second display such as the AYN Thor). Pet your Pokemon, feed it Poke Puffs, play the Amie minigames, decorate its room and train its EVs. Gen 1, 2 and 3.",
   "optional_imports": [
     {
       "id": "oras_cci",
@@ -47,7 +47,7 @@
         "0563f9dee1b95de32d579e40c20e2bfc"
       ],
       "max_size": 2147483648,
-      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Any decrypted Omega Ruby or Alpha Sapphire dump works (card image, trimmed or not, CIA, or Azahar's compressed .zcci); PlayNav checks each piece it uses and draws its own for any that differ. Optional: without it, PlayNav plays with its own art, sounds, words and music. The copy can be removed from Imported files once the art has been extracted."
+      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Any decrypted Omega Ruby or Alpha Sapphire dump works (card image, trimmed or not, CIA, or Azahar's compressed .zcci); NaviPlay checks each piece it uses and draws its own for any that differ. Optional: without it, NaviPlay plays with its own art, sounds, words and music. The copy can be removed from Imported files once the art has been extracted."
     }
   ],
   "github": "poooooby/PlayNav"

@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="imgs/banner.png" alt="PlayNav" width="780">
-</p>
+<h1 align="center">NaviPlay</h1>
 
 <div align="center">
 
@@ -9,12 +7,6 @@ train them, on a DS-style touch screen in Red, Blue, Yellow, Gold, Silver, Cryst
 Sapphire, Emerald, FireRed and LeafGreen.*
 
 </div>
-
-> [!CAUTION]
-> **PlayNav is in beta.** Expect bugs, missing pieces and balance that
-> changes between releases. Back up your save before playing with it, and please report what
-> you find.
-
 
 A mod for [Gen1Recomp](https://github.com/bryanthaboi/gen1recomp)'s Generation 1, 2 and 3 games. It
 brings **Pokémon-Amie** and **Super Training** from X, Y, Omega Ruby and Alpha Sapphire, played
@@ -37,23 +29,23 @@ on a touch screen below the game or on a device's second display.
 
 ### Core Mechanics
 
-- 📱 **A touch screen of your own:** It appears only when you call PlayNav, laid out exactly as
+- 📱 **A touch screen of your own:** It appears only when you call NaviPlay, laid out exactly as
   Kanto Gear lays out its own screen, with the same Display Mode choices: **Fullscreen Swap**
-  (PlayNav or the game fills the window, Y swaps them), **Combined Screen** (stacked, side by side,
+  (NaviPlay or the game fills the window, Y swaps them), **Combined Screen** (stacked, side by side,
   or a panel over the game) or **Separate Screens** (a second display, such as the AYN Thor's).
   With **K-Gear** it simply follows Kanto Gear's settings, so switching between the two is
   seamless. The touch screen is always drawn at your display's full sharpness.
 - 🧸 **Pokémon-Amie:** Spend time with your Pokémon to raise its affection, and it fights better
   for you.
 - 🏋️ **Super Training:** Raise your Pokémon's EVs with training bags and shooting regimens.
-- 🖼️ **Your choice of look and sound:** the first time you open PlayNav its screen asks.
+- 🖼️ **Your choice of look and sound:** the first time you open NaviPlay its screen asks.
   **Begin extraction** builds the art, music, sound effects and English text from your own Alpha
   Sapphire or Omega Ruby copy, for the real 3DS look. **Use fallback assets** needs no copy:
-  every screen is drawn by PlayNav itself, with its own sounds and words and the GBA games' own
+  every screen is drawn by NaviPlay itself, with its own sounds and words and the GBA games' own
   songs for music. Switch between the two any time with **USE ROM ASSETS**.
-- 🧭 **The PlayNav menu:** **PLAYNAV** on the START menu opens PlayNav on the touch screen,
+- 🧭 **The NaviPlay menu:** **NAVIPLAY** on the START menu opens NaviPlay on the touch screen,
   with a card for each app (**Pokémon-Amie** and **Super Training**) as the game's PlayNav lists
-  them. Tap one to open it; closing an app brings you back to the menu, and the x (or PLAYNAV
+  them. Tap one to open it; closing an app brings you back to the menu, and the x (or NAVIPLAY
   again) closes it.
 - 📳 **Haptics:** On a phone or handheld you feel your touches: a tick for menu presses, a
   pulse for a good stroke, a bite or a hit that lands, two knocks when your Pokémon doesn't like
@@ -66,7 +58,7 @@ on a touch screen below the game or on a device's second display.
 
 ### Pokémon-Amie 💕
 
-- 🏠 **The Amie room:** **Pokémon-Amie** in the PlayNav menu opens a room where your Pokémon wanders,
+- 🏠 **The Amie room:** **Pokémon-Amie** in the NaviPlay menu opens a room where your Pokémon wanders,
   plays and naps. It's laid out from the game's own screen, scalloped frame and all. Tap your
   Pokémon for **PLAY**, **DECORATE** or **SWITCH** (another party member); while the menu is
   up, bubbles over it show how much it wants Poké Puffs and play, and how fond of you it is.
@@ -93,12 +85,12 @@ on a touch screen below the game or on a device's second display.
 - 🔊 **Sound effects:** Amie plays a sound for every moment, at the game's effects volume:
   petting, eating, waking and dozing, the high five, DECORATE, visitors coming and going, and
   every minigame moment from START! to the HIGH SCORE stamp. With your card image they're the
-  3DS game's own; without it, PlayNav's, shaped after them.
+  3DS game's own; without it, NaviPlay's, shaped after them.
 - 🎵 **Minigame music:** each minigame has its own theme, following the game's music settings.
   With your card image it's the 3DS game's (Berry Picker's speeds up as time runs out, and Head
   It's rises a key in FEVER); without it, a song from your GBA game. Play and the room keep your
   area's music, as the game does.
-- 🎮 **Controller:** wherever PlayNav has the screen you can also play with the pad: A wakes
+- 🎮 **Controller:** wherever NaviPlay has the screen you can also play with the pad: A wakes
   your Pokémon and opens the minigames, SELECT the Poké Puff drawer; the minigame and regimen
   pickers take the D-pad and A; Head It heads with left / up / right, Tile Puzzle moves a
   cursor; end buttons and results take A and B. Feeding, petting and Berry Picker are touch.
@@ -138,9 +130,9 @@ on a touch screen below the game or on a device's second display.
 
 ### Super Training 🎈
 
-- 🥊 **Core Training:** **Super Training** in the PlayNav menu puts your Pokémon beside a punching bag on
+- 🥊 **Core Training:** **Super Training** in the NaviPlay menu puts your Pokémon beside a punching bag on
   the touch screen while you keep exploring on the top screen (the blue return button goes back
-  to the menu; PLAYNAV on the START menu closes it all), with the Effort-o-Meter for its base stats and EVs. Tap anywhere in the room to punch the
+  to the menu; NAVIPLAY on the START menu closes it all), with the Effort-o-Meter for its base stats and EVs. Tap anywhere in the room to punch the
   bag, one punch at a time. Your Pokémon also punches the bag once a minute on its own, even with the screen
   closed.
 - 😴 **Resting:** After half an hour to an hour, or every 3 to 5 bags it clears, whichever comes
@@ -220,28 +212,29 @@ on a touch screen below the game or on a device's second display.
 
 ## ⚙️ Options
 
-Open **OPTIONS → MODS → PlayNav**.
+Open **OPTIONS → MODS → NaviPlay**.
 
 | Option | Choices | Default | What it does |
 |---|---|---|---|
 | **AFFECTION BENEFITS** | On / Off | On | Affection's bonuses in battle. Off for vanilla battles. |
-| **DISPLAY MODE** | K-Gear / Fullscreen Swap / Combined Screen / Separate Screens | K-Gear | Where the touch screen goes when you call PlayNav (the START menu's PLAYNAV or Kanto Gear's apps; it never shows otherwise). The same choices and settings as Kanto Gear's Display Mode, so every dual-screen mod reads alike. **K-Gear** uses Kanto Gear's own settings for all of this (the rows below hide), so you set it once in the Gear; without Kanto Gear it uses a second display when there is one, else Combined Screen. |
-| **START SCREEN** | Game / PlayNav | PlayNav | Fullscreen Swap: which one shows first when you call PlayNav. Y (F6 on a keyboard) swaps them. |
-| **LAYOUT** | Auto / Stacked / Side by Side / Overlay | Auto | Combined Screen: the game and PlayNav one above the other, side by side, or PlayNav as a panel over the game. |
-| **PRIMARY VIEW** | Game / PlayNav | Game | Combined Screen: which one gets the larger part. |
+| **DISPLAY MODE** | K-Gear / Fullscreen Swap / Combined Screen / Separate Screens | K-Gear | Where the touch screen goes when you call NaviPlay (the START menu's NAVIPLAY or Kanto Gear's apps; it never shows otherwise). The same choices and settings as Kanto Gear's Display Mode, so every dual-screen mod reads alike. **K-Gear** uses Kanto Gear's own settings for all of this (the rows below hide), so you set it once in the Gear; without Kanto Gear it uses a second display when there is one, else Combined Screen. |
+| **START SCREEN** | Game / NaviPlay | NaviPlay | Fullscreen Swap: which one shows first when you call NaviPlay. Y (F6 on a keyboard) swaps them. |
+| **LAYOUT** | Auto / Stacked / Side by Side / Overlay | Auto | Combined Screen: the game and NaviPlay one above the other, side by side, or NaviPlay as a panel over the game. |
+| **PRIMARY VIEW** | Game / NaviPlay | Game | Combined Screen: which one gets the larger part. |
 | **SECONDARY SIZE** | Auto / 20% – 80% | Auto | Combined Screen: how much of the window the smaller part takes. |
 | **BOTTOM SAFE AREA** | Off / 10% – 40% | Off | Combined Screen: keep the bottom of the window free for touch controls (a phone's on-screen buttons). |
 | **OVERLAY CORNER** | Top Left / Top Right / Bottom Left / Bottom Right | Bottom Right | Combined Screen, Overlay: where the panel sits. |
 | **OVERLAY BUTTON** | Off / R3 / L3 / F7 | Off | Combined Screen, Overlay: a button that hides and shows the panel. |
-| **PLAYNAV OUTPUT** | Auto / Main Screen / Second Screen | Auto | Separate Screens: which display PlayNav uses. Main Screen keeps PlayNav on your main screen and sends the game to the second display. |
-| **QUICK SWAP (Y)** | On / Off | Off | Y (F6 on a keyboard) swaps the game and PlayNav. |
+| **NAVIPLAY OUTPUT** | Auto / Main Screen / Second Screen | Auto | Separate Screens: which display NaviPlay uses. Main Screen keeps NaviPlay on your main screen and sends the game to the second display. |
+| **QUICK SWAP (Y)** | On / Off | Off | Y (F6 on a keyboard) swaps the game and NaviPlay. |
 | **HIDE VIRTUAL PAD** | On / Off | On | Hide the on-screen pad while the touch screen is in use. |
-| **USE ROM ASSETS** | On / Off | On | On: the 3DS game's own art, layouts, music, sounds and text, from your Omega Ruby or Alpha Sapphire copy (nothing of PlayNav's stands in). Off: PlayNav's own, no copy needed. **Use fallback assets** on the PlayNav screen turns it off; turning it back on checks for your copy again. |
+| **USE ROM ASSETS** | On / Off | On | On: the 3DS game's own art, layouts, music, sounds and text, from your Omega Ruby or Alpha Sapphire copy (nothing of NaviPlay's stands in). Off: NaviPlay's own, no copy needed. **Use fallback assets** on the NaviPlay screen turns it off; turning it back on checks for your copy again. |
 | **EXTRACT OR/AS ASSETS ON BOOT** | On / Off | On | Once you have chosen to extract, resume or start the unpacking automatically at the next start. |
-| **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the PlayNav screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
+| **CLEAR EXTRACTED ART** | Press To Clear | Press To Clear | Press it to delete the unpacked art, music, sound and text; the NaviPlay screen then shows **Begin extraction** to unpack them again, or the missing-card warning if the card image is no longer imported. In the game it clears at once and reads Press To Clear again; in the launcher it reads Clears At Next Start until you're in the game (press it again to undo). |
 | **3D AMIE** | On / Off | Off | Play with your Pokémon in Pokémon-Amie on the game's own 3D stage, both screens, with the game's camera for its species. With your card image it's the game's own stage; without it, a drawn one. Off, or on a device that can't draw it: the flat lawn and sky. |
 | **3D SUPER TRAINING** | On / Off | Off | Play Super-Training Regimens in a real 3D stadium as the game does: you circle the balloon, the camera riding with you; the right stick or the mouse wheel steps nearer or farther. With your card image it's the game's own stadium; without it, a drawn one. Off, or on a device that can't draw it: the flat view. |
 | **HD RENDERING** | On / Off | On | Draw both screens at your display's full resolution. Off: the plain low-resolution look. |
+| **GEN 1/2 SPRITES** | NaviPlay / Modded | NaviPlay | Red, Blue, Yellow, Gold, Silver and Crystal: NaviPlay draws your Pokémon with its own full-colour Crystal sprites. **Modded** uses a sprite mod's art instead (such as G9 Battle Sprites), front and back, wherever that mod has art for a Pokémon, and NaviPlay's own wherever it has none. |
 | **HAPTICS** | High / Medium / Low / Off | Medium | How strongly your phone or handheld vibrates for touches and play: menu presses, petting, bites, high fives, minigame hits, punching bags and Balloon Bot hits. No effect on a PC. |
 | **LOW POWER MODE** | On / Off | Off | For a phone or handheld with little memory: the touch screen is sent to a second display at half the resolution, a quarter of the pixels each frame. Slightly softer there, much lighter on the device. |
 
@@ -250,11 +243,11 @@ Open **OPTIONS → MODS → PlayNav**.
 1. Download the latest release from the [Releases](https://github.com/poooooby/PlayNav/releases)
    page.
 2. Import it with the Gen1Recomp Mod Manager, or drop it in your mods folder.
-3. Enable **PlayNav**.
+3. Enable **NaviPlay**.
 4. **For the 3DS art and text (optional):** open the mod in the launcher, choose
    **Imported files**, then **Choose file**. Pick your own decrypted **Pokémon Omega Ruby or
    Alpha Sapphire (USA)**: a card image (`.cci` / `.3ds`, trimmed or not) or a decrypted
-   `.cia`. Without one, PlayNav plays with its own art, sounds and words. PlayNav checks each
+   `.cia`. Without one, NaviPlay plays with its own art, sounds and words. NaviPlay checks each
    piece it uses as it unpacks them, and draws its own art for any piece your copy holds
    differently. On Gen1Recomp builds from before mod-checked imports (before 0.3.96), the
    launcher accepts only this exact Alpha Sapphire file:
@@ -265,19 +258,19 @@ Open **OPTIONS → MODS → PlayNav**.
    | **Size** | 2,147,483,648 bytes (2 GiB) |
    | **MD5** | `0563f9dee1b95de32d579e40c20e2bfc` |
 
-   The launcher keeps a private copy. The first time PlayNav starts, its screen
+   The launcher keeps a private copy. The first time NaviPlay starts, its screen
    asks: **Begin extraction** unpacks the art, music, sound effects and text with a progress
    bar (a few seconds, in the background while you play), then tells you the copy can be
-   removed under Imported files; **Use fallback assets** uses PlayNav's own instead. Without a
+   removed under Imported files; **Use fallback assets** uses NaviPlay's own instead. Without a
    copy, or with the wrong one, the screen says so (**OR/AS ROM not found** / **Incorrect ROM
-   added**) and offers the fallback assets; if you add the right copy later, PlayNav offers
+   added**) and offers the fallback assets; if you add the right copy later, NaviPlay offers
    it again on the next start.
 
 ## 🔗 Works With
 
 - [Kanto Gear](https://github.com/AverageConsumer/kanto-gear): touch battle commands, bag and
-  pad. PlayNav doesn't do controls; the two share the second display. PlayNav has it only while
-  the PlayNav menu, Amie or Super Training is open, and Kanto Gear is back on it the moment you
+  pad. NaviPlay doesn't do controls; the two share the second display. NaviPlay has it only while
+  the NaviPlay menu, Amie or Super Training is open, and Kanto Gear is back on it the moment you
   close them. Pokémon-Amie and Super Training are
   also apps in the Gear's Silph Store: get them, put them on the Gear's home screen, and open
   them from there.
@@ -289,13 +282,12 @@ Open **OPTIONS → MODS → PlayNav**.
 
 ## 📌 Good to Know
 
-- 🧪 **Beta:** Super Training's rules, damage, attacks, balloon sizes and timings are read from
-  the game's own code and data, and checked against recordings of the game; on the flat view a
-  few things are tuned for a flat touch screen (bigger hitboxes you can see, homing you can
-  outrun, quicker movement), while the 3D stadium plays them the game's way. Balance may change
-  between releases.
+- 🧪 **Faithful, tuned for touch:** Super Training's rules, damage, attacks, balloon sizes and
+  timings are read from the game's own code and data, and checked against recordings of the game;
+  on the flat view a few things are tuned for a flat touch screen (bigger hitboxes you can see,
+  homing you can outrun, quicker movement), while the 3D stadium plays them the game's way.
 - 🎮 **Generations 1, 2 and 3.** Red, Blue, Yellow, Gold, Silver, Crystal, Ruby, Sapphire,
-  Emerald, FireRed and LeafGreen. PlayNav finds out which game it is on by itself.
+  Emerald, FireRed and LeafGreen. NaviPlay finds out which game it is on by itself.
 - 🕹️ **On Gen 1 and 2,** Super Training works in those games' Stat Exp: a stat holds up to 252
   EVs (Stat Exp 63,504, the stat's full bonus), there is no 510 total, and Sp. Atk and Sp. Def
   bags and regimens train the one Special stat. A Pokémon is Fully Trained with all five stats
@@ -308,9 +300,9 @@ Open **OPTIONS → MODS → PlayNav**.
   fully.
 - 🤚 **Petting spots** cover broad areas (head, face, belly...) of the sprite rather than exact
   pixels, and the visitors are Pokémon from your Pokédex rather than other players'.
-- 🪶 **The Wings and stones** are items the original game doesn't have. If you remove PlayNav, a save
+- 🪶 **The Wings and stones** are items the original game doesn't have. If you remove NaviPlay, a save
   that holds them shows them as numbers.
-- 🔁 **Coming from DS Touch?** PlayNav was called DS Touch in its early test builds. Your
+- 🔁 **Coming from DS Touch?** NaviPlay was called DS Touch in its early test builds. Your
   affection, puffs, Décor and training records carry over by themselves on the first load, and
   the art is unpacked once more.
 
@@ -327,7 +319,7 @@ Open **OPTIONS → MODS → PlayNav**.
   and descriptions come from [PokeAPI](https://pokeapi.co).
 - **Super Training stadium and hover board, the Amie cottage and play sky, and the regimen
   picker's music, along with other sprites and music:** original art and music by Wooble for
-  PlayNav.
+  NaviPlay.
 - **Balloon Bot sprites:** the Gen 9 Pack's Pokémon battler sprites — Gen 1-5 Pokémon by
   veekun, Gen 6 Pokémon by all contributors to the Smogon X/Y Sprite Project.
 - **Gen 1 and 2 Pokémon sprites:** Pokémon Crystal's fronts and backs, from the
