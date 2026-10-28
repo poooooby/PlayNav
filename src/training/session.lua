@@ -888,8 +888,8 @@ return function(mod, deps)
   -- ------- the bag screen's words: the game's own from the player's card when extracted,
   -- else ours. {BAG} / {MON} are filled in.
 
-  -- the card's lines that speak of something PlayNav does not have, in our words: Scatterbug
-  -- Lugs Back!'s blurb (75 + order 28) sends the balloon "back from the tutorial", and PlayNav
+  -- the card's lines that speak of something NaviPlay does not have, in our words: Scatterbug
+  -- Lugs Back!'s blurb (75 + order 28) sends the balloon "back from the tutorial", and NaviPlay
   -- has no tutorial regimens
   T.CARD_TEXT = {
     training_courses = {
@@ -898,7 +898,7 @@ return function(mod, deps)
   }
 
   local function gameText(file, line)
-    -- PlayNav's own words (data/training_words.lua, set by main): never the card image's
+    -- NaviPlay's own words (data/training_words.lua, set by main): never the card image's
     local Wd = T.words
     if Wd then
       local f = Wd[file]

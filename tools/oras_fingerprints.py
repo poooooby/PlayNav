@@ -7,7 +7,7 @@ Twin of tools/oras_fingerprints.lua, which writes the table: here the RomFS walk
 tools/romfs_extract.py, the GARC tables tools/garc_dump.py and the hash zlib.crc32.
 Prints every row that differs and exits 1 if any does. Against Alpha Sapphire
 (USA) Rev 2 every row must match; against another dump it shows which parts
-PlayNav would fall back on.
+NaviPlay would fall back on.
 """
 
 from __future__ import annotations

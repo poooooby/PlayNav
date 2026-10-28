@@ -1,5 +1,5 @@
 -- Super Training's and Pokemon-Amie's sound effects (its room, PLAY, DECORATE and minigames),
--- PlayNav's own: each made on the
+-- NaviPlay's own: each made on the
 -- chip synth (src/chipsynth.lua M.effect; the layer fields are described there), under the ids
 -- data/training_sounds.lua and data/amie_sounds.lua map the events to. The ones the game loops
 -- while something lasts (the charge, the wind-up, a ball in the air; the berry rain, a score

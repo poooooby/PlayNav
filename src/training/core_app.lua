@@ -125,7 +125,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
     ROOM = rect(160, 112.5 + SHAPE.D / 2, 320, 105 + SHAPE.D)
     local hx, hy = roomPt(PANE.hex[1], PANE.hex[2])
     RADAR = { cx = hx * L, cy = hy * L - BLEED, r = PANE.hex.r * SHAPE.K * L }
-    -- PlayNav's return button (message layout pane ab, 27x27 at 305,224)
+    -- NaviPlay's return button (message layout pane ab, 27x27 at 305,224)
     CLOSE = { x = (305 - 18) * L, y = (224 + SHAPE.D - 18) * L - BLEED, w = 36 * L, h = 36 * L }
     app.CLOSE = CLOSE
     -- the Konami code's R button, the return button's mirror (src/training/rocket.lua)
@@ -151,7 +151,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   local function inRect(x, y, r) return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h end
-  -- PlayNav's return button (message layout pane ab, 27x27 at 305,224) leaves Super Training
+  -- NaviPlay's return button (message layout pane ab, 27x27 at 305,224) leaves Super Training
   local RETURN_PANE = { 305, 224, 27, 27 }
   local ROCKET_PANE = { 15, 224, 27, 27 }
 
@@ -1096,7 +1096,7 @@ return function(mod, Pointer, T, Rules, Radar, host)
   end
 
   -- the PlayNav strip over the top of the bottom screen, its stepped edge at both ends, and
-  -- the same strip upside down along the bottom where PlayNav's icon row sits
+  -- the same strip upside down along the bottom where NaviPlay's icon row sits
   -- the strip's middle is recessed (its texture's last 6 of 30 rows are clear there): sized so
   -- that recessed edge meets the buttons' flat lower edge (217.5), the raised ends overlapping
   -- them

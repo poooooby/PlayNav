@@ -1,6 +1,6 @@
 -- Driver: PLAY for a list of species, each awake with its mouth marked (play.lua app.debugMouth:
 -- where a held Poke Puff is eaten, from data/amie_mouths.lua), one shot each; the touch screen's
--- rect is logged for cropping. PROBE_LIST=NAME,NAME,... (SPECIES_ names), PROBE_FALLBACK=1 PlayNav's
+-- rect is logged for cropping. PROBE_LIST=NAME,NAME,... (SPECIES_ names), PROBE_FALLBACK=1 NaviPlay's
 -- own art.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/mouth_probe.lua love .

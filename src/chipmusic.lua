@@ -1,4 +1,4 @@
--- PlayNav's own sound effects on the main thread: starts the render job (src/chip_job.lua)
+-- NaviPlay's own sound effects on the main thread: starts the render job (src/chip_job.lua)
 -- once, polls it from the tick, and turns its WAVs into the SoundData src/sfx.lua plays (as
 -- Assets.sound). Until one is ready its id is still ours (silence, never the card image's).
 --

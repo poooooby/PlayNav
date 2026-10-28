@@ -2,7 +2,7 @@
 -- stage when the card's art is extracted - the CGFX model collision02 (a/1/0/1 entry 0, Amie's
 -- 3D archive): a floor disc, a dotted sky cylinder, a rainbow, a ring of cumulus, a ring of small
 -- clouds and a cylinder of bubbles, the clouds drifting and the bubbles rising by its material
--- animation - else a drawn stand-in built to the same measure from PlayNav's own pictures.
+-- animation - else a drawn stand-in built to the same measure from NaviPlay's own pictures.
 --
 --   * the touch screen: the game's camera for the Pokemon's species (data/amie_cameras.lua,
 --     its presets 0..3 from a/0/8/9), easing on entry from the average of presets 0 and 1 to

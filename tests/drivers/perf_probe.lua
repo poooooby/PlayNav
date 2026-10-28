@@ -4,7 +4,7 @@
 -- push leaves, then frame times over a punch chain.
 --   POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/perf_probe.lua love .
--- PLAYNAV_DISPLAY=second_screen times the second display instead (the desktop companion
+-- NAVIPLAY_DISPLAY=second_screen times the second display instead (the desktop companion
 -- window; the micro-timings are skipped), and
 -- PERF_NO_KG=1 removes Kanto Gear's hooks for the run (its install and options untouched).
 
@@ -41,7 +41,7 @@ local function body(game, log)
   local X = game.mods and game.mods.exports and game.mods.exports.play_nav
   if not X then log("FAIL no exports"); return end
   game.mods.modOptions.play_nav = game.mods.modOptions.play_nav or {}
-  local SECOND = os.getenv("PLAYNAV_DISPLAY") == "second_screen"
+  local SECOND = os.getenv("NAVIPLAY_DISPLAY") == "second_screen"
   game.mods.modOptions.play_nav.display_mode = SECOND and "separate" or "combined"
   if os.getenv("PERF_NO_KG") == "1" then
     game.mods.hooks:removeOwner("kanto_gear")

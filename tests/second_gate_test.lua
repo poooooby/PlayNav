@@ -1,4 +1,4 @@
--- The second-display gate: PlayNav's claim mutes downstream render.compose
+-- The second-display gate: NaviPlay's claim mutes downstream render.compose
 -- mods (Kanto Gear) and the release hands the screen back. A fake bridge
 -- records calls; the engine's own hook chain checks the wrap order.
 -- Run from the engine root: luajit mods/play_nav/tests/second_gate_test.lua
@@ -55,7 +55,7 @@ do
   T.eq(p.push({}, 1, 1), true, "claimed: push reports shown")
   T.eq(b.pushes, 0, "claimed: no frame reaches the bridge")
   T.eq(p.pollTouch(), nil, "claimed: no touches downstream")
-  T.eq(#b.queue, 2, "claimed: the queue is left for PlayNav")
+  T.eq(#b.queue, 2, "claimed: the queue is left for NaviPlay")
   p.setEnabled(true)
   T.eq(#b.enabled, 0, "claimed: setEnabled only recorded")
   g:release()
@@ -73,7 +73,7 @@ do
   T.eq(b.enabled[1], false, "release with nobody downstream: display off, as before")
 end
 
--- ------- the engine's hook chain: PlayNav's wrap runs outside Kanto Gear's
+-- ------- the engine's hook chain: NaviPlay's wrap runs outside Kanto Gear's
 
 do
   local Hooks = require("src.mods.Hooks")

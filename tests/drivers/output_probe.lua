@@ -1,7 +1,7 @@
--- Driver: DISPLAY MODE SEPARATE SCREENS with PLAYNAV OUTPUT MAIN SCREEN: PlayNav on the main
+-- Driver: DISPLAY MODE SEPARATE SCREENS with NAVIPLAY OUTPUT MAIN SCREEN: NaviPlay on the main
 -- window and the game sent to the second display (the engine's SecondScreen bridge stood in
 -- for: it keeps what it is handed). Logs the mode, the frames the "second display" got (size,
--- rate, the hint) and saves the last one; QUICK SWAP turns it back to PlayNav on the second
+-- rate, the hint) and saves the last one; QUICK SWAP turns it back to NaviPlay on the second
 -- display. Options and the bridge are put back at the end; options.lua is never written.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/output_probe.lua love .
@@ -85,7 +85,7 @@ local function body(game, log)
       local okE = pcall(function() got.last:encode("png", "o02_second_display.png") end)
       log("second display frame saved:", tostring(okE), "(LOVE save dir)")
     end
-    -- QUICK SWAP on: Y turns it round (PlayNav to the second display)
+    -- QUICK SWAP on: Y turns it round (NaviPlay to the second display)
     opts.screen_swap = true
     local S = X._test.state
     S.swapped = true

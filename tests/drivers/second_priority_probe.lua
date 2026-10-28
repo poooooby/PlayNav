@@ -1,7 +1,7 @@
--- Driver: PlayNav first on the second display. A stand-in for Kanto Gear wraps
+-- Driver: NaviPlay first on the second display. A stand-in for Kanto Gear wraps
 -- render.compose at its priority (-1000) and does what it does every frame:
 -- setEnabled, detected, push, pollTouch through ctx.secondScreen. The real
--- bridge's push is counted per sender while PlayNav is idle, while Super
+-- bridge's push is counted per sender while NaviPlay is idle, while Super
 -- Training is open, and after it closes.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/second_priority_probe.lua love .

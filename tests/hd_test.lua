@@ -1,4 +1,4 @@
--- PlayNav's high-resolution drawing: the density rules, the pixel-art filter choice, the
+-- NaviPlay's high-resolution drawing: the density rules, the pixel-art filter choice, the
 -- art filters, and the top-screen overlay standing down when it should. A fake
 -- love.graphics records what would be drawn.
 -- Run from the engine root: luajit mods/play_nav/tests/hd_test.lua

@@ -4,7 +4,7 @@
 -- frame rate: anything that piles up shows as a column that only climbs.
 --   SHOT_DIR=<dir> POKEPORT_GAME=yellow POKEPORT_VERSION=yellow POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/gb_mem_probe.lua love .
---   (PROBE_HOLD seconds per screen, default 20; PROBE_FALLBACK=1 PlayNav's own assets)
+--   (PROBE_HOLD seconds per screen, default 20; PROBE_FALLBACK=1 NaviPlay's own assets)
 
 local function body(game, log)
   local U = require("tests.drivers.util")
@@ -48,7 +48,7 @@ local function body(game, log)
   game.save.party = { newMon(gen == 1 and "PIKACHU" or "CYNDAQUIL", 20), newMon("PIDGEY", 8), newMon("RATTATA", 6) }
   U.wait(10)
 
-  -- every texture of 1 MB or more made from here on: its size and the PlayNav file that made it
+  -- every texture of 1 MB or more made from here on: its size and the NaviPlay file that made it
   do
     local G = love.graphics
     local function watch(name)
@@ -108,7 +108,7 @@ local function body(game, log)
   -- a course picked, as a player does: its card is what the top screen draws
   T.session.picked = os.getenv("PROBE_COURSE") or "lv1_hp"
   U.wait(10)
-  -- PlayNav's own share of the picker's garbage: each of its per-frame calls wrapped to count
+  -- NaviPlay's own share of the picker's garbage: each of its per-frame calls wrapped to count
   -- what it allocates
   local spent, frames = {}, 0
   local function wrap(tbl, key, name)

@@ -1,6 +1,6 @@
--- The PlayNav menu: the START menu's PLAYNAV entry opens it on the touch screen, as the
+-- The NaviPlay menu: the START menu's NAVIPLAY entry opens it on the touch screen, as the
 -- game's PlayNav lists its apps (Player Search System, Pokemon-Amie, Super Training; the
--- PSS is left out). Drawn by the engine in PlayNav's look (src/apps/brand.lua): the banner
+-- PSS is left out). Drawn by the engine in NaviPlay's look (src/apps/brand.lua): the banner
 -- and its x, then one card per app, each a colour band with its caption, its Kanto Gear
 -- icon and its name as a wordmark. A tap sinks the card; Super Training opens behind the
 -- game's shutters (as from the import screen), Pokemon-Amie after a fade. The field stays
@@ -14,7 +14,7 @@
 
 return function(mod, Pointer, deps)
   deps = deps or {}
-  local app = { id = "menu", title = "PLAYNAV", live = true }
+  local app = { id = "menu", title = "NAVIPLAY", live = true }
 
   local W, H = 256, 178
   local SH, DH = H, 0
@@ -324,7 +324,7 @@ return function(mod, Pointer, deps)
     end
     if #cards == 0 then
       col(G, INK.dim)
-      G.printf("No PlayNav apps are available in this game.", 16, SH / 2, 224 / 0.55, "center", 0, 0.55, 0.55)
+      G.printf("No NaviPlay apps are available in this game.", 16, SH / 2, 224 / 0.55, "center", 0, 0.55, 0.55)
     end
     if failNote and now < failNote[2] then
       col(G, INK.warn)

@@ -565,8 +565,8 @@ add("a/1/1/4", 1, 0, 11, "training/cursor_right", 32, 24, "ETC1A4", "pad cursor"
 -- texture names. a/0/2/8 entry 2 is the shared pack (training_common_res); a/0/2/4 holds
 -- the PlayNav strip that sits over every bottom screen.
 add("a/0/2/4", 0, 0, 33, "training/home_strip", 160, 30, "ETC1A4", "PlayNav strip, stepped white edge")
-add("a/0/2/4", 0, 0, 1, "training/home_arrow", 20, 20, "RGBA8", "PlayNav grey left arrow (mirrored for right)")
-add("a/0/2/4", 0, 0, 31, "training/home_return", 30, 30, "RGBA8", "PlayNav blue return button (pane ab: 27x27 at 305,224)")
+add("a/0/2/4", 0, 0, 1, "training/home_arrow", 20, 20, "RGBA8", "NaviPlay grey left arrow (mirrored for right)")
+add("a/0/2/4", 0, 0, 31, "training/home_return", 30, 30, "RGBA8", "NaviPlay blue return button (pane ab: 27x27 at 305,224)")
 add("a/0/2/7", 0, 0, 2, "training/home_bg03", 160, 60, "RGBA4", "bg03: top frame, left half (right half mirrored), teal name band")
 add("a/0/2/7", 0, 0, 1, "training/home_bg02", 160, 60, "RGBA4", "bg02: bottom tray, left half (right half mirrored)")
 add("a/0/2/7", 0, 0, 15, "training/home_perfect_win00", 50, 40, "RGBA4", "perfect_win00: grey plate (not fully trained)")
@@ -1224,7 +1224,7 @@ add("a/0/1/7", 8, 0, 3, "lyt/head_bg/cloud_04", 50, 10, "ETC1A4")
 -- gain (dB, Seq.scaleWav): what is heard is the file at music.lua's MIX (0.505, -5.9 dB, the
 -- game's music against its effects); gen1recomp's own music is heard at its file level (its
 -- Emerald songs through its player: rms -17.4..-21.6 dB, median -19.5; measured 2026-10-20,
--- tests/drivers/music_level_probe.lua). So PlayNav's files aim 5.9 dB over that, at -13.6: one
+-- tests/drivers/music_level_probe.lua). So NaviPlay's files aim 5.9 dB over that, at -13.6: one
 -- cut for all the streams keeps the game's balance between them (their median -11.2 -> -13.6)
 local STREAM_GAIN = -2.4
 local function stream(path, id, note)

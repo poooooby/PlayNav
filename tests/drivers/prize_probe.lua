@@ -1,5 +1,5 @@
 -- Driver: a regimen prize that is one of the engine's own items (Soda Pop, Stardust, Hard Stone)
--- and one of PlayNav's (a Wing), given through T.giveItemSpec as a cleared secret course does:
+-- and one of NaviPlay's (a Wing), given through T.giveItemSpec as a cleared secret course does:
 -- the id it resolves to, its name, whether it reached the bag, and the icon the results screen
 -- would draw for it.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \

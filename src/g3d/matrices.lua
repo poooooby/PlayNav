@@ -1,7 +1,7 @@
 -- written by groverbuger for g3d
 -- MIT license
 
--- PlayNav: run by g3d's init with the g3d table (no require in a mod)
+-- NaviPlay: run by g3d's init with the g3d table (no require in a mod)
 local g3d = ...
 local vectors = g3d.vectors
 local vectorCrossProduct = vectors.crossProduct

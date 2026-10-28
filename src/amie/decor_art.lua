@@ -1,4 +1,4 @@
--- Pokemon-Amie's Decor pictures from PlayNav's own atlases: a greyscale image of colour numbers
+-- Pokemon-Amie's Decor pictures from NaviPlay's own atlases: a greyscale image of colour numbers
 -- and each picture's palette - the cushions and objects (assets/amie_decor.png +
 -- data/amie_decor.lua, tools/decor_atlas.py, 8-bit) and the wallpapers with their thumbnails
 -- (assets/amie_walls.png + data/amie_walls.lua, tools/wall_atlas.py, 16-bit), and the Poke

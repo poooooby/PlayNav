@@ -1,4 +1,4 @@
--- Pokemon-Amie's minigame pictures the sprite pages do not carry, made from ones PlayNav's
+-- Pokemon-Amie's minigame pictures the sprite pages do not carry, made from ones NaviPlay's
 -- atlases do (src/amie/adapt_art.lua): `from` another picture as it is, or `crop` a part of it,
 -- `tint` it (each channel multiplied), `grey` it (its light alone, then the tint), or `fill` a
 -- plain colour. The reward icons are the Poke

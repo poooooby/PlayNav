@@ -1,6 +1,6 @@
 -- Driver: Pokemon pics from whatever sprite mod is on (g9-battle-sprites-gen3 animates by the
 -- clock). The engine's pic asked at several moments (different frames when a mod animates),
--- then PlayNav's host (mod.stillPic): one first frame every time. Saves each as a PNG.
+-- then NaviPlay's host (mod.stillPic): one first frame every time. Saves each as a PNG.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/stillpic_probe.lua love .
 

@@ -67,7 +67,7 @@ return function(mod, base)
     if not (M and M.fadeOut) then return false end
     return pcall(M.fadeOut, speed or 2) == true
   end
-  -- the field's music held while PlayNav's own plays (Gen 1 / 2 have no pause: it stops, and
+  -- the field's music held while NaviPlay's own plays (Gen 1 / 2 have no pause: it stops, and
   -- comes back from the map's start)
   function H.overworldMusic(on)
     local M, d = base.Music, data()

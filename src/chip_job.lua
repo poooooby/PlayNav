@@ -1,4 +1,4 @@
--- Background job: render PlayNav's own sound effects (data/chip_sounds.lua) on the chip synth
+-- Background job: render NaviPlay's own sound effects (data/chip_sounds.lua) on the chip synth
 -- (src/chipsynth.lua) into WAV bytes, off the main thread. require is refused in a job, so both
 -- arrive as source strings. (Its music is the game's own songs: src/training/music.lua.)
 -- arg = { synth = <src>, sounds = <src> }

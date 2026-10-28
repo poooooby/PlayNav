@@ -1,4 +1,4 @@
--- Text that fits its box. With PlayNav drawing at the display's density (src/hd.lua), text
+-- Text that fits its box. With NaviPlay drawing at the display's density (src/hd.lua), text
 -- can shrink without turning to mush, so a line too long for its backing is wrapped inside
 -- the box and, if the lines still do not fit its height, drawn smaller (down to MIN_SCALE)
 -- instead of running past the edge or being clipped.

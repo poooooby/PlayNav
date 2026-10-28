@@ -1,7 +1,7 @@
 -- The PlayNav strip across the top of a bottom screen, as the game draws it over Super
 -- Training and Pokemon-Amie (a/0/2/4: the grey strip with its stepped edge). Drawn in app
 -- space under the hidden tab strip (`bleed` above y 0). The game's arrows on it are left
--- out: the PlayNav menu (START -> PLAYNAV) is the way between the apps.
+-- out: the NaviPlay menu (START -> NAVIPLAY) is the way between the apps.
 --
 -- Strip = strip(assetsFn) ; Strip.draw(G, w, bleed)
 

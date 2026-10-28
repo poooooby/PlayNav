@@ -99,8 +99,8 @@ local function body(game, log)
   -- previous run may have left behind
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   loader.modOptions.play_nav.display_mode = "combined"
-  -- PLAYNAV_HD=0 compares against the plain low-resolution path
-  loader.modOptions.play_nav.hd_render = os.getenv("PLAYNAV_HD") ~= "0"
+  -- NAVIPLAY_HD=0 compares against the plain low-resolution path
+  loader.modOptions.play_nav.hd_render = os.getenv("NAVIPLAY_HD") ~= "0"
   local function press(id, ax, ay)
     local x, y = win(ax, ay)
     if mouseMode then
@@ -174,7 +174,7 @@ local function body(game, log)
   local StartMenu = require("src.ui.game3.start_menu")
   local idx
   for i, e in ipairs(StartMenu.ENTRIES or {}) do if e.id == "play_nav" then idx = i end end
-  log("start menu open:", topId(), "PLAYNAV entry at", tostring(idx), "cursor", StartMenu.cursor)
+  log("start menu open:", topId(), "NAVIPLAY entry at", tostring(idx), "cursor", StartMenu.cursor)
   if idx then
     local moves = idx - (StartMenu.cursor or 1)
     for _ = 1, math.abs(moves) do
@@ -183,7 +183,7 @@ local function body(game, log)
     end
     U.tap(game, "a")
     U.wait(30)
-    -- the PlayNav menu: its Pokemon-Amie card
+    -- the NaviPlay menu: its Pokemon-Amie card
     for _, c in ipairs(X.menu and X.menu.app.cards() or {}) do
       if c.id == "amie" then log("menu card amie:", tostring(c.open())) end
     end
@@ -609,7 +609,7 @@ local function body(game, log)
     end
   end
 
-  -- ------- held up by the PlayNav menu: landscape split and the second display
+  -- ------- held up by the NaviPlay menu: landscape split and the second display
   loader.modOptions.play_nav.display_mode = "kanto_gear"
   if X.menu then X.menu.open() end
   love.window.setMode(1280, 720, { resizable = true, highdpi = true })

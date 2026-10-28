@@ -108,7 +108,7 @@ end
 -- as the engine's Display.fit draws it; the touch screen may be any size. A step smaller
 -- picture is taken when the touch screen would otherwise drop below MIN_MATCH of its height.
 --
--- `fill` (the overworld is live on the top screen: Super Training's home, no PlayNav layer on
+-- `fill` (the overworld is live on the top screen: Super Training's home, no NaviPlay layer on
 -- top), Kanto Gear style: the engine draws the overworld across its whole playfield and
 -- centres only the 240x160 frame (menus, text) at a whole-number scale, so the top gets every
 -- unit the touch screen does not use.

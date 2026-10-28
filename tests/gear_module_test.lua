@@ -1,4 +1,4 @@
--- PlayNav's Kanto Gear store specs (src/gear_module.lua): Super Training and Pokemon-Amie,
+-- NaviPlay's Kanto Gear store specs (src/gear_module.lua): Super Training and Pokemon-Amie,
 -- each well-formed against the Gear's third-party module contract, without needing Kanto
 -- Gear or the engine.
 package.path = "./?.lua;./?/init.lua;" .. package.path

@@ -1,4 +1,4 @@
--- PlayNav (id play_nav; ds_touch before 0.3.0): a DS-style bottom touch screen for
+-- NaviPlay (id play_nav; ds_touch before 0.3.0): a DS-style bottom touch screen for
 -- gen1recomp, built to host
 -- Pokemon-Amie (the room, play, the minigames) and Super Training.
 --
@@ -14,7 +14,7 @@
 --   src/surface.lua        the 256x192 canvas, blit, readback for the second screen
 --   src/pointer.lua        per-pointer records, velocity, path, gesture helpers
 --   src/apps/init.lua      app registry + tab strip + pointer dispatch
---   src/apps/menu.lua      the PlayNav menu (START -> PLAYNAV)
+--   src/apps/menu.lua      the NaviPlay menu (START -> NAVIPLAY)
 --   src/apps/import.lua    the Alpha Sapphire extraction progress panel
 --   src/amie/rules.lua     pure Amie stat rules (data/amie_rules.lua holds the numbers)
 --   src/amie/petting.lua   zones over the sprite + per-species spots (data/petting_gen3.lua)
@@ -58,7 +58,7 @@ end
 return function(mod)
   mod.options:define({
     { key = "affection_benefits", label = "AFFECTION BENEFITS", type = "toggle", default = true },
-    -- Where PlayNav's touch screen goes when it is called (the START menu's PLAYNAV, Kanto Gear's
+    -- Where NaviPlay's touch screen goes when it is called (the START menu's NAVIPLAY, Kanto Gear's
     -- apps; it never shows otherwise): Kanto Gear's display options, the same keys, choices and
     -- dependencies (its PHONE / BROWSER and AUTO BATTLE SCREEN left out), so a dual-screen mod
     -- reads the same everywhere. K-GEAR takes every one of them from the Gear (its rows hide).
@@ -70,14 +70,14 @@ return function(mod)
         { "COMBINED SCREEN", "combined" }, { "SEPARATE SCREENS", "separate" } } },
     { key = "fullscreen_start", label = "START SCREEN", type = "choice", default = "playnav",
       visible_if = { key = "display_mode", equals = "fullscreen" },
-      choices = { { "GAME", "game" }, { "PLAYNAV", "playnav" } } },
+      choices = { { "GAME", "game" }, { "NAVIPLAY", "playnav" } } },
     { key = "combined_layout", label = "LAYOUT", type = "choice", default = "auto",
       visible_if = { key = "display_mode", equals = "combined" },
       choices = { { "AUTO", "auto" }, { "STACKED", "stacked" }, { "SIDE BY SIDE", "side" },
         { "OVERLAY", "overlay" } } },
     { key = "combined_primary", label = "PRIMARY VIEW", type = "choice", default = "game",
       visible_if = { key = "display_mode", equals = "combined" },
-      choices = { { "GAME", "game" }, { "PLAYNAV", "playnav" } } },
+      choices = { { "GAME", "game" }, { "NAVIPLAY", "playnav" } } },
     { key = "secondary_size", label = "SECONDARY SIZE", type = "choice", default = "auto",
       visible_if = { key = "display_mode", equals = "combined" },
       choices = { { "AUTO", "auto" }, { "20%", 20 }, { "25%", 25 }, { "30%", 30 }, { "35%", 35 },
@@ -94,13 +94,13 @@ return function(mod)
     { key = "overlay_button", label = "OVERLAY BUTTON", type = "choice", default = "off",
       visible_if = { key = "display_mode", equals = "combined" },
       choices = { { "OFF", "off" }, { "R3", "rightstick" }, { "L3", "leftstick" }, { "F7", "f7" } } },
-    { key = "display_target", label = "PLAYNAV OUTPUT", type = "choice", default = "auto",
+    { key = "display_target", label = "NAVIPLAY OUTPUT", type = "choice", default = "auto",
       visible_if = { key = "display_mode", equals = "separate" },
       choices = { { "AUTO", "auto" }, { "MAIN SCREEN", "handheld" }, { "SECOND SCREEN", "secondary" } } },
     { key = "screen_swap", label = "QUICK SWAP (Y)", type = "toggle", default = false,
       visible_if = { key = "display_mode", not_equals = "kanto_gear" } },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
-    -- off: PlayNav's own art, sounds and words, no card image needed (the PLAYNAV screen's
+    -- off: NaviPlay's own art, sounds and words, no card image needed (the NAVIPLAY screen's
     -- USE FALLBACK ASSETS turns it off; on again, the card image is checked again)
     { key = "use_rom_assets", label = "USE ROM ASSETS", type = "toggle", default = true },
     { key = "extract_on_boot", label = "EXTRACT OR/AS ASSETS ON BOOT", type = "toggle", default = true },
@@ -111,6 +111,10 @@ return function(mod)
     { key = "clear_rom_art", label = "CLEAR EXTRACTED ART", type = "choice", default = false,
       choices = { { "PRESS TO CLEAR", false }, { "CLEARS AT NEXT START", true } } },
     { key = "hd_render", label = "HD RENDERING", type = "toggle", default = true },
+    -- Gen 1 / 2: NaviPlay's own Pokemon pictures (Crystal's, in colour), or an installed sprite
+    -- mod's (G9 Battle Sprites, a mod on the pokemon.sprite seam), NaviPlay's where it has none
+    { key = "gb_sprites", label = "GEN 1/2 SPRITES", type = "choice", default = "playnav",
+      choices = { { "NAVIPLAY", "playnav" }, { "MODDED", "modded" } } },
     -- Super-Training Regimens in a real 3D stadium (the card's, else a drawn one), the camera
     -- behind the trainee; the 2D view when off or when the device cannot draw it
     { key = "training_3d", label = "3D SUPER TRAINING", type = "toggle", default = false },
@@ -128,7 +132,7 @@ return function(mod)
   local makeRename = loadSibling(mod, "src/rename.lua")
   if makeRename then makeRename(mod, "ds_touch").install() end
 
-  -- the game PlayNav runs on (src/gen.lua): every generation-specific piece below is picked
+  -- the game NaviPlay runs on (src/gen.lua): every generation-specific piece below is picked
   -- from it, so none of Gen 3's runs on Gen 1 / 2
   local Gen = loadSibling(mod, "src/gen.lua")
   local profile = Gen and Gen.detect(mod) or { gen = tonumber(mod.generation) or 3, gb = mod.generation ~= 3 }
@@ -138,7 +142,7 @@ return function(mod)
   -- the touch screen is Kanto Gear's shape, 10:9 (Layout's default)
   local makePointer = loadSibling(mod, "src/pointer.lua")
   local makeSurface = loadSibling(mod, "src/surface.lua")
-  -- PlayNav draws its own screens at the output's pixel density (src/hd.lua); shared with
+  -- NaviPlay draws its own screens at the output's pixel density (src/hd.lua); shared with
   -- the apps as mod.hd so pixel art and art filters follow one switch
   local HD = loadSibling(mod, "src/hd.lua")
   if HD then
@@ -163,12 +167,12 @@ return function(mod)
   local makeCutout = loadSibling(mod, "src/cutout.lua")
   local Gate = loadSibling(mod, "src/second_gate.lua")
   if not (Layout and makePointer and makeSurface and makeApps and makePadHide) then
-    mod.log:error("core modules missing; PlayNav stays off")
+    mod.log:error("core modules missing; NaviPlay stays off")
     return
   end
 
   local Pointer = makePointer(mod)
-  -- kana and CJK in PlayNav's own fonts (src/cjk.lua): shared as mod.cjk
+  -- kana and CJK in NaviPlay's own fonts (src/cjk.lua): shared as mod.cjk
   do
     local makeCjk = loadSibling(mod, "src/cjk.lua")
     mod.cjk = makeCjk and makeCjk(mod) or nil
@@ -218,9 +222,9 @@ return function(mod)
     Petting = makePetting(PettingData or {})
     Store = makeStore(mod, Rules)
     amieHost = makeHost(mod, profile)
-    -- (the Game Boy games play their own effects for PlayNav's engine stand-ins)
+    -- (the Game Boy games play their own effects for NaviPlay's engine stand-ins)
     if GB and amieHost.setSounds then amieHost.setSounds(loadSibling(mod, "data/gb_sounds.lua")) end
-    -- (and Pokemon Crystal's front and back pics from PlayNav's atlases: the games' own are four
+    -- (and Pokemon Crystal's front and back pics from NaviPlay's atlases: the games' own are four
     -- shades, their white see-through)
     if GB and amieHost.setBacks then
       amieHost.setBacks(loadSibling(mod, "data/gb_backs.lua"), function(path) return mod:read(path) end,
@@ -328,7 +332,7 @@ return function(mod)
   local Training, TRules, TStore, TItems, trainHost = nil, nil, nil, nil, nil
   local UiArt, Chip, TrainingWords = nil, nil, nil
   local DecorArt, AdaptArt = {}, nil
-  -- the engine's art first: Amie's Decor (PlayNav's atlases), the pictures made from them, then
+  -- the engine's art first: Amie's Decor (NaviPlay's atlases), the pictures made from them, then
   -- the drawn UI
   local function engineArt(id)
     for _, art in ipairs(DecorArt) do
@@ -499,12 +503,12 @@ return function(mod)
         if okU and type(ui) == "table" then
           UiArt = ui
           Assets.engine = ui.image
-          -- the easter eggs' art is PlayNav's whatever the asset option (the card has none)
+          -- the easter eggs' art is NaviPlay's whatever the asset option (the card has none)
           Assets.own = function(id)
             if id:sub(1, 7) == "rocket/" or id:sub(1, 14) == "training/rbag_" then return ui.image(id) end
             -- the Game Boy games' Effort-o-Meter is a pentagon (five stats, one Special), which
             -- the card has no picture or label for
-            -- (and its results: PlayNav's drawn ones, src/training/results.lua R.engine)
+            -- (and its results: NaviPlay's drawn ones, src/training/results.lua R.engine)
             if GB and (id == "training/home_meter" or id:sub(1, 15) == "training/label_" or id:sub(1, 13) == "training/res_"
                 or id == "training/point_up_win" or id == "training/arrow" or id == "training/medal") then
               return ui.image(id)
@@ -518,7 +522,7 @@ return function(mod)
             if not okA then mod.log:warn("amie ui art failed to build: %s", tostring(errA)) end
           end
           -- and its Decor (cushions, objects, wallpapers), Poke Puffs, hand, Berry Picker's and
-          -- Head It's art, Tile Puzzle's trees and PLAY's treeline and lawn come from PlayNav's own
+          -- Head It's art, Tile Puzzle's trees and PLAY's treeline and lawn come from NaviPlay's own
           -- atlases
           local makeDecorArt = loadSibling(mod, "src/amie/decor_art.lua")
           for _, set in ipairs({ { "data/amie_decor.lua", "assets/amie_decor.png" },
@@ -553,12 +557,12 @@ return function(mod)
           mod.log:warn("training ui art failed to build: %s", tostring(ui))
         end
       end
-      -- its words are PlayNav's own
+      -- its words are NaviPlay's own
       if Training then
         local words = loadSibling(mod, "data/training_words.lua")
         if type(words) == "table" then Training.words, TrainingWords = words, words end
       end
-      -- its sound effects are PlayNav's own, rendered by the chip synth in the background (its
+      -- its sound effects are NaviPlay's own, rendered by the chip synth in the background (its
       -- music is the game's own songs: data/training_game_songs.lua)
       local makeChip = Training and loadSibling(mod, "src/chipmusic.lua")
       if makeChip then
@@ -686,7 +690,7 @@ return function(mod)
     end
   end
 
-  -- the PlayNav menu (START -> PLAYNAV): its apps and callbacks are filled in below, once
+  -- the NaviPlay menu (START -> NAVIPLAY): its apps and callbacks are filled in below, once
   -- the import gate exists
   local menuDeps = { Assets = Assets }
   do
@@ -799,7 +803,7 @@ return function(mod)
   local function gearDisplay() return gearOption("display_mode") end
 
   -- a display setting as it applies now: the Gear's while K-GEAR follows it (state.gearDriven,
-  -- set by displayChoice), else PlayNav's own (the same keys)
+  -- set by displayChoice), else NaviPlay's own (the same keys)
   local function displaySetting(key)
     if state.gearDriven then
       local v = gearOption(key)
@@ -838,7 +842,7 @@ return function(mod)
   end
 
   -- state.mode: "split" (the window shared: state.displayStyle "fullscreen" | "combined"),
-  -- "second_screen" (PlayNav on the second display), "handheld" (PlayNav on the main window, the
+  -- "second_screen" (NaviPlay on the second display), "handheld" (NaviPlay on the main window, the
   -- game on the second display) or "off" (not called)
   local function wantedMode()
     local choice = displayChoice()
@@ -853,7 +857,7 @@ return function(mod)
       choice = (usable and bridgeCheck(SS, "detected")) and "separate" or "combined"
     end
     if choice == "separate" then
-      -- PLAYNAV OUTPUT: SECOND SCREEN (and AUTO) puts PlayNav on the second display, MAIN SCREEN
+      -- NAVIPLAY OUTPUT: SECOND SCREEN (and AUTO) puts NaviPlay on the second display, MAIN SCREEN
       -- ("handheld", the Gear's value too) keeps it on the main window and sends the game to the
       -- second display; QUICK SWAP trades the two. Without a second display the window is shared.
       local handheld = displaySetting("display_target") == "handheld"
@@ -870,7 +874,7 @@ return function(mod)
     mod.log:info("display mode %s -> %s", state.mode, mode)
     Pointer:cancel()
     Apps:releaseAll(state.game)
-    -- PlayNav holds the second display in both its modes there (the Gear then keeps off it)
+    -- NaviPlay holds the second display in both its modes there (the Gear then keeps off it)
     local holds = { second_screen = true, handheld = true }
     if holds[state.mode] and not holds[mode] then
       local g = secondGate()
@@ -993,7 +997,7 @@ return function(mod)
   -- Portrait split leaves the engine's touch pad its room: from the top of its highest
   -- control in the lower half (the player's own positions included) to the window's foot.
   -- Measured whenever the pad is on in the engine's settings, not only while it shows, so the
-  -- layout does not jump when a PlayNav screen hides the pad.
+  -- layout does not jump when a NaviPlay screen hides the pad.
   local okTC, TC = pcall(require, "src.core.TouchControls")
   if not (okTC and type(TC) == "table") then TC = nil end
   local gearPresent = nil
@@ -1037,7 +1041,7 @@ return function(mod)
   -- the layout changes with the window, its DPI and the pad's room: the pad is measured once
   -- a second (the player can move its controls), the layout only when one of those moved
   local layoutCache = {}
-  -- the overworld is on the top screen (no PlayNav layer on top of the engine's stack: Super
+  -- the overworld is on the top screen (no NaviPlay layer on top of the engine's stack: Super
   -- Training's home) or a regimen (topFills) paints the game's whole part of the split; other
   -- layers draw the 240x160 frame the engine centres in it
   local function overworldLive()
@@ -1078,7 +1082,7 @@ return function(mod)
   end
   -- QUICK SWAP (Y; F6 on a keyboard): always in FULLSCREEN SWAP, in COMBINED / SEPARATE when
   -- the option is on; OVERLAY BUTTON (R3 / L3 / F7) hides and shows the overlay. As Kanto Gear's
-  -- pollScreenSwap: the buttons' rising edges, read every frame while PlayNav is up.
+  -- pollScreenSwap: the buttons' rising edges, read every frame while NaviPlay is up.
   local swapHeld, overlayHeld = false, false
   local function pollSwap()
     local style = state.displayStyle
@@ -1191,15 +1195,15 @@ return function(mod)
     return Layout.split(ww, wh, {}).surface
   end
 
-  -- USE ROM ASSETS: on, the card image's extracted assets (the PLAYNAV screen gates the apps
-  -- until they are there); off, PlayNav's own and no gate
+  -- USE ROM ASSETS: on, the card image's extracted assets (the NAVIPLAY screen gates the apps
+  -- until they are there); off, NaviPlay's own and no gate
   local gateDisabled = false   -- the flow tests run on fake hosts, not the player's cache
   local function romOn()
     if state.forceRom ~= nil then return state.forceRom end   -- a driver's, never saved
     return mod.options:get("use_rom_assets") ~= false
   end
   -- on: the card image's assets alone (its art, layouts, sounds, words and tracks; none of
-  -- PlayNav's drawn art, synthesized effects, own words or the GBA songs); off: PlayNav's own
+  -- NaviPlay's drawn art, synthesized effects, own words or the GBA songs); off: NaviPlay's own
   local function applyRomOption()
     if not Assets then return end
     local off = not romOn()
@@ -1245,7 +1249,7 @@ return function(mod)
     end
   end
 
-  -- the player's answer on the PLAYNAV screen, kept across boots and saves:
+  -- the player's answer on the NAVIPLAY screen, kept across boots and saves:
   -- { rom = true } extract; { rom = false, why = "missing" | "wrong" | "declined" } fallback
   -- (missing / wrong: the screen is offered again once a usable card image is there)
   local CHOICE = "asset_choice.lua"
@@ -1298,7 +1302,7 @@ return function(mod)
           Assets.refresh()
         elseif not chose and not gateDisabled then
           -- nothing chosen yet (the first launch, or USE ROM ASSETS switched back on in the
-          -- launcher): the PLAYNAV screen asks
+          -- launcher): the NAVIPLAY screen asks
           Apps:setActive("import", state.game)
         end
       end
@@ -1314,8 +1318,8 @@ return function(mod)
     end
   end
 
-  -- PlayNav needs its extracted art: any attempt to open Pokemon-Amie or Super Training
-  -- with the cache missing or stale lands on the PLAYNAV screen instead (Begin extraction,
+  -- NaviPlay needs its extracted art: any attempt to open Pokemon-Amie or Super Training
+  -- with the cache missing or stale lands on the NAVIPLAY screen instead (Begin extraction,
   -- the progress bar, or the missing-card-image warning). True = gated, the screen is up.
   local function importGate()
     if not Extract or gateDisabled or not romOn() then return false end
@@ -1326,7 +1330,7 @@ return function(mod)
     end
     return false
   end
-  -- Kanto Gear's Silph Store: PlayNav registers Super Training and Pokemon-Amie as
+  -- Kanto Gear's Silph Store: NaviPlay registers Super Training and Pokemon-Amie as
   -- third-party modules through the Gear's hook (exports.modules, api 1). Without
   -- Kanto Gear, or on a Gear without the hook, this is a no-op; the START menu
   -- entries remain.
@@ -1335,13 +1339,13 @@ return function(mod)
     local modules = gear and gear.exports and gear.exports.modules
     local makeGearModule = modules and type(modules.register) == "function"
       and loadSibling(mod, "src/gear_module.lua")
-    -- true while PlayNav's surface is up: the Gear stands down meanwhile
+    -- true while NaviPlay's surface is up: the Gear stands down meanwhile
     local function shown() return state.mode ~= nil and state.mode ~= "off" end
     local function register(app, session)
       if not (makeGearModule and session) then return end
       local okSpec, spec = pcall(makeGearModule, {
         app = app,
-        -- the press: the app opens, or the PLAYNAV import screen takes over
+        -- the press: the app opens, or the NAVIPLAY import screen takes over
         -- first; both count as taking the bottom screen
         open = function()
           if importGate() then return true end
@@ -1365,11 +1369,11 @@ return function(mod)
   end
 
   do
-    -- the PLAYNAV screen's x button steps aside (the surface goes dormant without a session)
+    -- the NAVIPLAY screen's x button steps aside (the surface goes dormant without a session)
     local gateApp = Apps:get("import")
     if gateApp then
       gateApp.close = function() Apps:setActive("play", state.game) end
-      -- its play button: the PlayNav menu opens behind the closed shutters
+      -- its play button: the NaviPlay menu opens behind the closed shutters
       gateApp.openMenu = function()
         local menu = Apps:get("menu")
         if not menu then return false, "menu missing" end
@@ -1389,11 +1393,11 @@ return function(mod)
     end
   end
 
-  -- the PlayNav menu's apps, in the game's order (its Player Search System left out)
+  -- the NaviPlay menu's apps, in the game's order (its Player Search System left out)
   do
     menuDeps.setActive = function(id) Apps:setActive(id, state.game) end
     menuDeps.inBattle = function() return Amie ~= nil and Amie.inBattle ~= nil and Amie.inBattle() end
-    -- the game's shutters sound (Super Training's screen changes) wherever PlayNav draws them
+    -- the game's shutters sound (Super Training's screen changes) wherever NaviPlay draws them
     menuDeps.shutterSound = function()
       if Training and Training.playSe then Training.playSe("transition") end
     end
@@ -1441,7 +1445,7 @@ return function(mod)
   end
 
   -- CLEAR EXTRACTED ART: wipe the cache, close any session that was drawing from it, and
-  -- land on the PLAYNAV screen (BEGIN EXTRACTION, or the missing-card warning). Never
+  -- land on the NAVIPLAY screen (BEGIN EXTRACTION, or the missing-card warning). Never
   -- starts an extraction by itself.
   local function clearExtractedArt()
     if not Extract then return end
@@ -1465,13 +1469,13 @@ return function(mod)
       if Amie and Amie.stage3d then Amie.stage3d.on = ev.value == true end
     elseif ev.key == "use_rom_assets" and Extract then
       if ev.value == false then
-        -- PlayNav's own from now on; nothing more is asked
+        -- NaviPlay's own from now on; nothing more is asked
         writeChoice(false, "declined")
         Extract.cancel()
         applyRomOption()
         if Apps:active().id == "import" then Apps:setActive("play", state.game) end
       else
-        -- on again: the card image is checked again and the PLAYNAV screen offers it (or says
+        -- on again: the card image is checked again and the NAVIPLAY screen offers it (or says
         -- it is missing / not Alpha Sapphire) unless its assets are already extracted
         writeChoice(nil)
         applyRomOption()
@@ -1547,7 +1551,7 @@ return function(mod)
         mod.log:warn("chip music failed: %s", tostring(errC))
       end
     end
-    -- CLEAR EXTRACTED ART switched on in the launcher, before PlayNav loaded: no change event
+    -- CLEAR EXTRACTED ART switched on in the launcher, before NaviPlay loaded: no change event
     -- reaches us then, so it is honoured once, on the first frame in the field
     -- (drivers call _test.keepArt() before the field so a run on a machine whose options have
     -- it on leaves the player's art alone; the sandbox has no os.getenv)
@@ -1645,8 +1649,8 @@ return function(mod)
     end
 
     if mode == "handheld" then
-      -- PLAYNAV OUTPUT MAIN SCREEN: the game went to the second display in render.output, which
-      -- left the window black; PlayNav fills it, fitted and centred (Kanto Gear's own placement)
+      -- NAVIPLAY OUTPUT MAIN SCREEN: the game went to the second display in render.output, which
+      -- left the window black; NaviPlay fills it, fitted and centred (Kanto Gear's own placement)
       local SS = second()
       local now = Pointer.now()
       if SS and (not state.ssEnabled or (not state.ssShown and now >= (state.ssRetryAt or 0))) then
@@ -1689,7 +1693,7 @@ return function(mod)
       end
       local due = t - state.pushAt
       if not Surface.pending and ((needsDraw and due >= 1 / 30) or due >= 1.0) then
-        -- as sharp as PlayNav draws (HD.MAX_K, 4), or 2x under LOW POWER MODE; the display fits
+        -- as sharp as NaviPlay draws (HD.MAX_K, 4), or 2x under LOW POWER MODE; the display fits
         -- it to its size
         local k = mod.options:get("low_power") == true and PUSH_K_LOW or PUSH_K_MAX
         state.pushK = k
@@ -1734,10 +1738,10 @@ return function(mod)
     return { x = state.gbGame.x, y = state.gbGame.y, width = g.w, height = g.h, capture = true }
   end)
 
-  -- PlayNav first on the second display: this wrap runs outside every other
+  -- NaviPlay first on the second display: this wrap runs outside every other
   -- render.compose mod and hands them the gate's proxy, which reports no
-  -- display while PlayNav shows there (Kanto Gear then keeps to the main
-  -- window) and passes everything through once PlayNav is idle
+  -- display while NaviPlay shows there (Kanto Gear then keeps to the main
+  -- window) and passes everything through once NaviPlay is idle
   mod.hooks:wrap("render.compose", function(next, renderer, ctx)
     if type(ctx) == "table" and ctx.secondScreen then
       setMode(wantedMode())
@@ -1747,15 +1751,15 @@ return function(mod)
     return next()
   end, 1000)
 
-  -- PlayNav's split owns the window's layout: an outer render.output that resizes the whole
-  -- finished frame (Kanto Gear's combined screen) would shrink the picture PlayNav placed. So
+  -- NaviPlay's split owns the window's layout: an outer render.output that resizes the whole
+  -- finished frame (Kanto Gear's combined screen) would shrink the picture NaviPlay placed. So
   -- innermost, while the split shows on Gen 3, the frame goes to the window exactly as the
   -- engine draws it (1:1, scissored to the playfield) and reports it drawn: an outer mod then
   -- passes it through (Kanto Gear also drops its own touch area then). A shader preset keeps
   -- the engine's own path.
-  -- PLAYNAV OUTPUT MAIN SCREEN: the finished game frame goes to the second display, scaled to
+  -- NAVIPLAY OUTPUT MAIN SCREEN: the finished game frame goes to the second display, scaled to
   -- at most 960x540 and read back without a stall, up to 60 times a second (Kanto Gear's
-  -- handheld output, its capture and pacing); the window is left black for PlayNav (tick)
+  -- handheld output, its capture and pacing); the window is left black for NaviPlay (tick)
   local function pushGame(ctx)
     local SS = second()
     local G = love and love.graphics
@@ -1847,7 +1851,7 @@ return function(mod)
   end, -10000)
 
   -- Gen 1 / 2 while the game is captured (the split): the engine's canvas is set through its
-  -- whole draw, render.hud included, so PlayNav's frame waits for here, where it has been put
+  -- whole draw, render.hud included, so NaviPlay's frame waits for here, where it has been put
   -- on the window and no canvas is set (no canvas is ever switched to inside another's draw:
   -- Android). The top screen at window resolution, then the tick (the apps, the touch screen).
   local gbHud = { game = nil, viewport = nil }
@@ -1941,7 +1945,7 @@ return function(mod)
       state.game = game
       return next(game, viewport)
     end
-    -- the top screen first, PlayNav's touch screen over it: on the OVERLAY layout the panel sits
+    -- the top screen first, NaviPlay's touch screen over it: on the OVERLAY layout the panel sits
     -- on the game's picture, and a filling top screen (a regimen) would otherwise paint it out
     if HdTop and state.mode == "handheld" then
       -- the top screen is the game's frame on the second display, drawn into it plainly
@@ -1954,6 +1958,20 @@ return function(mod)
     if not ok then mod.log:warn("frame tick failed: %s", tostring(err)) end
     return next(game, viewport)
   end)
+
+  -- Gen 1 / 2, GEN 1/2 SPRITES on MODDED: a sprite mod's pictures asked for and set on their
+  -- squares after each game step, outside any draw (host_gb H.prepare)
+  if GB and amieHost and amieHost.prepare then
+    mod.hooks:wrap("core.update", function(next, game, dt)
+      local a, b = next(game, dt)
+      local ok, err = pcall(amieHost.prepare)
+      if not ok and not state.prepareWarned then
+        state.prepareWarned = true
+        mod.log:warn("sprite mod pictures failed: %s (GEN 1/2 SPRITES: NAVIPLAY avoids it)", tostring(err))
+      end
+      return a, b
+    end)
+  end
 
   -- 3D SUPER TRAINING: the mouse wheel steps the trainee nearer (up) or farther (down) while a
   -- regimen draws in 3D (the game's forward / back); otherwise the engine's as before
@@ -2052,7 +2070,7 @@ return function(mod)
     if TItems then TItems.install() end
   end
 
-  -- one START menu entry, PLAYNAV: the menu of PlayNav's apps (src/apps/menu.lua). It
+  -- one START menu entry, NAVIPLAY: the menu of NaviPlay's apps (src/apps/menu.lua). It
   -- toggles: with an app or the menu up, it closes them.
   local menuApp = Apps:get("menu")
   -- Gen 3's rows: { id, label, onSelect }, closed silently first. Gen 1's: { label, onSelect },
@@ -2090,7 +2108,7 @@ return function(mod)
         menuApp.show()
       end
       local entry = {
-        id = "play_nav", label = "PLAYNAV", text = "PLAYNAV", playNav = true,
+        id = "play_nav", label = "NAVIPLAY", text = "NAVIPLAY", playNav = true,
         onSelect = function() select() end,
       }
       if profile.gen == 2 then
@@ -2125,7 +2143,7 @@ return function(mod)
   end
   mod.exports.assets = Assets
   if menuApp then
-    -- the PlayNav menu: open lands on the import screen first while the art is missing
+    -- the NaviPlay menu: open lands on the import screen first while the art is missing
     mod.exports.menu = {
       open = function()
         if importGate() then return false, "import_needed" end
@@ -2236,9 +2254,9 @@ return function(mod)
     extract = function() return Extract end,
     assets = function() return Assets end,
     setImportGate = function(on) gateDisabled = on == false end,
-    -- a driver run: the player's art is left alone, and so are PlayNav's options on disk - a
+    -- a driver run: the player's art is left alone, and so are NaviPlay's options on disk - a
     -- driver sets them in memory (DISPLAY MODE and the like) and the engine saves the loader's
-    -- options as it goes, so every options write in the run carries PlayNav's options as they
+    -- options as it goes, so every options write in the run carries NaviPlay's options as they
     -- were when the run began
     keepArt = function()
       state.keepArt = true
@@ -2247,7 +2265,7 @@ return function(mod)
       local loader = state.game and state.game.mods
       local bucket = loader and loader.modOptions and loader.modOptions[mod.id]
       if type(bucket) ~= "table" then
-        mod.log:warn("driver run: PlayNav's options not reachable yet; options.lua is not guarded")
+        mod.log:warn("driver run: NaviPlay's options not reachable yet; options.lua is not guarded")
         state.optionsGuarded = false
         return
       end
@@ -2260,7 +2278,7 @@ return function(mod)
         if type(write) == "function" then
           SaveData[name] = function(opts, ...)
             -- only the values a driver changed go back, and only for keys the write holds:
-            -- nothing is added (the engine prunes keys PlayNav no longer defines)
+            -- nothing is added (the engine prunes keys NaviPlay no longer defines)
             local mo = type(opts) == "table" and opts.modOptions or nil
             local live = mo and mo[mod.id]
             local changed = nil
@@ -2281,7 +2299,7 @@ return function(mod)
         end
       end
     end,
-    -- the PLAYNAV screen's stored choice and the USE ROM ASSETS option as PlayNav reads it
+    -- the NAVIPLAY screen's stored choice and the USE ROM ASSETS option as NaviPlay reads it
     assetChoice = function()
       return { read = readChoice, write = writeChoice, remove = function()
         pcall(mod.cache.delete, mod.cache, CHOICE)
@@ -2290,14 +2308,14 @@ return function(mod)
     -- a driver's USE ROM ASSETS for this run only (options.lua untouched); nil = the option's
     forceRom = function(on) state.forceRom = on; applyRomOption() end,
     -- false: the card image's UI art again (for side-by-side shots); true: the engine's
-    -- false: the card image's effects again; true: PlayNav's own
+    -- false: the card image's effects again; true: NaviPlay's own
     engineMusic = function(on)
       if Assets then
         Assets.engineSound = (on ~= false and Chip) and Chip.sound or nil
       end
       return Chip
     end,
-    -- false: the card image's text again; true: PlayNav's own words
+    -- false: the card image's text again; true: NaviPlay's own words
     engineText = function(on)
       if Training then Training.words = (on ~= false) and TrainingWords or nil end
       if Amie and Amie.text then Amie.text.ownText = on ~= false end
@@ -2309,6 +2327,6 @@ return function(mod)
     end,
   }
 
-  mod.log:info("PlayNav ready (gen %s, touch screen %s)", tostring(mod.generation),
+  mod.log:info("NaviPlay ready (gen %s, touch screen %s)", tostring(mod.generation),
     tostring(mod.options:get("display_mode")))
 end

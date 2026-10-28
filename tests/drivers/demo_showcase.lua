@@ -1,13 +1,13 @@
--- Driver: a showcase of PlayNav at the game's own speed, for recording. Run it paced
+-- Driver: a showcase of NaviPlay at the game's own speed, for recording. Run it paced
 -- (POKEPORT_DRIVER_PACED=1) so a second on screen is a second of play:
---   1. the art extraction (a real run over the cache), its play button, the PlayNav menu
+--   1. the art extraction (a real run over the cache), its play button, the NaviPlay menu
 --   2. Super Training: punches on the blank bag, a bag found, the bag drawer, the Effort-o-Meter
 --      growing with each cleared bag, a short regimen and its results
 --   3. Pokemon-Amie: the room, DECORATE, visitors and their gift, SWITCH with each Pokemon's
 --      meters, PLAY (waking, petting, a meal, a high five), each minigame in brief
 --   4. Kanto Gear's store tiles for both apps, each opened from its tile
 -- A finger marker shows every touch and a caption names each part. Home in the game window
--- starts it; Home during a run stops it (every shortcut put back, PlayNav's screens closed)
+-- starts it; Home during a run stops it (every shortcut put back, NaviPlay's screens closed)
 -- and it waits for Home again, as it does after a run through.
 --   POKEPORT_DRIVER_PACED=1 SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/demo_showcase.lua love .
@@ -114,7 +114,7 @@ local function body(game, log)
   local WAIT = os.getenv("DEMO_WAIT") ~= "0"
   local title0 = love.window.getTitle()
   local function ready()
-    love.window.setTitle("PlayNav demo ready: press Home to start (Home again restarts)")
+    love.window.setTitle("NaviPlay demo ready: press Home to start (Home again restarts)")
     log("ready: press Home in the game window to start")
     local pressed = false
     repeat
@@ -149,7 +149,7 @@ local function body(game, log)
   -- ------- what the recording shows over the game: the fingers and a caption
 
   local CAPTIONS = os.getenv("DEMO_CAPTIONS") ~= "0"
-  -- where the top screen ends in the window: above PlayNav's touch screen (the split keeps one
+  -- where the top screen ends in the window: above NaviPlay's touch screen (the split keeps one
   -- layout, so the last one seen holds while the surface is down), or the Gear's stacked half
   local gearSplit = nil
   local gearSession
@@ -165,7 +165,7 @@ local function body(game, log)
     if gearSplit then return gearSplit end
     local r = X.state().rect
     if r and X.state().mode ~= "off" then return r.y - 6 end
-    -- PlayNav's surface down: the Gear's own screen under the game, when it shows
+    -- NaviPlay's surface down: the Gear's own screen under the game, when it shows
     local gr = gearSession and gearSession.primaryBottomRect
     if gr and gr.y > 0 then return gr.y - 6 end
     return love.graphics.getHeight() - 6
@@ -176,7 +176,7 @@ local function body(game, log)
   local shotN, shotDone = 0, true
   local font
   -- the engine's own on-screen pad stays off for the recording (DEMO_PAD=1 keeps it); touches
-  -- still go through it to PlayNav and the Gear
+  -- still go through it to NaviPlay and the Gear
   local okTC, TC = pcall(require, "src.core.TouchControls")
   local hidePad = okTC and type(TC) == "table" and os.getenv("DEMO_PAD") ~= "1"
   do
@@ -295,8 +295,8 @@ local function body(game, log)
   local function rectMid(r) return r.x + r.w / 2, r.y + r.h / 2 end
   local function pad(btn, after) U.tap(game, btn); secs(after or 0.25) end
 
-  -- START -> PLAYNAV, the cursor walked there as a player would
-  local function startPlayNav()
+  -- START -> NAVIPLAY, the cursor walked there as a player would
+  local function startNaviPlay()
     for _ = 1, 5 do
       U.tap(game, "start")
       secs(0.5)
@@ -304,7 +304,7 @@ local function body(game, log)
     end
     local idx
     for i, e in ipairs(StartMenu.ENTRIES or {}) do if e.id == "play_nav" then idx = i end end
-    if not idx then log("FAIL no PLAYNAV entry"); return false end
+    if not idx then log("FAIL no NAVIPLAY entry"); return false end
     local moves = idx - (StartMenu.cursor or 1)
     for _ = 1, math.abs(moves) do pad(moves > 0 and "down" or "up", 0.22) end
     secs(0.4)
@@ -336,12 +336,12 @@ local function body(game, log)
       if Extract.state ~= "running" and Extract.state ~= "finishing" and complete0() then Extract.state = "complete" end
     end)
     local real = os.getenv("DEMO_EXTRACT") ~= "0" and Extract.importPresent()
-    say("PlayNav: built from your own Alpha Sapphire")
+    say("NaviPlay: built from your own Alpha Sapphire")
     secs(1.5)
     -- the screen a first run meets: BEGIN EXTRACTION
     Extract.cacheComplete = function() return false end
     Extract.state = "idle"
-    startPlayNav()
+    startNaviPlay()
     secs(0.6)
     log("  gate up:", Apps:active().id, Extract.state)
     say("One extraction from your card image")
@@ -370,7 +370,7 @@ local function body(game, log)
       Extract.state = "done"
     end
     secs(1.6)
-    say("The PlayNav menu")
+    say("The NaviPlay menu")
     tap(imp.PLAY.x, imp.PLAY.y + dh, 0.14)
     within(5, function() return M and M.shown() end)
     secs(2.0)
@@ -1022,7 +1022,7 @@ local function body(game, log)
   secs(1.0)
   end   -- runAll
 
-  -- a restart: fingers up, shortcuts back, every PlayNav screen closed, the field again
+  -- a restart: fingers up, shortcuts back, every NaviPlay screen closed, the field again
   local function resetScene()
     for id, f in pairs(fingers) do love.touchreleased(id, f.x, f.y, 0, 0, 1) end
     fingers, ripples = {}, {}

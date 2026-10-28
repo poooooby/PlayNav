@@ -1,9 +1,9 @@
 -- Who gets the second display. The engine hands every render.compose wrapper
 -- the SecondScreen bridge in ctx.secondScreen (Kanto Gear takes it from
--- there every frame). PlayNav wraps render.compose first and passes the
--- proxy below instead. While PlayNav claims the screen, the proxy tells
+-- there every frame). NaviPlay wraps render.compose first and passes the
+-- proxy below instead. While NaviPlay claims the screen, the proxy tells
 -- downstream mods the display is gone (detected() false), swallows their
--- frames and leaves the touch queue to PlayNav. Released, it passes every
+-- frames and leaves the touch queue to NaviPlay. Released, it passes every
 -- call through, and the display is enabled as the downstream mod last asked,
 -- so it repaints there at once. Pure: no love calls.
 

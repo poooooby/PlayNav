@@ -1,5 +1,5 @@
 -- Driver: a pad's shoulders in a Super-Training regimen on the Game Boy games. The engine gives
--- them to GAME SPEED there (the Game Boy has no L / R); with a PlayNav layer up they are L / R:
+-- them to GAME SPEED there (the Game Boy has no L / R); with a NaviPlay layer up they are L / R:
 -- the right shoulder held raises the shield, and the game's speed setting is left as it was.
 --   SHOT_DIR=<dir> POKEPORT_GAME=crystal POKEPORT_VERSION=crystal POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/gb_shoulder_probe.lua love .

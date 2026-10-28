@@ -1,5 +1,5 @@
 -- Driver: a finger on a phone is also reported as a mouse (love.mouse.isDown / getPosition
--- follow it); PlayNav's mouse poll used to turn that into a second tap at the same spot, so the
+-- follow it); NaviPlay's mouse poll used to turn that into a second tap at the same spot, so the
 -- bag drawer opened and shut at once (and stayed shut after) and Amie's Pokemon took no tap
 -- (its menu opened and closed). Each tap here comes with that twin, as iOS (and a touchscreen
 -- PC) delivers it; the drawer must open and stay open on every visit, the room's menu must open.

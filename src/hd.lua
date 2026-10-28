@@ -1,4 +1,4 @@
--- PlayNav's high-resolution drawing helpers. PlayNav owns both of its screens (the touch
+-- NaviPlay's high-resolution drawing helpers. NaviPlay owns both of its screens (the touch
 -- surface and its top-screen layers), so instead of capturing draws and replaying them the
 -- way gen3-hd-sprites does for engine passes, it draws them at the output's pixel density
 -- in the first place. This module holds what that needs:

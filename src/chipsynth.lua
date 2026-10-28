@@ -1,4 +1,4 @@
--- PlayNav's own sound effects (data/chip_sounds.lua) made on a small chip synth: pulse waves
+-- NaviPlay's own sound effects (data/chip_sounds.lua) made on a small chip synth: pulse waves
 -- (12.5 / 25 / 50% duty), a triangle, a saw, a sine and noise, layered with envelopes into a
 -- mono 16-bit WAV. Pure Lua (no love.*), so it runs inside a mod.job. (Its music is the game's
 -- own songs: src/training/music.lua.)

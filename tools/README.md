@@ -45,7 +45,7 @@ python tools/oras_fingerprints.py "<game.cci or .cia>"
 
 `romfs_extract.py` and `src/import/ctr.lua` open a card image (NCSD partition 0), a decrypted
 CIA (its first content) or a bare NCCH. `oras_fingerprints.py` against another dump lists the
-rows PlayNav would skip for it.
+rows NaviPlay would skip for it.
 
 The in-game decoders are tested against the same data with
 `luajit mods/play_nav/tests/oras_local_test.lua` from the engine root (it skips when the dump or

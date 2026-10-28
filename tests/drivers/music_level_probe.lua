@@ -1,10 +1,10 @@
--- Driver: PlayNav's music against gen1recomp's own, side by side. The engine's Emerald songs are
+-- Driver: NaviPlay's music against gen1recomp's own, side by side. The engine's Emerald songs are
 -- rendered offline through its own player (m4a_player.renderBuffered at master 1, as its worker
--- plays them) for MEASURE_S each; PlayNav's tracks (Super Training's streams, the minigame songs)
+-- plays them) for MEASURE_S each; NaviPlay's tracks (Super Training's streams, the minigame songs)
 -- are read from the extracted-art cache. Each gets rms, the loud parts (the 90th percentile of
 -- 400 ms windows) and the peak, in dB of full scale. Both are played at the same music volume
--- (the engine's bgm gain; PlayNav's host.musicGain reads the same settings) and PlayNav's player
--- adds its MIX (src/training/music.lua), so PlayNav's are reported as heard: the file's level
+-- (the engine's bgm gain; NaviPlay's host.musicGain reads the same settings) and NaviPlay's player
+-- adds its MIX (src/training/music.lua), so NaviPlay's are reported as heard: the file's level
 -- plus MIX in dB. These are what is heard against each other.
 --   POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/music_level_probe.lua love .
@@ -96,7 +96,7 @@ local function body(game, log)
     local M = T and T.music
     if M and M.MIX then mixDb = 20 * math.log10(M.MIX) end
   end
-  log(("PlayNav's music as heard (the extracted cache, plus the player's MIX %.1f dB):"):format(mixDb))
+  log(("NaviPlay's music as heard (the extracted cache, plus the player's MIX %.1f dB):"):format(mixDb))
   for _, name in ipairs(OURS) do
     local ok, track = pcall(function() return X.assets.music and X.assets.music("bgm/" .. name) end)
     local sd = ok and track and track.sd

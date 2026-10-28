@@ -80,7 +80,7 @@ return function(mod, T, Rules, Sim)
   end
 
   local function speciesName(national)
-    -- a translation mod's name (anything past ASCII: kana) wins over PlayNav's English list
+    -- a translation mod's name (anything past ASCII: kana) wins over NaviPlay's English list
     local game = gameSpeciesName(national)
     if game and mod.cjk and mod.cjk.has(game) then return game end
     local name = T.gameLine and T.gameLine("species", national) or nil

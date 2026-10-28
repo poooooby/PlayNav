@@ -1,4 +1,4 @@
--- Super Training's words, PlayNav's own: every line the screens ask the game's text for
+-- Super Training's words, NaviPlay's own: every line the screens ask the game's text for
 -- (T.gameLine / gameText in src/training/session.lua), keyed by the same file and line, so
 -- nothing is read from the card image. Variables: {MON} {BAG} {STAT} {PLAYER} {COURSE} {N}.
 -- A line left out falls back to the code's own wording (the bag descriptions: Rules.fallbackText).

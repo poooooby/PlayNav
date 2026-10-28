@@ -1,5 +1,5 @@
 -- Driver: the controller through every screen that takes it, by real pad presses (U.tap, the
--- engine's input queue, so they reach PlayNav's layers as a controller's do): Super
+-- engine's input queue, so they reach NaviPlay's layers as a controller's do): Super
 -- Training's regimen picker (the D-pad's selection, A to select / start) and its results (A
 -- through the pages); Amie's PLAY (A to wake, SELECT for the drawer, A for the picker), the
 -- picker into a game; each minigame's pad (Head It's three Pokemon, Tile Puzzle's cursor and

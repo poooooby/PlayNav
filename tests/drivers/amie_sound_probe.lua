@@ -22,7 +22,7 @@ local function body(game, log)
   if X and X._test and X._test.keepArt then X._test.keepArt() end
   game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
   waitFor(function() return game.phase == "field" end, 1200)
-  -- PlayNav's own effects are rendered by a job at boot: wait for them (10 s at most)
+  -- NaviPlay's own effects are rendered by a job at boot: wait for them (10 s at most)
   local t0 = love.timer.getTime()
   while love.timer.getTime() - t0 < 10 do
     local ok, sd = pcall(X.assets.sound, "se/kw_touch")

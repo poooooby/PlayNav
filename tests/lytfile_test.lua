@@ -61,7 +61,7 @@ do
     "a turned edge tiles along the screen's height (176 / 16 = 11 repeats)")
 end
 
-local dir = os.getenv("PLAYNAV_CACHE") or "mod_cache/play_nav/oras/lyt/"
+local dir = os.getenv("NAVIPLAY_CACHE") or "mod_cache/play_nav/oras/lyt/"
 local function read(p)
   local f = io.open(dir .. p, "rb")
   if not f then return nil end

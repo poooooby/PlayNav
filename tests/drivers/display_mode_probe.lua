@@ -1,4 +1,4 @@
--- Driver: DISPLAY MODE K-GEAR against the installed Kanto Gear: PlayNav's choice follows the
+-- Driver: DISPLAY MODE K-GEAR against the installed Kanto Gear: NaviPlay's choice follows the
 -- Gear's display_mode as the loader holds it, through each of the Gear's modes (set in memory
 -- only, put back after; options.lua is never written).
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
@@ -30,14 +30,14 @@ local function body(game, log)
   opts.play_nav.display_mode = "kanto_gear"
   log("raw: option", tostring(X._test.displayOption()), "gear", tostring(X._test.gearDisplay()),
     "rec", tostring(loader.mods and loader.mods.kanto_gear and loader.mods.kanto_gear.state))
-  log("gear's own setting:", tostring(gear0), "-> PlayNav", X._test.displayChoice())
+  log("gear's own setting:", tostring(gear0), "-> NaviPlay", X._test.displayChoice())
   for _, m in ipairs({ "separate", "combined", "fullscreen", "phone" }) do
     opts.kanto_gear.display_mode = m
     U.wait(3)
-    log("gear", m, "-> PlayNav", X._test.displayChoice(), "mode now", tostring(X.state().mode))
+    log("gear", m, "-> NaviPlay", X._test.displayChoice(), "mode now", tostring(X.state().mode))
   end
   opts.kanto_gear.display_mode = nil
-  log("gear unset (its default) -> PlayNav", X._test.displayChoice())
+  log("gear unset (its default) -> NaviPlay", X._test.displayChoice())
   opts.play_nav.display_mode, opts.kanto_gear.display_mode = display0, gear0
   if rec then rec.state = recState0 end
   log("restored:", tostring(opts.play_nav.display_mode), tostring(opts.kanto_gear.display_mode))

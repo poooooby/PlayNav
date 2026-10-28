@@ -81,8 +81,8 @@ local function body(game, log)
       "by effect:", tostring(byEffect), byEffect and ("action " .. tostring(byEffect.action) .. ", use " .. type(byEffect.use)) or "")
     if merged then
       local n, ours = 0, {}
-      for k in pairs(merged) do n = n + 1; if tostring(k):find("PLAYNAV") then ours[#ours + 1] = tostring(k) end end
-      log("records:", n, "PlayNav's:", table.concat(ours, " "))
+      for k in pairs(merged) do n = n + 1; if tostring(k):find("NAVIPLAY") then ours[#ours + 1] = tostring(k) end end
+      log("records:", n, "NaviPlay's:", table.concat(ours, " "))
     end
     check(IE.partyAction(wing, data, false) ~= nil, "the PACK offers it on the party")
     local r = IE.useOnMon(wing, mon, data, { game = game })

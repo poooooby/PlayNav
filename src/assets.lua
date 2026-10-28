@@ -30,7 +30,7 @@ return function(mod)
   end
 
   -- A.cardOff (option USE ROM ASSETS off): the card image's cache is left unread, so every
-  -- caller takes PlayNav's own art, sounds and words
+  -- caller takes NaviPlay's own art, sounds and words
   function A.ready()
     if A.cardOff then return false end
     if A.manifest == nil and A.loadedAt == nil then A.refresh() end
@@ -49,7 +49,7 @@ return function(mod)
   -- itself, so those never come from the card image.
   function A.image(id)
     if not (love and love.graphics and love.image and love.data) then return nil end
-    -- A.own: ids PlayNav always draws itself, whatever the asset option (the easter eggs')
+    -- A.own: ids NaviPlay always draws itself, whatever the asset option (the easter eggs')
     if A.own then
       local drawn, owned = A.own(id)
       if drawn or owned then return drawn end
@@ -126,7 +126,7 @@ return function(mod)
 
   -- a music track the extract decoded (recipe kind "stream", id "bgm/<name>"):
   -- { sd = love SoundData, rate, channels, samples, loop, loopStart } or nil. Without the
-  -- card image's, PlayNav's own file for the id (A.ownMusic[id] = a path in the mod, looping
+  -- card image's, NaviPlay's own file for the id (A.ownMusic[id] = a path in the mod, looping
   -- whole) stands in.
   A.tracks = {}
   A.ownMusic = { ["bgm/sp_menu"] = "assets/stmenu.ogg", ["bgm/rocket"] = "assets/UnseenEncounter.ogg" }
@@ -145,7 +145,7 @@ return function(mod)
       loop = true, loopStart = 0 }
   end
   function A.music(id)
-    -- PlayNav's own songs (src/chipmusic.lua) take their ids before the card image's
+    -- NaviPlay's own songs (src/chipmusic.lua) take their ids before the card image's
     if A.engineMusic then
       local own, owned = A.engineMusic(id)
       if own or owned then return own end
@@ -179,7 +179,7 @@ return function(mod)
   -- a sound effect the extract rendered (recipe kind "sfx", id "se/<name>"): love SoundData or nil
   A.sounds = {}
   function A.sound(id)
-    -- PlayNav's own effects (src/chipmusic.lua) take their ids before the card image's
+    -- NaviPlay's own effects (src/chipmusic.lua) take their ids before the card image's
     if A.ownSound then
       local own, owned = A.ownSound(id)
       if own or owned then return own end

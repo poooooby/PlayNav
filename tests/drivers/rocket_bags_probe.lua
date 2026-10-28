@@ -68,7 +68,7 @@ local function body(game, log)
     love.touchpressed(tid, x, y, 0, 0, 1); U.wait(2); love.touchreleased(tid, x, y, 0, 0, 1); U.wait(3)
   end
   -- every canvas switched to inside love.draw (Android draws the rest of the frame wrong after
-  -- one), by the innermost of PlayNav's files that asked
+  -- one), by the innermost of NaviPlay's files that asked
   local byFile, inDraw = {}, false
   -- the picture being asked for when ui_art draws one (Assets.image wrapped below)
   local asking, artIds, coreWhere = nil, {}, nil
@@ -86,7 +86,7 @@ local function body(game, log)
     love.graphics.setCanvas = function(...)
       if inDraw and select("#", ...) > 0 and (...) ~= nil then
         local tb = debug.traceback("", 2)
-        local file = tb:match("play_nav[/\\]([%w_/\\]+%.lua)") or "(not PlayNav)"
+        local file = tb:match("play_nav[/\\]([%w_/\\]+%.lua)") or "(not NaviPlay)"
         byFile[file] = (byFile[file] or 0) + 1
         if file:find("ui_art", 1, true) and asking then artIds[asking] = true end
         if file:find("core_app", 1, true) and not coreWhere then coreWhere = tb:match("core_app%.lua:%d+[^\n]*") end

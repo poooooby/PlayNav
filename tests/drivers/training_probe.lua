@@ -49,7 +49,7 @@ local function body(game, log)
   do
     local Xk = game.mods and game.mods.exports and game.mods.exports.play_nav
     if Xk and Xk._test and Xk._test.keepArt then Xk._test.keepArt() end
-    -- PROBE_FALLBACK=1: PlayNav's own assets (the card's cache never read)
+    -- PROBE_FALLBACK=1: NaviPlay's own assets (the card's cache never read)
     if os.getenv("PROBE_FALLBACK") == "1" and Xk and Xk._test and Xk._test.forceRom then Xk._test.forceRom(false) end
   end
   game:_handleBootAction({ action = "new_game", name = "DS", gender = 0 })
@@ -82,9 +82,9 @@ local function body(game, log)
   if not TR then log("FAIL training not exported"); return end
   local Apps = X.apps
   loader.modOptions[MOD_ID] = loader.modOptions[MOD_ID] or {}
-  -- PLAYNAV_DISPLAY=second_screen runs it on the second display (the desktop companion
+  -- NAVIPLAY_DISPLAY=second_screen runs it on the second display (the desktop companion
   -- window): touches go in through feedSecond in the pushed frame's pixels
-  local SECOND = os.getenv("PLAYNAV_DISPLAY") == "second_screen"
+  local SECOND = os.getenv("NAVIPLAY_DISPLAY") == "second_screen"
   loader.modOptions[MOD_ID].display_mode = SECOND and "separate" or "combined"
   log("display:", loader.modOptions[MOD_ID].display_mode)
   loader.modOptions[MOD_ID].prompt_always = false
@@ -98,7 +98,7 @@ local function body(game, log)
     Audio._bgmVolume = (tonumber(os.getenv("PROBE_MUSIC_VOL")) or 7) / 7
     log("music volume set to", Audio._bgmVolume)
   end
-  -- PROBE_OWN_MENU=1: as without the card image's picker track (PlayNav's own stands in)
+  -- PROBE_OWN_MENU=1: as without the card image's picker track (NaviPlay's own stands in)
   if os.getenv("PROBE_OWN_MENU") == "1" then
     local A = X._test.assets()
     if A and A.manifest and A.manifest.assets then A.manifest.assets["bgm/sp_menu"] = nil end
@@ -141,7 +141,7 @@ local function body(game, log)
     local tab = X.state().tabHeight or 0
     return r.x + ax * r.scale, r.y + (ay + tab) * r.scale
   end
-  -- a finger down / up at app coordinates (ax, ay), on whichever screen PlayNav is showing
+  -- a finger down / up at app coordinates (ax, ay), on whichever screen NaviPlay is showing
   local function touch(action, id, ax, ay)
     if SECOND then
       local k = X.state().pushK or 3
@@ -169,13 +169,13 @@ local function body(game, log)
   for i, e in ipairs(StartMenu.ENTRIES or {}) do
     if e.id == "play_nav" then idx = i end
   end
-  log("start menu:", topId(), "PLAYNAV entry at", tostring(idx), "cursor", StartMenu.cursor)
+  log("start menu:", topId(), "NAVIPLAY entry at", tostring(idx), "cursor", StartMenu.cursor)
   if idx then
     local moves = idx - (StartMenu.cursor or 1)
     for _ = 1, math.abs(moves) do U.tap(game, moves > 0 and "down" or "up"); U.wait(6) end
     U.tap(game, "a")
     U.wait(30)
-    -- the PlayNav menu: its Super Training card
+    -- the NaviPlay menu: its Super Training card
     for _, c in ipairs(X.menu and X.menu.app.cards() or {}) do
       if c.id == "training" then log("menu card training:", tostring(c.open())) end
     end
@@ -334,7 +334,7 @@ local function body(game, log)
 
   -- ------- a regimen: REGIMENS, pick Lv1 HP, play with the pad and the touch screen
   -- gen3-hd-sprites, when it is there: is it installed and on for battle pics (its tagged
-  -- stand-ins are what PlayNav draws the full frame from)
+  -- stand-ins are what NaviPlay draws the full frame from)
   do
     local ex = loader and loader.exports and loader.exports["gen3-hd-sprites"]
     log("gen3-hd-sprites:", ex and "loaded" or "absent", ex and ("active " .. tostring(ex.isActive()) ..

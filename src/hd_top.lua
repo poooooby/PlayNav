@@ -1,4 +1,4 @@
--- The top screen at window resolution. PlayNav's top-screen layers (Pokemon-Amie,
+-- The top screen at window resolution. NaviPlay's top-screen layers (Pokemon-Amie,
 -- Super Training) are Gen 3 UI-stack layers: the engine draws them into its 240x160 canvas
 -- and blits that at a whole-number scale, which shrinks the ORAS art onto a coarse grid.
 --

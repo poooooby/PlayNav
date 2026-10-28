@@ -1,4 +1,4 @@
--- Driver: where a PlayNav frame's Lua time and garbage go, part by part, on the home screen
+-- Driver: where a NaviPlay frame's Lua time and garbage go, part by part, on the home screen
 -- and in a regimen (split mode on the desktop; the ratios carry to a low-power device, the
 -- absolute times do not). For each part: the time per call and the Lua heap it allocates per
 -- call with the collector stopped (what the device's GC has to sweep every frame).

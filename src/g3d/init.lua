@@ -1,7 +1,7 @@
 -- written by groverbuger for g3d
 -- MIT license
--- PlayNav: vendored from https://github.com/groverburger/g3d at 639120acd754dc5c34402e41eb1687b1a5a3ffa8
--- (g3d 1.6.0) with the changes marked "PlayNav:" - mods cannot `require` their own files, so
+-- NaviPlay: vendored from https://github.com/groverburger/g3d at 639120acd754dc5c34402e41eb1687b1a5a3ffa8
+-- (g3d 1.6.0) with the changes marked "NaviPlay:" - mods cannot `require` their own files, so
 -- this file is run by src/training/arena3d.lua with (use, shader): use(name) runs this folder's
 -- <name>.lua with the g3d table as its argument; the shader is built (and checked) by the
 -- caller. objloader, collisions and the ffi compression are left out.
@@ -49,11 +49,11 @@ local g3d = {
     ]],
 }
 
--- PlayNav: the sibling loader in place of require(g3d.path .. ".x")
+-- NaviPlay: the sibling loader in place of require(g3d.path .. ".x")
 g3d.use = use
 
 -- the shader is what does the heavy lifting, displaying 3D meshes on your 2D monitor
--- PlayNav: built by the caller from this folder's g3d.vert source (newShader by path cannot see
+-- NaviPlay: built by the caller from this folder's g3d.vert source (newShader by path cannot see
 -- mod files); it may be nil, the caller then passing its own to model:draw
 g3d.shader = shader
 g3d.vectors = use("vectors", g3d)
@@ -63,7 +63,7 @@ g3d.newModel = use("model", g3d)
 g3d.camera.updateProjectionMatrix()
 g3d.camera.updateViewMatrix()
 
--- PlayNav: no global love.graphics.setDepthMode here - it would leak into the engine's 2D
+-- NaviPlay: no global love.graphics.setDepthMode here - it would leak into the engine's 2D
 -- drawing; the caller sets depth for its own pass only
 
 return g3d

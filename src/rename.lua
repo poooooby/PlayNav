@@ -1,4 +1,4 @@
--- PlayNav shipped as `ds_touch` up to 0.3.0. The engine keys a mod's save data
+-- NaviPlay shipped as `ds_touch` up to 0.3.0. The engine keys a mod's save data
 -- (session.modData[id]) and its Mod Manager options (loader.modOptions[id]) by the
 -- mod id, so the rename would otherwise start every player over. Once per save, the old
 -- bucket is copied into the new one: the old progress wins over the fresh defaults the

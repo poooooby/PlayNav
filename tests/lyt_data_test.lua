@@ -1,4 +1,4 @@
--- PlayNav's own copy of the minigames' layouts and clips (data/lyt/*.lua, tools/lyt_data.lua)
+-- NaviPlay's own copy of the minigames' layouts and clips (data/lyt/*.lua, tools/lyt_data.lua)
 -- against the files the extract copied into this machine's cache: the same panes, sizes,
 -- colours, groups and keyframes (to 7 figures), every text pane empty. The files load on
 -- their own; the comparison skips cleanly without the cache. Run from the engine root:

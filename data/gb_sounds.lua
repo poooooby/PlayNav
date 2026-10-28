@@ -1,4 +1,4 @@
--- PlayNav's engine sound stand-ins on the Game Boy games. Amie and Super Training name the
+-- NaviPlay's engine sound stand-ins on the Game Boy games. Amie and Super Training name the
 -- Gen 3 effect they stand in with (host.playSe("SE_SELECT"), the haptics key on the same
 -- names); on Gen 1 / 2 the host plays the effect here instead, by the game's own label
 -- (data.audio.sfx). A list = the first the game has. Missing = silent (its haptic still felt).

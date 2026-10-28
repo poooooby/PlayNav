@@ -27,7 +27,7 @@ return function(mod, deps)
 
   -- Each row's bytes are checked against Alpha Sapphire Rev 2's (data/oras_fingerprints.lua),
   -- so any decrypted dump that holds them works: a row whose bytes differ is skipped and its
-  -- feature draws PlayNav's own art, as without the import. Off when the table is absent or
+  -- feature draws NaviPlay's own art, as without the import. Off when the table is absent or
   -- was made for another recipe.
   local Fp = nil
   do

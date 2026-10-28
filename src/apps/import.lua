@@ -1,4 +1,4 @@
--- PLAYNAV: the choice between the Alpha Sapphire card image's assets and PlayNav's own,
+-- NAVIPLAY: the choice between the Alpha Sapphire card image's assets and NaviPlay's own,
 -- and the progress screen for the extraction. With USE ROM ASSETS on, opening
 -- Pokemon-Amie or Super Training with the cache missing or stale lands here (main.lua's
 -- importGate). States: the BEGIN / RESUME EXTRACTION button when the card image is
@@ -7,12 +7,12 @@
 -- warning, USE FALLBACK ASSETS (app.useFallback, wired by main: the option goes off).
 -- When the run finishes the bar fades out and a play button fades in; pressing it
 -- depresses, the game's shutters close over the screen (training/ss_black_out) and the
--- PlayNav menu opens behind them, the shutters parting over it (app.openMenu, wired by
+-- NaviPlay menu opens behind them, the shutters parting over it (app.openMenu, wired by
 -- main); the fallback button leaves the same way. The banner is drawn
 -- (src/apps/brand.lua), not shipped.
 
 return function(mod, Pointer, Extract, Assets)
-  local app = { id = "import", title = "PLAYNAV", live = true, hapticTouch = true }
+  local app = { id = "import", title = "NAVIPLAY", live = true, hapticTouch = true }
 
   -- app space is 256 x 178 (the tab strip's 14 rows above are reached with -bleed)
   local W, H = 256, 178
@@ -110,7 +110,7 @@ return function(mod, Pointer, Extract, Assets)
     end
   end
 
-  -- ------- drawing: PlayNav's look (src/apps/brand.lua), shared with the menu
+  -- ------- drawing: NaviPlay's look (src/apps/brand.lua), shared with the menu
 
   local Brand
   do
@@ -182,7 +182,7 @@ return function(mod, Pointer, Extract, Assets)
 
   local function drawReady(G)
     local resumed = Extract.cancelled or (Extract.progress()) > 0
-    text(G, "Use the assets from your own\nOmega Ruby or Alpha Sapphire copy, or PlayNav's own.", 40, 0.55, INK.text)
+    text(G, "Use the assets from your own\nOmega Ruby or Alpha Sapphire copy, or NaviPlay's own.", 40, 0.55, INK.text)
     button(G, app.BEGIN, resumed and "RESUME EXTRACTION" or "BEGIN EXTRACTION", true)
     fallbackButton(G, app.FALLBACK)
     text(G, "One import. It keeps running in the background while you play.", 148, 0.5, INK.dim)
@@ -240,7 +240,7 @@ return function(mod, Pointer, Extract, Assets)
     G.rectangle("fill", W / 2 - 2.5, 69, 5, 5, 2, 2)
     text(G, wrong and "INCORRECT ROM ADDED" or "OR/AS ROM NOT FOUND", 86, 0.66, INK.warn, a)
     text(G, wrong and "The imported copy is not Omega Ruby or Alpha Sapphire."
-      or "PlayNav reads the OR/AS assets from your own card image.", 102, 0.5, INK.text)
+      or "NaviPlay reads the OR/AS assets from your own card image.", 102, 0.5, INK.text)
     text(G, wrong and "Replace it under Imported files, then tap to check again."
       or "Install the import, then tap to check again.", 113, 0.5, INK.dim)
     fallbackButton(G, app.FALLBACK_ABSENT)
@@ -291,7 +291,7 @@ return function(mod, Pointer, Extract, Assets)
   end
 
   -- after the run: the bar fades out, the play button fades in, a press sinks it and
-  -- the shutters close; behind them the PlayNav menu opens
+  -- the shutters close; behind them the NaviPlay menu opens
   local function drawFinale(G)
     doneAt = doneAt or Pointer.now()
     local d = Pointer.now() - doneAt
@@ -311,12 +311,12 @@ return function(mod, Pointer, Extract, Assets)
     if failNote and Pointer.now() < failNote[2] then
       text(G, failNote[1], 140, 0.5, INK.warn)
     elseif a > 0 and not pressedAt and (Extract.differs or 0) > 0 then
-      text(G, ("%d parts of your copy differ from Rev 2;\nPlayNav draws its own there."):format(Extract.differs),
+      text(G, ("%d parts of your copy differ from Rev 2;\nNaviPlay draws its own there."):format(Extract.differs),
         136, 0.5, INK.dim, a)
     end
   end
 
-  -- the handoff runs here, not mid-draw: once the shutters are shut, open the PlayNav menu
+  -- the handoff runs here, not mid-draw: once the shutters are shut, open the NaviPlay menu
   function app:update(dt)
     if not (shutterAt and not opened) then return end
     if (Pointer.now() - shutterAt) * 30 < 16 then return end
@@ -326,7 +326,7 @@ return function(mod, Pointer, Extract, Assets)
     if not ok then
       -- stuck shut would be worse: back to the button with the reason
       opened, pressedAt, shutterAt, leaving = false, nil, nil, false
-      failNote = { ("PlayNav could not open (%s)"):format(tostring(why)), Pointer.now() + 3 }
+      failNote = { ("NaviPlay could not open (%s)"):format(tostring(why)), Pointer.now() + 3 }
     end
   end
 

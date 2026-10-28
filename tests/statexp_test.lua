@@ -118,7 +118,7 @@ eq(base1.statusOf({ status = "SLP" }), "SLP", "Gen 1 status")
 eq(base1.statusOf({ status = "paralyze" }), "PAR", "Gen 2 status")
 check(type(base1.monKey(mon)) == "string", "a key for the mon")
 
--- G9 Battle Sprites' party icons: the atlas it already holds, never its HD one on PlayNav's account
+-- G9 Battle Sprites' party icons: the atlas it already holds, never its HD one on NaviPlay's account
 do
   local asked = {}
   local fakeImg = { getWidth = function() return 960 end }

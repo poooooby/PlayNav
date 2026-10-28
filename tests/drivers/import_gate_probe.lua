@@ -1,4 +1,4 @@
--- Driver: the PLAYNAV gate screen's states, shot without running a real extraction
+-- Driver: the NAVIPLAY gate screen's states, shot without running a real extraction
 -- (states are pinned on the live Extract and restored). Also checks that opening
 -- Super Training while the cache is "stale" lands on the gate instead.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
@@ -59,7 +59,7 @@ local function body(game, log)
   end
   local state0, message0, progress0 = Extract.state, Extract.message, Extract.progress
 
-  -- the gate: a "stale" cache sends Super Training's entry to the PLAYNAV screen
+  -- the gate: a "stale" cache sends Super Training's entry to the NAVIPLAY screen
   Extract.state = "idle"
   local complete0 = Extract.cacheComplete
   Extract.cacheComplete = function() return false end
@@ -111,7 +111,7 @@ local function body(game, log)
   end
 
   -- USE FALLBACK ASSETS (from the missing-ROM warning): the option goes off, the shutters
-  -- close and the PlayNav menu opens; with the option off the apps open without the gate.
+  -- close and the NaviPlay menu opens; with the option off the apps open without the gate.
   -- options.lua is never written (writeOptions stubbed) and the option and the stored
   -- choice are put back afterwards
   do
@@ -144,7 +144,7 @@ local function body(game, log)
     U.wait(10)
     shot("g05e_training_fallback")
     if X.training.session then X.training.finish() end
-    -- switched back on: checked again, the PLAYNAV screen asks
+    -- switched back on: checked again, the NAVIPLAY screen asks
     opts.use_rom_assets = true
     loader.events:emit("mod.options_changed", { mod = "play_nav", key = "use_rom_assets", value = true })
     U.wait(5)

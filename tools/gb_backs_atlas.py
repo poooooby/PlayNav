@@ -2,7 +2,7 @@
 of tools/balloon_atlas.py).
 
 Gen 1 and Gen 2's own pics are four shades, their white left see-through, the backs with dotted
-outlines; PlayNav draws a Pokemon over 3DS scenes (Amie's PLAY and minigames, the regimen's
+outlines; NaviPlay draws a Pokemon over 3DS scenes (Amie's PLAY and minigames, the regimen's
 rider), so Gen 1 / 2 take Pokemon Crystal's sprites instead, from the Crystal Animated Sprites
 with Shiny Visuals pack (assets/back/{normal,shiny}/<n>.png; assets/front/{normal,shiny}/<n>/
 NNN.png, an animation: its first frame; 4 colours + transparent each, up to 56x56). Each is

@@ -857,7 +857,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local function ease(cur, target, k) return cur + (target - cur) * k end
 
   -- 3D AMIE: the stage's pictures, rendered by the session's layer update (G.prepareStage),
-  -- which the engine calls outside its draw - never app:update, which runs from PlayNav's tick
+  -- which the engine calls outside its draw - never app:update, which runs from NaviPlay's tick
   -- inside render.hud (a canvas switched to in the middle of drawing broke the frame on
   -- Android); for the view as it is, a STAGE_PAD margin round it so the view easing on before
   -- the draw stays inside the picture; a new visit or another Pokemon starts the camera's entry

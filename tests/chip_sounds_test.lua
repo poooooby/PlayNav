@@ -1,4 +1,4 @@
--- PlayNav's own sound effects (data/chip_sounds.lua) on the chip synth (src/chipsynth.lua):
+-- NaviPlay's own sound effects (data/chip_sounds.lua) on the chip synth (src/chipsynth.lua):
 -- every effect Super Training's and Pokemon-Amie's maps name is made, each at its peak, the
 -- steady ones four seconds long. Set CHIP_OUT=<dir> to also write the WAVs for a listen. Run
 -- from the engine root:
@@ -24,7 +24,7 @@ local function want(v)
 end
 for _, v in pairs(module("data/training_sounds.lua")) do want(v) end
 for k, v in pairs(module("data/amie_sounds.lua")) do if k ~= "EVIDENCE" then want(v) end end
-for id in pairs(wanted) do T.check(effects[id] ~= nil, id .. " has a sound of PlayNav's own") end
+for id in pairs(wanted) do T.check(effects[id] ~= nil, id .. " has a sound of NaviPlay's own") end
 local STEADY = { ["se/sp_024"] = true, ["se/sp_034"] = true, ["se/sp_041"] = true, ["se/kw_addscore"] = true,
   ["se/rk_rain"] = true }
 for id, def in pairs(effects) do

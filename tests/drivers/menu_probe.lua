@@ -1,4 +1,4 @@
--- Driver: the PlayNav menu. START -> PLAYNAV (one entry; the old AMIE / TRAINING entries
+-- Driver: the NaviPlay menu. START -> NAVIPLAY (one entry; the old AMIE / TRAINING entries
 -- gone), the menu up with its two cards; a real touch on Super Training's card (the sink,
 -- the shutters, its home behind them), its return back to the menu; Pokemon-Amie's card (the
 -- fade, the room, no arrows on the strip), its CLOSE back to the menu; the x leaves.
@@ -53,7 +53,7 @@ local function body(game, log)
     love.touchreleased(id, x, y, 0, 0, 1); U.wait(4)
   end
 
-  -- ------- START: one PLAYNAV entry
+  -- ------- START: one NAVIPLAY entry
   local StartMenu = require("src.ui.game3.start_menu")
   waitFor(function() return game.phase == "field" end, 1200)
   U.wait(60)
@@ -68,13 +68,13 @@ local function body(game, log)
     if e.id == "play_nav" then idx = i end
   end
   log("start menu entries:", table.concat(ids, ","))
-  if not idx then log("FAIL no PLAYNAV entry"); return end
+  if not idx then log("FAIL no NAVIPLAY entry"); return end
   local moves = idx - (StartMenu.cursor or 1)
   for _ = 1, math.abs(moves) do U.tap(game, moves > 0 and "down" or "up"); U.wait(6) end
   shot("m00_start_menu")
   U.tap(game, "a")
   U.wait(30)
-  log("after PLAYNAV: active", active(), "shown", tostring(X.menu.shown()), "surface", X.state().mode)
+  log("after NAVIPLAY: active", active(), "shown", tostring(X.menu.shown()), "surface", X.state().mode)
   shot("m01_menu")
 
   local M = X.menu.app

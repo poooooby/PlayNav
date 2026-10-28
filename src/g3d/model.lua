@@ -1,7 +1,7 @@
 -- written by groverbuger for g3d
 -- MIT license
 
--- PlayNav: run by g3d's init with the g3d table (no require in a mod); objloader and
+-- NaviPlay: run by g3d's init with the g3d table (no require in a mod); objloader and
 -- collisions are left out
 local g3d = ...
 local newMatrix = g3d.newMatrix
@@ -33,7 +33,7 @@ model.shader = g3d.shader
 local function newModel(verts, texture, translation, rotation, scale)
     local self = setmetatable({}, model)
 
-    -- PlayNav: verts is always a table and texture an Image (or nil): no file paths, which
+    -- NaviPlay: verts is always a table and texture an Image (or nil): no file paths, which
     -- the mod sandbox cannot open
 
     -- initialize my variables
@@ -146,7 +146,7 @@ end
 
 
 -- draw the model
--- PlayNav: the caller wraps its pass in love.graphics.push("all") / pop
+-- NaviPlay: the caller wraps its pass in love.graphics.push("all") / pop
 function model:draw(shader)
     local shader = shader or self.shader
     local previousShader = love.graphics.getShader()
@@ -161,7 +161,7 @@ function model:draw(shader)
     love.graphics.setShader(previousShader)
 end
 
--- PlayNav: the ffi compression (model:compress) and the collision helpers are left out:
+-- NaviPlay: the ffi compression (model:compress) and the collision helpers are left out:
 -- mods get no ffi, and the arena needs no collisions
 
 return newModel

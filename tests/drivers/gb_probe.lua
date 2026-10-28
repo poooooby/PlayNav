@@ -1,14 +1,14 @@
--- Driver: PlayNav on the Game Boy games (Gen 1 Red / Blue / Yellow, Gen 2 Gold / Silver /
+-- Driver: NaviPlay on the Game Boy games (Gen 1 Red / Blue / Yellow, Gen 2 Gold / Silver /
 -- Crystal). Boots, gives a party, then plays every feature through taps and the exports and
--- shoots each screen: the PLAYNAV menu from START, Super Training (home, a bag cleared - the
+-- shoots each screen: the NAVIPLAY menu from START, Super Training (home, a bag cleared - the
 -- Stat Exp it writes - the drawer, the picker, a regimen and its results, the Konami alley and
 -- a Special R), Pokemon-Amie (the room, PLAY, petting, a puff, each minigame), a battle's
 -- after-effects. Logs the host, the profile, the stats, Stat Exp before / after, and every canvas
--- switched to while another was set by PlayNav (must be none: Android).
+-- switched to while another was set by NaviPlay (must be none: Android).
 --   SHOT_DIR=<dir> POKEPORT_GAME=red POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/gb_probe.lua love .
---   (POKEPORT_GAME=crystal POKEPORT_VERSION=crystal for Gen 2; PROBE_FALLBACK=1 PlayNav's own
---   assets; PROBE_ONLY=training|amie|egg|menu)
+--   (POKEPORT_GAME=crystal POKEPORT_VERSION=crystal for Gen 2; PROBE_FALLBACK=1 NaviPlay's own
+--   assets; PROBE_ONLY=training|amie|egg|menu; PROBE_SPRITES=modded a sprite mod's pictures)
 
 local function body(game, log, dir)
   local U = require("tests.drivers.util")
@@ -28,9 +28,9 @@ local function body(game, log, dir)
   love.window.setMode(tonumber(os.getenv("SHOT_W")) or 603, tonumber(os.getenv("SHOT_H")) or 1294, { resizable = true, highdpi = true })
   U.wait(2)
 
-  -- nested canvases: setCanvas(c) while another canvas is set, from PlayNav's files. The ones
+  -- nested canvases: setCanvas(c) while another canvas is set, from NaviPlay's files. The ones
   -- inside the engine's own canvases (the captured game, the renderer's frame) are what Android
-  -- breaks on; inside PlayNav's own touch screen they are as on Gen 3.
+  -- breaks on; inside NaviPlay's own touch screen they are as on Gen 3.
   local nested, nestedBy, inEngine = 0, {}, 0
   do
     local origSet, getC = love.graphics.setCanvas, love.graphics.getCanvas
@@ -59,7 +59,7 @@ local function body(game, log, dir)
     local parts = {}
     for f, n in pairs(nestedBy) do parts[#parts + 1] = f .. " " .. n end
     table.sort(parts)
-    log(("canvases set inside another by PlayNav: %d (%s)"):format(nested, #parts > 0 and table.concat(parts, ", ") or "none"))
+    log(("canvases set inside another by NaviPlay: %d (%s)"):format(nested, #parts > 0 and table.concat(parts, ", ") or "none"))
   end
 
   local gen = game.save and game.save.player and game.world and 2 or nil
@@ -81,6 +81,20 @@ local function body(game, log, dir)
   local loader = game.mods
   loader.modOptions.play_nav = loader.modOptions.play_nav or {}
   loader.modOptions.play_nav.display_mode = os.getenv("PROBE_DISPLAY") or "combined"
+  -- PROBE_SPRITES=modded: GEN 1/2 SPRITES on MODDED (an installed sprite mod's pictures)
+  loader.modOptions.play_nav.gb_sprites = os.getenv("PROBE_SPRITES") or "playnav"
+  -- (a driver run steps Game:update itself, past the core.update hook, where a sprite mod may
+  -- prepare its sheets: raised on every frame waited, as the game does)
+  if os.getenv("PROBE_SPRITES") == "modded" then
+    local wait0 = U.wait
+    local Runtime = require("src.mods.Runtime")
+    U.wait = function(n)
+      for _ = 1, n or 1 do
+        pcall(Runtime.call, "core.update", function() end, game, 1 / 60)
+        wait0(1)
+      end
+    end
+  end
   if X._test.forceRom and os.getenv("PROBE_FALLBACK") ~= "1" and X.import then
     waitFor(function() return X.import.state() ~= "running" and X.import.state() ~= "finishing" end, 60 * 120)
   end
@@ -111,7 +125,7 @@ local function body(game, log, dir)
     end
     log("kana: lead", host.displayName(mon), "species 81", tostring(host.speciesName(host.speciesFromNational(81))))
   end
-  -- the party icon PlayNav draws: another mod's (G9 Battle Sprites' HD cell, 64 wide) or the
+  -- the party icon NaviPlay draws: another mod's (G9 Battle Sprites' HD cell, 64 wide) or the
   -- game's (16); a mod's atlas may decode a frame or two after the first ask
   do
     local ic
@@ -121,6 +135,32 @@ local function body(game, log, dir)
     log(("party icon: %s px (%s)"):format(tostring(ic and ic.w), g9(ic) and "G9 Battle Sprites" or "the game's"))
     local o = game.mods.modOptions and game.mods.modOptions["g9-battle-sprites"]
     log("G9 options: party_icons", tostring(o and o.party_icons), "g9_party_screen", tostring(o and o.g9_party_screen))
+    -- the lead's pics (GEN 1/2 SPRITES): a sprite mod's sheet may bake over a few frames
+    for _, side in ipairs({ "front", "back" }) do
+      local fn = side == "front" and host.frontPic or host.backPic
+      local e
+      for _ = 1, 600 do
+        e = fn(mon)
+        if os.getenv("PROBE_SPRITES") ~= "modded" or (host.picFrom and host.picFrom[side] ~= "playnav") then break end
+        U.wait(1)
+      end
+      log(("%s pic: %s %sx%s (gb_sprites %s)"):format(side, tostring(host.picFrom and host.picFrom[side]),
+        tostring(e and e.w), tostring(e and e.h), tostring(loader.modOptions.play_nav.gb_sprites)))
+    end
+    -- every party member's front as first handed out (a stand-in while the mod prepares it), then
+    -- the same entry once the mod has had time: its picture swapped in place
+    if os.getenv("PROBE_SPRITES") == "modded" then
+      local firsts = {}
+      for i, m in ipairs(game.save.party) do firsts[i] = { e = host.frontPic(m), from = host.picFrom.front } end
+      U.wait(120)
+      for i, m in ipairs(game.save.party) do
+        local f = firsts[i]
+        local now = host.frontPic(m)
+        log(("party %d %s: first %s %sx%s, later %sx%s, now %s (same picture %s)"):format(i, tostring(m.species),
+          tostring(f.from), tostring(f.e and f.e.w), tostring(f.e and f.e.h), tostring(f.e and f.e.w), tostring(f.e and f.e.h),
+          tostring(host.picFrom.front), tostring(f.e and now and f.e.image == now.image)))
+      end
+    end
   end
   local function shot(name) log("shot", name, U.shot(game, dir .. "/" .. name .. ".png") and "ok" or "MISSING") end
   local function win(ax, ay)
@@ -137,18 +177,18 @@ local function body(game, log, dir)
   local only = os.getenv("PROBE_ONLY")
   local function want(part) return only == nil or only == part end
 
-  -- the PLAYNAV entry in START
+  -- the NAVIPLAY entry in START
   if want("menu") then
     U.tap(game, "start"); U.wait(20)
     local top = game.stack:top()
     local items = top and (top.items or (top.menu and top.menu.items)) or {}
     local found = false
-    for _, e in ipairs(items) do if type(e) == "table" and e.label == "PLAYNAV" then found = true end end
-    check(found, "START lists PLAYNAV")
+    for _, e in ipairs(items) do if type(e) == "table" and e.label == "NAVIPLAY" then found = true end end
+    check(found, "START lists NAVIPLAY")
     shot("m01_start_menu")
     U.tap(game, "b"); U.wait(20)
     if game.stack:top() and game.stack:top().screenId then U.tap(game, "b"); U.wait(10) end
-    check(X.menu.open() ~= false, "the PlayNav menu opens")
+    check(X.menu.open() ~= false, "the NaviPlay menu opens")
     U.wait(40)
     shot("m02_playnav_menu")
     X.menu.close()
@@ -335,7 +375,7 @@ local function body(game, log, dir)
   end
 
   nestedLog()
-  check(inEngine == 0, ("no canvas set by PlayNav inside the engine's (%d)"):format(inEngine))
+  check(inEngine == 0, ("no canvas set by NaviPlay inside the engine's (%d)"):format(inEngine))
   log(("%d failures"):format(fails))
 end
 

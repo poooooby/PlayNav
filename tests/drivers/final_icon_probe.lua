@@ -1,6 +1,6 @@
 -- Driver: the regimen picker's last secret page with every course open, so the final course's
 -- picture shows: the Aron line's (the card's stage_poke_38) on Emerald / Ruby / FireRed, the
--- Larvitar line's (31) on Sapphire / LeafGreen. PROBE_FALLBACK=1 for PlayNav's drawn pictures;
+-- Larvitar line's (31) on Sapphire / LeafGreen. PROBE_FALLBACK=1 for NaviPlay's drawn pictures;
 -- PROBE_COURSE picks another course (its blurb logged).
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/final_icon_probe.lua love .

@@ -24,7 +24,7 @@ local function body(game, log)
   waitFor(function() return game.phase == "field" end, 1200)
   U.wait(30)
   local host = X._test.trainingHost()
-  -- PlayNav's own effects through Super Training's player (the press, the charging hum, the
+  -- NaviPlay's own effects through Super Training's player (the press, the charging hum, the
   -- shots), the first time and again
   local T = X.training and X.training.session
   for round = 1, 2 do

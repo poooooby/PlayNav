@@ -1,4 +1,4 @@
-# PlayNav: developer guide
+# NaviPlay: developer guide
 
 For mod authors and contributors. Players only need the [README](README.md).
 
@@ -14,7 +14,7 @@ ds_touch" below). Gen 3 is the only supported generation (`games: ["gen3"]`).
   dormant until the active app's `wantsSurface()` is true.
 - **Second display priority.** `main.lua` wraps `render.compose` at priority 1000, outside
   every other compose mod (Kanto Gear wraps at -1000), and replaces `ctx.secondScreen` with
-  the proxy from `src/second_gate.lua`. While PlayNav is in second-screen mode the proxy
+  the proxy from `src/second_gate.lua`. While NaviPlay is in second-screen mode the proxy
   reports `detected() == false`, swallows `push` and returns no touches, so downstream mods
   treat the display as disconnected; leaving the mode passes everything through again and
   re-enables the display as the downstream mod last asked. Driver:
@@ -90,7 +90,7 @@ battles.
 The repo root is the mod root; link it into the engine as a directory junction:
 
 ```bat
-mklink /J C:\Users\<you>\Documents\GitHub\gen1recomp\mods\play_nav C:\Users\<you>\Documents\GitHub\PlayNav
+mklink /J C:\Users\<you>\Documents\GitHub\gen1recomp\mods\play_nav C:\Users\<you>\Documents\GitHub\NaviPlay
 ```
 
 Headless suites, from the engine root: `luajit mods/play_nav/tests/<name>.lua` for
@@ -114,13 +114,13 @@ POKEPORT_DRIVER=mods/play_nav/tests/drivers/emerald_shot.lua love .
 
 - `emerald_shot.lua` - Amie end to end: the room, petting, puffs, the
   minigames, Décor and visitors, benefits, the second display. `SHOT_W` / `SHOT_H` set the window;
-  `PLAYNAV_HD=0` compares against the low-resolution path.
+  `NAVIPLAY_HD=0` compares against the low-resolution path.
 - `training_probe.lua` - Super Training: a bag to completion, a regimen played with the pad,
   the result, a Wing from the bag.
 - `balloon_probe.lua` - several regimens' Balloon Bots and goals over time
   (`BALLOON_COURSES`, `BALLOON_MOVE`).
 - `games_probe.lua`, `split_probe.lua` - the minigame loop; the split-screen presets.
-- `second_priority_probe.lua` - PlayNav taking the second display from a compose mod and
+- `second_priority_probe.lua` - NaviPlay taking the second display from a compose mod and
   handing it back.
 
 For in-game testing with the art, hard-link the dump to `baseroms/alpha_sapphire_rev2.cci`

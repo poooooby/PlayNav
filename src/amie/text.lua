@@ -113,7 +113,7 @@ return function(G)
 
   -- ------- raw access
 
-  -- the minigames and their picker speak PlayNav's own words (the fallbacks here), never the
+  -- the minigames and their picker speak NaviPlay's own words (the fallbacks here), never the
   -- card image's; AT.ownText = false puts the game's text back (for side-by-side checks)
   AT.OWN_FILES = { berry = true, head = true, tile = true, games = true }
   AT.ownText = true

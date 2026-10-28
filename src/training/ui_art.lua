@@ -471,7 +471,7 @@ return function(mod, deps)
     -- the arrow's extent (x -9.2..12.9, y -13..8.2 about its point) centred on the button's
     col(G, c255(10, 58, 12)); returnArrow(G, 22.15, 26.4, 1, true, true)
   end)
-  -- PlayNav's small return: a dark blue ring, a white face shaded to grey at its lower right,
+  -- NaviPlay's small return: a dark blue ring, a white face shaded to grey at its lower right,
   -- the blue return arrow
   gen("training/home_return", 30, 30, function(G)
     G.setColor(0.08, 0.2, 0.42, 1); circle(G, "fill", 15, 15, 14)
@@ -1704,7 +1704,7 @@ return function(mod, deps)
     outlined(G, "CLEARED", 30, 10, 10, c255(255, 120, 60), c255(70, 0, 0), 0.8, 52)
   end)
 
-  -- the course pictures: the course's balloon (PlayNav's own sprites, balloon blue) in a ringed medallion
+  -- the course pictures: the course's balloon (NaviPlay's own sprites, balloon blue) in a ringed medallion
   -- over a sky and a lawn; a course whose balloon has no sprite keeps the plain medallion
   local courseBot = nil
   local function botForArt(id)

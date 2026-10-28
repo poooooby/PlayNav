@@ -23,7 +23,7 @@ return function(mod, Files, Player)
     return ok and b or nil
   end
 
-  -- PlayNav's own copy of a pack's layouts and clips (data/lyt/<pack>.lua, made by
+  -- NaviPlay's own copy of a pack's layouts and clips (data/lyt/<pack>.lua, made by
   -- tools/lyt_data.lua: the same tables src/lytfile.lua parses, as numbers), read when the
   -- card image's files are not there; the pane tree's back links are rebuilt here
   S.packs = {}

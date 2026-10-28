@@ -1,4 +1,4 @@
--- Driver: what each sprite source hands PlayNav for a few species (a form from the National
+-- Driver: what each sprite source hands NaviPlay for a few species (a form from the National
 -- Dex mods, a newer species, a Gen 3 one): the party icon entry (frame size, sheet size,
 -- pixel density) and the front pic, and the opaque box PLAY / Head It measure on each.
 -- Env PROBE_SLOTS = comma-separated engine species slots (default Zygarde Complete 1144,

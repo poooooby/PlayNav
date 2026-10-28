@@ -3,7 +3,7 @@
 -- pieces - the live game (mod.game: save.party, data, stack, input), Sound and Music, the
 -- pictures under assets/generated. Nothing of Gen 3's is required here.
 --
--- The games' pictures are four shades of grey coloured by palette as they are drawn; PlayNav
+-- The games' pictures are four shades of grey coloured by palette as they are drawn; NaviPlay
 -- draws them in full colour among the 3DS art, so each is coloured once on the CPU (ImageData,
 -- no canvas: safe to make anywhere, in a draw too) with its species' palette, the white round
 -- it made see-through (the white inside the outline kept), and put on a 64x64 pic as Gen 3's are.
@@ -384,10 +384,13 @@ return function(mod, profile)
     if not src then return nil end
     local ok, entry = pcall(function()
       local coloured = trueColor and src or colour(src, colorsOf(species, shiny), side == "back" and 4 or true)
-      -- the 64x64 Gen 3 pics are drawn feet down; a back pic (32 / 48 px) grows to fill it
-      local pic = onPic(coloured, 64, side == "back" and 64 or 56)
+      -- the 64x64 Gen 3 pics are drawn feet down; a back pic (32 / 48 px) grows to fill it (a
+      -- sprite mod's larger true-colour pic keeps its size, on a square as large)
+      local sw, sh = coloured:getDimensions()
+      local size = math.max(64, sw, sh)
+      local pic = onPic(coloured, size, size > 64 and size or (side == "back" and 64 or 56))
       local img = newImage(pic)
-      return img and { image = img, w = 64, h = 64 } or nil
+      return img and { image = img, w = size, h = size } or nil
     end)
     pics[key] = (ok and entry) or false
     return ok and entry or nil
@@ -396,7 +399,7 @@ return function(mod, profile)
   local function shinyOf(mon) return type(mon) == "table" and mon.shiny == true end
 
 
-  -- Front and back pics are Pokemon Crystal's from PlayNav's atlases (assets/gb_fronts.png,
+  -- Front and back pics are Pokemon Crystal's from NaviPlay's atlases (assets/gb_fronts.png,
   -- gb_backs.png + data/gb_fronts.lua, gb_backs.lua; tools/gb_backs_atlas.py): full colour, the
   -- bodies solid. H.setBacks(backs, read, fronts) hands them in (read(path) -> the PNG's bytes);
   -- each atlas is read once on the CPU, each pic made the first time it is asked for
@@ -489,20 +492,200 @@ return function(mod, profile)
     return shiny
   end
 
+  -- An installed sprite mod's pictures, with GEN 1/2 SPRITES on MODDED (NaviPlay's own where the
+  -- mod has none), through the engine's own seams for sprite mods - no mod named:
+  --   battle.mon_pic - a mod handing out the Pokemon's picture as a battle draws it (G9 Battle
+  --     Sprites: front and back, Gen 1 and 2), asked at the art's natural size (ctx.natural,
+  --     scale 1), kept as one still frame (mod.stillPic: its resting pose) and set feet down,
+  --     centred, on a transparent square of PIC_BOX (larger for art that does not fit): the
+  --     64x64 frame NaviPlay's own pics are, so every screen sizes it as theirs and each Pokemon
+  --     keeps its size against the others. A mod answers false while it is still preparing the
+  --     picture (G9 Battle Sprites: a few frames, in its core.update);
+  --   pokemon.sprite - a mod swapping the picture files (Sprites.path answering another path
+  --     than the species' own), drawn through picFor.
+  -- The mod is asked, and its picture set on its square (a canvas), only in the update step
+  -- (H.prepare, from main's core.update wrap): never mid-draw. A screen asking first gets
+  -- NaviPlay's picture as a stand-in, an entry of its own that the mod's replaces in place once
+  -- ready, so a screen that took it once (a minigame's Pokemon, PLAY's) needs no second ask.
+  -- H.prepare also asks for the party's pictures ahead of time.
+  local Runtime = req("src.mods.Runtime")
+  local PIC_BOX = 64
+  local PREPARE_PER_STEP = 2   -- mod pictures asked for in one update step
+  local GIVE_UP = 600          -- update steps a picture may stay in preparation
+  local function wantModded()
+    local ok, v = pcall(function() return mod.options:get("gb_sprites") end)
+    return ok and v == "modded"
+  end
+
+  local function monPicHook()
+    return Runtime and Runtime.wantsHook and Runtime.call and Runtime.wantsHook("battle.mon_pic")
+  end
+
+  local function modKey(mon, side, shiny)
+    return side .. "|" .. tostring(mon.species) .. (shiny and "|s" or "") .. (mon.gender == "female" and "|f" or "")
+      .. (type(mon.unownLetter) == "string" and ("|" .. mon.unownLetter) or "")
+  end
+
+  local monPics = {}    -- key -> the mod's picture on its square
+  local noArt = {}      -- key -> true: the mod has none
+  local queue = {}      -- key -> { side, mon, shiny, tries }: to ask for in the update step
+
+  -- the mod's picture set on its square (a canvas: the update step only)
+  local function onSquare(e)
+    local iw, ih = e.image:getDimensions()
+    local F = math.max(PIC_BOX, iw, ih)
+    local G = love.graphics
+    local c = G.newCanvas(F, F, { dpiscale = 1 })
+    c:setFilter("nearest", "nearest")
+    G.push("all")
+    G.setCanvas(c)
+    G.origin()
+    G.setScissor()
+    G.setShader()
+    G.clear(0, 0, 0, 0)
+    G.setColor(1, 1, 1, 1)
+    G.draw(e.image, math.floor((F - iw) / 2), F - ih)
+    G.pop()
+    return { image = c, w = F, h = F }
+  end
+
+  local function identity(img) return img end
+  -- one ask of the mod (the update step): "ready", "pending" or "none"
+  local function askMod(key, q)
+    local ctx = { species = q.mon.species, side = q.side, kind = "summary", mon = q.mon, shiny = q.shiny,
+      natural = true, scale = 1 }
+    local pending = false
+    local function ask()
+      local img = Runtime.call("battle.mon_pic", identity, nil, ctx)
+      if img == false then pending = true end
+      if type(img) == "userdata" and img.getDimensions then
+        local w, h = img:getDimensions()
+        return { image = img, w = w, h = h }
+      end
+      return nil
+    end
+    local SP = mod.stillPic
+    local e
+    if SP then e = SP.get(ask) else
+      local ok, v = pcall(ask)
+      e = ok and v or nil
+    end
+    if e then
+      local ok, sq = pcall(onSquare, e)
+      if ok and sq then monPics[key] = sq; return "ready" end
+      noArt[key] = true
+      return "none"
+    end
+    if pending then return "pending" end
+    noArt[key] = true
+    return "none"
+  end
+
+  -- the mod's picture when ready; else nil and whether it may still come (queued for the update step)
+  local function hookedFrame(side, mon, shiny)
+    if not monPicHook() then return nil end
+    local key = modKey(mon, side, shiny)
+    if monPics[key] then return monPics[key] end
+    if noArt[key] then return nil, false end
+    if not queue[key] then queue[key] = { side = side, mon = mon, shiny = shiny, tries = 0 } end
+    return nil, true
+  end
+
+  local function hookedPic(side, mon, shiny)
+    if not (H.Sprites and H.Sprites.path) then return nil end
+    local d = def(mon.species)
+    local own = d and (side == "back" and d.spriteBack or d.spriteFront)
+    local ok, p = pcall(H.Sprites.path, data(), mon.species, side, { mon = mon, kind = "summary" })
+    if not (ok and p) or p == own then return nil end
+    return picFor(mon.species, side, mon, shiny)
+  end
+
+  -- (H.picFrom[side]: where the last pic came from - "mon_pic", "sprite", "playnav" or "game", for drivers)
+  H.picFrom = {}
+  -- (second value: the mod may still hand one out)
+  local function moddedPic(side, mon, shiny)
+    if not wantModded() then return nil end
+    local e, pending = hookedFrame(side, mon, shiny)
+    if e then H.picFrom[side] = "mon_pic"; return e end
+    e = hookedPic(side, mon, shiny)
+    if e then H.picFrom[side] = "sprite"; return e end
+    return nil, pending
+  end
+
+  local standIns = {}   -- key -> the stand-in entry handed out
+  local function standIn(side, mon, shiny, own)
+    if not own then return nil end
+    local key = modKey(mon, side, shiny)
+    local e = standIns[key]
+    if not e then
+      e = { image = own.image, w = own.w, h = own.h, quad = own.quad }
+      standIns[key] = e
+    end
+    return e
+  end
+
+  -- (the update step, MODDED only) a few queued pictures asked of the mod, ready ones swapped
+  -- into their stand-ins, and the party's asked for ahead of time
+  local warmI = 0
+  function H.prepare()
+    if not (wantModded() and monPicHook() and love and love.graphics) then return end
+    local party = H.party()
+    if #party > 0 then
+      warmI = warmI % #party + 1
+      local mon = party[warmI]
+      if type(mon) == "table" and not mon.isEgg then
+        local shiny = shinyNow(mon)
+        hookedFrame("front", mon, shiny)
+        hookedFrame("back", mon, shiny)
+      end
+    end
+    local n = 0
+    for key, q in pairs(queue) do
+      if n >= PREPARE_PER_STEP then break end
+      n = n + 1
+      local got = askMod(key, q)
+      q.tries = q.tries + 1
+      if got ~= "pending" or q.tries > GIVE_UP then queue[key] = nil end
+      if got == "ready" and standIns[key] then
+        local e, sq = standIns[key], monPics[key]
+        e.image, e.w, e.h, e.quad = sq.image, sq.w, sq.h, nil
+        standIns[key] = nil
+      end
+    end
+  end
+
+  local function pic(side, mon, shiny)
+    local e, pending = moddedPic(side, mon, shiny)
+    if e then return e end
+    e = crystalPic(side, mon, shiny)
+    if e then H.picFrom[side] = "playnav" else
+      H.picFrom[side] = "game"
+      e = picFor(mon.species, side, mon, shiny)
+    end
+    if pending then return standIn(side, mon, shiny, e) end
+    return e
+  end
+
   function H.backPic(mon)
     if type(mon) ~= "table" then return nil end
-    local shiny = shinyNow(mon)
-    return crystalPic("back", mon, shiny) or picFor(mon.species, "back", mon, shiny)
+    return pic("back", mon, shinyNow(mon))
   end
 
   function H.frontPic(mon)
     if type(mon) ~= "table" then return nil end
-    local shiny = shinyNow(mon)
     if mon.isEgg then return picFor("EGG", "front", mon, false) or picFor(mon.species, "front", mon, false) end
-    return crystalPic("front", mon, shiny) or picFor(mon.species, "front", mon, shiny)
+    return pic("front", mon, shinyNow(mon))
   end
 
-  function H.speciesFrontPic(species) return picFor(species, "front", nil, false) end
+  function H.speciesFrontPic(species)
+    if not species then return nil end
+    local mon = { species = species }
+    local e, pending = moddedPic("front", mon, false)
+    if e then return e end
+    e = picFor(species, "front", nil, false)
+    if pending then return standIn("front", mon, false, e) end
+    return e
+  end
 
   -- party icons: { image, quads[0], quads[1], frames = 2, w = 16, h = 16 } in the mon's colours.
   -- Gen 2's are 16x32 strips of two frames; Gen 1's are a class of icon (byDex), the left half
@@ -572,7 +755,7 @@ return function(mod, profile)
   -- the same art its party list shows, from whichever of its atlases it already holds: the HD
   -- cells (exports.iconArtHD, 64x64) when its G9 PARTY SCREEN is on - the one screen it loads that
   -- 3840x3200 atlas for (47 MB of texture memory) - else the 16x16 cells its party list draws
-  -- (exports.iconArt16), so PlayNav never makes it load the HD atlas on its own account. Two
+  -- (exports.iconArt16), so NaviPlay never makes it load the HD atlas on its own account. Two
   -- frames each. Its atlases are decoded lazily: a first ask can answer nil, and the next frame
   -- asks again (only a found icon is kept).
   local G9 = "g9-battle-sprites"
@@ -620,7 +803,7 @@ return function(mod, profile)
     if sp and H.Sound and H.Sound.playCry and data() then pcall(H.Sound.playCry, data(), sp) end
   end
 
-  -- a Gen 3 effect's name (PlayNav's stand-ins) -> the game's own (data/gb_sounds.lua)
+  -- a Gen 3 effect's name (NaviPlay's stand-ins) -> the game's own (data/gb_sounds.lua)
   function H.seLabel(name)
     local label = SOUNDS and SOUNDS[name]
     if type(label) == "table" then

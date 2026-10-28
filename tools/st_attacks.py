@@ -1,4 +1,4 @@
-"""Super Training's balloon attacks, from the game's own course data, as numbers for PlayNav.
+"""Super Training's balloon attacks, from the game's own course data, as numbers for NaviPlay.
 
 Reads a decrypted Alpha Sapphire / Omega Ruby card image (.cci) and writes data/training_attacks.lua:
 every course's balloons (phases) with their looping attack scripts, the steps, the volleys and
@@ -35,7 +35,7 @@ sys.path.insert(0, HERE)
 import garc_dump as G  # noqa: E402
 import romfs_extract as R  # noqa: E402
 
-# a/1/1/7 row -> PlayNav's course id
+# a/1/1/7 row -> NaviPlay's course id
 ROWS = {
     2: "lv1_spa", 3: "lv1_hp", 4: "lv1_atk", 5: "lv1_spd", 6: "lv1_spe", 7: "lv1_def",
     8: "lv2_spa", 9: "lv2_hp", 10: "lv2_atk", 11: "lv2_spd", 12: "lv2_spe", 13: "lv2_def",

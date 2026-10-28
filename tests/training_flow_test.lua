@@ -14,7 +14,7 @@ T.eq(#run.errors, 0, "the mod loads clean on gen 3 (" .. tostring(run.errors[1])
 local X = run.loader.exports.play_nav
 -- fake hosts, not the player's cache: the import gate stands aside
 if X and X._test and X._test.setImportGate then X._test.setImportGate(false) end
--- fake hosts and PlayNav's own assets (its words, effects): USE ROM ASSETS off for the run
+-- fake hosts and NaviPlay's own assets (its words, effects): USE ROM ASSETS off for the run
 if X and X._test and X._test.forceRom then X._test.forceRom(false) end
 local TR = X.training
 T.check(type(TR) == "table" and type(TR.open) == "function", "training is exported")
@@ -716,7 +716,7 @@ do
   T.check(type(r.target) == "number", "the result carries the target")
   T.eq(#r.unlocked, 0, "one Lv1 clear unlocks nothing yet")
   local nm = S.courseName("lv1_hp")
-  T.check(nm == "Pump Up HP with Wailmer!", "the course's name, in PlayNav's own words (" .. nm .. ")")
+  T.check(nm == "Pump Up HP with Wailmer!", "the course's name, in NaviPlay's own words (" .. nm .. ")")
   T.check(S.levelHeading(2):lower():find("lv. 2", 1, true) ~= nil, "a level heading (" .. S.levelHeading(2) .. ")")
   T.check(S.leaveResult(), "leave the result")
   T.eq(S.state().mode, "courses", "...to the picker")
@@ -795,7 +795,7 @@ T.check(not X._test.surfaceWanted(), "the surface goes dormant")
 T.check(X.amie.open(), "Amie opens again")
 X.amie.session.finish()
 
--- ------- the PlayNav menu: its cards open the apps, and closing one comes back to it
+-- ------- the NaviPlay menu: its cards open the apps, and closing one comes back to it
 
 do
   T.check(S.onSwitch == nil, "no switch arrows between the apps")
@@ -940,7 +940,7 @@ do
     fakeAudio._filterLevel = nil
     T.eq(H.musicFilter(), nil, "...and none when it is off")
     fakeAudio._sfxVolume = 3 / 7
-    T.check(math.abs(H.sfxGain() - 3 / 7) < 1e-9, "the effects volume for PlayNav's own sounds")
+    T.check(math.abs(H.sfxGain() - 3 / 7) < 1e-9, "the effects volume for NaviPlay's own sounds")
     -- with a track in the cache, music off picks nothing; on again, the picker's track comes back
     S.assets = { music = function() return { rate = 28000, channels = 2, samples = 10, loop = true, loopStart = 0 } end }
     local sess0 = S.session

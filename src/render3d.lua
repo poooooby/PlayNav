@@ -22,7 +22,7 @@
 --
 -- Switching to a canvas in the middle of drawing into another left the rest of the frame drawn
 -- small in a corner on Android (the AYN Thor), so owners prepare in an update step the ENGINE
--- calls outside its draw (a layer's update - not PlayNav's tick, which runs from render.hud,
+-- calls outside its draw (a layer's update - not NaviPlay's tick, which runs from render.hud,
 -- inside the draw) and the draw only places the picture.
 
 return function(mod, opts)
@@ -198,7 +198,7 @@ return function(mod, opts)
     if view then tg.vx, tg.vy, tg.vw, tg.vh = view.x, view.y, view.w, view.h end
     current = tg
     -- never rendered here: a canvas switched to in the middle of drawing (inside the engine's
-    -- frame canvas, or PlayNav's touch screen's) left the rest of the frame drawn small in a
+    -- frame canvas, or NaviPlay's touch screen's) left the rest of the frame drawn small in a
     -- corner on Android
     if not tg.rw then
       local sky = scene.clear or SKY

@@ -1,5 +1,5 @@
 -- 3D AMIE's stage without the card (src/amie/stage3d.lua): the game's stage rebuilt to its
--- measure (collision02, in its units: the Pokemon at the origin, y up) from PlayNav's own
+-- measure (collision02, in its units: the Pokemon at the origin, y up) from NaviPlay's own
 -- pictures and ones drawn here - a lawn disc rising to a lip, the dotted sky cylinder going from
 -- light blue at the foot to navy, a rainbow, a ring of cumulus, bands of small clouds and a
 -- cylinder of bubbles. Built once, in an update step (its pictures are drawn into canvases).

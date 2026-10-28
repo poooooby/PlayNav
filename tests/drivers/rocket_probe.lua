@@ -5,7 +5,7 @@
 -- the touch screen's buttons, is refused short of money and with a full drawer, leaves with the
 -- red button and shoots the home screen again; then hangs the R+ and punches it clear (+64).
 -- Logs the canvases switched to by the 3D code inside love.draw (there must be none).
--- PROBE_FALLBACK=1: PlayNav's own art; PROBE_FLAT=1: no 3D (the flat alley); SHOT_W / SHOT_H.
+-- PROBE_FALLBACK=1: NaviPlay's own art; PROBE_FLAT=1: no 3D (the flat alley); SHOT_W / SHOT_H.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/rocket_probe.lua love .
 
@@ -72,7 +72,7 @@ local function body(game, log)
   -- canvases switched to inside love.draw by the alley's code (render3d / rocket_scene: the
   -- Thor breaks on those); ui_art's lazily drawn pictures counted apart
   local switches, artSwitches, inDraw = 0, 0, false
-  -- every canvas switched to inside love.draw, by the innermost of PlayNav's files that asked
+  -- every canvas switched to inside love.draw, by the innermost of NaviPlay's files that asked
   local byFile = {}
   do
     local origDraw, origSet = love.draw, love.graphics.setCanvas
@@ -83,7 +83,7 @@ local function body(game, log)
         local tb = debug.traceback("", 2)
         if tb:find("render3d", 1, true) or tb:find("rocket_scene", 1, true) then switches = switches + 1
         elseif tb:find("ui_art", 1, true) then artSwitches = artSwitches + 1 end
-        local file = tb:match("play_nav[/\\]([%w_/\\]+%.lua)") or "(not PlayNav)"
+        local file = tb:match("play_nav[/\\]([%w_/\\]+%.lua)") or "(not NaviPlay)"
         byFile[file] = (byFile[file] or 0) + 1
       end
       return origSet(...)

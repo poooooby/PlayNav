@@ -1,7 +1,7 @@
 -- written by groverbuger for g3d
 -- MIT license
 
--- PlayNav: run by g3d's init with the g3d table (no require in a mod)
+-- NaviPlay: run by g3d's init with the g3d table (no require in a mod)
 local g3d = ...
 local newMatrix = g3d.newMatrix
 
@@ -13,11 +13,11 @@ local camera = {
     fov = math.pi/2,
     nearClip = 0.01,
     farClip = 1000,
-    -- PlayNav: the caller sets the aspect of the canvas it draws into (not the window's)
+    -- NaviPlay: the caller sets the aspect of the canvas it draws into (not the window's)
     aspectRatio = 1,
     position = {0,0,0},
     target = {1,0,0},
-    -- PlayNav: y up, as the 3DS models are
+    -- NaviPlay: y up, as the 3DS models are
     up = {0,1,0},
 
     viewMatrix = newMatrix(),

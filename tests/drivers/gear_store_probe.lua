@@ -1,4 +1,4 @@
--- Driver: PlayNav's apps in Kanto Gear's Silph Store. Both registered (Super Training and
+-- Driver: NaviPlay's apps in Kanto Gear's Silph Store. Both registered (Super Training and
 -- Pokemon-Amie), available on Gen 3, their words translated; each opened as a press on its
 -- tile does (the Gear's own modules.open, after installing it the way the store does), the
 -- Gear standing down while it is up.
@@ -112,7 +112,7 @@ local function body(game, log)
       tostring(st2.mode), tostring(X.apps:active() and X.apps:active().id)))
   end
 
-  -- the PlayNav menu up: the Gear stands down and refuses its tiles; the x gives it back
+  -- the NaviPlay menu up: the Gear stands down and refuses its tiles; the x gives it back
   if X.menu then
     log("menu open:", tostring(X.menu.open()))
     U.wait(30)

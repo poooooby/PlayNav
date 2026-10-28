@@ -38,7 +38,7 @@ return function(mod, Pointer, T, Rules, Store)
   -- Yes / No: panes 82 and 88, under the question window on the right
   local ASK_BARS = { { 230, 115, 180, 30 }, { 230, 145, 180, 30 } }
   local RETURN = { 292, 193, 48, 48 }
-  local LEAVE = { 305, 224, 27, 27 }   -- PlayNav's return button (pane ab)
+  local LEAVE = { 305, 224, 27, 27 }   -- NaviPlay's return button (pane ab)
 
   -- nil (the drawer), { index } (the description), { index, ask = "use" | "discard" }
   local view = nil

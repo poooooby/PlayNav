@@ -1,4 +1,4 @@
--- Which game PlayNav is running on, read once at load: the generation (mod.generation, 1 / 2 /
+-- Which game NaviPlay is running on, read once at load: the generation (mod.generation, 1 / 2 /
 -- 3), the version ("red" ... "crystal", "ruby" ... "leafgreen") and what follows from it - the
 -- top screen's frame, the stats Super Training trains and whether there is a total EV cap.
 -- main picks every generation-specific piece (hosts, layers, display path, START menu, battle
@@ -38,7 +38,7 @@ function Gen.profile(gen, version)
     p.family = p.family or (gen == 1 and "gen1" or "gen2")
   end
   p.gb = gen ~= 3
-  -- the top screen's frame in PlayNav's 240-unit-wide space: the layers draw in 240x160
+  -- the top screen's frame in NaviPlay's 240-unit-wide space: the layers draw in 240x160
   -- units; a Game Boy frame (160x144) is 240 units across and 216 tall, the 240x160 band in
   -- its middle (y -28 .. 188)
   if gen == 3 then

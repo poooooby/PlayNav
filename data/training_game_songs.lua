@@ -3,7 +3,7 @@
 -- Emerald carries FireRed's whole soundtrack as MUS_RG_*. Ruby and Sapphire play Hoenn songs
 -- the two share. The title (sp_gamestart) is the regimen's song from its start. The picker
 -- (sp_menu) is not here: it plays the card image's track, else assets/stmenu.ogg
--- (src/assets.lua A.ownMusic), on PlayNav's own player.
+-- (src/assets.lua A.ownMusic), on NaviPlay's own player.
 
 local FRLG = {
   ["bgm/sp_gamestart"] = "TRAINER_TOWER",

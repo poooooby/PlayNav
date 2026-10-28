@@ -1,5 +1,5 @@
 -- The bag drawer between visits: only the active app is updated, so a close still pending when
--- the session left the drawer (B, a battle, START -> PLAYNAV) shut it the moment it was opened
+-- the session left the drawer (B, a battle, START -> NAVIPLAY) shut it the moment it was opened
 -- again, every time after. Run from the engine root:
 --   luajit mods/play_nav/tests/bags_drawer_test.lua
 package.path = "./?.lua;./?/init.lua;" .. package.path

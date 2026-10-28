@@ -1,7 +1,7 @@
--- PlayNav's own look for its engine-drawn screens (the PLAYNAV import screen, the menu):
+-- NaviPlay's own look for its engine-drawn screens (the NAVIPLAY import screen, the menu):
 -- one accent, the banner's violet, over a near-black ground; the banner across the top
--- (the violet band, the two-figure icon, the outlined wordmark; imgs/banner.png is the
--- model, GitHub only) and the round x up in the strip's rows.
+-- (the violet band, the two-figure icon, the outlined wordmark) and the round x up in the
+-- strip's rows.
 --
 -- B = brand() ; B.INK ; B.col(G, c, a) ; B.banner(G, W, bleed) ; B.close(G, c)
 
@@ -49,7 +49,7 @@ return function()
     G.rectangle("fill", 0, y1 - 1.2, W, 1.2)
     local f = G.getFont()
     local k = 1.55
-    local word = "PlayNav"
+    local word = "NaviPlay"
     local tw = f:getWidth(word) * k
     local iconW = 30
     local x0 = (W - (iconW + 9 + tw)) / 2

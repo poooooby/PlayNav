@@ -1,6 +1,6 @@
--- Japanese in PlayNav's own text: LOVE's default face draws Latin only, so a kana name (a
+-- Japanese in NaviPlay's own text: LOVE's default face draws Latin only, so a kana name (a
 -- traded Gen 3 Pokemon's nickname, a Japanese translation mod's species names) came out as
--- boxes. Every font PlayNav makes goes through C.newFont, which gives it the engine's Plain
+-- boxes. Every font NaviPlay makes goes through C.newFont, which gives it the engine's Plain
 -- Pixel (assets/fonts/plainpixel, CC-BY 4.0, kana and CJK) as a fallback: only the glyphs the
 -- primary face lacks come from it, so Latin text looks as before. The fallback is made at the
 -- primary's size and density (a fallback at another density draws its glyphs at the wrong

@@ -3,7 +3,7 @@
 -- in), taps on each zone (reactions), the puff strip, a puff dragged onto it (the flash, the
 -- close-up, a bite, back out), the games picker (badge 1 -> 2 -> 3 with the arrows, back to 1,
 -- the difficulty ribbons, Easy starts Berry Picker), and the top screen's sky. Shots each step.
--- PROBE_3D=1: 3D AMIE for this run (never saved); PROBE_FALLBACK=1: PlayNav's own art.
+-- PROBE_3D=1: 3D AMIE for this run (never saved); PROBE_FALLBACK=1: NaviPlay's own art.
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/amie_play_probe.lua love .
 

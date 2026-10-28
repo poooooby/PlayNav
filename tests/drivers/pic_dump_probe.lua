@@ -1,6 +1,6 @@
 -- Driver: what the sprite mods hand out for a species' front and back pics (the entry's
 -- fields, the image's size, a quad's viewport, gen3-hd-sprites' tag), raw and through
--- PlayNav's host (mod.stillPic); each saved as a PNG.
+-- NaviPlay's host (mod.stillPic); each saved as a PNG.
 --   PROBE_SPECIES=ZYGARDE_COMPLETE SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald \
 --   POKEPORT_TOUCH=1 POKEPORT_DRIVER=mods/play_nav/tests/drivers/pic_dump_probe.lua love .
 

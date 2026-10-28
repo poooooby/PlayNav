@@ -3,7 +3,7 @@
 -- a charge's stage 1 (yellow ring, the second crosshair closing in, the fire) and stage 2
 -- (red, the bigger fire), a Charged Shot's points, and a charge held too long (smoke, the
 -- stop). Times are the sim's own (driver runs step faster than real time).
--- PROBE_FALLBACK=1 draws PlayNav's own HUD (USE ROM ASSETS off for the run).
+-- PROBE_FALLBACK=1 draws NaviPlay's own HUD (USE ROM ASSETS off for the run).
 --   SHOT_DIR=<dir> POKEPORT_GAME=emerald POKEPORT_VERSION=emerald POKEPORT_TOUCH=1 \
 --   POKEPORT_DRIVER=mods/play_nav/tests/drivers/charge_probe.lua love .
 
