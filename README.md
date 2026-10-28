@@ -1,4 +1,6 @@
-<h1 align="center">NaviPlay</h1>
+<p align="center">
+  <img src="imgs/npbanner.png" alt="NaviPlay" width="838">
+</p>
 
 <div align="center">
 
