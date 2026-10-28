@@ -3,14 +3,7 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [1.0.1] - 2026-10-28
-
-### Fixed
-
-- NaviPlay steps aside on the second screen while a **Galar Rising** raid shows its battle buttons
-  there, and comes back when the raid ends. The two no longer fight over the screen.
-
-## [1.0.1] - 2026-10-28
+## [1.0.2] - 2026-10-28
 
 ### Changed
 
@@ -25,6 +18,13 @@ All notable changes to this mod are documented here. The format follows
 ### Fixed
 
 - Tile Puzzle no longer shows the scenery past the puzzle's frame before the pieces are shuffled.
+
+## [1.0.1] - 2026-10-28
+
+### Fixed
+
+- NaviPlay steps aside on the second screen while a **Galar Rising** raid shows its battle buttons
+  there, and comes back when the raid ends. The two no longer fight over the screen.
 
 ## [1.0.0] - 2026-10-27
 
