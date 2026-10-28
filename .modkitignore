@@ -88,9 +88,16 @@ tools/romfs_extract.py
 tools/shot_types.py
 tools/st_evidence.py
 # the README's images (GitHub only, never in the package)
-imgs/st-bags1.png
-imgs/st-balloons1.png
+imgs/SuperTrain.png
+imgs/AmieImagined.png
+imgs/AmieBens.png
 imgs/st-home.png
+imgs/stbagpunch.gif
+imgs/stregimen.gif
+imgs/petting.gif
+imgs/berrypicker.gif
+imgs/headit.gif
+imgs/puzzle.gif
 tests/drivers/gear_store_probe.lua
 tests/drivers/perf_amie.lua
 tests/stillpic_test.lua
@@ -154,3 +161,7 @@ tests/drivers/gb_items_probe.lua
 tools/gb_backs_atlas.py
 tests/drivers/gb_mem_probe.lua
 tests/drivers/gb_shoulder_probe.lua
+docs/Pokemon-Amie.md
+docs/SuperTraining.md
+docs/Options.md
+docs/Installation.md
