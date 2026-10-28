@@ -45,10 +45,12 @@ function Gate:claim()
 end
 
 -- hands the display back: enabled as the downstream mod last asked (off when
--- nothing downstream ever asked, as before)
-function Gate:release()
+-- nothing downstream ever asked, as before); `keep`: left as it is, for a mod
+-- that took it over and enables it itself (Galar Rising's battle pad)
+function Gate:release(keep)
   if not self.claimed then return end
   self.claimed = false
+  if keep then return end
   local fn = self.real and self.real.setEnabled
   if fn then pcall(fn, self.wantedEnabled or false) end
 end

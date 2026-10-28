@@ -844,9 +844,19 @@ return function(mod)
   -- state.mode: "split" (the window shared: state.displayStyle "fullscreen" | "combined"),
   -- "second_screen" (NaviPlay on the second display), "handheld" (NaviPlay on the main window, the
   -- game on the second display) or "off" (not called)
+  -- Galar Rising's battle pad on the second display (its exports.secondScreenShown, asked every
+  -- frame: it is a flag): NaviPlay's surface stands down until the raid is done with the display
+  local function secondTaken()
+    local gr = mod.find and mod:find("max_raids")
+    local ex = gr and gr.exports
+    if not (type(ex) == "table" and type(ex.secondScreenShown) == "function") then return false end
+    local ok, v = pcall(ex.secondScreenShown)
+    return ok and v == true
+  end
+
   local function wantedMode()
     local choice = displayChoice()
-    if not surfaceWanted() then return "off" end
+    if not surfaceWanted() or secondTaken() then return "off" end
     local SS = second()
     local usable = false
     if SS and SS.usable then
@@ -878,7 +888,8 @@ return function(mod)
     local holds = { second_screen = true, handheld = true }
     if holds[state.mode] and not holds[mode] then
       local g = secondGate()
-      if g then g:release() end
+      -- (handed to Galar Rising's pad: the display left on, as it has just enabled it)
+      if g then g:release(secondTaken()) end
     end
     -- the display is enabled afresh each time the mode is entered
     state.ssEnabled, state.ssShown = false, false
