@@ -103,7 +103,7 @@ How to install NaviPlay and, optionally, add the 3DS art and text: [Installation
   close them. Pokemon-Amie and Super Training are
   also apps in the Gear's Silph Store: get them, put them on the Gear's home screen, and open
   them from there.
-- [National Dex Gen 3](https://github.com/poooooby/national_dex_gen3): the real Dusk, Shiny and
+- [WoobleDex](https://github.com/poooooby/national_dex_gen3): the real Dusk, Shiny and
   Dawn Stones with their evolutions. Super Training's stone prizes become those stones.
 - [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): your
   Pokemon show its sprites in Pokemon-Amie and Super Training, each animated sprite held in one
