@@ -1379,6 +1379,31 @@ return function(mod)
     register("amie", Amie)
   end
 
+  -- Recomp Achievements (optional): NaviPlay's achievements are registered with it and the
+  -- moments the code notes (mod.exports.achievements.note) are reported. Without it, nothing.
+  do
+    local makeAch = loadSibling(mod, "src/achievements.lua")
+    local achData = loadSibling(mod, "data/achievements.lua")
+    if makeAch and achData then
+      local okA, Ach = pcall(makeAch, mod, {
+        data = achData,
+        training = function()
+          if not (Training and TStore and TRules) then return nil end
+          return { Store = TStore, Rules = TRules, courses = function() return Training.courseList() end }
+        end,
+        amie = function()
+          if not (Amie and Store and Rules) then return nil end
+          return { Store = Store, Rules = Rules, Decor = Amie.Decor }
+        end,
+      })
+      if okA and Ach then
+        if Ach.install() then mod.exports.achievements = Ach end
+      else
+        mod.log:warn("achievements: module failed to build (%s)", tostring(Ach))
+      end
+    end
+  end
+
   do
     -- the NAVIPLAY screen's x button steps aside (the surface goes dormant without a session)
     local gateApp = Apps:get("import")
@@ -1602,6 +1627,8 @@ return function(mod)
         mod.log:warn("super training: tick failed (%s)", tostring(err))
       end
     end
+    local achievements = mod.exports.achievements
+    if achievements then pcall(achievements.tick, dt) end
     -- Super Training keeps punching (and resting) while its screen is closed
     if Training and Training.background then
       local inField = game ~= nil and game.phase == "field"

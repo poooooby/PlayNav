@@ -299,6 +299,8 @@ return function(mod, deps)
       local rng = rngOf(ctx)
       if rng(0, 99) < pct then
         B.stats.endure = B.stats.endure + 1
+        local A = mod.exports and mod.exports.achievements
+        if A then A.note("endure") end
         target._amieEndure = true
         return hp - 1, info
       end

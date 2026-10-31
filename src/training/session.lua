@@ -617,6 +617,12 @@ return function(mod, deps)
   end
   T.liveMon = liveMon
 
+  -- a moment for the achievements (nothing without recomp_achievements)
+  local function achNote(...)
+    local A = mod.exports and mod.exports.achievements
+    if A then A.note(...) end
+  end
+
   local function finishBag(s)
     liveMon(s)
     local rec = s.rec
@@ -627,6 +633,7 @@ return function(mod, deps)
     rec.secondWind = nil
     rec.windNext = T.rng() < N.CORE.SECOND_WIND_AFTER_BAG or nil
     if not def then return end
+    achNote("bag_cleared")
     -- on screen, the cleared bag gets the game's finishing move: one of three clips with its
     -- line, the glow, then what the bag did; the messages below wait for it (say)
     if T.FINISH_MOVE and s == T.session and s.anim then
@@ -682,6 +689,7 @@ return function(mod, deps)
     if rec.windNext then
       rec.windNext = nil
       rec.secondWind = true
+      achNote("second_wind")
     end
     if rec.bagsToRest <= 0 then
       rec.bagsToRest = nil
@@ -733,7 +741,8 @@ return function(mod, deps)
     if not id then return nil end
     if not Rules.inventoryAdd(Store.bags(), id) then return nil, "full" end
     meta.blackTaps = 0
-    if Rules.isRareBag(id) then t.rec.secondWind = true end
+    achNote("blank_find", Rules.isRareBag(id))
+    if Rules.isRareBag(id) then t.rec.secondWind = true; achNote("second_wind") end
     if t == T.session then
       if mod.haptics then mod.haptics.pattern("big") end
       local def = Rules.bag(id)
@@ -788,6 +797,7 @@ return function(mod, deps)
     local strength = rec.secondWind and N.CORE.REFRESHED_HITS_DIV or 1
     bag.hits = math.min(bag.needed, bag.hits + strength)
     rec.hits = (rec.hits or 0) + 1
+    achNote("punch")
     if bag.hits >= bag.needed then finishBag(t) end
   end
 
@@ -846,6 +856,7 @@ return function(mod, deps)
     rec.restedAt = nil
     -- up again with a second wind, for one bag or one regimen
     rec.secondWind = true
+    achNote("second_wind")
     if mod.haptics then mod.haptics.pattern("happy") end
     awake(rec, wall())
     T.touch()

@@ -3,6 +3,16 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Achievements, with Recomp Achievements installed: 63 of NaviPlay's
+  own, 32 for Super Training (bags, regimens, Awards, secret regimens, the shield, flawless clears, the
+  3D stadium, a few hidden ones) and 31 for Pokémon-Amie (petting, Poké Puffs, affection, the three
+  minigames, Décor, visitors, steps). Anything you already earned is awarded the first time they load.
+  Without that mod nothing changes.
+
 ## [1.0.2] - 2026-10-28
 
 ### Changed

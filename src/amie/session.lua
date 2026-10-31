@@ -58,12 +58,18 @@ return function(mod, deps)
     return out
   end
 
+  -- a moment for the achievements (nothing without recomp_achievements)
+  local function achNote(...)
+    local A = mod.exports and mod.exports.achievements
+    if A then A.note(...) end
+  end
+
   -- every affection change passes here so milestones fire once
   local function affectionChanged(s, before)
     local after = s.meters.affection or 0
     if after == before then return end
     local cries = Rules.danceCrossed(before, after)
-    if cries then emit({ kind = "dance", cries = cries }) end
+    if cries then emit({ kind = "dance", cries = cries }); achNote("dance") end
     s.meters.gifts = s.meters.gifts or {}
     for _, t in ipairs(Rules.giftsCrossed(before, after)) do
       if not s.meters.gifts[t] then
@@ -72,6 +78,7 @@ return function(mod, deps)
         pending[#pending + 1] = { kind = "milestone", affection = t, key = s.key, name = s.name }
         Store.saveVisitors()
         emit({ kind = "gift", affection = t })
+        achNote("gift")
       end
     end
   end
@@ -654,6 +661,8 @@ return function(mod, deps)
       result = G.Games.finish(s.game.id, s.game.diff, value, s.game.participants, G.rng)
       s.lastResult = result
       s.game.result = result
+      achNote("game_finished", result)
+      for _, id in ipairs(result.puffs or {}) do achNote("puff_owned", id) end
       G.se("results", "SE_SUCCESS")
     end
     if stay and not quit then
@@ -828,6 +837,7 @@ return function(mod, deps)
     if s.effectT > 1e-6 then return nil end
     s.effectT = Rules.ticks(P.JOLT_TICKS[kind] or 30)
     s.effectJolts = (s.effectJolts or 0) + 1
+    achNote("effect_spot")
     G.se((kind == "burning" and "burn") or (kind == "paralyzing" and "shock") or "hurt", "SE_NOT_EFFECTIVE")
     if s.effectJolts >= P.EFFECT_JOLTS then
       s.effectJolts = 0
@@ -844,6 +854,7 @@ return function(mod, deps)
     local before = s.meters.affection
     local hearts, spent = Rules.pet(s.meters, spot)
     affectionChanged(s, before)
+    if hearts > 0 then achNote("pet_reward") end
     onChange()
     local now = host.now()
     if hearts > 0 and now - s.lastCry > 4 then
@@ -871,6 +882,7 @@ return function(mod, deps)
     local s = inPlay()
     if not s then return false end
     Rules.hit(s.meters)
+    achNote("hit")
     bump(s, -0.1, 0)
     G.se("hit", "SE_NOT_EFFECTIVE")
     say(("%s got hit!"):format(s.name), 1.5)
@@ -887,6 +899,7 @@ return function(mod, deps)
     local s = inPlay()
     if not (s and Rules.canHighFive(s.meters)) then return false end
     Rules.highFive(s.meters)
+    achNote("high_five")
     bump(s, 0.1, 10)
     G.se("high_five", "SE_SUCCESS")
     host.playCry(s.mon)
@@ -1030,6 +1043,7 @@ return function(mod, deps)
   function G.onStep()
     local meta = Store.meta()
     meta.steps = (meta.steps or 0) + 1
+    if meta.steps % 100 == 0 then achNote("step") end
     if meta.steps % N.STEPS.EVERY ~= 0 then return false end
     -- after the Hall of Fame, the next visitor groups bring Supreme Honor Poke Puffs, one each
     -- (the game sets a counter of 3 in its Hall of Fame routine, main 0x3d491c)
