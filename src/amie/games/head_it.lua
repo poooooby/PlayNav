@@ -319,7 +319,11 @@ return function(mod, Pointer, G, Games, Rules, host)
   local function setFever(on)
     if on == st.fever then return end
     st.fever = on
-    if on then G.se("fever", "SE_SUCCESS") end
+    if on then
+      G.se("fever", "SE_SUCCESS")
+      local A = mod.exports and mod.exports.achievements
+      if A then A.note("fever") end
+    end
   end
 
   local function hitBall(b, how)
@@ -344,6 +348,10 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     addPoints(pts)
     st.hits = st.hits + 1
+    if c >= 100 then
+      local A = mod.exports and mod.exports.achievements
+      if A then A.note("combo", c) end
+    end
     if c >= HR.COMBO_SHOW then st.comboShow = { n = c, t = 0 } end
     -- a combo begins (its first popup, 3 hits): the game's combo sound (the 10s have their own below)
     if c == 3 then G.se("combo3") end

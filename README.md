@@ -97,6 +97,9 @@ How to install NaviPlay and, optionally, add the 3DS art and text: [Installation
 
 ## 🔗 Works With
 
+- Recomp Achievements: with it installed, NaviPlay adds 63 achievements of its own (32 for Super
+  Training, 31 for Pokémon-Amie), earned as you play and kept with your save. Without it, nothing
+  changes.
 - [Kanto Gear](https://github.com/AverageConsumer/kanto-gear): touch battle commands, bag and
   pad. NaviPlay doesn't do controls; the two share the second display. NaviPlay has it only while
   the NaviPlay menu, Amie or Super Training is open, and Kanto Gear is back on it the moment you

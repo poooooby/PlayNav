@@ -302,8 +302,10 @@ return function(mod, T, deps)
     local ended = nil
     local cleared = false
     for _, e in ipairs(events) do if e.kind == "clear" then cleared = true end end
+    local A = mod.exports and mod.exports.achievements
     for _, e in ipairs(events) do
       eventSound(e, cleared)
+      if A and e.kind == "goal_hit" then A.note("goal_hit", e) end
       if e.kind == "clear" then
         ended = { clear = true, remaining = e.remaining, total = e.total }
       elseif e.kind == "timeout" then
@@ -497,6 +499,8 @@ return function(mod, T, deps)
     s.result = res
     T.lastResult = res
     Store.save()
+    local A = mod.exports and mod.exports.achievements
+    if A then A.note("regimen_end", res, T.sim and T.sim.stats, T.is3d and T.is3d() or false, #(course.bots or {}) > 1) end
     T.setMode("result")
     if T.REGIMEN_SHOW and T.results then T.results.begin(s) end
     if res.clear then host.playCry(s.mon) end

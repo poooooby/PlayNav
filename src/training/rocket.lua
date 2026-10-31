@@ -216,7 +216,12 @@ return function(mod, T, deps)
     local p = input and input.pressed
     if type(p) ~= "table" then return end
     for _, b in ipairs(Rk.BUTTONS) do
-      if p[b] and Rk.feed(matcher, b) then Rk.unlock(); return end
+      if p[b] and Rk.feed(matcher, b) then
+        local A = mod.exports and mod.exports.achievements
+        if A then A.note("konami") end
+        Rk.unlock()
+        return
+      end
     end
   end
   Rk.matcherState = matcher
@@ -375,6 +380,8 @@ return function(mod, T, deps)
     if ok then
       Rules.inventoryAdd(Store.bags(), id)
       Store.save()
+      local A = mod.exports and mod.exports.achievements
+      if A then A.note("rocket_buy") end
       T.playSe("rocket_buy", "SE_SHOP")
       if H then H.pulse("medium") end
       say(r, "sold")

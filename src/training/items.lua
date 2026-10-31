@@ -123,6 +123,8 @@ return function(mod, deps)
     host.setEvs(mon, evs)
     if host.vitaminFriendship then host.vitaminFriendship(mon) end
     host.removeItem(def.ownIndex, 1)
+    local A = mod.exports and mod.exports.achievements
+    if A then A.note("wing") end
     local name = host.displayName and host.displayName(mon) or "The POKeMON"
     return true, "vitamin", ("%s's %s rose!"):format(name, Rules.STAT_LABEL[def.stat] or def.stat)
   end

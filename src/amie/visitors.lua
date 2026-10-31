@@ -286,6 +286,11 @@ return function(mod, deps)
       end
     end
     Store.saveDecor(); Store.savePuffs(); Store.saveVisitors()
+    local A = mod.exports and mod.exports.achievements
+    if A then
+      A.note("gift_claimed")
+      if gift and gift.kind == "puff" then A.note("puff_owned", gift.id) end
+    end
     return text, gift
   end
 

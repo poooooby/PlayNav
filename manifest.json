@@ -12,7 +12,8 @@
   "optional_dependencies": [
     "national_dex_gen3",
     "gen3-hd-sprites",
-    "kanto_gear"
+    "kanto_gear",
+    "recomp_achievements"
   ],
   "conflicts": [],
   "incompatible": [],
