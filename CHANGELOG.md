@@ -3,6 +3,13 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- AFFECTION GAIN option (1X / 2X / 3X / 5X, default 1X): multiplies the affection petting and Poké Puffs
+  give. Fullness and enjoyment are spent as usual, and affection still stops at 255.
+
 ## [1.1.0] - 2026-10-31
 
 ### Added

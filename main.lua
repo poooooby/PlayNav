@@ -121,6 +121,9 @@ return function(mod)
     -- Pokemon-Amie's PLAY on the game's own 3D stage (the card's, else a drawn one), both screens;
     -- the 2D scene when off or when the device cannot draw it
     { key = "amie_3d", label = "3D AMIE", type = "toggle", default = false },
+    -- the affection petting and Poke Puffs give, times this (1X is the game's own numbers)
+    { key = "affection_gain", label = "AFFECTION GAIN", type = "choice", default = "1",
+      choices = { { "1X", "1" }, { "2X", "2" }, { "3X", "3" }, { "5X", "5" } } },
     { key = "haptics", label = "HAPTICS", type = "choice", default = "medium",
       choices = { { "HIGH", "high" }, { "MEDIUM", "medium" }, { "LOW", "low" }, { "OFF", "off" } } },
     -- for low-power devices (a phone or handheld with little memory): the touch screen goes to a
@@ -219,6 +222,7 @@ return function(mod)
   local Rules, Petting, Store, Amie, amieHost, Benefits = nil, nil, nil, nil, nil, nil
   if RuleNumbers and makeRules and makePetting and makeStore and makeHost and makeSession and makePlayApp then
     Rules = makeRules(RuleNumbers)
+    Rules.affectionGain = function() return tonumber(mod.options:get("affection_gain")) or 1 end
     Petting = makePetting(PettingData or {})
     Store = makeStore(mod, Rules)
     amieHost = makeHost(mod, profile)

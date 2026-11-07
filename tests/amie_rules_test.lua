@@ -220,4 +220,26 @@ do
   T.eq(R.evidenceFor("PET.normal").class, "verified", "a nested path inherits its group's row")
 end
 
+do
+  -- AFFECTION GAIN scales petting and Poke Puff affection, never the enjoyment or fullness spent
+  local function fresh() return { affection = 10, fullness = 0, enjoyment = 255, puffsEaten = 0 } end
+  local m = fresh()
+  T.eq(({ R.pet(m, "normal") })[1], 3, "1X: a pet reward gives the game's +3")
+  R.affectionGain = function() return 3 end
+  m = fresh()
+  local a, e = R.pet(m, "normal")
+  T.eq(a, 9, "3X: a pet reward gives +9")
+  T.eq(e, -50, "3X: the enjoyment spent is unchanged")
+  m = fresh()
+  T.eq(R.finishPuff(m, R.PUFFS[1].id, 0, 1), R.PUFFS[1].affection * 3, "3X: a puff gives three times its affection")
+  T.eq(m.fullness, 50, "3X: fullness from a puff is unchanged")
+  m = { affection = 250, fullness = 0, enjoyment = 255 }
+  R.pet(m, "normal")
+  T.eq(m.affection, 255, "affection still stops at 255")
+  R.affectionGain = function() return 0 end
+  m = fresh()
+  T.eq(({ R.pet(m, "normal") })[1], 3, "a multiplier under 1 is ignored")
+  R.affectionGain = function() return 1 end
+end
+
 T.finish("play_nav amie rules")

@@ -21,6 +21,14 @@ return function(N)
   end
   R.add = add
 
+  -- the multiplier on affection from petting and Poke Puffs (the host sets it from the
+  -- AFFECTION GAIN option); 1 is the game's own
+  function R.affectionGain() return 1 end
+  local function gain(points)
+    local g = tonumber(R.affectionGain()) or 1
+    return points * (g >= 1 and g or 1)
+  end
+
   -- ------- levels
 
   function R.level(points)
@@ -53,7 +61,7 @@ return function(N)
     for _, row in ipairs(rows) do
       if enj >= row.min then
         local e = add(meters, "enjoyment", row.enj)
-        local a = add(meters, "affection", row.aff)
+        local a = add(meters, "affection", gain(row.aff))
         return a, e
       end
     end
@@ -310,7 +318,7 @@ return function(N)
     local perBite = R.biteFullness(bites)
     add(meters, "fullness", N.PUFF.FULLNESS - perBite * (bitesCredited or 0))
     meters.puffsEaten = (meters.puffsEaten or 0) + 1
-    return add(meters, "affection", p and p.affection or N.PUFF.AFFECTION.basic)
+    return add(meters, "affection", gain(p and p.affection or N.PUFF.AFFECTION.basic))
   end
 
   -- the simple path: a whole puff in one call. Returns ok, hearts | reason
