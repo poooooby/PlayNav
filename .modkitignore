@@ -76,7 +76,6 @@ tools/garc_blob.py
 tools/garc_dump.py
 tools/gdbrsp.py
 tools/gdbtrace.py
-tools/items_atlas.py
 tools/lyt_rows.py
 tools/gen6_text.py
 tools/items_pokeapi.py
@@ -122,12 +121,6 @@ tools/oras_fingerprints.lua
 tools/oras_fingerprints.py
 tests/drivers/engine_ui_probe.lua
 tests/chip_sounds_test.lua
-tools/decor_atlas.py
-tools/wall_atlas.py
-tools/puff_atlas.py
-tools/hand_atlas.py
-tools/berry_atlas.py
-tools/head_atlas.py
 tools/tile_trees.py
 tools/play_bushes.py
 tools/play_grass.py
@@ -159,7 +152,6 @@ tests/drivers/rocket_bags_probe.lua
 tests/statexp_test.lua
 tests/drivers/gb_probe.lua
 tests/drivers/gb_items_probe.lua
-tools/gb_backs_atlas.py
 tests/drivers/gb_mem_probe.lua
 tests/drivers/gb_shoulder_probe.lua
 docs/Pokemon-Amie.md

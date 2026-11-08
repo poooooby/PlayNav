@@ -1,16 +1,8 @@
--- Pokemon-Amie's Decor pictures from NaviPlay's own atlases: a greyscale image of colour numbers
--- and each picture's palette - the cushions and objects (assets/amie_decor.png +
--- data/amie_decor.lua, tools/decor_atlas.py, 8-bit) and the wallpapers with their thumbnails
--- (assets/amie_walls.png + data/amie_walls.lua, tools/wall_atlas.py, 16-bit), and the Poke
--- Puffs (assets/amie_puffs.png + data/amie_puffs.lua, tools/puff_atlas.py, 8-bit), and PLAY's
--- hand (assets/amie_hand.png + data/amie_hand.lua, tools/hand_atlas.py, 8-bit), and Berry
--- Picker's art (assets/amie_berry.png + data/amie_berry.lua, tools/berry_atlas.py, 16-bit; its
--- alias table names the same picture under another layout pack), and Head It's
--- (assets/amie_head.png + data/amie_head.lua, tools/head_atlas.py, 16-bit), and Tile
--- Puzzle's shore trees (assets/amie_tile.png + data/amie_tile.lua, tools/tile_trees.py,
--- 16-bit), and PLAY's treeline (assets/amie_scene.png + data/amie_scene.lua,
--- tools/play_bushes.py, 16-bit) and lawn with its standing grass (assets/amie_grass.png +
--- data/amie_grass.lua, tools/play_grass.py, 16-bit). A picture is
+-- Pokemon-Amie's own pictures from NaviPlay's atlases: a greyscale image of colour numbers
+-- and each picture's palette - Tile Puzzle's shore trees (assets/amie_tile.png +
+-- data/amie_tile.lua, tools/tile_trees.py, 16-bit), PLAY's treeline (assets/amie_scene.png +
+-- data/amie_scene.lua, tools/play_bushes.py, 16-bit) and lawn with its standing grass
+-- (assets/amie_grass.png + data/amie_grass.lua, tools/play_grass.py, 16-bit). A picture is
 -- expanded into a full-colour image the first time it is asked for, then kept.
 --
 -- local Art = makeDecorArt(mod, data, file) ; Art.image(id) -> Image | nil, owned (true for an

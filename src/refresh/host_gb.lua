@@ -399,86 +399,6 @@ return function(mod, profile)
   local function shinyOf(mon) return type(mon) == "table" and mon.shiny == true end
 
 
-  -- Front and back pics are Pokemon Crystal's from NaviPlay's atlases (assets/gb_fronts.png,
-  -- gb_backs.png + data/gb_fronts.lua, gb_backs.lua; tools/gb_backs_atlas.py): full colour, the
-  -- bodies solid. H.setBacks(backs, read, fronts) hands them in (read(path) -> the PNG's bytes);
-  -- each atlas is read once on the CPU, each pic made the first time it is asked for
-  -- (ImageData, no canvas). A Pokemon without a cell: its game's own pic.
-  local sets = {
-    back = { data = nil, atlas = nil, file = "assets/gb_backs.png", pics = {} },
-    front = { data = nil, atlas = nil, file = "assets/gb_fronts.png", pics = {} },
-  }
-  local readFile = nil
-  function H.setBacks(backData, read, frontData)
-    sets.back.data = type(backData) == "table" and backData or nil
-    sets.front.data = type(frontData) == "table" and frontData or nil
-    readFile = read
-  end
-
-  local function atlasOf(set)
-    if set.atlas ~= nil then return set.atlas or nil end
-    set.atlas = false
-    local bytes = readFile and readFile(set.file)
-    if bytes and love and love.image and love.filesystem then
-      local ok, img = pcall(function()
-        return love.image.newImageData(love.filesystem.newFileData(bytes, set.file:match("[^/]+$")))
-      end)
-      if ok and img then set.atlas = img end
-    end
-    return set.atlas or nil
-  end
-
-  local function hexColour(s)
-    return tonumber(s:sub(1, 2), 16) / 255, tonumber(s:sub(3, 4), 16) / 255, tonumber(s:sub(5, 6), 16) / 255
-  end
-
-  -- the atlas key: the National number; Unown's letter after it (A is the plain one)
-  local function backKey(mon)
-    local n = H.national(mon)
-    if not n then return nil end
-    local key = tostring(n)
-    local letter = mon.unownLetter
-    if n == 201 and type(letter) == "string" and letter:upper() ~= "A" then key = key .. letter:upper() end
-    return key
-  end
-
-  local function crystalPic(side, mon, shiny)
-    local set = sets[side]
-    local D = set.data
-    local key = D and backKey(mon)
-    local rec = key and (D.cells[key] or D.cells[key:match("^%d+")])
-    if not rec then return nil end
-    local cache = (shiny and "s" or "n") .. key
-    local hit = set.pics[cache]
-    if hit ~= nil then return hit or nil end
-    set.pics[cache] = false
-    local atlas = atlasOf(set)
-    if not (atlas and love.graphics) then return nil end
-    local cell, pal = rec, rec.pal
-    if shiny and rec.shinyCell then cell, pal = rec.shinyCell, rec.shinyCell.pal
-    elseif shiny and rec.shiny then pal = rec.shiny end
-    local ok, entry = pcall(function()
-      local size, step = D.size or 56, D.step or 63
-      local cols = {}
-      for i, h in ipairs(pal) do cols[i] = { hexColour(h) } end
-      local w, h = cell.w, cell.h
-      local src = love.image.newImageData(w, h)
-      local ox, oy = cell.c * size, cell.r * size
-      for y = 0, h - 1 do
-        for x = 0, w - 1 do
-          local v = atlas:getPixel(ox + x, oy + y)
-          local n = math.floor(v * 255 / step + 0.5)
-          local c = n > 0 and cols[n]
-          if c then src:setPixel(x, y, c[1], c[2], c[3], 1) end
-        end
-      end
-      local img = newImage(onPic(src, 64, 64))
-      return img and { image = img, w = 64, h = 64 } or nil
-    end)
-    set.pics[cache] = (ok and entry) or false
-    return ok and entry or nil
-  end
-
   -- shiny: Gen 2's flag; Gen 1 by its DVs, as the engine's own pics read it
   local function shinyNow(mon)
     local shiny = shinyOf(mon)
@@ -600,7 +520,7 @@ return function(mod, profile)
     return picFor(mon.species, side, mon, shiny)
   end
 
-  -- (H.picFrom[side]: where the last pic came from - "mon_pic", "sprite", "playnav" or "game", for drivers)
+  -- (H.picFrom[side]: where the last pic came from - "mon_pic", "sprite" or "game", for drivers)
   H.picFrom = {}
   -- (second value: the mod may still hand one out)
   local function moddedPic(side, mon, shiny)
@@ -657,11 +577,8 @@ return function(mod, profile)
   local function pic(side, mon, shiny)
     local e, pending = moddedPic(side, mon, shiny)
     if e then return e end
-    e = crystalPic(side, mon, shiny)
-    if e then H.picFrom[side] = "playnav" else
-      H.picFrom[side] = "game"
-      e = picFor(mon.species, side, mon, shiny)
-    end
+    H.picFrom[side] = "game"
+    e = picFor(mon.species, side, mon, shiny)
     if pending then return standIn(side, mon, shiny, e) end
     return e
   end

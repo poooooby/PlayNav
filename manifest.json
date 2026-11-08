@@ -48,7 +48,7 @@
         "0563f9dee1b95de32d579e40c20e2bfc"
       ],
       "max_size": 2147483648,
-      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Any decrypted Omega Ruby or Alpha Sapphire dump works (card image, trimmed or not, CIA, or Azahar's compressed .zcci); NaviPlay checks each piece it uses and draws its own for any that differ. Optional: without it, NaviPlay plays with its own art, sounds, words and music. The copy can be removed from Imported files once the art has been extracted."
+      "description": "Supplies the 3DS art and English text for Pokemon-Amie and Super Training, unpacked on your device. Any decrypted Omega Ruby or Alpha Sapphire dump works (card image, trimmed or not, CIA, or Azahar's compressed .zcci); NaviPlay checks each piece it uses and skips any that differ. Pokemon-Amie and Super Training need it; nothing of the game's art ships with NaviPlay. The copy can be removed from Imported files once the art has been extracted."
     }
   ],
   "github": "poooooby/PlayNav"

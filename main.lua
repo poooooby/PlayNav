@@ -100,9 +100,6 @@ return function(mod)
     { key = "screen_swap", label = "QUICK SWAP (Y)", type = "toggle", default = false,
       visible_if = { key = "display_mode", not_equals = "kanto_gear" } },
     { key = "hide_virtual_pad", label = "HIDE VIRTUAL PAD", type = "toggle", default = true },
-    -- off: NaviPlay's own art, sounds and words, no card image needed (the NAVIPLAY screen's
-    -- USE FALLBACK ASSETS turns it off; on again, the card image is checked again)
-    { key = "use_rom_assets", label = "USE ROM ASSETS", type = "toggle", default = true },
     { key = "extract_on_boot", label = "EXTRACT OR/AS ASSETS ON BOOT", type = "toggle", default = true },
     -- an action: switching it on clears the cache, then it switches itself back off
     -- a button as far as the options screen allows (it has no button row): a two-way choice
@@ -111,10 +108,11 @@ return function(mod)
     { key = "clear_rom_art", label = "CLEAR EXTRACTED ART", type = "choice", default = false,
       choices = { { "PRESS TO CLEAR", false }, { "CLEARS AT NEXT START", true } } },
     { key = "hd_render", label = "HD RENDERING", type = "toggle", default = true },
-    -- Gen 1 / 2: NaviPlay's own Pokemon pictures (Crystal's, in colour), or an installed sprite
-    -- mod's (G9 Battle Sprites, a mod on the pokemon.sprite seam), NaviPlay's where it has none
+    -- Gen 1 / 2: the game's own Pokemon pictures, or an installed sprite mod's (G9 Battle
+    -- Sprites, a mod on the pokemon.sprite seam), the game's where it has none ("playnav" is the
+    -- stored value of the first)
     { key = "gb_sprites", label = "GEN 1/2 SPRITES", type = "choice", default = "playnav",
-      choices = { { "NAVIPLAY", "playnav" }, { "MODDED", "modded" } } },
+      choices = { { "GAME'S OWN", "playnav" }, { "MODDED", "modded" } } },
     -- Super-Training Regimens in a real 3D stadium (the card's, else a drawn one), the camera
     -- behind the trainee; the 2D view when off or when the device cannot draw it
     { key = "training_3d", label = "3D SUPER TRAINING", type = "toggle", default = false },
@@ -228,12 +226,6 @@ return function(mod)
     amieHost = makeHost(mod, profile)
     -- (the Game Boy games play their own effects for NaviPlay's engine stand-ins)
     if GB and amieHost.setSounds then amieHost.setSounds(loadSibling(mod, "data/gb_sounds.lua")) end
-    -- (and Pokemon Crystal's front and back pics from NaviPlay's atlases: the games' own are four
-    -- shades, their white see-through)
-    if GB and amieHost.setBacks then
-      amieHost.setBacks(loadSibling(mod, "data/gb_backs.lua"), function(path) return mod:read(path) end,
-        loadSibling(mod, "data/gb_fronts.lua"))
-    end
     -- every sound effect Amie (and Super Training's stand-ins, through the same host) plays has
     -- its haptic: menu presses tick, good hits pulse, misses knock twice (src/haptics.lua)
     if mod.haptics and amieHost.playSe then
@@ -525,17 +517,10 @@ return function(mod)
             local okA, errA = pcall(makeAmieArt, mod, ui.kit, ui.gen, function(id) return (engineArt(id)) end)
             if not okA then mod.log:warn("amie ui art failed to build: %s", tostring(errA)) end
           end
-          -- and its Decor (cushions, objects, wallpapers), Poke Puffs, hand, Berry Picker's and
-          -- Head It's art, Tile Puzzle's trees and PLAY's treeline and lawn come from NaviPlay's own
-          -- atlases
+          -- Tile Puzzle's trees and PLAY's treeline and lawn come from NaviPlay's own atlases (the
+          -- rest of Pokemon-Amie's art is the card image's)
           local makeDecorArt = loadSibling(mod, "src/amie/decor_art.lua")
-          for _, set in ipairs({ { "data/amie_decor.lua", "assets/amie_decor.png" },
-              { "data/amie_walls.lua", "assets/amie_walls.png" },
-              { "data/amie_puffs.lua", "assets/amie_puffs.png" },
-              { "data/amie_hand.lua", "assets/amie_hand.png" },
-              { "data/amie_berry.lua", "assets/amie_berry.png" },
-              { "data/amie_head.lua", "assets/amie_head.png" },
-              { "data/amie_tile.lua", "assets/amie_tile.png" },
+          for _, set in ipairs({ { "data/amie_tile.lua", "assets/amie_tile.png" },
               { "data/amie_scene.lua", "assets/amie_scene.png" },
               { "data/amie_grass.lua", "assets/amie_grass.png" } }) do
             local cells = makeDecorArt and loadSibling(mod, set[1])
@@ -1210,12 +1195,13 @@ return function(mod)
     return Layout.split(ww, wh, {}).surface
   end
 
-  -- USE ROM ASSETS: on, the card image's extracted assets (the NAVIPLAY screen gates the apps
-  -- until they are there); off, NaviPlay's own and no gate
+  -- The card image's extracted assets are the art (the NAVIPLAY screen gates the apps until they
+  -- are there). Only a driver or test turns this off (state.forceRom, never saved): NaviPlay's
+  -- drawn art, effects and words then stand in on fake hosts.
   local gateDisabled = false   -- the flow tests run on fake hosts, not the player's cache
   local function romOn()
-    if state.forceRom ~= nil then return state.forceRom end   -- a driver's, never saved
-    return mod.options:get("use_rom_assets") ~= false
+    if state.forceRom ~= nil then return state.forceRom end
+    return true
   end
   -- on: the card image's assets alone (its art, layouts, sounds, words and tracks; none of
   -- NaviPlay's drawn art, synthesized effects, own words or the GBA songs); off: NaviPlay's own
@@ -1264,9 +1250,8 @@ return function(mod)
     end
   end
 
-  -- the player's answer on the NAVIPLAY screen, kept across boots and saves:
-  -- { rom = true } extract; { rom = false, why = "missing" | "wrong" | "declined" } fallback
-  -- (missing / wrong: the screen is offered again once a usable card image is there)
+  -- the player's answer on the NAVIPLAY screen, kept across boots and saves: { rom = true }
+  -- extract (a paused run resumes on the next boot)
   local CHOICE = "asset_choice.lua"
   local function readChoice()
     local ok, src = pcall(mod.cache.read, mod.cache, CHOICE)
@@ -1297,15 +1282,7 @@ return function(mod)
       extractChecked = true
       applyRomOption()
       local choice = readChoice()
-      if not romOn() then
-        -- the fallback was taken while the card image was missing or wrong: once a usable
-        -- one is there, the choice is offered again
-        local why = choice and choice.why
-        if (why == "missing" or why == "wrong") and Extract.check() == "ready" then
-          mod.log:info("import: a card image is there now; offering the OR/AS assets again")
-          Apps:setActive("import", state.game)
-        end
-      else
+      if romOn() then
         local what = Extract.check()
         if what ~= "complete" and Extract.lastManifestError then
           mod.log:info("import: manifest not usable yet (%s)", tostring(Extract.lastManifestError))
@@ -1316,8 +1293,7 @@ return function(mod)
         elseif what == "complete" and Assets then
           Assets.refresh()
         elseif not chose and not gateDisabled then
-          -- nothing chosen yet (the first launch, or USE ROM ASSETS switched back on in the
-          -- launcher): the NAVIPLAY screen asks
+          -- nothing chosen yet (the first launch): the NAVIPLAY screen asks
           Apps:setActive("import", state.game)
         end
       end
@@ -1422,14 +1398,6 @@ return function(mod)
       end
       -- BEGIN EXTRACTION: remembered, so a paused run resumes on the next boot
       gateApp.onExtract = function() writeChoice(true) end
-      -- USE FALLBACK ASSETS: USE ROM ASSETS goes off; why = "missing" / "wrong" / "declined"
-      gateApp.useFallback = function(why)
-        writeChoice(false, why)
-        writeOption("use_rom_assets", false)
-        if Extract then Extract.cancel() end
-        applyRomOption()
-        mod.log:info("import: fallback assets chosen (%s)", tostring(why))
-      end
     end
   end
 
@@ -1507,20 +1475,6 @@ return function(mod)
       if Draw then Draw.mode3d = ev.value == true end
     elseif ev.key == "amie_3d" then
       if Amie and Amie.stage3d then Amie.stage3d.on = ev.value == true end
-    elseif ev.key == "use_rom_assets" and Extract then
-      if ev.value == false then
-        -- NaviPlay's own from now on; nothing more is asked
-        writeChoice(false, "declined")
-        Extract.cancel()
-        applyRomOption()
-        if Apps:active().id == "import" then Apps:setActive("play", state.game) end
-      else
-        -- on again: the card image is checked again and the NAVIPLAY screen offers it (or says
-        -- it is missing / not Alpha Sapphire) unless its assets are already extracted
-        writeChoice(nil)
-        applyRomOption()
-        if Extract.check() ~= "complete" then Apps:setActive("import", state.game) end
-      end
     end
   end)
 

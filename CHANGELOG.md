@@ -5,6 +5,17 @@ All notable changes to this mod are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The 3DS art comes only from your own Omega Ruby or Alpha Sapphire copy. The art NaviPlay carried
+  as a stand-in (Pokémon-Amie's Décor, wallpapers, Poké Puffs, hand and minigame art) is gone, along
+  with USE ROM ASSETS and the NaviPlay screen's USE FALLBACK ASSETS. Pokémon-Amie and Super Training
+  open once the art has been extracted.
+- On Gen 1 and 2 your Pokémon are drawn from the game's own sprites, coloured with its palettes,
+  instead of NaviPlay's Crystal sprites. GEN 1/2 SPRITES reads Game's Own / Modded (the saved choice
+  carries over).
+- The Wing and stone icons are drawn by NaviPlay instead of taken from a sprite pack.
+
 ### Added
 
 - AFFECTION GAIN option (1X / 2X / 3X / 5X, default 1X): multiplies the affection petting and Poké Puffs

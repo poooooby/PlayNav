@@ -57,6 +57,11 @@ return function(mod, Rules)
     local all = S.mons()
     local m = all[key]
     if type(m) ~= "table" then
+      local known = {}
+      for k in pairs(all) do known[#known + 1] = tostring(k) end
+      table.sort(known)
+      mod.log:info("amie: new record for %s (%d already kept: %s)", tostring(key), #known,
+        table.concat(known, ", ", 1, math.min(#known, 24)))
       m = Rules.newMeters()
       all[key] = m
       mod.save:set("mons", all)

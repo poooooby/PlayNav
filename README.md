@@ -62,11 +62,10 @@ on a touch screen, DS-style handheld, or nestled in a PC window.
 - **Pokemon-Amie:** Spend time with your Pokemon to raise its affection, and it fights better
   for you.
 - **Super Training:** Raise your Pokemon's EVs with training bags and shooting regimens.
-- **Your choice of look and sound:** the first time you open NaviPlay its screen asks.
-  **Begin extraction** builds the art, music, sound effects and English text from your own Alpha
-  Sapphire or Omega Ruby copy, for the real 3DS look. **Use fallback assets** needs no copy:
-  every screen is drawn by NaviPlay itself, with its own sounds and words and the GBA games' own
-  songs for music. Switch between the two any time with **USE ROM ASSETS**.
+- **The real 3DS look:** the first time you open NaviPlay its screen asks you to **Begin
+  extraction**, which builds the art, music, sound effects and English text from your own Alpha
+  Sapphire or Omega Ruby copy. Pokemon-Amie and Super Training need it; nothing of the 3DS
+  games' art ships with NaviPlay.
 - **The NaviPlay menu:** **NAVIPLAY** on the START menu opens NaviPlay on the touch screen,
   with a card for each app (**Pokemon-Amie** and **Super Training**) as the game's PlayNav lists
   them. Tap one to open it; closing an app brings you back to the menu, and the x (or NAVIPLAY
@@ -123,7 +122,7 @@ How to install NaviPlay and, optionally, add the 3DS art and text: [Installation
 - 🕹️ **On Gen 1 and 2,** Super Training works in those games' Stat Exp: a stat holds up to 252
   EVs (Stat Exp 63,504, the stat's full bonus), there is no 510 total, and Sp. Atk and Sp. Def
   bags and regimens train the one Special stat. A Pokemon is Fully Trained with all five stats
-  at 252. Your Pokemon are drawn with Pokemon Crystal's sprites.
+  at 252. Your Pokemon are drawn from the game's own sprites.
 - 💾 **Your copy of the game is never part of the mod.** The 3DS art and text come from the
   card image you supply, unpacked on your own device. Encrypted dumps (a raw cartridge dump, an eShop `.cia`)
   can't be read; supply a decrypted one. Azahar's compressed `.zcci` works as it is.
@@ -143,19 +142,13 @@ How to install NaviPlay and, optionally, add the 3DS art and text: [Installation
   [CC BY-NC-SA 2.5](https://creativecommons.org/licenses/by-nc-sa/2.5/).
 - **Super Training research:** the Japanese guides at pente.koro-pokemon.com, the ORAS atwiki
   and gamepedia.jp, and the ORAS Wiki.
-- **Wing and stone icons:** [PokéSprite](https://github.com/msikma/pokesprite) (the images are
-  © Nintendo / Creatures Inc. / GAME FREAK Inc.; see `assets/credits.txt`). Their names
-  and descriptions come from [PokeAPI](https://pokeapi.co).
+- **Wing and stone items:** their names and descriptions come from [PokeAPI](https://pokeapi.co);
+  the icons are drawn by NaviPlay.
 - **Super Training stadium and hover board, the Amie cottage and play sky, and the regimen
   picker's music, along with other sprites and music:** original art and music by Wooble for
   NaviPlay.
 - **Balloon Bot sprites:** the Gen 9 Pack's Pokemon battler sprites — Gen 1-5 Pokemon by
   veekun, Gen 6 Pokemon by all contributors to the Smogon X/Y Sprite Project.
-- **Gen 1 and 2 Pokemon sprites:** Pokemon Crystal's fronts and backs, from the
-  [Crystal Animated Sprites with Shiny Visuals](https://github.com/distilledorion-sketch/crystal_animated_sprites_with_shiny_visuals)
-  mod by distilledorion-sketch.
-- **Pokemon-Amie's Décor, wallpapers, Poké Puffs, hand and minigame art** (used without a card
-  image): from Pokemon X and Y (© The Pokemon Company), provided via The Spriters Resource.
 - **Tile Puzzle's trees and PLAY's treeline:** TREE PIXEL PACK and PIXEL BUSHES PACK by
   [AstroCom](https://astrocom.space). **PLAY's lawn:** the GRASS+ tile sheet by SciGho.
 - **The split-screen layout** is adapted from [Kanto Gear](https://github.com/AverageConsumer/kanto-gear)'s

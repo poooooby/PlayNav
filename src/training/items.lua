@@ -73,42 +73,75 @@ return function(mod, deps)
     return d and d.index or nil
   end
 
-  -- the icons live in one atlas (assets/items.png, 32x32 cells, five to a row; `iconCell`
-  -- in the data); each is cut out into an Image of its own once
-  local CELL, COLS = 32, 5
-  local atlasData
-  local function cellImage(path, cell)
-    local G, LI, LF = love and love.graphics, love and love.image, love and love.filesystem
-    if not (G and LI and LF and mod.read) then return nil end
-    if atlasData == nil then
-      local bytes = mod:read(path)
-      local ok, data = pcall(function() return LI.newImageData(LF.newFileData(bytes, path)) end)
-      atlasData = (bytes and ok and data) or false
+  -- the icons are painted here, 32x32, on the CPU (an ImageData: safe inside a draw): a Wing is a
+  -- feather in its stat's colour, the Pretty Wing a pink one, a stone a cut gem
+  local SIZE = 32
+  local WING_RGB = {
+    hp = { 150, 230, 60 }, atk = { 250, 210, 40 }, def = { 250, 150, 40 },
+    spa = { 120, 196, 255 }, spd = { 96, 156, 246 }, spe = { 236, 120, 240 },
+  }
+  local PRETTY_RGB = { 255, 170, 200 }
+  local STONE_RGB = { ["dusk-stone"] = { 110, 70, 170 }, ["shiny-stone"] = { 245, 215, 90 },
+    ["dawn-stone"] = { 240, 130, 170 } }
+
+  local function shade(rgb, k) return { math.min(255, rgb[1] * k), math.min(255, rgb[2] * k), math.min(255, rgb[3] * k) } end
+
+  local function featherPixel(x, y, rgb)
+    -- the feather lies along the diagonal from the quill (low left) to the tip (high right)
+    local ax, ay = (x + 0.5 - 6) / 20, (26 - (y + 0.5)) / 20
+    local u = (ax + ay) * 0.7071
+    local v = (ax - ay) * 0.7071
+    if u < -0.02 or u > 1.12 then return nil end
+    local half = (u < 0.12) and 0.012 or 0.21 * math.sin(math.pi * math.min(1, (u - 0.02) / 1.1) ^ 0.85)
+    local d = math.abs(v)
+    if d > half then return nil end
+    if d > half - 0.05 and u > 0.12 then return shade(rgb, 0.55) end
+    if d < 0.018 then return shade(rgb, 0.7) end
+    local base = v > 0 and 1.0 or 0.86
+    local barb = (math.floor((u + d * 0.8) * 22) % 2 == 0) and 0.0 or 0.07
+    return shade(rgb, base - barb + (1 - u) * 0.1)
+  end
+
+  local function gemPixel(x, y, rgb)
+    local dx, dy = (x + 0.5 - 16) / 11, (y + 0.5 - 16.5) / 12.5
+    local m = math.abs(dx) + math.abs(dy)
+    if m > 1 then return nil end
+    if m > 0.86 then return shade(rgb, 0.45) end
+    -- facets: upper left lit, lower right in shadow
+    local k
+    if m < 0.36 then k = 1.12
+    elseif dx + dy < -0.2 then k = 1.28
+    elseif dx - dy > 0.4 then k = 0.95
+    elseif dx + dy > 0.35 then k = 0.66
+    else k = 0.82 end
+    if dx < -0.18 and dy < -0.18 and m > 0.4 and m < 0.55 then return { 255, 255, 255 } end
+    return shade(rgb, k)
+  end
+
+  local function paintIcon(def)
+    local LI = love and love.image
+    if not (LI and love.graphics) then return nil end
+    local stone = STONE_RGB[def.slug]
+    local rgb = stone or (def.stat and WING_RGB[def.stat]) or PRETTY_RGB
+    local data = LI.newImageData(SIZE, SIZE)
+    for y = 0, SIZE - 1 do
+      for x = 0, SIZE - 1 do
+        local c = (stone and gemPixel or featherPixel)(x, y, rgb)
+        if c then data:setPixel(x, y, c[1] / 255, c[2] / 255, c[3] / 255, 1) end
+      end
     end
-    if not atlasData then return nil end
-    local ok, img = pcall(function()
-      local d = LI.newImageData(CELL, CELL)
-      d:paste(atlasData, 0, 0, (cell % COLS) * CELL, math.floor(cell / COLS) * CELL, CELL, CELL)
-      local image = G.newImage(d)
-      image:setFilter("nearest", "nearest")
-      return image
-    end)
-    return ok and img or nil
+    local image = love.graphics.newImage(data)
+    image:setFilter("nearest", "nearest")
+    return image
   end
 
   function I.icon(id)
     local def = I.def(id)
     if not def then return nil end
     if I.images[def.ownIndex] ~= nil then return I.images[def.ownIndex] or nil end
-    local img = nil
-    if def.iconCell then
-      img = cellImage(def.icon, def.iconCell)
-    elseif mod.assets and mod.assets.image then
-      local ok, result = pcall(mod.assets.image, mod.assets, def.icon)
-      if ok and result then img = result end
-    end
-    I.images[def.ownIndex] = img or false
-    return img
+    local ok, img = pcall(paintIcon, def)
+    I.images[def.ownIndex] = (ok and img) or false
+    return ok and img or nil
   end
 
   -- a Wing used on the party member at `slot`: +1 EV within 252 / 510, vitamin friendship,
@@ -151,7 +184,7 @@ return function(mod, deps)
     if not (def and tonumber(id) == def.ownIndex) then return nil end
     return I.icon(id)
   end
-  local INSET = (CELL - 24) / 2
+  local INSET = (SIZE - 24) / 2
   local wrapped = setmetatable({}, { __mode = "k" })
   -- FireRed / LeafGreen: drawItemIcon(itemId, px, py, scale); Ruby / Sapphire / Emerald:
   -- drawItemIcon(index, x, y, rotation, ox, oy) (ox / oy in the 24x24 icon's pixels)
