@@ -78,22 +78,40 @@ return function(CATALOG, Rules)
     end
     if (decor.names or 1) < D.NAMES_VERSION then
       local moved = {}
-      for id in pairs(decor.owned) do
+      for id, v in pairs(decor.owned) do
         local to = D.RENAMED[id]
-        if to then moved[to] = true; decor.owned[id] = nil end
+        if to then moved[to] = v; decor.owned[id] = nil end
       end
-      for id in pairs(moved) do decor.owned[id] = true end
+      for id, v in pairs(moved) do decor.owned[id] = v end
       decor.names = D.NAMES_VERSION
     end
     return decor
   end
 
-  function D.owns(decor, id) return decor.owned and decor.owned[id] == true end
+  -- owned[id] is true (one) or a number (copies of a cushion / object); wallpapers stay one
+  D.MAX_COPIES = 9
 
+  function D.count(decor, id)
+    local v = decor.owned and decor.owned[id]
+    if v == true then return 1 end
+    return type(v) == "number" and v or 0
+  end
+
+  function D.owns(decor, id) return D.count(decor, id) > 0 end
+
+  -- own one more of an id; a cushion or object stacks up to MAX_COPIES, a wallpaper only once.
+  -- false when nothing was added
   function D.own(decor, id)
-    if not D.BY_ID[id] then return false end
+    local row = D.BY_ID[id]
+    if not row then return false end
     decor.owned = decor.owned or {}
-    if decor.owned[id] then return false end
+    local n = D.count(decor, id)
+    if row.kind == "cushion" or row.kind == "object" then
+      if n >= D.MAX_COPIES then return false end
+      decor.owned[id] = n + 1
+      return true
+    end
+    if n > 0 then return false end
     decor.owned[id] = true
     return true
   end
@@ -292,12 +310,12 @@ return function(CATALOG, Rules)
     return true
   end
 
-  -- how many of an item are still in the drawer: the game keeps one of each, and placing it
-  -- takes it out (the drawer shows a placed item at 0, faded)
+  -- how many copies of an item are still in the drawer: the copies owned less those placed
+  -- (the drawer shows a fully placed item at 0, faded)
   function D.inDrawer(room, decor, id)
-    if decor and not D.owns(decor, id) then return 0 end
-    for _, it in ipairs(room.items or {}) do if it.id == id then return 0 end end
-    return 1
+    local owned = decor and D.count(decor, id) or 1
+    for _, it in ipairs(room.items or {}) do if it.id == id then owned = owned - 1 end end
+    return math.max(0, owned)
   end
 
   -- place an owned item that is still in the drawer; false, reason when the room is full
@@ -306,7 +324,7 @@ return function(CATALOG, Rules)
     if not (r and (r.kind == "cushion" or r.kind == "object")) then return false, "not an item" end
     if decor and not D.owns(decor, id) then return false, "not owned" end
     room.items = room.items or {}
-    if D.inDrawer(room, nil, id) == 0 then return false, "placed" end
+    if D.inDrawer(room, decor or { owned = { [id] = D.MAX_COPIES } }, id) == 0 then return false, "placed" end
     if #room.items >= D.MAX_ITEMS then return false, "full" end
     room.items[#room.items + 1] = { id = id, x = x, y = y }
     return true, #room.items

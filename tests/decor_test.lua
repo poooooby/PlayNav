@@ -105,6 +105,14 @@ T.eq(D.inDrawer(room, decor, "cushion/pink_egg_cushion"), 1, "...another is stil
 T.eq(D.inDrawer(room, decor, "object/campfire_object"), 0, "...and an unowned one never was")
 local again, whyA = D.place(room, decor, "cushion/leaf_cushion", 140, 120)
 T.eq(whyA, "placed", "the same cushion cannot go down twice")
+-- copies stack for cushions and objects, never for wallpapers
+T.eq(D.own(decor, "cushion/leaf_cushion"), true, "a second copy is owned")
+T.eq(D.count(decor, "cushion/leaf_cushion"), 2, "...counted")
+T.eq(D.inDrawer(room, decor, "cushion/leaf_cushion"), 1, "...one is still in the drawer")
+T.eq(D.place(room, decor, "cushion/leaf_cushion", 140, 120), true, "...and goes down")
+T.eq(D.inDrawer(room, decor, "cushion/leaf_cushion"), 0, "...then none are left")
+T.eq(D.own(decor, "wall/fire"), false, "a wallpaper is owned once")
+D.remove(room, #room.items)
 local big = { owned = {} }
 for _, r in ipairs(D.ITEMS) do big.owned[r.id] = true end
 for i = 2, 41 do D.place(room, big, D.ITEMS[i].id, 20 + i, 100) end
