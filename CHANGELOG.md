@@ -3,6 +3,19 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.1] - 2026-11-08
+
+### Added
+
+- Pokémon-Amie Décor: you can own several copies of a cushion or object (up to 9 each) and place as
+  many as you own. Repeat gifts add a copy. Wallpapers stay one each.
+
+### Fixed
+
+- 3D AMIE: on a Pokémon whose camera sits outside the sky (Haunter, Venusaur, Charizard and about a
+  quarter of the others), the sky's near wall covered the stage, leaving a dark strip down the top
+  screen and the clouds and bubbles overlapping. The sky is now seen from inside only.
+
 ## [1.2.0] - 2026-11-07
 
 ### Changed

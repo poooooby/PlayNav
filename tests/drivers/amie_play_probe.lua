@@ -80,6 +80,9 @@ local function body(game, log)
   if St and os.getenv("PROBE_3D") == "1" then
     St.on = true
     log("3D AMIE on; available:", St.available())
+  elseif St and os.getenv("PROBE_3D") == "0" then
+    St.on = false
+    log("3D AMIE off for this run")
   end
   -- canvases switched to by the 3D code (render3d / the stand-in's pictures) while love.draw
   -- runs: each one broke the frame on Android (the Thor); there must be none

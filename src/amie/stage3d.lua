@@ -40,6 +40,9 @@ return function(mod, deps)
   -- drift once round in U, the cumulus sway 0 <-> 0.05 every 100 frames, the bubbles rise in V
   St.ANIM = { FRAMES = 1000, FPS = 30, SWAY = 0.05, SWAY_F = 100 }
   St.CLEAR = { 0.8, 0.89, 1 }
+  -- the sky cylinder is seen from inside only: a far camera (186 species' presets sit past its
+  -- radius) would otherwise see its near wall over everything the stage holds
+  St.SKY_CULL = "back"
 
   -- ------- the cameras
 
@@ -227,7 +230,8 @@ return function(mod, deps)
         end
         local anim = St.ANIM_OF[me.name]
         pieces[#pieces + 1] = { model = R.modelMesh(me, img), pass = (me.priority or 0) == 0 and 2 or 3,
-          name = me.name, order = St.ORDER[me.name] or 0, anim = anim, uv = anim and { 0, 0 } or nil }
+          name = me.name, order = St.ORDER[me.name] or 0, anim = anim, uv = anim and { 0, 0 } or nil,
+          cull = me.name == "collision02_skyw" and St.SKY_CULL or nil }
       end
     end
     if #pieces == 0 then return nil end

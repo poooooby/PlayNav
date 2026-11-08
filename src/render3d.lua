@@ -255,7 +255,9 @@ return function(mod, opts)
           local m = piece.model
           sendIf("modelMatrix", m.matrix)
           sendIf("uvShift", piece.uv or ZERO)
+          if piece.cull then G.setMeshCullMode(piece.cull) end
           G.draw(m.mesh)
+          if piece.cull then G.setMeshCullMode(cull or "none") end
         end
       end
     end
