@@ -197,6 +197,10 @@ return function(mod)
   local makeStore = loadSibling(mod, "src/amie/store.lua")
   -- the engine's adapter: Gen 3's, or the Game Boy games' (Gen 1 / 2)
   local makeHost = loadSibling(mod, GB and "src/refresh/host_gb.lua" or "src/refresh/host_gen3.lua")
+  -- declared state machines over the sessions' mode fields (src/fsm.lua); a bad edge only logs
+  local Fsm = loadSibling(mod, "src/fsm.lua")
+  mod.fsm = Fsm
+  if Fsm then Fsm.warn = function(fmt, ...) mod.log:warn(fmt, ...) end end
   local makeSession = loadSibling(mod, "src/amie/session.lua")
   -- PLAY's and DECORATE's screens are laid out in Lua (src/amie/panes.lua)
   mod.panes = loadSibling(mod, "src/amie/panes.lua")
@@ -238,7 +242,7 @@ return function(mod)
     -- the top-screen overlay finds our layers on the engine's stack through the host
     if HdTop and amieHost.Stack then HdTop.Stack = amieHost.Stack end
     Amie = makeSession(mod, { host = amieHost, Rules = Rules, Petting = Petting,
-      Store = Store, Apps = Apps, onChange = dirty })
+      Store = Store, Apps = Apps, Fsm = Fsm, onChange = dirty })
     if makeAmieText then
       local okT, AT = pcall(makeAmieText, Amie)
       if okT and type(AT) == "table" then
@@ -374,7 +378,7 @@ return function(mod)
       if makeTItems then
         TItems = makeTItems(mod, { host = trainHost, Rules = TRules, data = ItemsTable or {}, gb = GB, gen = profile.gen })
       end
-      Training = makeTSession(mod, { host = trainHost, Rules = TRules, Store = TStore, Items = TItems, Apps = Apps,
+      Training = makeTSession(mod, { Fsm = Fsm, host = trainHost, Rules = TRules, Store = TStore, Items = TItems, Apps = Apps,
         busy = function() return Amie ~= nil and Amie.session ~= nil end, onChange = dirty })
       if Amie then Amie.busy = function() return Training.session ~= nil end end
       -- the HUD names a balloon by the game's species name when a translation renames it
@@ -388,7 +392,7 @@ return function(mod)
       end
       -- the regimens: the simulation, the top-screen renderer, the aim pad and the picker
       if Courses and makeSim and makeRegimen then
-        local TSim = makeSim(TrainingNumbers)
+        local TSim = makeSim(TrainingNumbers, Fsm)
         -- 3D SUPER TRAINING's play in the game's own space
         local makeSim3d = loadSibling(mod, "src/training/sim3d.lua")
         if makeSim3d and TSim._in then
@@ -699,7 +703,7 @@ return function(mod)
 
   local state = {
     game = nil,
-    mode = "off",          -- "off" | "split" | "second_screen"
+    mode = "off",          -- "off" | "split" | "second_screen" | "handheld" (changes only through setMode)
     rect = nil,            -- window rect of the surface in split mode
     lastTick = nil,
     pushAt = 0, pushK = 1,
@@ -868,6 +872,13 @@ return function(mod)
     return "split"
   end
 
+  -- state.mode: where NaviPlay shows (off, the window split, the second display, the handheld's
+  -- own screen); any mode may follow any other, only setMode writes it
+  state.modeMachine = mod.fsm and mod.fsm.define("main.display", {
+    states = { "off", "split", "second_screen", "handheld" },
+    edges = { ["*"] = { "off", "split", "second_screen", "handheld" } },
+  })
+
   local function setMode(mode)
     if mode == state.mode then return end
     mod.log:info("display mode %s -> %s", state.mode, mode)
@@ -887,7 +898,7 @@ return function(mod)
       if g then g:claim() end
     end
     if state.mode == "handheld" then state.gameRead, state.gameCanvas = nil, nil end
-    state.mode = mode
+    if state.modeMachine then state.modeMachine:enter(state, "mode", mode) else state.mode = mode end
     state.rect = nil
     state.pushAt = 0
     if Cutout and mode ~= "split" then Cutout:set(nil) end
@@ -2128,6 +2139,7 @@ return function(mod)
   -- ------- what other mods (future minigames) can reach
 
   mod.exports.pointer = Pointer
+  mod.exports.machines = Fsm and Fsm.snapshot   -- every declared state machine: states, edges, last moves
   mod.exports.apps = Apps
   mod.exports.hdTop = HdTop   -- the top-screen overlay (drivers read .why)
   mod.exports.hd = HD         -- the pixel-art drawing (drivers check its shader)

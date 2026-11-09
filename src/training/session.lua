@@ -23,6 +23,18 @@ return function(mod, deps)
   local APP_FOR = { core = "training_core", bags = "training_bags", courses = "training_courses",
     regimen = "training_aim", result = "training_aim", rocket = "training_rocket" }
 
+  -- s.mode: core = Core Training's home, bags = the bag drawer, courses = the regimen picker,
+  -- regimen = a regimen, result = its results, rocket = the alley. s.trans (the screen change
+  -- between two of them) is separate; the changes run through setMode.
+  local ModeMachine = deps.Fsm and deps.Fsm.define("training.mode", {
+    states = { "core", "bags", "courses", "regimen", "result", "rocket" },
+    edges = { core = { "bags", "courses", "rocket", "regimen" }, bags = { "core" },
+      courses = { "core", "regimen" }, regimen = { "result", "courses", "core" },
+      result = { "courses", "core" }, rocket = { "core" } },
+  })
+  local function enterMode(s, mode, why) return deps.Fsm.enter(ModeMachine, s, "mode", mode, why) end
+  if not deps.Fsm then enterMode = function(s, mode) s.mode = mode end end
+
   local function now() return host.now() end
   local function wall() return host.wallClock and host.wallClock() or os.time() end
 
@@ -371,7 +383,7 @@ return function(mod, deps)
     if not s then return end
     refreshMon(s)
     syncLayer(s, mode)
-    s.mode = mode
+    enterMode(s, mode)
     local app = APP_FOR[mode]
     if app and Apps:get(app) then Apps:setActive(app, mod.game) end
     onChange()
@@ -436,7 +448,7 @@ return function(mod, deps)
     if not eligible(mon) then return false, "fainted" end
     Store.migrate()
     local s = monFields(mon)
-    s.mode = "core"
+    enterMode(s, "core", "open")
     s.startedAt = now()
     s.anim = { hit = 0, t = 0 }
     s.message, s.messageUntil = nil, nil

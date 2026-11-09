@@ -16,6 +16,16 @@ return function(mod, deps)
   local host, Rules, Petting, Store, Apps = deps.host, deps.Rules, deps.Petting, deps.Store, deps.Apps
   local onChange = deps.onChange or function() end
 
+  -- s.mode: which screen the session shows. home = the room, play = PLAY, decorate = DECORATE,
+  -- game = a minigame on top of PLAY. Every change goes through enterMode.
+  local ModeMachine = deps.Fsm and deps.Fsm.define("amie.mode", {
+    states = { "home", "play", "decorate", "game" },
+    edges = { home = { "play", "decorate" }, play = { "home", "game", "decorate" },
+      decorate = { "home", "play" }, game = { "play", "home" } },
+  })
+  local function enterMode(s, mode, why) return deps.Fsm.enter(ModeMachine, s, "mode", mode, why) end
+  if not deps.Fsm then enterMode = function(s, mode) s.mode = mode end end
+
   -- pixel art (GBA sprites, icons) through src/hd.lua: whole pixels or the sharp shader
   local function drawPixel(...)
     local HD = mod.hd
@@ -510,7 +520,7 @@ return function(mod, deps)
     if G.busy and G.busy() then return false, "busy" end
     mon = host.resolve(mon) or mon
     local s = monFields(mon)
-    s.mode = opts.home and "home" or "play"
+    enterMode(s, opts.home and "home" or "play", "start")
     s.fromHome = opts.home and true or false
     s.puffs = Store.puffs()
     s.tool = nil
@@ -532,7 +542,7 @@ return function(mod, deps)
   function G.enterDecorate()
     local s = G.session
     if not s or not G.Decor then return false end
-    s.mode = "decorate"
+    enterMode(s, "decorate")
     s.tool = nil
     syncLayer(s)
     Apps:setActive("decorate", mod.game)
@@ -550,7 +560,7 @@ return function(mod, deps)
       Store.saveDecor(); Store.saveRoom()
     end
     if first and G.Visitors then G.Visitors.reset() end
-    s.mode = "home"
+    enterMode(s, "home")
     s.tool = nil
     s.feeding = nil
     syncLayer(s)
@@ -638,10 +648,10 @@ return function(mod, deps)
     if not G.Games.isUnlocked(id, diff) then return false, "locked" end
     local list, why = G.Games.participants(s.key)
     if not list then say(G.tx("needThree"), 3); return false, why end
-    s.mode = "game"
+    enterMode(s, "game")
     s.game = { id = id, diff = diff, participants = list, hud = nil }
     local app = Apps:get("game_" .. id)
-    if not app then s.mode = "play"; return false, "no app" end
+    if not app then enterMode(s, "play", "no app"); return false, "no app" end
     syncLayer(s)
     G.gameApp = app
     Apps:setActive("game_" .. id, mod.game)
@@ -679,7 +689,7 @@ return function(mod, deps)
     if not s then return false end
     s.game = nil
     G.gameApp = nil
-    s.mode = "play"
+    enterMode(s, "play", "leave game")
     -- back in PLAY from a minigame: +10 enjoyment, as opening it
     Rules.openPlay(s.meters)
     if opts and opts.toPetting then s.tool = nil else s.tool = "games" end
@@ -711,7 +721,7 @@ return function(mod, deps)
   function G.enterPlay()
     local s = G.session
     if not s then return end
-    s.mode = "play"
+    enterMode(s, "play")
     syncLayer(s)
     Apps:setActive("play", mod.game)
     Rules.openPlay(s.meters)

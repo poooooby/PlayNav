@@ -139,7 +139,7 @@ return function(mod, Pointer, G, Rules, Petting, host)
   local particles = {}
   local view = { z = 1, fx = 160, fy = 120, px = 160, py = 120 }   -- screen = p + (scene - f) * z
   local want = { z = 1, fx = 160, fy = 120, px = 160, py = 120 }
-  local wake = nil        -- { session, stage = "asleep" | "exclaim" | "flash" | "awake" | "dozing", t }
+  local wake = nil        -- { session, stage = "asleep" | "exclaim" | "flash" | "awake" | "dozing" | "sick" | "ball", t }
   -- left alone awake for the game's IDLE ticks, it dozes off (still, drooping, "z"s) for its
   -- sleep cycles, shrinks back into its ball and the screen goes back to the room; a tap while
   -- it dozes wakes it again (data IDLE)

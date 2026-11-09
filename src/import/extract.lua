@@ -8,6 +8,15 @@ return function(mod, deps)
   local Recipe, Assets = deps.recipe, deps.assets
   local onChange = deps.onChange or function() end
 
+  -- E.state: idle (a card image is there to extract), absent (none), complete (the cache is whole),
+  -- running -> finishing -> done, failed; check() may put it back to idle / absent / complete.
+  -- Every change goes through setState.
+  local StateMachine = mod.fsm and mod.fsm.define("import.extract", {
+    states = { "idle", "absent", "complete", "running", "finishing", "done", "failed" },
+    edges = { ["*"] = { "idle", "absent", "complete", "running", "failed" },
+      running = { "finishing", "idle", "failed" }, finishing = { "done", "failed" } },
+  })
+
   local E = {
     state = "idle",      -- idle | absent | complete | running | finishing | done | failed
     total = 0, done = 0, failed = 0,
@@ -95,19 +104,23 @@ return function(mod, deps)
     return type(m.assets) == "table" and next(m.assets) ~= nil
   end
 
+  local function setState(state)
+    if StateMachine then StateMachine:enter(E, "state", state) else E.state = state end
+  end
+
   -- what should happen on this boot; never disturbs a run in progress
   function E.check()
     if E.state == "running" or E.state == "finishing" then return "running" end
     if E.cacheComplete() then
-      E.state, E.why = "complete", nil
+      setState("complete"); E.why = nil
       return "complete"
     end
     local present, _, err = E.importPresent()
     if not present then
-      E.state, E.why = "absent", whyAbsent(err)
+      setState("absent"); E.why = whyAbsent(err)
       return "absent"
     end
-    E.state, E.why = "idle", nil
+    setState("idle"); E.why = nil
     return "ready"
   end
 
@@ -129,11 +142,11 @@ return function(mod, deps)
   function E.start()
     if E.state == "running" or E.state == "finishing" then return false, "already running" end
     local present, _, err = E.importPresent()
-    if not present then E.state, E.why = "absent", whyAbsent(err); return false, "no import" end
+    if not present then setState("absent"); E.why = whyAbsent(err); return false, "no import" end
     E.why = nil
-    if not jobAvailable() then E.state = "failed"; E.message = "Background jobs are unavailable."; return false, "no jobs" end
+    if not jobAvailable() then setState("failed"); E.message = "Background jobs are unavailable."; return false, "no jobs" end
     local sources, missing = moduleSources()
-    if not sources then E.state = "failed"; E.message = "Reader module missing: " .. tostring(missing); return false, "module" end
+    if not sources then setState("failed"); E.message = "Reader module missing: " .. tostring(missing); return false, "module" end
     E.sources = sources
     -- group recipe items per archive, keep recipe order
     local byArchive, order = {}, {}
@@ -150,7 +163,7 @@ return function(mod, deps)
     E.total, E.done, E.failed, E.differs = #Recipe.assets, 0, 0, 0
     E.results, E.pending, E.jobs = {}, {}, {}
     E.cancelled = false
-    E.state = "running"
+    setState("running")
     E.startedAt = os.time()
     E.message = "Extracting OR/AS assets..."
     log("start: %d textures from %d archives%s", E.total, #E.archives,
@@ -164,7 +177,7 @@ return function(mod, deps)
     E.cancelled = true
     for handle in pairs(E.jobs) do pcall(mod.job.cancel, mod.job, handle) end
     E.jobs = {}
-    E.state = "idle"
+    setState("idle")
     E.message = "Extraction paused; it resumes on the next boot."
     onChange()
   end
@@ -211,7 +224,7 @@ return function(mod, deps)
     E.results, E.pending, E.archives = {}, {}, {}
     E.total, E.done, E.failed, E.differs = 0, 0, 0, 0
     E.cancelled, E.message = false, nil
-    E.state = "idle"
+    setState("idle")
     if Assets and Assets.refresh then Assets.refresh() end
     E.check()
     onChange()
@@ -369,11 +382,11 @@ return function(mod, deps)
       onChange()
     end
     if E.state == "running" and #E.archives == 0 and inflight() == 0 and #E.pending == 0 then
-      E.state = "finishing"
+      setState("finishing")
       local ok, err, missing = writeManifest()
       if ok and E.total > 0 and missing >= E.total then
         -- nothing matched: another game, an encrypted dump, or not a 3DS image at all
-        E.state, E.why = "failed", "wrong"
+        setState("failed"); E.why = "wrong"
         local why = nil
         for _, r in pairs(E.results) do
           if r.err and not isDiffers(r.err) then why = tostring(r.err):gsub("^job: ", ""); break end
@@ -383,7 +396,7 @@ return function(mod, deps)
           or ("This file could not be read: %s"):format(tostring(why))
         log("nothing extracted: %d rows differ, first error %s", E.differs, tostring(why))
       elseif ok then
-        E.state = "done"
+        setState("done")
         E.message = missing == 0
           and "OR/AS assets are ready. You can remove the ROM copy under Imported files."
           or ("OR/AS assets ready (%d of %d). You can remove the ROM copy under Imported files."):format(E.total - missing, E.total)
@@ -391,7 +404,7 @@ return function(mod, deps)
           os.time() - (E.startedAt or os.time()))
         if Assets then Assets.refresh() end
       else
-        E.state = "failed"
+        setState("failed")
         E.message = "Could not write the asset manifest: " .. tostring(err)
       end
       onChange()

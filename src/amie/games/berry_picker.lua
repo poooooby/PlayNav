@@ -211,8 +211,16 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   -- ------- the end
 
+  -- st.phase: berry's run, in order; every change goes through setPhase
+  local PhaseMachine = mod.fsm and mod.fsm.define("berry.phase", {
+    states = { "countdown", "play", "timeUp", "rain", "smoke", "buttons" },
+    edges = { countdown = { "play" }, play = { "timeUp" }, timeUp = { "rain" }, rain = { "smoke" }, smoke = { "buttons" } },
+    groups = { running = { "countdown", "play" } },
+  })
+
   local function setPhase(p)
-    st.phase, st.pt = p, 0
+    if PhaseMachine then PhaseMachine:enter(st, "phase", p) else st.phase = p end
+    st.pt = 0
   end
 
   local function finish()
@@ -340,7 +348,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
 
   function app:quit()
-    if st and (st.phase == "countdown" or st.phase == "play") then st = nil; G.endGame(nil, true) end
+    if st and (PhaseMachine and PhaseMachine:is(st, "phase", "running") or st.phase == "countdown" or st.phase == "play") then st = nil; G.endGame(nil, true) end
   end
 
   -- the driver ends a run early with a chosen score

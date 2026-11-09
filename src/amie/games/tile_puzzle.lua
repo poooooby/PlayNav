@@ -221,7 +221,23 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   -- ------- the end
 
-  local function setPhase(p) st.phase, st.pt = p, 0 end
+  -- st.phase: tile's run, in order; every change goes through setPhase
+  local PhaseMachine = mod.fsm and mod.fsm.define("tile.phase", {
+    states = { "intro", "shuffle", "start", "play", "next", "view", "finished", "smoke", "buttons" },
+    edges = { intro = { "shuffle", "finished" }, shuffle = { "start", "finished" }, start = { "play", "finished" }, play = { "next", "finished" },
+      next = { "shuffle" }, finished = { "smoke" }, smoke = { "buttons" }, buttons = { "view" }, view = { "buttons" } },
+    groups = { running = { "intro", "shuffle", "start", "play" } },
+  })
+
+  local function tileRunning()
+    return PhaseMachine and PhaseMachine:is(st, "phase", "running")
+      or st.phase == "intro" or st.phase == "shuffle" or st.phase == "start" or st.phase == "play"
+  end
+
+  local function setPhase(p)
+    if PhaseMachine then PhaseMachine:enter(st, "phase", p) else st.phase = p end
+    st.pt = 0
+  end
 
   -- START! / NEXT! / FINISHED! / TIME'S UP!: the window 8v and its text 99, which the clips
   -- grow (1.5 -> 1.8); every banner clip carries the same tracks, the game sets the words.
@@ -361,7 +377,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
 
   function app:quit()
-    if st and (st.phase == "intro" or st.phase == "shuffle" or st.phase == "start" or st.phase == "play") then
+    if st and (tileRunning()) then
       st = nil
       G.endGame(nil, true)
     end
@@ -369,7 +385,7 @@ return function(mod, Pointer, G, Games, Rules, host)
 
   -- the driver ends a run early: seconds for a timed puzzle, puzzles for Unlimited
   function app.forceEnd(value)
-    if st and (st.phase == "intro" or st.phase == "shuffle" or st.phase == "start" or st.phase == "play") then
+    if st and (tileRunning()) then
       if st.diff == "unlimited" then st.puzzles = value or st.puzzles; finish(st.puzzles)
       else st.elapsed = value or st.elapsed; finish(st.elapsed) end
     end

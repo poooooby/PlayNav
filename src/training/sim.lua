@@ -9,9 +9,20 @@
 --
 -- Sim = sim(N); sim = Sim.new(course, { mods, shotType, level, anchors, library }, rng)
 
-return function(N)
+return function(N, Fsm)
   local Sim = {}
   Sim.__index = Sim
+  -- sim.phase: countdown (the intro), play, between (a balloon beaten, the next coming in), then
+  -- clear or timeout. Every change goes through setPhase.
+  local PhaseMachine = Fsm and Fsm.define("training.sim", {
+    states = { "countdown", "play", "between", "clear", "timeout" },
+    edges = { countdown = { "play", "clear", "timeout" }, play = { "between", "clear", "timeout" },
+      between = { "play", "clear", "timeout" } },
+  })
+  local function setPhase(o, phase)
+    if PhaseMachine then PhaseMachine:enter(o, "phase", phase) else o.phase = phase end
+  end
+
   local STEP = 1 / 120
 
   -- ------- projection and aiming
@@ -140,7 +151,7 @@ return function(N)
     s.gameAttacks = params.gameAttacks
     s.time = course.time or N.CLOCK.TIME
     s.remaining = s.time
-    s.phase = "countdown"
+    setPhase(s, "countdown")
     s.countdown = N.CLOCK.COUNTDOWN_S
     s.t = 0
     s.score, s.totalScore = 0, 0
@@ -1687,7 +1698,7 @@ return function(N)
     if self.phase == "countdown" then
       self.countdown = self.countdown - step
       if self.countdown <= 0 then
-        self.phase = "play"
+        setPhase(self, "play")
         self.scheduleT0 = self.t
         self.swayT0 = self.t
         self:spawnGroup()
@@ -1714,7 +1725,7 @@ return function(N)
       end
       if bt.t >= B.PLAY_S then
         self.between = nil
-        self.phase = "play"
+        setPhase(self, "play")
         self:spawnGroup()
         emit(self, "play", { stage = self.botIndex })
       end
@@ -1754,20 +1765,20 @@ return function(N)
       emit(self, "bot_pop", { index = self.botIndex, remaining = self.remaining })
       if self.course.bots[self.botIndex + 1] then
         -- another balloon to come: the changeover (its attacks, balls and goals gone)
-        self.phase = "between"
+        setPhase(self, "between")
         self.between = { t = 0, scale = bot.scale }
         self.goals, self.balls, self.bits, self.spawnQueue, self.shots = {}, {}, {}, {}, {}
         self.barrier, self.chancePending = nil, nil
         bot.aura, bot.windup, bot.thrown, bot.shake = 0, nil, 0, 0
       else
-        self.phase = "clear"
+        setPhase(self, "clear")
         emit(self, "clear", { remaining = self.remaining, total = self.totalScore })
       end
       return
     end
     if self.remaining <= 0 then
       self.remaining = 0
-      self.phase = "timeout"
+      setPhase(self, "timeout")
       emit(self, "timeout", { total = self.totalScore })
     end
   end
@@ -1792,11 +1803,11 @@ return function(N)
     if self.phase ~= "play" and self.phase ~= "countdown" and self.phase ~= "between" then return false end
     if outcome and outcome.clear then
       if outcome.remaining then self.remaining = outcome.remaining end
-      self.phase = "clear"
+      setPhase(self, "clear")
       emit(self, "clear", { remaining = self.remaining, total = self.totalScore, forced = true })
     else
       self.remaining = 0
-      self.phase = "timeout"
+      setPhase(self, "timeout")
       emit(self, "timeout", { total = self.totalScore, forced = true })
     end
     return true

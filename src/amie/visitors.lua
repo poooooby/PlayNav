@@ -14,6 +14,18 @@ return function(mod, deps)
   local G, Rules, Decor, Store, host = deps.session, deps.Rules, deps.Decor, deps.Store, deps.host
   local V = { present = {}, group = nil, nextArrival = 20, pool = nil, rng = math.random }
 
+  -- v.state: enter (walking in), decide (rolling whether to stay), stay (seated), chat (the
+  -- trio talks), leave (walking out). Every change goes through go.
+  local StateMachine = mod.fsm and mod.fsm.define("amie.visitor", {
+    states = { "enter", "decide", "stay", "chat", "leave" },
+    edges = { enter = { "decide", "stay", "leave" }, decide = { "stay", "leave" },
+      stay = { "chat", "leave" }, chat = { "leave" } },
+  })
+  local function go(v, state, resetTimer)
+    if StateMachine then StateMachine:enter(v, "state", state) else v.state = state end
+    if resetTimer then v.timer = 0 end
+  end
+
   -- in the game's 320x240 room units (src/amie/decor.lua): the guests take the three seats
   -- around the puff, as kawaii_lower's guestA / B / C_seat do (anchors 5d, 5b, 5c)
   V.SPOTS = { { x = 125, y = 123 }, { x = 160, y = 98 }, { x = 195, y = 123 } }
@@ -143,7 +155,7 @@ return function(mod, deps)
   local function startChat(room)
     local req = V.giftRequest(V.present, room)
     V.group = { t = 0, req = req, bubble = nil, bubbleT = 0 }
-    for _, v in ipairs(V.present) do v.state = "chat" end
+    for _, v in ipairs(V.present) do go(v, "chat") end
   end
 
   local function se(event) if G and G.se then G.se(event) end end
@@ -160,7 +172,7 @@ return function(mod, deps)
     Store.saveVisitors()
     Decor.puffGroupUsed(Store.room())
     Store.saveRoom()
-    for _, v in ipairs(V.present) do v.state = "leave"; v.timer = 0 end
+    for _, v in ipairs(V.present) do go(v, "leave", true) end
     se("visitor_leave")
     V.group = nil
     V.nextArrival = gap(V.GROUP_S)
@@ -188,7 +200,7 @@ return function(mod, deps)
         local step = 50 * dt
         if math.abs(dx) <= step then
           v.x = v.tx
-          v.state, v.timer = "decide", 0
+          go(v, "decide", true)
         else
           v.x = v.x + (dx > 0 and step or -step)
           v.facing = dx > 0 and 1 or -1
@@ -197,10 +209,10 @@ return function(mod, deps)
         v.timer = v.timer + dt
         if v.timer >= V.LOOK_S then
           if v.stays then
-            v.state = "stay"
+            go(v, "stay")
             v.facing = v.x < V.MID and 1 or -1
           else
-            v.state, v.timer = "leave", 0
+            go(v, "leave", true)
             se("visitor_leave")
           end
         end
@@ -300,7 +312,7 @@ return function(mod, deps)
   function V.sendOff()
     local any = false
     for _, v in ipairs(V.present) do
-      if v.state ~= "leave" then v.state, v.timer = "leave", 0; any = true end
+      if v.state ~= "leave" then go(v, "leave", true); any = true end
     end
     V.group = nil
     V.nextArrival = gap(V.ARRIVAL_S)
@@ -320,7 +332,7 @@ return function(mod, deps)
       end
       if affections and affections[i] then v.affection = affections[i] end
       v.x, v.tx, v.y = V.SPOTS[i].x, V.SPOTS[i].x, V.SPOTS[i].y
-      v.state = "stay"
+      go(v, "stay")
       V.present[i] = v
     end
     startChat(Store.room())

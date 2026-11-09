@@ -111,7 +111,19 @@ return function(mod, Pointer, G, Games, Rules, host)
     return math.random()
   end
 
-  local function setPhase(p) st.phase, st.pt = p, 0 end
+  -- st.phase: head's run, in order; every change goes through setPhase
+  local PhaseMachine = mod.fsm and mod.fsm.define("head.phase", {
+    states = { "intro", "demo", "ready", "play", "timeup", "leave", "giant", "results", "smoke", "buttons" },
+    edges = { intro = { "demo", "ready", "results" }, demo = { "ready", "results" }, ready = { "play", "results" },
+      play = { "timeup", "giant", "leave", "results" }, timeup = { "leave", "giant", "results" },
+      leave = { "giant", "results" }, giant = { "results" }, results = { "smoke" }, smoke = { "buttons" } },
+    groups = { running = { "intro", "demo", "ready", "play", "timeup", "leave", "giant" } },
+  })
+
+  local function setPhase(p)
+    if PhaseMachine then PhaseMachine:enter(st, "phase", p) else st.phase = p end
+    st.pt = 0
+  end
 
   -- ------- the Pokemon (slot 1 middle, 2 left, 3 right)
 
@@ -578,8 +590,10 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
 
   local function playing()
-    return st and (st.phase == "intro" or st.phase == "demo" or st.phase == "ready" or st.phase == "play" or st.phase == "timeup"
-      or st.phase == "leave" or st.phase == "giant")
+    if not st then return false end
+    if PhaseMachine then return PhaseMachine:is(st, "phase", "running") end
+    return st.phase == "intro" or st.phase == "demo" or st.phase == "ready" or st.phase == "play" or st.phase == "timeup"
+      or st.phase == "leave" or st.phase == "giant"
   end
 
   function app:quit()

@@ -160,3 +160,5 @@ docs/Options.md
 docs/Installation.md
 tests/achievements_test.lua
 tests/drivers/ach_probe.lua
+tests/fsm_test.lua
+docs/StateMachines.md
