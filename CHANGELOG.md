@@ -3,19 +3,18 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
-
-### Changed
-
-- Internal: the sessions' screen modes, the minigames' phases, the visitors, the display mode, the import state and the regimen sim are now declared state machines
-  (`src/fsm.lua`). Behaviour is unchanged; an undeclared move is logged once.
-
-## [1.2.1] - 2026-11-08
+## [1.2.1] - 2026-11-11
 
 ### Added
 
 - Pokémon-Amie Décor: you can own several copies of a cushion or object (up to 9 each) and place as
   many as you own. Repeat gifts add a copy. Wallpapers stay one each.
+
+### Changed
+
+- Internal: the sessions' screen modes, the minigames' phases, the visitors, the display mode, the
+  import state and the regimen sim are now declared state machines (`src/fsm.lua`). Behaviour is
+  unchanged; an undeclared move is logged once.
 
 ### Fixed
 

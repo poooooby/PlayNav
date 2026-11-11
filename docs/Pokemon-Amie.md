@@ -59,7 +59,8 @@
   objects, on the game's own DECORATE screen: slide through your wallpapers with the arrows at
   the top, open **Interior Items** or **Poké Puffs**, and drag what you pick into the room. Let
   it go near one of the spots around the middle and it settles exactly on it; tap a placed item
-  to move it again, or drop it in the tray to put it back. Set out a Poké Puff on the middle spot
+  to move it again, or drop it in the tray to put it back. A cushion or object you're given again
+  stacks (up to 9 of each), so you can set out several of the same. Set out a Poké Puff on the middle spot
   (it falls into place when you're back in the room) and visiting Pokémon from your Pokédex drop
   by now and then; a better puff, and Décor on the seats around it, make them likelier to stay.
   Three that stay chat together and leave you a present, picked by who they are and how fond

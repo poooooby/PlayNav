@@ -282,7 +282,11 @@ return function(mod, deps)
     table.remove(pending, index)
     local decor = Decor.ensure(Store.decor())
     local gift = rec.puff and { kind = "puff", id = rec.puff } or Decor.roll(Decor.requestOf(rec), decor, V.rng)
+    local before = gift.kind == "item" and Decor.count(decor, gift.id) or nil
     local text = Decor.grant(gift, decor, Store.puffs())
+    if before then
+      mod.log:info("amie: gift %s, copies %d -> %d (%s)", tostring(gift.id), before, Decor.count(decor, gift.id), tostring(rec.kind))
+    end
     -- the game's own lines: "You got X from A, B, and C!" for a visitor group, "You and
     -- MON are looking close! Found X!" / "You'll be friends forever with MON!" for milestones
     local AT = G.text
