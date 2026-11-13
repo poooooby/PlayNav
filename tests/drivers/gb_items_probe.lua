@@ -66,6 +66,15 @@ local function body(game, log)
   check(th.giveItem(stand, 1), "the stand-in given")
   log(("bag: Wings %d -> %d, %s %d -> %d"):format(w0, count(wing), tostring(stand), s0, count(stand)))
   check(count(wing) == w0 + 3 and count(stand) == s0 + 1, "both are in the bag")
+  -- and through Items.give, the call a regimen's prize makes (T.giveItemSpec)
+  local TI = X.training and X.training.items
+  if TI and TI.give then
+    local w1, s1 = count(wing), count(stand)
+    check(TI.give(TI.index("resist-wing"), 1) and TI.give(stand, 1), "a prize Wing and the game's own item given as a regimen gives them")
+    local resist = TI.index("resist-wing")
+    log(("bag via Items.give: %s %d, %s %d -> %d"):format(tostring(resist), count(resist), tostring(stand), s1, count(stand)))
+    check(count(resist) >= 1 and count(stand) == s1 + 1 and count(wing) == w1, "both are in the bag")
+  end
 
   -- a Wing used through the game's own item code
   local hp0 = th.evsOf(mon).hp

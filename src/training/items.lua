@@ -162,14 +162,20 @@ return function(mod, deps)
     return true, "vitamin", ("%s's %s rose!"):format(name, Rules.STAT_LABEL[def.stat] or def.stat)
   end
 
-  -- give one of the items (by index or slug) to the player; false when the bag is full
+  -- give an item to the player: one of ours by its index or slug, or any engine item by its id
+  -- (a number on Gen 3, a string such as "STARDUST" on Gen 1 / 2, where ours are strings too);
+  -- false when the bag is full
   function I.give(id, qty)
     local index
-    if type(id) == "string" then
+    local def = I.def(id)
+    if def then
+      index = resolve(def).index
+    elseif type(id) == "string" and I.bySlug[id] then
       index = I.index(id)
+    elseif gb then
+      index = type(id) == "string" and id or nil
     else
-      local def = I.def(id)
-      index = def and resolve(def).index or tonumber(id)
+      index = tonumber(id)
     end
     if not index then return false end
     qty = qty or 1

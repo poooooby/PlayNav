@@ -3,6 +3,14 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.2.2] - 2026-11-13
+
+### Fixed
+
+- Super Training on Gen 1 and 2 (Red, Blue, Yellow, Gold, Silver, Crystal): the item a Super Secret
+  Training regimen awards (a Wing, Stardust, a stone, PP Up...) never reached the bag. Prizes earned
+  before this fix were kept and arrive the next time Super Training opens.
+
 ## [1.2.1] - 2026-11-11
 
 ### Added

@@ -85,6 +85,45 @@ do
   T.check(not passed, "...our own Health Wing (400) is still ours to use")
 end
 
+-- Gen 1 / 2: ids are strings, ours registered under their own ("RESIST_WING"); a regimen's prize
+-- (T.giveItemSpec) hands Items.give either ours by that id or the game's own ("STARDUST")
+do
+  local reg, effects = { items = {} }, { recs = {} }
+  function reg:get(id) return self.items[id] end
+  function reg:register(id, rec)
+    if self.items[id] then error("items already registered: " .. id) end
+    self.items[id] = rec
+  end
+  function effects:register(id, rec) self.recs[id] = rec end
+  local given = {}
+  local mod = { generation = 2, content = { items = reg, item_effects = effects },
+    log = { info = function() end, warn = function() end } }
+  local host = {
+    canGiveItem = function() return true end,
+    giveItem = function(index, qty) given[#given + 1] = index; return true end,
+  }
+  local Rules = { N = { ITEMS = { WING_EV = 1 } }, STAT_LABEL = {} }
+  local copy = {}
+  for i, d in ipairs(data) do local c = {}; for k, v in pairs(d) do c[k] = v end; copy[i] = c end
+  local I = loadFile("mods/play_nav/src/training/items.lua")(mod,
+    { host = host, Rules = Rules, data = copy, gb = true, gen = 2 })
+  T.check(I.install(), "Gen 2: the items register")
+  local resist = I.index("resist-wing")
+  T.eq(resist, "RESIST_WING", "Gen 2: the Resist Wing's id is its registered string")
+  T.check(I.give(resist, 1) and given[#given] == "RESIST_WING", "Gen 2: a prize Resist Wing reaches the bag")
+  T.check(I.give("resist-wing", 1) and given[#given] == "RESIST_WING", "Gen 2: ...by its slug too")
+  T.check(I.give("STARDUST", 1) and given[#given] == "STARDUST", "Gen 2: the game's own Stardust reaches the bag")
+  T.check(not I.give(nil, 1), "Gen 2: nothing to give gives nothing")
+end
+
+-- Gen 3: a prize of the game's own (a number) still goes through as it is
+do
+  local I, _, given = makeItems()
+  T.check(I.give(108, 1) and given[#given] == 108, "Gen 3: the game's Stardust (108) reaches the bag")
+  T.check(I.give(400, 1) and given[#given] == 400, "Gen 3: our own Health Wing by its index")
+  T.check(not I.give("STARDUST", 1), "Gen 3: a name that is not one of ours is not an item")
+end
+
 -- a prize named by the engine ("ITEM_STARDUST") resolves through the game's version
 do
   local Host = loadFile("mods/play_nav/src/training/host.lua")
