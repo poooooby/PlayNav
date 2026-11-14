@@ -107,9 +107,10 @@ How to install NaviPlay and, optionally, add the 3DS art and text: [Installation
   them from there.
 - [WoobleDex](https://github.com/poooooby/national_dex_gen3): the real Dusk, Shiny and
   Dawn Stones with their evolutions. Super Training's stone prizes become those stones.
-- [G9 Battle Sprites (Gen 3)](https://github.com/poooooby/g9-battle-sprites-gen3): your
+- [WoobleSpritePack](https://github.com/poooooby/g9-battle-sprites-gen3): your
   Pokemon show its sprites in Pokemon-Amie and Super Training, each animated sprite held in one
-  still pose.
+  still pose. On Red to Crystal, NaviPlay shows its animated party icons, as tectorifter's
+  [G9 Battle Sprites](https://github.com/tectorifter/g9-battle-sprites) does there.
 
 ## 📌 Good to Know
 

@@ -148,6 +148,28 @@ do
   eq(host.icon({ species = "SENTRET" }), nil, "ENABLE BATTLE SPRITES off: the game's own too")
 end
 
+-- WoobleSpritePack (g9-battle-sprites-gen3), which replaces G9 Battle Sprites on Gen 1 / 2: the
+-- same exports and option keys, read under its own id
+do
+  local function art(cell)
+    return function(mon, frame) return { full = "w:" .. tostring(frame) }, {}, cell end
+  end
+  local wooble = { exports = { iconArt16 = art(32), iconArtHD = art(64) } }
+  local wopts = {}
+  local m3 = { generation = 1, game = { save = { party = {} }, data = { pokemon = {} },
+      mods = { modOptions = { ["g9-battle-sprites-gen3"] = wopts, ["g9-battle-sprites"] = { party_icons = false } } } },
+    log = fakeMod.log, find = function(_, id) return id == "g9-battle-sprites-gen3" and wooble or nil end }
+  local host = load("src/refresh/host_gb.lua")(m3, Gen.profile(1, "red"))
+  local ic = host.icon({ species = "TURTWIG" })
+  eq(ic and ic.quads[0], "w:0", "WoobleSpritePack: its icons")
+  eq(ic and ic.w, 32, "...at its cell size")
+  wopts.g9_party_screen = true
+  ic = host.icon({ species = "TURTWIG" })
+  eq(ic and ic.w, 64, "...its HD icons with its own HD PARTY SCREEN on")
+  wopts.party_icons = false
+  eq(host.icon({ species = "PIPLUP" }), nil, "...its own PARTY ICONS off: the game's own")
+end
+
 print(("%d/%d checks passed%s  (play_nav stat exp)"):format(pass, pass + fail,
   fail > 0 and (", " .. fail .. " FAILURES") or ""))
 if fail > 0 then os.exit(1) end

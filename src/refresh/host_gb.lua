@@ -675,20 +675,27 @@ return function(mod, profile)
   -- (exports.iconArt16), so NaviPlay never makes it load the HD atlas on its own account. Two
   -- frames each. Its atlases are decoded lazily: a first ask can answer nil, and the next frame
   -- asks again (only a found icon is kept).
-  local G9 = "g9-battle-sprites"
+  -- Either mod: tectorifter's G9 Battle Sprites, or WoobleSpritePack (g9-battle-sprites-gen3),
+  -- which replaces it on Gen 1 / 2 with the same exports and option keys (the two conflict, so
+  -- at most one is on).
+  local G9_IDS = { "g9-battle-sprites", "g9-battle-sprites-gen3" }
   local g9Icons = {}
   local function g9Icon(mon)
-    local lib = mod.find and mod:find(G9)
-    local ex = lib and lib.exports
+    local lib, id = nil, nil
+    for _, candidate in ipairs(G9_IDS) do
+      lib = mod.find and mod:find(candidate)
+      if lib and type(lib.exports) == "table" then id = candidate break end
+    end
+    local ex = id and lib.exports
     if type(ex) ~= "table" then return nil end
     local g = game()
-    local opts = g and g.mods and g.mods.modOptions and g.mods.modOptions[G9]
+    local opts = g and g.mods and g.mods.modOptions and g.mods.modOptions[id]
     -- (its party list shows its icons only with both on: else the game's own icons, as there)
     if type(opts) == "table" and (opts.party_icons == false or opts.enable_battle_sprites == false) then return nil end
     local hd = type(opts) == "table" and opts.g9_party_screen == true
     local art = hd and ex.iconArtHD or ex.iconArt16
     if type(art) ~= "function" then return nil end
-    local key = (hd and "hd:" or "16:") .. (mon.isEgg and "EGG" or tostring(mon.species) .. (mon.gender == "female" and "/f" or ""))
+    local key = id .. (hd and ":hd:" or ":16:") .. (mon.isEgg and "EGG" or tostring(mon.species) .. (mon.gender == "female" and "/f" or ""))
     local hit = g9Icons[key]
     if hit then return hit end
     local ok0, q0, img, cell = pcall(art, mon, 0)

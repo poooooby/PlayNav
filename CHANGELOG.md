@@ -3,6 +3,14 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.0] - 2026-11-13
+
+### Added
+
+- On Red, Blue, Yellow, Gold, Silver and Crystal, NaviPlay shows WoobleSpritePack's party icons,
+  as it does G9 Battle Sprites' (WoobleSpritePack replaces that mod on those games). Its own
+  PARTY ICONS, BATTLE SPRITES and HD PARTY SCREEN options are followed.
+
 ## [1.2.2] - 2026-11-13
 
 ### Fixed
