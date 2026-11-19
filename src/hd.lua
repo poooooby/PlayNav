@@ -129,6 +129,44 @@ function HD.drawPixel(img, a, ...)
 end
 
 -- high-resolution art: smooth when enlarged, trilinear when shrunk (call once on load)
+-- a copy of a sprite with mipmaps, at its own pixels and density, for drawing it shrunk:
+-- drawPixel's linear filter without mipmaps skips texels below one screen pixel a texel (a
+-- sprite mod's high-density art at a small size comes out crunchy); with them it is averaged.
+-- Made once per image through a canvas, so call it from an update step, never in a draw. The
+-- image itself when it already has mipmaps, HD is off, or the copy cannot be made.
+local mipCopies = setmetatable({}, { __mode = "k" })
+function HD.mipmapped(img)
+  if not img then return img end
+  local made = mipCopies[img]
+  if made then return made end
+  made = img
+  local g = G()
+  local hasMips = img.getMipmapCount and img:getMipmapCount() > 1
+  if HD.enabled and g and g.newCanvas and not hasMips then
+    local ok, copy = pcall(function()
+      local w, h = img:getDimensions()
+      local dpi = img.getDPIScale and img:getDPIScale() or 1
+      local c = g.newCanvas(w, h, { dpiscale = dpi })
+      g.push("all")
+      g.setCanvas(c)
+      g.clear(0, 0, 0, 0)
+      g.origin()
+      g.setBlendMode("replace")
+      g.setColor(1, 1, 1, 1)
+      g.draw(img, 0, 0)
+      g.setCanvas()
+      g.pop()
+      local out = g.newImage(c:newImageData(), { dpiscale = dpi, mipmaps = true })
+      out:setFilter("linear", "linear")
+      if out.setMipmapFilter then out:setMipmapFilter("linear") end
+      return out
+    end)
+    if ok and copy then made = copy end
+  end
+  mipCopies[img] = made
+  return made
+end
+
 function HD.prepareArt(img)
   if not img then return img end
   if not HD.enabled then

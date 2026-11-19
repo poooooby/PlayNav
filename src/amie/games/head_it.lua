@@ -62,9 +62,13 @@ return function(mod, Pointer, G, Games, Rules, host)
   end
   app.setShape = setShape
 
-  local MON_FOOT, MON_H, MON_W = 236, 92, 124  -- where the feet go at full height, the height, the widest
   local STAR_Y = 160                          -- the star over the heads (bg_down 1p / 1r / 1t)
-  local HEAD_TOP = MON_FOOT - MON_H           -- every sprite's top: the star lands on its head
+  -- every sprite's top: where a ball's foot is when its test point is at the middle of the just
+  -- window (the yarn fills its pane to the bottom edge), just under the star
+  local HEAD_TOP = HR and ((HR.WINDOW.just[1] + HR.WINDOW.just[2]) / 2 + HR.BALL_H * (0.5 - HR.TEST_DROP)) or 177.5
+  local MON_FOOT = 236                        -- the feet, just above the screen's foot
+  local MON_H = MON_FOOT - HEAD_TOP           -- every sprite fits between the two
+  local MON_W = MON_H * 124 / 92              -- the widest, in the same proportion
   local HEAD_FRAMES = 8                       -- a heading's bob; the column takes no tap meanwhile
   local ENTER_S, LEAVE_S = 0.5, 0.4
   local SCORE_AT = { 30, 25 }                 -- the score bubble (bg_down 4)
@@ -73,6 +77,12 @@ return function(mod, Pointer, G, Games, Rules, host)
   -- the just hit's twinkles, where they end (effect hit00_just at frame 30; y up)
   local TWINKLES = { { 75, 20.5 }, { -66.4, 12.4 }, { -40.1, -16.2 }, { 35.8, -19.6 }, { -58.7, 6.7 }, { 61.1, -3.3 } }
   local BUTTONS = { again = { 160, 180, 126, 26 }, quit = { 160, 210, 126, 26 } }
+  -- every effect a round can play, read and made ahead during the intro (one a frame), so the
+  -- first of each - the giant's heading, the results card's - costs no load when it plays
+  local SOUNDS = { "go", "head_good", "head_just", "head_good_fever", "head_just_fever", "head_miss", "combo3",
+    "combo10", "combo50", "combo100", "head_leave", "giant_alert", "giant_fall", "giant_good", "giant_just",
+    "giant_miss", "results_card", "result_add", "result_row", "rank_high", "rank_mid", "rank_low", "stamp",
+    "puffs", "again", "quit" }
 
   local st = nil
   local seenDemo = false
@@ -261,8 +271,10 @@ return function(mod, Pointer, G, Games, Rules, host)
     local slot = 1
     if n == 2 then slot = (roll(0, 1) == 0) and 2 or 1
     elseif n >= 3 then slot = ({ 2, 1, 3 })[roll(1, 3)] end
-    local kind = 0
-    if not st.lastCrush then
+    -- a crush / purple ball that found no clear column earlier is this launch's kind, else a roll
+    local kind = st.carryKind or 0
+    st.carryKind = nil
+    if kind == 0 and not st.lastCrush then
       local r = roll(0, 99)
       if r < pat.crush then kind = 1 elseif r < pat.crush + pat.purple then kind = 2 end
     end
@@ -274,7 +286,8 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     if kind == 2 then grp = pat.groups[7] end
     if kind == 0 then grp = pat.groups[st.stage + 1] end
-    -- the rolled column if it is clear, else another Pokemon's, else a plain ball, else wait
+    -- the rolled column if it is clear, else another Pokemon's, else a plain ball now and the
+    -- crush / purple carried to the next launch, else wait
     local order = n >= 3 and { slot, 2, 1, 3 } or (n == 2 and { slot, 2, 1 } or { 1 })
     local function pick()
       for _, s in ipairs(order) do
@@ -283,6 +296,7 @@ return function(mod, Pointer, G, Games, Rules, host)
     end
     local at = pick()
     if not at and kind ~= 0 then
+      st.carryKind = kind
       kind, grp = 0, pat.groups[st.stage + 1]
       at = pick()
     end
@@ -538,7 +552,7 @@ return function(mod, Pointer, G, Games, Rules, host)
       score = 0, combo = 0, maxCombo = 0, hits = 0, misses = 0, fever = false, bigBonus = 0,
       timer = HR.TIME, lives = (game.diff == "unlimited") and HR.LIVES or nil,
       balls = {}, stage = 0, stageF = 0, interval = 90, counter = -1, mons = {}, upat = 1,
-      shownScore = 0, demo = not seenDemo }
+      shownScore = 0, demo = not seenDemo, preload = G.seIds and G.seIds(SOUNDS) or {} }
     seenDemo = true
     fx = {}
     do
@@ -679,7 +693,13 @@ return function(mod, Pointer, G, Games, Rules, host)
     for _, m in ipairs(st.mons) do
       m.t = m.t + dt
       if m.leaving and m.t >= LEAVE_S then m.shown, m.leaving = false, false end
-      if m.pic and m.pic.image and not m.box then m.box = opaqueBox(m.pic.image) end
+      -- (a pic's image can be swapped in place when a sprite mod's is ready: measured again)
+      local img = m.pic and m.pic.image
+      if img and m.drawnOf ~= img then
+        m.drawnOf, m.box = img, opaqueBox(img)
+        -- drawn well under a screen pixel a texel: a mipmapped copy, averaged rather than crunched
+        m.drawn = mod.hd and mod.hd.mipmapped and mod.hd.mipmapped(img) or img
+      end
     end
   end
 
@@ -768,6 +788,10 @@ return function(mod, Pointer, G, Games, Rules, host)
     if not (st and s and s.mode == "game") then app.live = false; return end
     app.live = true
     dt = math.min(dt or 0, 0.1)
+    if #st.preload > 0 then
+      local id = table.remove(st.preload)
+      if mod.sfx and mod.sfx.preload then mod.sfx.preload(id) end
+    end
     st.t = st.t + dt
     st.pt = st.pt + dt
     if st.art then advanceAll(dt * FPS) end
@@ -1090,7 +1114,7 @@ return function(mod, Pointer, G, Games, Rules, host)
   local function drawMon(G2, i)
     local m = st.mons[i]
     if not m.shown or not m.pic or not m.pic.image then return end
-    local img = m.pic.image
+    local img = (m.drawnOf == m.pic.image and m.drawn) or m.pic.image
     local bx = m.box or { x0 = 0, y0 = 0, x1 = img:getWidth(), y1 = img:getHeight() }
     local bw, bh = math.max(1, bx.x1 - bx.x0), math.max(1, bx.y1 - bx.y0)
     local k = math.min(MON_H / bh, MON_W / bw)

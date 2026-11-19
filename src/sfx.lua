@@ -92,6 +92,19 @@ return function(mod, deps)
     return handle
   end
 
+  -- an effect read, decoded and its Source made ahead of its first play (an update step, not a
+  -- draw): the first play then costs no file read or upload. True when it is there.
+  function S.preload(id)
+    local sd = Assets and Assets.sound and Assets.sound(id)
+    if not (sd and love and love.audio and love.audio.newSource) then return false end
+    if host and host.soundMono and host.soundMono() then sd = monoOf(sd) end
+    if bases[sd] == nil then
+      local ok, src = pcall(love.audio.newSource, sd, "static")
+      bases[sd] = ok and src or false
+    end
+    return bases[sd] ~= false
+  end
+
   function S.stopAll()
     for s in pairs(S.playing) do pcall(s.stop, s) end
     S.playing = {}

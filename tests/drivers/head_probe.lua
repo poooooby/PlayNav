@@ -84,6 +84,46 @@ local function body(game, log)
     log("start head:", diff, S.startGame("head", diff))
     local app = Apps:get("game_head")
     local st = function() return app.debugState() end
+    -- PROBE_LAG=1: time the game's update / draw calls and every sound and the end of the game,
+    -- logging any over LAG_MS, from the time up to the buttons
+    local lagOn = os.getenv("PROBE_LAG") == "1"
+    if lagOn then
+      local LAG_MS = 2
+      local clock = love.timer.getTime
+      local function timed(owner, key, label)
+        local orig = owner[key]
+        owner[key] = function(...)
+          local t0 = clock()
+          local a, b, c = orig(...)
+          local ms = (clock() - t0) * 1000
+          local x = app.debugState()
+          local ph = x and x.phase or "-"
+          if ms > LAG_MS and (ph == "timeup" or ph == "leave" or ph == "giant" or ph == "results" or ph == "smoke" or ph == "buttons") then
+            log(("lag %-7s %6.1f ms  %s%s"):format(ph, ms, label, key == "se" and (" " .. tostring((select(1, ...)))) or ""))
+          end
+          return a, b, c
+        end
+      end
+      timed(app, "update", "update")
+      timed(app, "draw", "draw")
+      timed(app, "drawTop", "drawTop")
+      timed(S, "se", "se")
+      timed(S, "endGame", "endGame")
+      -- whole frames (update, draw, present): the wall time between the driver's yields
+      local wait = U.wait
+      U.wait = function(n)
+        for _ = 1, n do
+          local t0 = clock()
+          wait(1)
+          local ms = (clock() - t0) * 1000
+          local x = app.debugState()
+          local ph = x and x.phase or "-"
+          if ms > 20 and (ph == "timeup" or ph == "leave" or ph == "giant" or ph == "results" or ph == "smoke" or ph == "buttons") then
+            log(("lag %-7s %6.1f ms  whole frame (pt %.2f)"):format(ph, ms, x and x.pt or -1))
+          end
+        end
+      end
+    end
     log("art:", tostring(st() and st().art))
     waitFor(function() local x = st(); return x.phase == "intro" and x.pt > 1.2 end, 60 * 30)
     shot("h01_intro")
@@ -96,6 +136,7 @@ local function body(game, log)
     waitFor(function() local x = st(); return x.phase == "ready" and x.pt > 1.9 end, 60 * 30)
     shot("h05_start")
     waitFor(function() return st().phase == "play" end, 60 * 30)
+    log("effects still to preload at play:", #(st().preload or {}))
     -- a ball on its way (the top screen), then head every ball at the star
     waitFor(function() local x = st(); return #x.balls > 0 and x.balls[1].y < 380 end, 60 * 10)
     shot("h06_ball_top")
@@ -143,6 +184,25 @@ local function body(game, log)
       waitFor(function() return st().stage == 2 end, 60 * 5)
       playFor(60 * 4)
       shot("h12_three")
+      -- the Pokemon as drawn: screen pixels per texel and the filter that picks (nearest only at a
+      -- whole scale, the sharp shader between, linear when shrunk)
+      do
+        local HD, seen = X.hd, {}
+        local orig = HD and HD.drawPixel
+        if orig then
+          HD.drawPixel = function(img, a, ...)
+            local sx = select(3, ...)
+            if type(a) == "number" and type(sx) == "number" and not seen[img] then
+              local s = HD.outputScale() * math.abs(sx) / (img:getPixelWidth() / img:getWidth())
+              seen[img] = true
+              log(("sprite %dx%d drawn at %.2f px a texel: %s"):format(img:getWidth(), img:getHeight(), s, HD.modeFor(s)))
+            end
+            return orig(img, a, ...)
+          end
+          U.wait(2)
+          HD.drawPixel = orig
+        end
+      end
       -- the clock runs out; the balls still up are played out
       st().timer = 60
       playFor(60 * 30, { until_ = function() return st().phase ~= "play" end })

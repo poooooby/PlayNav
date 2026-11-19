@@ -3,6 +3,24 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.1] - 2026-11-19
+
+### Changed
+
+- Head It's timing windows for a "good" hit are the original game's again: a ball counts a
+  little earlier and a little later around the star than before.
+- In Head It, a crush or purple ball that can't come down without catching up with the ball
+  ahead is now thrown at the next launch instead of becoming a plain ball.
+- Head It's Pokémon stand lower and a little smaller, with the tops of their heads where a
+  ball of yarn is headed at the best moment, just under the star. Nothing is cut off at the
+  bottom of the screen.
+- Head It's Pokémon stay smooth and detailed when drawn small, instead of turning jagged.
+
+### Fixed
+
+- Head It loads its sound effects while the round's intro plays, so the first big hit, the
+  giant ball and the results card no longer stall while their sound loads.
+
 ## [1.3.0] - 2026-11-13
 
 ### Added

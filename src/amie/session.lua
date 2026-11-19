@@ -638,6 +638,19 @@ return function(mod, deps)
     return nil
   end
 
+  -- the effect ids behind `events` (each of a list's), for an app to preload (mod.sfx.preload)
+  function G.seIds(events)
+    local out, seen = {}, {}
+    for _, event in ipairs(events) do
+      local id = G.sounds and G.sounds[event]
+      local list = type(id) == "table" and id or { id }
+      for _, one in ipairs(list) do
+        if type(one) == "string" and not seen[one] then seen[one] = true; out[#out + 1] = one end
+      end
+    end
+    return out
+  end
+
   -- a tap's click, for the apps that have no host of their own
   function G.click() G.se("select", "SE_SELECT") end
 
