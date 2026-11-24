@@ -66,7 +66,8 @@ return function(mod, deps)
   end
 
   -- why the card image cannot be used: "missing" (nothing imported) or "wrong" (a file is
-  -- there but it is not Alpha Sapphire: the engine's size or MD5 check refused it)
+  -- there but it is not Alpha Sapphire: the engine's size or MD5 check refused it); after a
+  -- run that extracted nothing, also "encrypted" (the game, but not decrypted)
   local function whyAbsent(err)
     local s = tostring(err or "")
     if s == "" or s:find("missing", 1, true) or s:find("undeclared", 1, true)
@@ -391,6 +392,9 @@ return function(mod, deps)
         for _, r in pairs(E.results) do
           if r.err and not isDiffers(r.err) then why = tostring(r.err):gsub("^job: ", ""); break end
         end
+        -- an encrypted dump (a GodMode9 cartridge copy made without its Decrypt file step) is
+        -- the right game in the wrong form: said apart, so the screen can say how to fix it
+        if why and why:find("encrypted", 1, true) then E.why = "encrypted" end
         E.message = E.differs > 0 and why == nil
           and "This file holds none of Alpha Sapphire's art. Import a decrypted Alpha Sapphire."
           or ("This file could not be read: %s"):format(tostring(why))

@@ -3,6 +3,13 @@
 All notable changes to this mod are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.3.2] - 2026-11-23
+
+### Fixed
+
+- An encrypted copy of the game (such as a GodMode9 cartridge copy made without its Decrypt file
+  step) is now reported as encrypted, with how to decrypt it, instead of as the wrong game.
+
 ## [1.3.1] - 2026-11-19
 
 ### Changed

@@ -42,7 +42,7 @@ return function(mod, Pointer, Extract, Assets)
   local function absentWhy()
     local s = Extract.state
     if s == "absent" then return Extract.why or "missing" end
-    if s == "failed" and Extract.why == "wrong" then return "wrong" end
+    if s == "failed" and (Extract.why == "wrong" or Extract.why == "encrypted") then return Extract.why end
     return nil
   end
 
@@ -204,6 +204,15 @@ return function(mod, Pointer, Extract, Assets)
     col(G, INK.bg)
     G.rectangle("fill", W / 2 - 2.5, 49, 5, 17, 2, 2)
     G.rectangle("fill", W / 2 - 2.5, 69, 5, 5, 2, 2)
+    if absentWhy() == "encrypted" then
+      -- the game, still encrypted: GodMode9's cartridge copy needs its Decrypt file step
+      text(G, "ENCRYPTED COPY ADDED", 86, 0.66, INK.warn, a)
+      text(G, "NaviPlay needs a decrypted copy of the game.", 102, 0.5, INK.text)
+      text(G, "GodMode9: the .3ds, NCSD image options, Decrypt file.", 113, 0.5, INK.text)
+      text(G, "Replace it under Imported files, then tap to check again.", 124, 0.5, INK.dim)
+      closeButton(G)
+      return
+    end
     text(G, wrong and "INCORRECT ROM ADDED" or "OR/AS ROM NOT FOUND", 86, 0.66, INK.warn, a)
     text(G, wrong and "The imported copy is not Omega Ruby or Alpha Sapphire."
       or "NaviPlay reads the OR/AS assets from your own card image.", 102, 0.5, INK.text)

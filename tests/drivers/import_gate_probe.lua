@@ -91,6 +91,10 @@ local function body(game, log)
   Extract.message = "Nothing could be read from that card image."
   U.wait(5)
   shot("g04c_wrong_after_run")
+  Extract.why = "encrypted"
+  Extract.message = "This file could not be read: encrypted NCCH: supply a decrypted image"
+  U.wait(5)
+  shot("g04d_encrypted")
   Extract.why = nil
 
   Extract.state = "failed"

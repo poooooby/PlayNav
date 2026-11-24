@@ -86,6 +86,31 @@ T.check(tostring(encErr):find("encrypted CIA", 1, true) ~= nil, "a title-key enc
 local _, junkErr = Ctr.open(opener(("\0"):rep(0x4000)))
 T.check(tostring(junkErr):find("not a 3DS", 1, true) ~= nil, "a file of another kind is refused by name")
 
+-- a card image copied without decrypting it (GodMode9's cartridge copy before its Decrypt file
+-- step): partition 0's NoCrypto flag (flags[7] bit 2) clear, refused by name - the import screen
+-- tells "encrypted" from another game by this
+do
+  local at = p0 + 0x188 + 8   -- flags[7], 1-based
+  local f7 = cci:byte(at)
+  local cleared = f7 % 8 >= 4 and f7 - 4 or f7
+  local enc = cci:sub(1, at - 1) .. string.char(cleared) .. cci:sub(at + 1)
+  local _, err = Ctr.open(opener(enc))
+  T.check(tostring(err):find("encrypted NCCH", 1, true) ~= nil, "an encrypted card image is refused by name")
+end
+
+-- GodMode9's trimmed copy: the image cut at the end of its last partition
+do
+  local last = 0
+  for i = 0, 7 do
+    local off, len = u32(cci, 0x121 + i * 8) * 0x200, u32(cci, 0x125 + i * 8) * 0x200
+    if len > 0 and off + len > last then last = off + len end
+  end
+  local trimmed = cci:sub(1, last)
+  local fromTrim, trimKind = archiveBytes(trimmed)
+  T.eq(trimKind, "cci", "a trimmed card image opens as one")
+  T.eq(fromTrim, fromCci, "...and reads the same archive")
+end
+
 -- ------- the extract job over the fixture: matching rows extract, differing rows are skipped
 
 local sources = {}
